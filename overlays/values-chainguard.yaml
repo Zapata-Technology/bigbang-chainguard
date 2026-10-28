@@ -708,7 +708,7 @@ renovate:
       image:
         registry: cgr.dev/zapatatechnology.com
         repository: renovate
-        tag: 44.190.0
+        tag: 44.190.2
 tempo:
   values:
     upgradeJob:
