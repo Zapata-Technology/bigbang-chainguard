@@ -5,6 +5,8 @@ addons:
   anchoreEnterprise:
     values:
       ui-redis:
+        cleanUpgrade:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -26,6 +28,8 @@ addons:
           repository: cgr.dev/zapatatechnology.com/argocd-fips
           tag: 3.4.12
       redis-bb:
+        cleanUpgrade:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -36,6 +40,10 @@ addons:
               registry: cgr.dev/zapatatechnology.com
               repository: prometheus-redis-exporter-fips
               tag: 1.96.0
+      upgradeJob:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
       upstream:
         dex:
           image:
@@ -44,6 +52,8 @@ addons:
   authservice:
     values:
       redis-bb:
+        cleanUpgrade:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -56,6 +66,9 @@ addons:
               tag: 1.96.0
   externalSecrets:
     values:
+      bbtests:
+        scripts:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
       upstream:
         image:
           repository: cgr.dev/zapatatechnology.com/external-secrets-fips
@@ -115,6 +128,8 @@ addons:
           repository: postgres-fips
           tag: '18.6'
       redis-bb:
+        cleanUpgrade:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -170,6 +185,8 @@ addons:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
   keycloak:
     values:
+      bbtests:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
       postgresql:
         image:
           registry: cgr.dev/zapatatechnology.com
@@ -188,6 +205,10 @@ addons:
         name: cgr.dev/zapatatechnology.com/mattermost-fips
         tag: 11.11.3
       minio:
+        bucketInit:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-base-fips
+            tag: 2.1.0-kubectl1.36.5
         waitJob:
           image: cgr.dev/zapatatechnology.com/kubectl-fips:1.36
       postgresql:
@@ -205,6 +226,10 @@ addons:
           tag: 0.9.0
   mimir:
     values:
+      upgradeJob:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
       upstream:
         gateway:
           nginx:
@@ -230,11 +255,34 @@ addons:
             tag: 0.41.1
   minio:
     values:
+      bucketInit:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
+  minioOperator:
+    values:
+      tenantPatchJob:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
+      tenantWaitJob:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
+  sonarqube:
+    values:
+      upstream:
+        initContainers:
+          image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
   thanos:
     values:
       minio:
+        bucketInit:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-base-fips
+            tag: 2.1.0-kubectl1.36.5
         waitJob:
           image: cgr.dev/zapatatechnology.com/kubectl-fips:1.36
       upstream:
@@ -281,8 +329,16 @@ addons:
           volumeMounts:
           - mountPath: /target
             name: plugins
+        kubectl:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-base-fips
+            tag: 2.1.0-kubectl1.36.5
 alloy:
   values:
+    autoRollingUpgrade:
+      image:
+        repository: ghcr.io/zapata-technology/bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
     global:
       image:
         registry: ''
@@ -336,6 +392,10 @@ certManager:
           tag: 1.20.4
 eckOperator:
   values:
+    upgradeCrds:
+      image:
+        repository: ghcr.io/zapata-technology/bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
     upstream:
       image:
         repository: cgr.dev/zapatatechnology.com/eck-operator-fips
@@ -344,6 +404,7 @@ elasticsearchKibana:
   values:
     bbtests:
       scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         networkWait:
           image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
     elasticsearch:
@@ -365,6 +426,9 @@ elasticsearchKibana:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
 fluentbit:
   values:
+    bbtests:
+      scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
     upstream:
       hotReload:
         image:
@@ -390,6 +454,10 @@ gatekeeper:
           image:
             repository: cgr.dev/zapatatechnology.com/kubectl-fips
             tag: '1.37'
+        probeWebhook:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-base-fips
+            tag: 2.1.0-kubectl1.36.5
       postUpgrade:
         labelNamespace:
           image:
@@ -409,13 +477,21 @@ gatekeeper:
       image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
 grafana:
   values:
+    autoRollingUpgrade:
+      image:
+        repository: ghcr.io/zapata-technology/bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
     global:
       imageRegistry: ''
     upstream:
+      downloadDashboardsImage:
+        registry: ghcr.io/zapata-technology
+        repository: bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
       image:
         registry: ghcr.io/zapata-technology
         repository: grafana-plugins-fips
-        tag: 13.2.4
+        tag: 13.2.5
       imageRenderer:
         image:
           registry: cgr.dev/zapatatechnology.com
@@ -539,6 +615,7 @@ loki:
   values:
     bbtests:
       scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
         networkWait:
           image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37
     gateway:
@@ -569,6 +646,10 @@ loki:
         repository: cgr.dev/zapatatechnology.com/memcached-exporter-fips
         tag: 0.18.0
     minio:
+      bucketInit:
+        image:
+          repository: ghcr.io/zapata-technology/bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.36
     rollout_operator:
@@ -583,6 +664,9 @@ loki:
         tag: 2.14.1
 monitoring:
   values:
+    bbtests:
+      scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
     blackboxExporter:
       configReloader:
         image:
@@ -595,6 +679,11 @@ monitoring:
         registry: cgr.dev/zapatatechnology.com
         repository: prometheus-blackbox-exporter-fips
         tag: 0.29.1
+    cleanUpgrade:
+      image:
+        registry: ghcr.io/zapata-technology
+        repository: bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
     snmpExporter:
       configmapReload:
         image:
@@ -618,10 +707,14 @@ monitoring:
               repository: kubectl-fips
               tag: '1.37'
       grafana:
+        downloadDashboardsImage:
+          registry: ghcr.io/zapata-technology
+          repository: bigbang-base-fips
+          tag: 2.1.0-kubectl1.36.5
         image:
           registry: ghcr.io/zapata-technology
           repository: grafana-plugins-fips
-          tag: 13.2.4
+          tag: 13.2.5
         sidecar:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -644,6 +737,12 @@ monitoring:
           repository: prometheus-node-exporter-fips
           tag: 1.12.1
       prometheusOperator:
+        admissionWebhooks:
+          cleanupProxy:
+            image:
+              registry: ghcr.io/zapata-technology
+              repository: bigbang-base-fips
+              tag: 2.1.0-kubectl1.36.5
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: prometheus-operator-fips
@@ -665,6 +764,9 @@ monitoring:
             tag: 0.42.5
 neuvector:
   values:
+    bbtests:
+      scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
     monitor:
       exporter:
         image:
@@ -682,6 +784,11 @@ neuvector:
             registry: ''
             repository: neuvector-scanner-fips
             tag: v4.311
+        updater:
+          image:
+            registry: ghcr.io/zapata-technology
+            repository: bigbang-base-fips
+            tag: 2.1.0-kubectl1.36.5
       enforcer:
         image:
           repository: neuvector-enforcer-fips
@@ -703,6 +810,9 @@ renovate:
         tag: 44.190.2
 tempo:
   values:
+    bbtests:
+      scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
     upgradeJob:
       image:
         repository: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -714,5 +824,12 @@ tempo:
         tag: 2.10.10
 twistlock:
   values:
+    bbtests:
+      scripts:
+        image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.5
+    init:
+      image:
+        repository: ghcr.io/zapata-technology/bigbang-base-fips
+        tag: 2.1.0-kubectl1.36.5
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl-fips:1.36
