@@ -33,7 +33,6 @@ packages:
 - jq
 - pinentry
 - sed
-- which
 - yq~4.54
 user:
   name: base

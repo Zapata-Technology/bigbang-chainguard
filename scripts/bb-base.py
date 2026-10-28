@@ -41,8 +41,9 @@ IMAGE = "bigbang-base"
 
 # What UBI minimal ships that Big Bang's job scripts rely on (bash, curl-minimal, ...).
 UBI_USERLAND = ["bash", "coreutils", "curl", "grep", "sed", "ca-certificates"]
-# UBI package name -> Wolfi package name, where they differ.
-UBI_TO_WOLFI = {"curl-minimal": "curl", "coreutils-single": "coreutils"}
+# UBI package name -> Wolfi package name, where they differ. None: busybox in the
+# -dev image already provides it (Wolfi has no separate package).
+UBI_TO_WOLFI = {"curl-minimal": "curl", "coreutils-single": "coreutils", "which": None}
 
 
 def recipe(manifest, dockerfile):
@@ -68,7 +69,8 @@ def generate(a):
     pkgs, user, kubectl, yq, cce = recipe(manifest, dockerfile)
     kubectl_tag, images = bbbuild.org_images(a.org, {"standard": "kubectl", "fips": "kubectl-fips"}, kubectl)
     yq_line = ".".join(yq.split(".")[:2])
-    packages = sorted(set(UBI_USERLAND) | {UBI_TO_WOLFI.get(p, p) for p in pkgs}) + [f"yq~{yq_line}"]
+    wolfi = {UBI_TO_WOLFI.get(p, p) for p in pkgs} - {None}
+    packages = sorted(set(UBI_USERLAND) | wolfi) + [f"yq~{yq_line}"]
     spec = {
         # Iron Bank's tag plus the kubectl it carries, so a kubectl patch gets a new tag.
         "tag": f"{bb_tag}-kubectl{kubectl_tag}",
