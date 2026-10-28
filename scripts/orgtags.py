@@ -4,6 +4,8 @@ Credentials, in order:
   CGR_USERNAME / CGR_PASSWORD   a Chainguard pull token (CI)
   chainctl auth token           an interactive chainctl login (laptop)
 Tags are cached in a JSON file so one run asks the registry once per repo.
+
+The org is, in order: --org, $CHAINGUARD_ORG, the CHAINGUARD_ORG file at the repo root.
 """
 import base64
 import json
@@ -14,7 +16,16 @@ import urllib.error
 import urllib.request
 
 REGISTRY = "cgr.dev"
-ORG = "zapatatechnology.com"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def org_name(arg=None):
+    """The Chainguard org: --org, else $CHAINGUARD_ORG, else the CHAINGUARD_ORG file."""
+    org = arg or os.environ.get("CHAINGUARD_ORG") or open(os.path.join(ROOT, "CHAINGUARD_ORG")).read()
+    org = org.strip().removeprefix(f"{REGISTRY}/").strip("/")
+    if not org:
+        raise SystemExit("No Chainguard org: pass --org, set CHAINGUARD_ORG, or fill the CHAINGUARD_ORG file")
+    return org
 
 
 def _basic_auth():
@@ -30,16 +41,19 @@ def _basic_auth():
 
 
 class OrgTags:
-    def __init__(self, cache=None, offline=False):
+    def __init__(self, org, cache=None, offline=False):
+        self.org = org
         self.offline = offline
         self.cache_path = cache
-        self.cache = json.load(open(cache)) if cache and os.path.exists(cache) else {}
+        cached = json.load(open(cache)) if cache and os.path.exists(cache) else {}
+        # A cache written for another org is useless: its tag lists are not this org's.
+        self.cache = cached.get("tags", {}) if cached.get("org") == org else {}
         self._auth = None
 
     def _token(self, repo):
         if self._auth is None:
             self._auth = _basic_auth()
-        url = f"https://{REGISTRY}/token?scope=repository:{ORG}/{repo}:pull&service={REGISTRY}"
+        url = f"https://{REGISTRY}/token?scope=repository:{self.org}/{repo}:pull&service={REGISTRY}"
         req = urllib.request.Request(url, headers={"Authorization": self._auth})
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.load(r)["token"]
@@ -53,7 +67,7 @@ class OrgTags:
         tags = []
         try:
             token = self._token(repo)
-            url = f"https://{REGISTRY}/v2/{ORG}/{repo}/tags/list?n=1000"
+            url = f"https://{REGISTRY}/v2/{self.org}/{repo}/tags/list?n=1000"
             while url:
                 req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
                 with urllib.request.urlopen(req, timeout=60) as r:
@@ -71,7 +85,7 @@ class OrgTags:
     def save(self):
         if self.cache_path:
             with open(self.cache_path, "w", newline="\n") as f:
-                json.dump(self.cache, f, indent=1, sort_keys=True)
+                json.dump({"org": self.org, "tags": self.cache}, f, indent=1, sort_keys=True)
                 f.write("\n")
 
 

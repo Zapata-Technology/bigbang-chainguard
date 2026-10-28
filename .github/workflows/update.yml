@@ -21,6 +21,10 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      # Chainguard org (cgr.dev/<org>). Set the CHAINGUARD_ORG repository variable to
+      # override the CHAINGUARD_ORG file without a commit.
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
     permissions:
       contents: write
       pull-requests: write

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Render Big Bang with the overlays and check every deployed image.
 
-  bb-verify.py --bigbang <checkout> --pkgs <dir> [--fips]
+  bb-verify.py --bigbang <checkout> --pkgs <dir> [--fips] [--org <chainguard org>]
 
-Standard: every image is in cgr.dev/zapatatechnology.com or ghcr.io/zapata-technology,
-          or is an Iron Bank image that mapping.yaml marks `stays`.
+Standard: every image is in cgr.dev/<org> or the registry of a mapping.yaml `ref`
+          image, or is an Iron Bank image that mapping.yaml marks `stays`.
 FIPS:     the same, and every converted image is a -fips image unless mapping.yaml
           says the image has no FIPS variant.
 """
@@ -20,8 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from bbcommon import IRONBANK_HOSTS  # noqa: E402
-
-OURS = ("cgr.dev/zapatatechnology.com/", "ghcr.io/zapata-technology/")
+from orgtags import REGISTRY, org_name  # noqa: E402
 
 
 def main():
@@ -29,6 +28,7 @@ def main():
     ap.add_argument("--bigbang", required=True)
     ap.add_argument("--pkgs", required=True)
     ap.add_argument("--fips", action="store_true")
+    ap.add_argument("--org", help="Chainguard org (default: $CHAINGUARD_ORG, else the CHAINGUARD_ORG file)")
     ap.add_argument("-o", "--output", help="also write the rendered image list here")
     a = ap.parse_args()
 
@@ -50,6 +50,8 @@ def main():
         open(a.output, "w", newline="\n").write(p.stdout)
 
     mapping = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml")))["images"]
+    refs = [v[k] for v in mapping.values() if isinstance(v, dict) and "ref" in v for k in ("ref", "fips") if v.get(k)]
+    ours = tuple({f"{REGISTRY}/{org_name(a.org)}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs})
     stays = {k for k, v in mapping.items() if isinstance(v, dict) and "stays" in v}
     no_fips = set()
     for v in mapping.values():
@@ -60,7 +62,7 @@ def main():
     counts = {"ours": 0, "ironbank": 0}
     for rel, info in sorted(found["packages"].items()):
         for img in info["rendered"]:
-            if img.startswith(OURS):
+            if img.startswith(ours):
                 counts["ours"] += 1
                 name = img.split("/")[-1].split(":")[0].split("@")[0]
                 if a.fips and not name.endswith("-fips") and name not in no_fips:

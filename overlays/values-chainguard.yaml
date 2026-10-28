@@ -329,7 +329,7 @@ certManager:
       startupapicheck:
         image:
           repository: cgr.dev/zapatatechnology.com/cert-manager-startupapicheck
-          tag: 1.20.4
+          tag: 1.20.5
       webhook:
         image:
           repository: cgr.dev/zapatatechnology.com/cert-manager-webhook
