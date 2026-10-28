@@ -140,3 +140,8 @@ python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips
 
 `discovery/render-inputs.yaml` holds render-only placeholders (fake database and Redis
 endpoints) so that GitLab and Anchore render during discovery. Never deploy with it.
+
+## License
+
+[Apache License 2.0](LICENSE). Copyright 2026 Zapata Technology; see [NOTICE](NOTICE).
+Improvements are welcome back as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
