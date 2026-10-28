@@ -1,4 +1,4 @@
-"""Shared helpers: chart default values (with subcharts), deep merge, image nodes."""
+"""Shared helpers: repo settings, chart default values (with subcharts), deep merge, image nodes."""
 import io
 import os
 import tarfile
@@ -6,6 +6,39 @@ import tarfile
 import yaml
 
 IRONBANK_HOSTS = ("registry1.dso.mil", "registry.dso.mil")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def setting(name, arg=None):
+    """A repo setting: the command-line value, else $<name>, else the <name> file at the repo root."""
+    if arg:
+        return arg.strip()
+    if os.environ.get(name):
+        return os.environ[name].strip()
+    p = os.path.join(ROOT, name)
+    return open(p).read().strip() if os.path.exists(p) else ""
+
+
+def build_registry(arg=None):
+    """Where images this repo builds are pushed (BUILD_REGISTRY). Empty: they stay on Iron Bank."""
+    reg = setting("BUILD_REGISTRY", arg).rstrip("/")
+    if reg.split("/")[0] == "cgr.dev":
+        raise SystemExit("BUILD_REGISTRY cannot be on cgr.dev: Chainguard registries do not accept pushes")
+    return reg
+
+
+def load_build(name):
+    """builds/<name>/build.yaml, or None if the image has not been generated."""
+    p = os.path.join(ROOT, "builds", name, "build.yaml")
+    return yaml.safe_load(open(p)) if os.path.exists(p) else None
+
+
+def build_target(m, registry):
+    """(standard ref, fips ref) for a mapping.yaml `build:` entry, or None if it stays on Iron Bank."""
+    spec = load_build(m["build"])
+    if not (registry and spec):
+        return None
+    return tuple(f"{registry}/{spec['image'][v]['name']}:{spec['tag']}" for v in ("standard", "fips"))
 
 
 def deep_merge(a, b):

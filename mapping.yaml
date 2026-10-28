@@ -7,7 +7,9 @@
 #   <ironbank path>: {stays: <reason>}            no Chainguard equivalent; stays on Iron Bank
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
-#   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org (our own builds)
+#   <ironbank path>: {build: <name>}              built FROM the org's images by this repo
+#                                                 (builds/<name>/, pushed to BUILD_REGISTRY)
+#   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org
 #
 # bb-convert.py fails if a discovered image is not listed here, so a new Big Bang
 # release that adds an image cannot slip through on registry1.
@@ -58,9 +60,10 @@ images:
   ironbank/opensource/grafana/mimir: grafana-mimir
   ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
   ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}
-  # Big Bang builds Grafana with plugins baked in; ours is built FROM the org's
-  # grafana / grafana-fips images (Zapata-Technology/grafana-plugins).
-  ironbank/big-bang/grafana/grafana-plugins: {ref: ghcr.io/zapata-technology/grafana-plugins, fips: ghcr.io/zapata-technology/grafana-plugins-fips, tag: 13.2.4}
+  # Big Bang builds Grafana with plugins baked in. scripts/bb-grafana-plugins.py
+  # rebuilds it FROM the org's grafana / grafana-fips images using Iron Bank's own
+  # plugin list; with BUILD_REGISTRY empty it stays on Iron Bank.
+  ironbank/big-bang/grafana/grafana-plugins: {build: grafana-plugins}
   ironbank/kiwigrid/k8s-sidecar: k8s-sidecar
   ironbank/opensource/fluent/fluent-bit: fluent-bit
   ironbank/opensource/prometheus/prometheus: prometheus
@@ -147,7 +150,9 @@ images:
   ironbank/opensource/nginx/nginx: nginx
   ironbank/opensource/mysql/mysql8: mysql
   ironbank/afdco/docker/busybox: busybox
-  ironbank/big-bang/base: {stays: "Big Bang's own job base image (bash + kubectl scripts on UBI); no drop-in equivalent"}
+  # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-base.py
+  # rebuilds it FROM the org's kubectl -dev images; with BUILD_REGISTRY empty it stays.
+  ironbank/big-bang/base: {build: base}
   ironbank/redhat/ubi/ubi9: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
   ironbank/redhat/ubi/ubi9-minimal: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
 

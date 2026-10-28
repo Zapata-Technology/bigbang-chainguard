@@ -15,14 +15,14 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from bbcommon import setting
+
 REGISTRY = "cgr.dev"
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def org_name(arg=None):
     """The Chainguard org: --org, else $CHAINGUARD_ORG, else the CHAINGUARD_ORG file."""
-    org = arg or os.environ.get("CHAINGUARD_ORG") or open(os.path.join(ROOT, "CHAINGUARD_ORG")).read()
-    org = org.strip().removeprefix(f"{REGISTRY}/").strip("/")
+    org = setting("CHAINGUARD_ORG", arg).removeprefix(f"{REGISTRY}/").strip("/")
     if not org:
         raise SystemExit("No Chainguard org: pass --org, set CHAINGUARD_ORG, or fill the CHAINGUARD_ORG file")
     return org
@@ -57,6 +57,17 @@ class OrgTags:
         req = urllib.request.Request(url, headers={"Authorization": self._auth})
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.load(r)["token"]
+
+    def digest(self, repo, tag):
+        """Manifest digest of <org>/<repo>:<tag> (the multi-arch index when there is one)."""
+        accept = ", ".join(["application/vnd.oci.image.index.v1+json",
+                            "application/vnd.docker.distribution.manifest.list.v2+json",
+                            "application/vnd.oci.image.manifest.v1+json",
+                            "application/vnd.docker.distribution.manifest.v2+json"])
+        req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/manifests/{tag}", method="HEAD",
+                                     headers={"Authorization": f"Bearer {self._token(repo)}", "Accept": accept})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.headers["Docker-Content-Digest"]
 
     def tags(self, repo):
         """Every tag of <org>/<repo>, or None if the org has no such repository."""

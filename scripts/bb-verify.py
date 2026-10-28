@@ -3,8 +3,9 @@
 
   bb-verify.py --bigbang <checkout> --pkgs <dir> [--fips] [--org <chainguard org>]
 
-Standard: every image is in cgr.dev/<org> or the registry of a mapping.yaml `ref`
-          image, or is an Iron Bank image that mapping.yaml marks `stays`.
+Standard: every image is in cgr.dev/<org>, BUILD_REGISTRY, or the registry of a
+          mapping.yaml `ref` image, or is an Iron Bank image that mapping.yaml marks
+          `stays` (or a `build:` image when BUILD_REGISTRY is empty).
 FIPS:     the same, and every converted image is a -fips image unless mapping.yaml
           says the image has no FIPS variant.
 """
@@ -19,7 +20,7 @@ import yaml
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from bbcommon import IRONBANK_HOSTS  # noqa: E402
+from bbcommon import IRONBANK_HOSTS, build_registry, build_target  # noqa: E402
 from orgtags import REGISTRY, org_name  # noqa: E402
 
 
@@ -29,6 +30,8 @@ def main():
     ap.add_argument("--pkgs", required=True)
     ap.add_argument("--fips", action="store_true")
     ap.add_argument("--org", help="Chainguard org (default: $CHAINGUARD_ORG, else the CHAINGUARD_ORG file)")
+    ap.add_argument("--build-registry", help="registry of the images this repo builds (default: $BUILD_REGISTRY, "
+                                             "else the BUILD_REGISTRY file)")
     ap.add_argument("-o", "--output", help="also write the rendered image list here")
     a = ap.parse_args()
 
@@ -51,8 +54,11 @@ def main():
 
     mapping = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml")))["images"]
     refs = [v[k] for v in mapping.values() if isinstance(v, dict) and "ref" in v for k in ("ref", "fips") if v.get(k)]
-    ours = tuple({f"{REGISTRY}/{org_name(a.org)}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs})
-    stays = {k for k, v in mapping.items() if isinstance(v, dict) and "stays" in v}
+    registry = build_registry(a.build_registry)
+    ours = tuple({f"{REGISTRY}/{org_name(a.org)}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs}
+                 | ({registry + "/"} if registry else set()))
+    stays = {k for k, v in mapping.items() if isinstance(v, dict)
+             and ("stays" in v or ("build" in v and not build_target(v, registry)))}
     no_fips = set()
     for v in mapping.values():
         if isinstance(v, dict) and "cg" in v and v.get("fips", "x") is None:
