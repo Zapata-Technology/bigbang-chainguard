@@ -8,7 +8,9 @@ Shallow clones from repo1.dso.mil; no credentials needed.
 """
 import argparse
 import os
+import shutil
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import yaml
@@ -17,12 +19,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIGBANG = "https://repo1.dso.mil/big-bang/bigbang.git"
 
 
-def clone(url, tag, dest):
+def clone(url, tag, dest, attempts=4):
+    """Shallow clone with retries: repo1.dso.mil intermittently refuses GitHub runners."""
     if os.path.isdir(dest):
         return None
-    p = subprocess.run(["git", "-c", "advice.detachedHead=false", "clone", "-q", "--depth", "1",
-                        "--branch", tag, url, dest], capture_output=True, text=True)
-    return None if p.returncode == 0 else f"{url}@{tag}: {p.stderr.strip()}"
+    err = ""
+    for i in range(attempts):
+        p = subprocess.run(["git", "-c", "advice.detachedHead=false", "clone", "-q", "--depth", "1",
+                            "--branch", tag, url, dest], capture_output=True, text=True)
+        if p.returncode == 0:
+            return None
+        err = p.stderr.strip()
+        shutil.rmtree(dest, ignore_errors=True)
+        if i < attempts - 1:
+            time.sleep(30 * (i + 1))
+    return f"{url}@{tag}: {err}"
 
 
 def packages(values):
