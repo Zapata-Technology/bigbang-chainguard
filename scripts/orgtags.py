@@ -35,7 +35,7 @@ def _basic_auth():
                            capture_output=True, text=True)
         if p.returncode or not p.stdout.strip():
             raise SystemExit("No registry credentials: set CGR_USERNAME/CGR_PASSWORD or run "
-                             "`chainctl auth login --audience https://console-api.enforce.dev,cgr.dev`")
+                             "`chainctl auth login --audience cgr.dev`")
         user, pw = "_token", p.stdout.strip()
     return "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode()
 
