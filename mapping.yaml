@@ -1,5 +1,5 @@
 # Iron Bank repository (path after registry1.dso.mil/) -> Chainguard repository in
-# cgr.dev/zapatatechnology.com.
+# cgr.dev/<org> (the org is set in CHAINGUARD_ORG; see the README).
 #
 #   <ironbank path>: <chainguard name>            FIPS variant is <name>-fips
 #   <ironbank path>: {cg: <name>, fips: <name>}   FIPS variant named differently
@@ -206,14 +206,15 @@ template_defaults:
 
 # Hand-written values for packages whose image settings the generic rules can't
 # express. Merged over the generated overrides. Tokens are resolved against live
-# org tags: @repo:<name>, @tag:<name>:<version|*>, @ref:<name>:<version|*>
+# org tags: @repo:<name>, @tag:<name>:<version|*>, @ref:<name>:<version|*>,
+# @registry (cgr.dev/<org>)
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6).
     upstream:
-      registry: cgr.dev/zapatatechnology.com
+      registry: "@registry"
       tag: "@tag:neuvector-controller:5.6"
       controller: {image: {repository: "@repo:neuvector-controller"}}
       enforcer: {image: {repository: "@repo:neuvector-enforcer"}}

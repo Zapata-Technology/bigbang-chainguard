@@ -1,8 +1,8 @@
 # Big Bang on Chainguard images
 
-Run [Big Bang](https://repo1.dso.mil/big-bang/bigbang) with images from the Zapata
-Chainguard org (`cgr.dev/zapatatechnology.com`) instead of Iron Bank, with FIPS as an
-option. Big Bang itself is not forked: this repo produces values overlays for the
+Run [Big Bang](https://repo1.dso.mil/big-bang/bigbang) with images from a Chainguard
+org (`cgr.dev/<org>`, set in [`CHAINGUARD_ORG`](#using-another-chainguard-org); this repo uses
+`zapatatechnology.com`) instead of Iron Bank, with FIPS as an option. Big Bang itself is not forked: this repo produces values overlays for the
 unmodified upstream chart, plus a Flux kustomization.
 
 | File | Use |
@@ -47,11 +47,11 @@ registryCredentials:
     password: <Iron Bank CLI secret>
 ```
 
-Create a pull token with `chainctl auth pull-token --repository=cgr.dev --parent=zapatatechnology.com`.
+Create a pull token with `chainctl auth pull-token --repository=cgr.dev --parent=<org>`.
 Flux needs the same `private-registry` secret in `flux-system` before `kubectl apply -k flux/`.
 
-The overlay also adds `cgr.dev/zapatatechnology.com` and `ghcr.io/zapata-technology` to
-Big Bang's Kyverno `restrict-image-registries` policy. Without that, Kyverno blocks every pod.
+The overlay also adds `cgr.dev/<org>`, and the registry of every `ref` image in
+`mapping.yaml` (`ghcr.io/zapata-technology`), to Big Bang's Kyverno `restrict-image-registries` policy. Without that, Kyverno blocks every pod.
 
 ### FIPS notes
 
@@ -60,6 +60,34 @@ Big Bang's Kyverno `restrict-image-registries` policy. Without that, Kyverno blo
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
   keystores. Set those in the site's `addons.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
+
+## Using another Chainguard org
+
+The org is a setting, not part of the code. In order of precedence:
+
+1. `--org <org>` on `bb-convert.py` and `bb-verify.py`
+2. the `CHAINGUARD_ORG` environment variable (in CI: the `CHAINGUARD_ORG` repository variable)
+3. the `CHAINGUARD_ORG` file at the repo root
+
+The overlays carry the org's own tags, so a different org means regenerating them, not
+editing them:
+
+```bash
+echo example.com > CHAINGUARD_ORG
+chainctl auth login --audience cgr.dev      # a login that can pull from that org
+python scripts/bb-convert.py --missing      # repos the org must add (and their -fips twins)
+python scripts/bb-convert.py
+python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs
+python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips
+```
+
+Then:
+
+- In GitHub, set `CGR_ACTIONS_ID` to an assumable identity in that org with the
+  `registry.pull` role. Leave `CHAINGUARD_ORG` unset unless you want CI to override the file.
+- The `grafana-plugins` image is our own build on `ghcr.io/zapata-technology`. Point its
+  `ref` in `mapping.yaml` at your build, or mark it `stays`.
+- `--tags-cache` files record their org. A cache written for another org is ignored.
 
 ## How the conversion works
 
