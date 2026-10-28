@@ -52,8 +52,13 @@ jobs:
         id: bb
         run: |
           current=$(cat BIGBANG_VERSION)
-          latest=$(git ls-remote --tags https://repo1.dso.mil/big-bang/bigbang.git \
-            | grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' | sed 's#refs/tags/##' | sort -V | tail -1)
+          latest=""
+          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
+            latest=$(git ls-remote --tags https://repo1.dso.mil/big-bang/bigbang.git \
+              | grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' | sed 's#refs/tags/##' | sort -V | tail -1) || true
+            [ -n "$latest" ] && break
+            sleep $((30 * i))
+          done
           echo "current=$current latest=$latest"
           if [ -n "$latest" ] && [ "$latest" != "$current" ] \
              && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
