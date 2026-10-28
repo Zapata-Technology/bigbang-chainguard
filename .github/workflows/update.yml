@@ -1,0 +1,107 @@
+# Nightly: move the overlays to the newest org patches, and to a new Big Bang
+# release when one is out.
+#
+# A new Big Bang release re-runs discovery. If it deploys an image mapping.yaml
+# does not cover, or one with no org tag, the pull request still opens with the
+# failures in its body (and CI fails on it): add the mapping and push to the branch.
+name: Update - Big Bang and Chainguard tags
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2  # v5.0.0
+        with:
+          version: v3.18.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Log into Chainguard
+        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
+        with:
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Newest Big Bang release
+        id: bb
+        run: |
+          current=$(cat BIGBANG_VERSION)
+          latest=$(git ls-remote --tags https://repo1.dso.mil/big-bang/bigbang.git \
+            | grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' | sed 's#refs/tags/##' | sort -V | tail -1)
+          echo "current=$current latest=$latest"
+          if [ -n "$latest" ] && [ "$latest" != "$current" ] \
+             && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+            echo "$latest" > BIGBANG_VERSION
+            echo "title=Big Bang $latest on Chainguard images" >> "$GITHUB_OUTPUT"
+          else
+            echo "title=update Chainguard tags in the Big Bang overlays" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Discover, convert, verify
+        id: run
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/bb-fetch.py
+          python3 scripts/bb-images.py --bigbang work/bigbang --pkgs work/pkgs \
+            --values discovery/render-inputs.yaml -o discovery/images.json
+          {
+            echo '```'
+            python3 scripts/bb-convert.py 2>&1 || true
+            python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs 2>&1 || true
+            python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips 2>&1 || true
+            echo '```'
+          } > "${RUNNER_TEMP}/report.md"
+          cat "${RUNNER_TEMP}/report.md" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "body<<REPORT_EOF"
+            cat "${RUNNER_TEMP}/report.md"
+            echo "REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e  # v7.0.8
+        with:
+          # RELEASE_PAT lets CI run on the bot's pull request; GITHUB_TOKEN does not.
+          token: ${{ secrets.RELEASE_PAT || github.token }}
+          base: main
+          branch: bot/bigbang-update
+          delete-branch: true
+          title: "chore: ${{ steps.bb.outputs.title }}"
+          commit-message: "chore: ${{ steps.bb.outputs.title }}"
+          add-paths: |
+            BIGBANG_VERSION
+            discovery/images.json
+            overlays/*.yaml
+            flux/kustomization.yaml
+            flux-fips/kustomization.yaml
+            docs/images.md
+          body: |
+            Automated by `.github/workflows/update.yml`.
+
+            ${{ steps.run.outputs.body }}

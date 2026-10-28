@@ -1,0 +1,239 @@
+# Iron Bank repository (path after registry1.dso.mil/) -> Chainguard repository in
+# cgr.dev/zapatatechnology.com.
+#
+#   <ironbank path>: <chainguard name>            FIPS variant is <name>-fips
+#   <ironbank path>: {cg: <name>, fips: <name>}   FIPS variant named differently
+#   <ironbank path>: {cg: <name>, fips: null}     no FIPS variant; FIPS overlay keeps the standard image
+#   <ironbank path>: {stays: <reason>}            no Chainguard equivalent; stays on Iron Bank
+#   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
+#   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
+#   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org (our own builds)
+#
+# bb-convert.py fails if a discovered image is not listed here, so a new Big Bang
+# release that adds an image cannot slip through on registry1.
+images:
+  # --- Flux (base/flux kustomization) ---
+  ironbank/fluxcd/helm-controller: flux-helm-controller
+  ironbank/fluxcd/kustomize-controller: flux-kustomize-controller
+  ironbank/fluxcd/notification-controller: flux-notification-controller
+  ironbank/fluxcd/source-controller: flux-source-controller
+
+  # --- Istio ---
+  ironbank/opensource/istio/pilot: istio-pilot
+  ironbank/opensource/istio/proxyv2: istio-proxy
+  ironbank/opensource/istio/install-cni: istio-install-cni
+  # Org repo istio-ztunnel was created 2026-10-28 but had no tags yet; switch back to
+  # {cg: istio-ztunnel, fips: null} once it syncs. ztunnel is off by default (ambient only).
+  ironbank/opensource/istio/ztunnel: {stays: "org istio-ztunnel has no tags yet; recheck"}
+  ironbank/istio-ecosystem/authservice: {stays: "no Chainguard authservice image"}
+
+  # --- Kiali ---
+  ironbank/opensource/kiali/kiali: kiali
+  ironbank/opensource/kiali/kiali-operator: kiali-operator
+
+  # --- Policy ---
+  ironbank/opensource/kyverno: kyverno
+  ironbank/opensource/kyverno/kyverno/background-controller: kyverno-background-controller
+  ironbank/opensource/kyverno/kyverno/cleanup-controller: kyverno-cleanup-controller
+  ironbank/opensource/kyverno/kyverno/reports-controller: kyverno-reports-controller
+  ironbank/opensource/kyverno/kyverno/readiness-checker: kyverno-readiness-checker
+  ironbank/opensource/kyverno/kyvernocli: kyverno-cli
+  ironbank/opensource/kyverno/kyvernopre: {cg: kyvernopre, fips: null}
+  ironbank/opensource/kyverno/policy-reporter: kyverno-policy-reporter
+  ironbank/opensource/kyverno/policy-reporter/kyverno-plugin: kyverno-policy-reporter-plugin-kyverno
+  ironbank/nirmata/policy-reporter/policy-reporter-ui: kyverno-policy-reporter-ui
+  ironbank/opensource/openpolicyagent/gatekeeper: gatekeeper
+
+  # --- Logging / tracing / metrics ---
+  ironbank/opensource/grafana/alloy: grafana-alloy
+  ironbank/opensource/grafana/alloy-operator: {cg: grafana-alloy-operator, version: "0.9"}   # Chainguard tags the operator release (0.9.x), Iron Bank the app (1.11)
+  ironbank/opensource/grafana/helm-chart-toolbox-kubectl: {cg: kubectl, tag: "1.34"}   # toolbox "1.0" is its own version, not kubectl's
+  ironbank/opensource/grafana/loki: loki
+  ironbank/bigbang/grafana/loki-canary: loki-canary
+  ironbank/bigbang/grafana/loki-helm-test: {stays: "Big Bang test image (helm test only)"}
+  ironbank/grafana/grafana-enterprise-logs: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
+  ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
+  ironbank/opensource/grafana/tempo: tempo
+  ironbank/opensource/grafana/tempo-query: {stays: "no Chainguard tempo-query image"}
+  ironbank/opensource/grafana/mimir: grafana-mimir
+  ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
+  ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}
+  # Big Bang builds Grafana with plugins baked in; ours is built FROM the org's
+  # grafana / grafana-fips images (Zapata-Technology/grafana-plugins).
+  ironbank/big-bang/grafana/grafana-plugins: {ref: ghcr.io/zapata-technology/grafana-plugins, fips: ghcr.io/zapata-technology/grafana-plugins-fips, tag: 13.2.4}
+  ironbank/kiwigrid/k8s-sidecar: k8s-sidecar
+  ironbank/opensource/fluent/fluent-bit: fluent-bit
+  ironbank/opensource/prometheus/prometheus: prometheus
+  ironbank/opensource/prometheus/alertmanager: prometheus-alertmanager
+  ironbank/opensource/prometheus/node-exporter: prometheus-node-exporter
+  ironbank/opensource/prometheus/blackbox_exporter: prometheus-blackbox-exporter
+  ironbank/opensource/prometheus/snmp_exporter: {cg: prometheus-snmp-exporter, fips: null}
+  ironbank/opensource/prometheus/memcached-exporter: memcached-exporter
+  ironbank/opensource/prometheus/jmx-exporter: {stays: "Chainguard has only jmx-exporter-iamguarded (Bitnami layout), not a drop-in"}
+  ironbank/opensource/prometheus-operator/prometheus-operator: prometheus-operator
+  ironbank/opensource/prometheus-operator/prometheus-config-reloader: prometheus-config-reloader
+  ironbank/opensource/kubernetes/kube-state-metrics: kube-state-metrics
+  ironbank/opensource/kubernetes-sigs/metrics-server: metrics-server
+  ironbank/opensource/thanos/thanos: thanos
+  ironbank/opensource/jimmidyson/configmap-reload: configmap-reload
+  ironbank/opensource/memcached/memcached: memcached
+  ironbank/bitnami/analytics/redis-exporter: prometheus-redis-exporter
+  ironbank/opensource/elasticsearch-exporter: prometheus-elasticsearch-exporter
+  ironbank/afdco/prometheus/mysqld_exporter: prometheus-mysqld-exporter
+
+  # --- Elastic ---
+  ironbank/elastic/eck-operator/eck-operator: eck-operator
+  ironbank/elastic/elasticsearch/elasticsearch: elasticsearch
+  ironbank/elastic/kibana/kibana: kibana
+
+  # --- Security ---
+  ironbank/neuvector/neuvector/controller: neuvector-controller
+  ironbank/neuvector/neuvector/enforcer: neuvector-enforcer
+  ironbank/neuvector/neuvector/manager: neuvector-manager
+  ironbank/neuvector/neuvector/scanner: neuvector-scanner
+  ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
+  ironbank/opensource/neuvector/registry-adapter: {stays: "no Chainguard neuvector-registry-adapter image"}
+  ironbank/twistlock/console/console: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
+  ironbank/twistlock/defender/defender: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
+  ironbank/anchore/enterprise/enterprise: {stays: "Anchore Enterprise is proprietary; vendor image only"}
+  ironbank/anchore/enterpriseui/enterpriseui: {stays: "Anchore Enterprise is proprietary; vendor image only"}
+  ironbank/anchore/cli/cli: {stays: "Anchore CLI test image (bbtests only)"}
+  ironbank/microfocus/fortify/ssc: {stays: "Fortify SSC is proprietary; vendor image only"}
+  ironbank/sonarsource/sonarqube/sonarqube-community-build: {stays: "Chainguard sonarqube has only floating community/latest tags"}
+  ironbank/hashicorp/vault: {stays: "org vault is 2.x; Big Bang pins 1.21 (major change)"}
+  ironbank/hashicorp/vault/vault-k8s: vault-k8s
+  ironbank/hashicorp/vault-csi-provider: vault-csi-provider
+  ironbank/opensource/external-secrets/external-secrets: external-secrets
+
+  # --- Certificates / identity ---
+  ironbank/jetstack/cert-manager-controller: cert-manager-controller
+  ironbank/jetstack/cert-manager-cainjector: cert-manager-cainjector
+  ironbank/jetstack/cert-manager-webhook: cert-manager-webhook
+  ironbank/opensource/jetstack/cert-manager-acmesolver: cert-manager-acmesolver
+  ironbank/opensource/cleanstart/cert-manager-startupapicheck: cert-manager-startupapicheck
+  ironbank/opensource/keycloak/keycloak: keycloak
+  ironbank/opensource/dexidp/dex: dex
+
+  # --- Apps ---
+  ironbank/big-bang/argocd: argocd
+  ironbank/opensource/headlamp-k8s/headlamp: headlamp
+  ironbank/opensource/velero/velero: velero
+  ironbank/opensource/velero/velero-plugin-for-aws: velero-plugin-for-aws
+  ironbank/opensource/mattermost/mattermost: mattermost
+  ironbank/opensource/mattermost/mattermost-operator: {stays: "no Chainguard mattermost-operator image"}
+  ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
+  ironbank/opensource/apache/kafka-native: {stays: "no Chainguard kafka-native (GraalVM) image"}
+  ironbank/container-hardening-tools/renovate/renovate: renovate
+  ironbank/opensource/goharbor/harbor-core: harbor-core
+  ironbank/opensource/goharbor/harbor-exporter: harbor-exporter
+  ironbank/opensource/goharbor/harbor-jobservice: harbor-jobservice
+  ironbank/opensource/goharbor/harbor-portal: harbor-portal
+  ironbank/opensource/goharbor/harbor-registryctl: harbor-registryctl
+  ironbank/opensource/goharbor/registry: harbor-registry
+  ironbank/opensource/goharbor/trivy-adapter: harbor-trivy-adapter
+
+  # MinIO: the user stopped using MinIO on 2026-10-27 and the org's minio repos
+  # were deleted. Big Bang's minio packages (and mattermost's bundled minio) stay
+  # on Iron Bank unless those repos are added back.
+  ironbank/opensource/minio/minio: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  ironbank/opensource/minio/mc: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  ironbank/opensource/minio/operator: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  ironbank/opensource/minio/operator-sidecar: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+
+  # --- Shared building blocks ---
+  ironbank/opensource/kubernetes/kubectl: kubectl
+  ironbank/opensource/postgres/postgresql: postgres
+  ironbank/opensource/redis/redis8-slim: redis
+  ironbank/opensource/nginx/nginx: nginx
+  ironbank/opensource/mysql/mysql8: mysql
+  ironbank/afdco/docker/busybox: busybox
+  ironbank/big-bang/base: {stays: "Big Bang's own job base image (bash + kubectl scripts on UBI); no drop-in equivalent"}
+  ironbank/redhat/ubi/ubi9: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
+  ironbank/redhat/ubi/ubi9-minimal: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
+
+  # --- Big Bang CI test images (bbtests, disabled by default) ---
+  ironbank/big-bang/cypress: {stays: "Big Bang CI test image (bbtests)"}
+  ironbank/big-bang/devops-tester: {stays: "Big Bang CI test image (bbtests)"}
+  ironbank/opensource/bats/bats: {stays: "Big Bang CI test image (bbtests)"}
+
+  # --- GitLab (CNG images are GitLab-built on UBI and versioned together) ---
+  # Chainguard publishes some GitLab components, but the CNG set has to move as one
+  # release; a partial swap breaks the Rails/Workhorse/Gitaly version lock.
+  gitlab/gitlab-org/build/cng/certificates: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/cfssl-self-sign: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitaly: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-base: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-container-registry: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-exporter: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-kas: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-mailroom: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-pages: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-shell: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/build/cng/kubectl: {stays: "GitLab CNG set must stay on one release"}
+  gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway: {stays: "GitLab AI gateway; GitLab-built only"}
+  gitlab/gitlab-org/gitlab-runner: gitlab-runner
+  gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper: gitlab-runner-helper
+
+# Istio builds image names from `hub`, and Chainguard names its Istio images
+# differently (istio-pilot, istio-proxy, ...). Istio uses `image` as-is when it
+# contains a "/", so the overlay sets full references at these paths instead.
+hubs:
+  istiod:
+    upstream.image: ironbank/opensource/istio/pilot
+    upstream.global.proxy.image: ironbank/opensource/istio/proxyv2
+  istio-cni:
+    upstream.image: ironbank/opensource/istio/install-cni
+  ztunnel:
+    upstream.image: ironbank/opensource/istio/ztunnel
+
+# Big Bang keys whose chart values sit below `values` (Big Bang key: sub-path).
+value_roots:
+  istioGateway: shared      # merged into every gateway release by Big Bang
+
+# Images that a package template hardcodes as a default (no value in values.yaml),
+# with the value path that overrides it. Applied to any release that renders one.
+template_defaults:
+  - image: ironbank/opensource/kubernetes/kubectl
+    path: waitJob.image          # Big Bang gluon bb-wait job: dig "image" ... .Values.waitJob
+
+# Hand-written values for packages whose image settings the generic rules can't
+# express. Merged over the generated overrides. Tokens are resolved against live
+# org tags: @repo:<name>, @tag:<name>:<version|*>, @ref:<name>:<version|*>
+# (FIPS overlay: <name> becomes <name>-fips).
+overrides:
+  neuvector:
+    # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
+    # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6).
+    upstream:
+      registry: cgr.dev/zapatatechnology.com
+      tag: "@tag:neuvector-controller:5.6"
+      controller: {image: {repository: "@repo:neuvector-controller"}}
+      enforcer: {image: {repository: "@repo:neuvector-enforcer"}}
+      manager: {image: {repository: "@repo:neuvector-manager"}}
+      cve:
+        scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+
+# Images a package template hardcodes with no value to override (Big Bang key:
+# Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
+post_renderers:
+  addons.fortify:
+    - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
+
+# Value paths that hold Iron Bank strings but are not images to replace.
+ignore:
+  - {release: neuvector, path: upstream.controller.image}  # set by overrides.neuvector
+  - {release: neuvector, path: upstream.enforcer.image}
+  - {release: neuvector, path: upstream.manager.image}
+  - {release: neuvector, path: upstream.cve.scanner.image}
+  - {release: gatekeeper, path: upstream.image.crdRepository}  # upstream gatekeeper-crds hook, disabled by Big Bang
+  - {release: kyverno-policies, path: policies}          # image patterns in policy parameters
+  - {release: kyverno-policies, path: celPoliciesBeta}
+  - {release: twistlock, path: console.trustedImages}    # Prisma trusted-registry rules
