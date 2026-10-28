@@ -129,7 +129,7 @@ Run it locally:
 
 ```bash
 pip install pyyaml
-chainctl auth login --audience https://console-api.enforce.dev,cgr.dev
+chainctl auth login --audience cgr.dev
 python scripts/bb-fetch.py
 python scripts/bb-images.py --bigbang work/bigbang --pkgs work/pkgs --values discovery/render-inputs.yaml -o discovery/images.json
 python scripts/bb-convert.py --missing     # org repos the conversion needs but the org lacks
