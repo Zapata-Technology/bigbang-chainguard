@@ -55,11 +55,12 @@ def ironbank_recipe(project, ref):
             fetch(f"{raw}/Dockerfile").decode())
 
 
-def org_images(org_arg, repos, version):
+def org_images(org_arg, repos, version, dev=True):
     """Pin the org's runtime and -dev images for `version`.
 
-    repos: {variant: org repo}. Returns {variant: {"tag", "base", "dev"}}; each
-    variant resolves on its own (standard and -fips repos can be a patch apart).
+    repos: {variant: org repo}. Returns {variant: {"tag", "base", "dev"}} ("dev" only
+    with dev=True); each variant resolves on its own (standard and -fips repos can be
+    a patch apart).
     """
     org = org_name(org_arg)
     tags = OrgTags(org)
@@ -71,10 +72,11 @@ def org_images(org_arg, repos, version):
             raise SystemExit(f"{REGISTRY}/{org}/{repo}: {note}")
         if note:
             print(f"{repo}: {note}")
-        if f"{t}-dev" not in available:
-            raise SystemExit(f"{REGISTRY}/{org}/{repo} has no {t}-dev tag to build in")
-        out[variant] = {"tag": t, "base": f"{REGISTRY}/{org}/{repo}:{t}@{tags.digest(repo, t)}",
-                        "dev": f"{REGISTRY}/{org}/{repo}:{t}-dev@{tags.digest(repo, t + '-dev')}"}
+        out[variant] = {"tag": t, "base": f"{REGISTRY}/{org}/{repo}:{t}@{tags.digest(repo, t)}"}
+        if dev:
+            if f"{t}-dev" not in available:
+                raise SystemExit(f"{REGISTRY}/{org}/{repo} has no {t}-dev tag to build in")
+            out[variant]["dev"] = f"{REGISTRY}/{org}/{repo}:{t}-dev@{tags.digest(repo, t + '-dev')}"
     return out
 
 

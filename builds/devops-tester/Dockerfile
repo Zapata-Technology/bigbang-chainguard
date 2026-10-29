@@ -4,12 +4,18 @@
 # hardening_manifest.yaml (repo1.dso.mil/dsop/big-bang/devops-tester):
 #
 #   DEV_IMAGE       kubectl(-fips) -dev image on Iron Bank's kubectl line, pinned by digest
+#   VELERO_IMAGE    the org's velero(-fips) image on Iron Bank's velero line, by digest
+#   KYVERNO_IMAGE   the org's kyverno-cli(-fips) image on Iron Bank's kyverno line, by digest
 #   CHAINSAW_IMAGE  upstream chainsaw at the digest Iron Bank pins (no Chainguard package)
-#   PACKAGES        Wolfi packages for velero, the kyverno CLI, mc and curl
+#   PACKAGES        Wolfi packages (bash, curl, mc)
 #   USER_NAME, GROUP_NAME, USER_ID   the non-root user Iron Bank creates
 ARG DEV_IMAGE
+ARG VELERO_IMAGE
+ARG KYVERNO_IMAGE
 ARG CHAINSAW_IMAGE
 
+FROM ${VELERO_IMAGE} AS velero
+FROM ${KYVERNO_IMAGE} AS kyverno
 FROM ${CHAINSAW_IMAGE} AS chainsaw
 
 FROM ${DEV_IMAGE}
@@ -21,12 +27,13 @@ ARG USER_ID=1000
 
 USER root
 
+COPY --from=velero /usr/bin/velero /usr/bin/velero
+# Iron Bank names the kyverno CLI /usr/bin/kyverno; Chainguard's is kubectl-kyverno.
+COPY --from=kyverno /usr/bin/kubectl-kyverno /usr/bin/kyverno
 COPY --from=chainsaw /ko-app/chainsaw /usr/bin/chainsaw
 
-# Iron Bank names the kyverno CLI /usr/bin/kyverno; Wolfi installs kubectl-kyverno.
 RUN set -e; \
     apk add --no-cache ${PACKAGES}; \
-    command -v kyverno >/dev/null || ln -s "$(command -v kubectl-kyverno)" /usr/bin/kyverno; \
     addgroup -g "${USER_ID}" "${GROUP_NAME}"; \
     adduser -D -u "${USER_ID}" -G "${GROUP_NAME}" -s /bin/bash "${USER_NAME}"; \
     chmod 0750 "/home/${USER_NAME}"; \

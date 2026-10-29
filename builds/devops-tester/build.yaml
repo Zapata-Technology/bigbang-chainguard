@@ -15,17 +15,19 @@ image:
     name: bigbang-devops-tester
     tag: 1.4-kubectl1.37.1
     dev: cgr.dev/zapatatechnology.com/kubectl:1.37.1-dev@sha256:a0bdee8bbb99b5a2a694ce77fc941e23668be68f369093cfab46a07005b50e28
+    velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:3717559d7fb6aa3f53d4c3040b46470bab11db23c5e22e745326f830ffeab3c3
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:7dc2b24e38909349c4225ec7d9eb0fdf325df5e408cedb79052722f9d45a9efc
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:612349c7c5b49272b7cc5dde569c44b8e21200aca420aa5792cb05d453c1247d
+    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:ea3ccdd3c80e33a2f56358dee4199ce9bda0c6d6bc170d63656005b56d86a271
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:9fde622e914d236926248edfadf3605722a5aa680dd6c4bc5f884bdfd5df0ad6
 chainsaw: ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
 packages:
 - bash
 - curl
 - mc
-- velero~1.18
-- kyverno-cli-1.19
 user:
   name: devops-user
   group: devops

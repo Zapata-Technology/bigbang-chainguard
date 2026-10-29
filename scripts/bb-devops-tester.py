@@ -11,9 +11,10 @@ script jobs use it. This converts Iron Bank's own recipe:
      repo1.dso.mil, pinned to a commit
   3. pin cgr.dev/<org>/kubectl and kubectl-fips -dev images on Iron Bank's kubectl
      MAJOR.MINOR line by digest
-  4. velero, the kyverno CLI and mc come from Wolfi packages on Iron Bank's
-     MAJOR.MINOR lines. chainsaw has no Chainguard package, so it is copied from
-     upstream's image at the digest Iron Bank pins (Iron Bank does the same).
+  4. velero and the kyverno CLI are copied from the org's velero(-fips) and
+     kyverno-cli(-fips) images on Iron Bank's MAJOR.MINOR lines (so the FIPS image
+     gets FIPS builds); mc comes from Wolfi. chainsaw has no Chainguard package, so
+     it is copied from upstream's image at the digest Iron Bank pins (as Iron Bank does).
   5. write builds/devops-tester/build.yaml
 
   bb-devops-tester.py [--org <org>] [--ref master]       regenerate build.yaml
@@ -60,13 +61,16 @@ def generate(a):
     commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, a.ref)
     versions, chainsaw, user = recipe(manifest, dockerfile)
     images = bbbuild.org_images(a.org, {"standard": "kubectl", "fips": "kubectl-fips"}, versions["kubectl"])
-    packages = ["bash", "curl", "mc", f"velero~{line(versions['velero'])}",
-                f"kyverno-cli-{line(versions['kyverno'])}"]
+    velero = bbbuild.org_images(a.org, {"standard": "velero", "fips": "velero-fips"}, versions["velero"], dev=False)
+    kyverno = bbbuild.org_images(a.org, {"standard": "kyverno-cli", "fips": "kyverno-cli-fips"},
+                                 versions["kyverno"], dev=False)
+    packages = ["bash", "curl", "mc"]
     spec = {
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
                      "commit": commit, "versions": versions},
         "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": f"{bb_tag}-kubectl{img['tag']}",
-                      "dev": img["dev"]} for v, img in images.items()},
+                      "dev": img["dev"], "velero": velero[v]["base"], "kyverno": kyverno[v]["base"]}
+                  for v, img in images.items()},
         "chainsaw": chainsaw,
         "packages": packages,
         "user": user,
@@ -81,7 +85,9 @@ def generate(a):
 
 
 def build_args(spec, variant):
-    return {"CHAINSAW_IMAGE": spec["chainsaw"], "PACKAGES": " ".join(spec["packages"]),
+    img = spec["image"][variant]
+    return {"CHAINSAW_IMAGE": spec["chainsaw"], "VELERO_IMAGE": img["velero"], "KYVERNO_IMAGE": img["kyverno"],
+            "PACKAGES": " ".join(spec["packages"]),
             "USER_NAME": spec["user"]["name"], "GROUP_NAME": spec["user"]["group"],
             "USER_ID": str(spec["user"]["id"])}
 
