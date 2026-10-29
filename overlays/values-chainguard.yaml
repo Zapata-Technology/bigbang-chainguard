@@ -729,6 +729,15 @@ kyverno:
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
 kyvernoPolicies:
+  postRenderers:
+  - kustomize:
+      patches:
+      - patch: '[{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value": ["/bin/bash", "-c", "if [
+          -d /src ]; then cp /src/* /wait/ 2>/dev/null || true; fi\nfor script in *; do\n  [ -f \"$script\" ] || continue\n  echo
+          \"---\"; echo \"Running $script...\"; echo \"---\"\n  bash \"./$script\" || exit 1\ndone\n"]}]'
+        target:
+          kind: Job
+          name: kyverno-kyverno-policies-wait-job
   values:
     bbtests:
       scripts:
@@ -977,6 +986,8 @@ tempo:
         tag: 1.34-dev
     upstream:
       tempo:
+        receivers:
+          opencensus: null
         registry: cgr.dev/zapatatechnology.com
         repository: tempo
         tag: 2.10.10

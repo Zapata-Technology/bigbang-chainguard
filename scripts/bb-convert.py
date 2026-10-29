@@ -404,6 +404,15 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     "patch": json.dumps([{"op": "add", "path": "/metadata/labels/app.kubernetes.io~1version",
                                           "value": tgt.rsplit(":", 1)[1]}])})
                 set_path(tree, key + ["postRenderers"], pr)
+        # Wait jobs whose scripts say #!/bin/sh but need bash: run each script with bash.
+        for job in mapping.get("bash_wait_jobs", {}).get(info["key"], []):
+            for tree in (std, fips):
+                pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                pr[0]["kustomize"].setdefault("patches", []).append({
+                    "target": {"kind": "Job", "name": job},
+                    "patch": json.dumps([{"op": "replace", "path": "/spec/template/spec/containers/0/command",
+                                          "value": ["/bin/bash", "-c", BASH_WAIT]}])})
+                set_path(tree, key + ["postRenderers"], pr)
         if release in mapping.get("overrides", {}):
             spec = mapping["overrides"][release]
             _merge_into(s, c.overrides(release, spec, False))
@@ -511,6 +520,16 @@ def object_storage_files(kind, endpoint, c, tags, version, files):
         "twin (the bucket Job). With OBJECT_STORAGE=minio: `minio` and `minio-client` (and their `-fips`),",
         "already listed above.", ""])
     return out
+
+
+# Big Bang's wait-job loop (gluon chart), running each script with bash instead of by its
+# #!/bin/sh line, and failing on the first script that fails.
+BASH_WAIT = ('if [ -d /src ]; then cp /src/* /wait/ 2>/dev/null || true; fi\n'
+             'for script in *; do\n'
+             '  [ -f "$script" ] || continue\n'
+             '  echo "---"; echo "Running $script..."; echo "---"\n'
+             '  bash "./$script" || exit 1\n'
+             'done\n')
 
 
 def exact_tag(tags, nums, suffix=None):

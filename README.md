@@ -311,12 +311,16 @@ Value paths are found automatically from each chart's computed values:
 
 It also blanks Big Bang's chart-wide registry1 registry settings (`global.imageRegistry`,
 Kyverno's `defaultRegistry`), which would otherwise win. For the few packages these rules
-can't express, `mapping.yaml` has four escape hatches:
+can't express, `mapping.yaml` has these escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
 - `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag).
 - `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job).
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
+- `version_labels`: workload labels that must state the version actually deployed (istiod).
+- `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI
+  images run `sh` as bash; Chainguard's `-dev` images run busybox `sh`. A Flux
+  post-renderer runs those scripts with bash (Kyverno policies' wait job).
 
 An Iron Bank image with no Chainguard equivalent yet can be marked
 `{stays: <reason>, until: <chainguard repo>}`. The conversion then reports when your org's

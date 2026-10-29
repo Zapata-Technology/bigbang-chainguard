@@ -267,6 +267,13 @@ overrides:
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+  tempo:
+    # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
+    # it; Flux's in-cluster render keeps it, and Tempo 2.10.10 refuses to start ("unknown
+    # type: opencensus", compat/object-storage.yaml). A null value deletes the default.
+    upstream:
+      tempo:
+        receivers: {opencensus: null}
 
 # Images a package template hardcodes with no value to override (Big Bang key:
 # Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
@@ -278,6 +285,13 @@ overrides:
 version_labels:
   istiod:
     Deployment/istiod: ironbank/opensource/istio/pilot
+
+# Wait jobs (Big Bang key: [Job names]) whose script starts #!/bin/sh but is bash
+# (arrays). Iron Bank's kubectl is UBI, where sh is bash; the Chainguard -dev image's sh
+# is busybox, so the script dies on its first line. bb-convert writes a Flux
+# post-renderer that runs the job's scripts with bash. Found by compat/kyverno-enforce.yaml.
+bash_wait_jobs:
+  kyvernoPolicies: [kyverno-kyverno-policies-wait-job]
 
 post_renderers:
   addons.fortify:
