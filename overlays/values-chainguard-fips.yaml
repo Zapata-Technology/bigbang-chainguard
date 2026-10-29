@@ -645,6 +645,13 @@ istioGateway:
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
 istiod:
+  postRenderers:
+  - kustomize:
+      patches:
+      - patch: '[{"op": "add", "path": "/metadata/labels/app.kubernetes.io~1version", "value": "1.31.3"}]'
+        target:
+          kind: Deployment
+          name: istiod
   values:
     upstream:
       global:

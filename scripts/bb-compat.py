@@ -140,7 +140,7 @@ def images_running(namespaces):
 
 
 def report(namespaces, no_pods=False):
-    ok = True
+    ok, total = True, 0
     for ns in namespaces:
         pods = json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]
         print(f"\n== {ns}: {len(pods)} pods")
@@ -163,9 +163,10 @@ def report(namespaces, no_pods=False):
                 logs = kubectl("logs", "-n", ns, p["metadata"]["name"], "--all-containers", "--tail=40",
                                check=False) or ""
                 print("         logs:\n" + "\n".join("           " + ln for ln in logs.splitlines()[-40:]))
-        if not pods and not no_pods:
-            ok = False
-    return ok
+        total += len(pods)
+    # A namespace may hold only CRDs or config (e.g. prometheus-operator-crds); the test
+    # still needs some pods unless it says it has none (a CronJob-only package).
+    return ok and (total > 0 or no_pods)
 
 
 def main():

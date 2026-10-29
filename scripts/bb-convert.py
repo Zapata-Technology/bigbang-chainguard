@@ -360,6 +360,20 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                                                          "newName": tgt.rsplit(":", 1)[0],
                                                          "newTag": tgt.rsplit(":", 1)[1]})
                     set_path(tree, key + ["postRenderers"], pr)
+        # Version labels that must name the image actually deployed (a newer patch than
+        # the chart's appVersion): Flux post-renderer JSON patch on the workload.
+        for kind_name, ib_repo in mapping.get("version_labels", {}).get(info["key"], {}).items():
+            t = c.target(ib_repo, c.ib_tags.get(ib_repo), release)
+            if not t:
+                continue
+            kind, name = kind_name.split("/", 1)
+            for tree, tgt in ((std, t[0]), (fips, t[1])):
+                pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                pr[0]["kustomize"].setdefault("patches", []).append({
+                    "target": {"kind": kind, "name": name},
+                    "patch": json.dumps([{"op": "add", "path": "/metadata/labels/app.kubernetes.io~1version",
+                                          "value": tgt.rsplit(":", 1)[1]}])})
+                set_path(tree, key + ["postRenderers"], pr)
         if release in mapping.get("overrides", {}):
             spec = mapping["overrides"][release]
             _merge_into(s, c.overrides(release, spec, False))

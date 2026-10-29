@@ -264,6 +264,15 @@ overrides:
 
 # Images a package template hardcodes with no value to override (Big Bang key:
 # Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
+# Workload labels that must state the image version actually deployed (Big Bang key:
+# {Kind/name: Iron Bank repo whose converted tag is the version}). Istio gateways' wait
+# job requires the proxy tag to equal istiod's app.kubernetes.io/version, which the chart
+# sets to its own appVersion (Iron Bank's 1.31.1), while the org runs a newer patch
+# (1.31.3): compat/kiali.yaml's gateway wait job restarted the gateway until it failed.
+version_labels:
+  istiod:
+    Deployment/istiod: ironbank/opensource/istio/pilot
+
 post_renderers:
   addons.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
