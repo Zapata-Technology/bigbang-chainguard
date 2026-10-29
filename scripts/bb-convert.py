@@ -50,8 +50,10 @@ def set_path(tree, path, value):
 
 
 class Converter:
-    def __init__(self, mapping, tags, registry="", strict=False):
+    def __init__(self, mapping, tags, registry="", strict=False, ib_tags=None):
         self.cg = f"{REGISTRY}/{tags.org}"
+        self.ib_tags = ib_tags or {}   # Iron Bank repo -> tag Big Bang deploys (for `group` checks)
+        self._groups = {}
         self.build_registry = registry
         self.strict = strict
         self.images = mapping["images"]
@@ -61,6 +63,7 @@ class Converter:
         self.tags = tags
         self.rows = []          # (release, ironbank ref, standard, fips, note)
         self.missing = set()    # org repos needed but absent
+        self.optional_missing = set()  # absent repos of `fallback: ironbank` images
         self.unmapped = set()
         self.ready = set()      # (Iron Bank repo, org repo): `stays ... until` whose org repo now has tags
 
@@ -73,6 +76,11 @@ class Converter:
         if isinstance(m, str):
             m = {"cg": m}
         ib = f"{ib_repo}:{ib_tag}" if ib_tag else ib_repo
+        if m.get("group") and not self.group_ready(m["group"]):
+            self.rows.append((release, ib, "Iron Bank", "Iron Bank",
+                              f"falls back to Iron Bank: the {m['group']} images move together; "
+                              f"{self._groups[m['group']]}"))
+            return None
         if "stays" in m:
             self.rows.append((release, ib, "Iron Bank", "Iron Bank", m["stays"]))
             if m.get("until") and any(parse(t) for t in self.tags.tags(m["until"]) or []):
@@ -103,12 +111,13 @@ class Converter:
             else:
                 tags = self.tags.tags(name)
                 if tags is None:
-                    self.missing.add(name)
+                    (self.optional_missing if m.get("fallback") else self.missing).add(name)
                     refs.append(None)
                     notes.append(f"org has no {name}")
                     continue
                 want = m.get("version", ib_tag)
-                tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=not self.strict) if want
+                ahead = not (self.strict or m.get("strict"))
+                tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=ahead) if want
                              else (None, "no Iron Bank tag"))
             if not tag:
                 refs.append(None)
@@ -123,10 +132,44 @@ class Converter:
         if fips_name is None:
             fips = std
             notes.append("no FIPS variant; FIPS overlay keeps the standard image")
+        if m.get("fallback") == "ironbank" and not (std and fips):
+            # Not usable in this org yet (no repo, or nothing on Iron Bank's line):
+            # keep Iron Bank's image; a later run converts it once the org has tags.
+            self.rows.append((release, ib, "Iron Bank", "Iron Bank",
+                              "falls back to Iron Bank until the org has it: " + "; ".join(notes)))
+            return None
         self.rows.append((release, ib, std or "UNRESOLVED", fips or "UNRESOLVED", "; ".join(notes)))
         if not std:
             return None
         return std, fips or std
+
+    def group_ready(self, group):
+        """True if every image of a `group` that Big Bang deploys resolves in this org.
+
+        A group (GitLab) moves to Chainguard as one: one member on Iron Bank's
+        release and another on a different one would break it.
+        """
+        if group not in self._groups:
+            self._groups[group] = None
+            for ib_repo, m in self.images.items():
+                if not (isinstance(m, dict) and m.get("group") == group) or ib_repo not in self.ib_tags:
+                    continue
+                fips = m.get("fips", m["cg"] + "-fips") if "fips" in m else m["cg"] + "-fips"
+                for name in (m["cg"], fips):
+                    if name is None:
+                        continue
+                    tags = self.tags.tags(name)
+                    if tags is None:
+                        (self.optional_missing if m.get("fallback") else self.missing).add(name)
+                        self._groups[group] = f"org has no {name}"
+                    elif not resolve(m.get("version", self.ib_tags[ib_repo]), tags, m.get("suffix"),
+                                     allow_ahead=not (self.strict or m.get("strict")))[0]:
+                        self._groups[group] = f"org has no {name} on Iron Bank's line ({self.ib_tags[ib_repo]})"
+                    if self._groups[group]:
+                        break
+                if self._groups[group]:
+                    break
+        return self._groups[group] is None
 
     def ignored(self, release, path):
         dotted = ".".join(map(str, path))
@@ -269,7 +312,8 @@ def dump(data, header):
 
 
 def generate(discovered, mapping, tags, bigbang_version, registry="", strict=False):
-    c = Converter(mapping, tags, registry, strict)
+    ib_tags = {repo: tag for info in discovered["packages"].values() for repo, tag in ironbank_refs(info) if tag}
+    c = Converter(mapping, tags, registry, strict, ib_tags)
     std, fips = {}, {}
     flux_std = flux_fips = []
     for release, info in sorted(discovered["packages"].items()):
@@ -467,6 +511,9 @@ def main():
             print(f"  {ib} -> {repo}")
     if a.missing:
         print("Org repositories needed but missing:", *sorted(c.missing) or ["(none)"], sep="\n  ")
+        if c.optional_missing:
+            print("Optional (their images stay on Iron Bank until added):", *sorted(c.optional_missing),
+                  sep="\n  ")
         return rc
     drift = False
     for rel, text in files.items():

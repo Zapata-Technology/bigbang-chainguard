@@ -36,6 +36,9 @@ replacement must start the same way with the chart's values.
 | Chainguard versions it differently | `{cg: example, version: "2.1"}` (match against 2.1.x) or `version: "*"` (newest) |
 | No Chainguard equivalent | `{stays: "why"}`, plus `until: <repo>` if one is expected |
 | Big Bang's own build (base image plus files) | a builder; see `scripts/bb-base.py` |
+| Your org may not have it yet | add `fallback: ironbank`: it stays on Iron Bank until the org has a usable tag |
+| Must match Iron Bank's MAJOR.MINOR exactly | add `strict: true` |
+| Several images that must move together (GitLab) | the same `group: <name>` on each: all convert or all stay |
 
 Keep entries org-neutral. An exception that only applies to your org goes in
 `orgs/<org>.yaml`.

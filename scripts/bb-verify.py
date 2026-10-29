@@ -59,7 +59,8 @@ def main():
     ours = tuple({f"{REGISTRY}/{org}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs}
                  | ({registry + "/"} if registry else set()))
     stays = {k for k, v in mapping.items() if isinstance(v, dict)
-             and ("stays" in v or ("build" in v and not build_target(v, registry)))}
+             and ("stays" in v or v.get("fallback") == "ironbank" or v.get("group")
+                  or ("build" in v and not build_target(v, registry)))}
     no_fips = set()
     for v in mapping.values():
         if isinstance(v, dict) and "cg" in v and v.get("fips", "x") is None:

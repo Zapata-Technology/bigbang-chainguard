@@ -63,25 +63,25 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | gatekeeper | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
 | gatekeeper | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37 | kubectl-fips:1.37 |  |
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
-| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.41.0-gitlab-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.5.5-gitlab2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.57.3-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-zoekt:v19.2.1-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
-| gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.4.2-ubi | Iron Bank | Iron Bank | GitLab CNG set must stay on one release |
+| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.4.2-ubi | Iron Bank | Iron Bank | no Chainguard image (Gitaly's cgroups init container) |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.41.0-gitlab-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.5.5-gitlab2-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.57.3-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-zoekt:v19.2.1-ubi | Iron Bank | Iron Bank | no Chainguard gitlab-zoekt image (code search, off by default) |
+| gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.4.2-ubi | Iron Bank | Iron Bank | falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi) |
 | gitlab | gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.4.1-ee | Iron Bank | Iron Bank | GitLab AI gateway; GitLab-built only |
 | gitlab | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 |  |
 | gitlab | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py |
@@ -160,7 +160,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | mattermost-operator | ironbank/opensource/mattermost/mattermost-operator:v1.25.9 | Iron Bank | Iron Bank | no Chainguard mattermost-operator image |
 | metrics-server | ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0 | metrics-server:0.9.0 | metrics-server-fips:0.9.0 |  |
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
-| mimir | ironbank/opensource/apache/kafka-native:4.3.1 | Iron Bank | Iron Bank | no Chainguard kafka-native (GraalVM) image |
+| mimir | ironbank/opensource/apache/kafka-native:4.3.1 | Iron Bank | Iron Bank | falls back to Iron Bank until the org has it: kafka-native: no 4.x tag at or above 4.3 in org (Iron Bank 4.3.1); no FIPS variant; FIPS overlay keeps the standard image |
 | mimir | ironbank/opensource/grafana/mimir:3.2.1 | grafana-mimir:3.2.3 | grafana-mimir-fips:3.2.3 | grafana-mimir: Iron Bank 3.2.1 -> newest 3.2 patch; grafana-mimir-fips: Iron Bank 3.2.1 -> newest 3.2 patch |
 | mimir | ironbank/opensource/grafana/rollout-operator:v0.40.0 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 | grafana-rollout-operator: MINOR AHEAD: org has no 0.40.x; using 0.41.1 (Iron Bank v0.40.0); grafana-rollout-operator-fips: MINOR AHEAD: org has no 0.40.x; using 0.41.1 (Iron Bank v0.40.0) |
 | mimir | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
@@ -226,29 +226,29 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | velero | ironbank/big-bang/devops-tester:1.3 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py |
 | velero | ironbank/opensource/velero/velero-plugin-for-aws:v1.14.4 | velero-plugin-for-aws:1.14.4 | velero-plugin-for-aws-fips:1.14.4 |  |
 | velero | ironbank/opensource/velero/velero:v1.18.4 | velero:1.18.4 | velero-fips:1.18.4 |  |
-| ztunnel | ironbank/opensource/istio/ztunnel:1.31.1 | Iron Bank | Iron Bank | Chainguard istio-ztunnel had no tags yet |
+| ztunnel | ironbank/opensource/istio/ztunnel:1.31.1 | Iron Bank | Iron Bank | falls back to Iron Bank until the org has it: ztunnel: no 1.x tag at or above 1.31 in org (Iron Bank 1.31.1); ztunnel-fips: no 1.x tag at or above 1.31 in org (Iron Bank 1.31.1) |
 
 ## Stays on Iron Bank (45)
 
-- `gitlab/gitlab-org/build/cng/certificates`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/cfssl-self-sign`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitaly`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitaly-init-cgroups`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-base`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-container-registry`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-exporter`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-kas`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-mailroom`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-openbao`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-pages`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-shell`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-webservice-ee`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/gitlab-zoekt`: GitLab CNG set must stay on one release
-- `gitlab/gitlab-org/build/cng/kubectl`: GitLab CNG set must stay on one release
+- `gitlab/gitlab-org/build/cng/certificates`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/cfssl-self-sign`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitaly`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitaly-init-cgroups`: no Chainguard image (Gitaly's cgroups init container)
+- `gitlab/gitlab-org/build/cng/gitlab-base`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-container-registry`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-exporter`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-kas`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-mailroom`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-openbao`: GitLab's own OpenBao build; Chainguard's openbao is upstream's
+- `gitlab/gitlab-org/build/cng/gitlab-pages`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-shell`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-webservice-ee`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
+- `gitlab/gitlab-org/build/cng/gitlab-zoekt`: no Chainguard gitlab-zoekt image (code search, off by default)
+- `gitlab/gitlab-org/build/cng/kubectl`: falls back to Iron Bank: the gitlab images move together; org has no gitlab-certificates on Iron Bank's line (v19.4.2-ubi)
 - `gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway`: GitLab AI gateway; GitLab-built only
 - `ironbank/anchore/cli/cli`: Anchore CLI test image (bbtests only)
 - `ironbank/anchore/enterprise/enterprise`: Anchore Enterprise is proprietary; vendor image only
@@ -259,10 +259,10 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 - `ironbank/hashicorp/vault`: org vault is 2.x; Big Bang pins 1.21 (major change)
 - `ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner`: Grafana Enterprise Logs is licensed; no Chainguard image
 - `ironbank/microfocus/fortify/ssc`: Fortify SSC is proprietary; vendor image only
-- `ironbank/opensource/apache/kafka-native`: no Chainguard kafka-native (GraalVM) image
+- `ironbank/opensource/apache/kafka-native`: falls back to Iron Bank until the org has it: kafka-native: no 4.x tag at or above 4.3 in org (Iron Bank 4.3.1); no FIPS variant; FIPS overlay keeps the standard image
 - `ironbank/opensource/go-gitea/gitea`: org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)
 - `ironbank/opensource/grafana/tempo-query`: no Chainguard tempo-query image
-- `ironbank/opensource/istio/ztunnel`: Chainguard istio-ztunnel had no tags yet
+- `ironbank/opensource/istio/ztunnel`: falls back to Iron Bank until the org has it: ztunnel: no 1.x tag at or above 1.31 in org (Iron Bank 1.31.1); ztunnel-fips: no 1.x tag at or above 1.31 in org (Iron Bank 1.31.1)
 - `ironbank/opensource/mattermost/mattermost-operator`: no Chainguard mattermost-operator image
 - `ironbank/opensource/minio/mc`: MinIO not used by Zapata; org minio repos removed 2026-10-27
 - `ironbank/opensource/minio/minio`: MinIO not used by Zapata; org minio repos removed 2026-10-27

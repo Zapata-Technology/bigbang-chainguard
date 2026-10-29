@@ -8,6 +8,10 @@
 #   <ironbank path>: {stays: <reason>}            no Chainguard equivalent; stays on Iron Bank
 #   <ironbank path>: {stays: <reason>, until: <name>}  same, and bb-convert reports when the org's
 #                                                 <name> repo has tags (ready to convert)
+#   Options on a cg entry:
+#     fallback: ironbank   keep Iron Bank's image (instead of failing) while the org has no usable tag
+#     strict: true         never a newer MINOR than Iron Bank's (no "MINOR AHEAD") for this image
+#     group: <name>        images that move together: all convert, or all stay on Iron Bank
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release)
@@ -28,10 +32,8 @@ images:
   ironbank/opensource/istio/pilot: istio-pilot
   ironbank/opensource/istio/proxyv2: istio-proxy
   ironbank/opensource/istio/install-cni: istio-install-cni
-  # Chainguard's istio-ztunnel had no tags when this was written. `until` makes
-  # bb-convert report it as ready once the org's repo has tags; then map it as
-  # {cg: istio-ztunnel, fips: null}. ztunnel is off by default (ambient only).
-  ironbank/opensource/istio/ztunnel: {stays: "Chainguard istio-ztunnel had no tags yet", until: istio-ztunnel}
+  # ztunnel is off by default (Istio ambient mode only).
+  ironbank/opensource/istio/ztunnel: {cg: ztunnel, fallback: ironbank}
   ironbank/istio-ecosystem/authservice: authservice
 
   # --- Kiali ---
@@ -130,7 +132,7 @@ images:
   ironbank/opensource/mattermost/mattermost: mattermost
   ironbank/opensource/mattermost/mattermost-operator: {stays: "no Chainguard mattermost-operator image"}
   ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
-  ironbank/opensource/apache/kafka-native: {stays: "no Chainguard kafka-native (GraalVM) image"}
+  ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank}
   ironbank/container-hardening-tools/renovate/renovate: renovate
   ironbank/opensource/goharbor/harbor-core: harbor-core
   ironbank/opensource/goharbor/harbor-exporter: harbor-exporter
@@ -167,28 +169,31 @@ images:
   ironbank/big-bang/devops-tester: {build: devops-tester}
   ironbank/opensource/bats/bats: bats
 
-  # --- GitLab (CNG images are GitLab-built on UBI and versioned together) ---
-  # Chainguard publishes some GitLab components, but the CNG set has to move as one
-  # release; a partial swap breaks the Rails/Workhorse/Gitaly version lock.
-  gitlab/gitlab-org/build/cng/certificates: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/cfssl-self-sign: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitaly: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-base: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-container-registry: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-exporter: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-kas: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-mailroom: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-pages: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-shell: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "GitLab CNG set must stay on one release"}
-  gitlab/gitlab-org/build/cng/kubectl: {stays: "GitLab CNG set must stay on one release"}
+  # --- GitLab (CNG images, versioned together) ---
+  # Chainguard publishes the GitLab CNG images (the EE ones as commercial-gitlab-*-ee).
+  # They move as one release: `group` keeps every image on Iron Bank until the org
+  # has all of them on Big Bang's GitLab line (`strict`: never a newer minor), and
+  # `fallback` keeps them there instead of failing while the org lacks them.
+  gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
+  gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
+  gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
+  gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, cg: gitlab-base}
+  gitlab/gitlab-org/build/cng/gitlab-container-registry: {<<: *gitlab, cg: gitlab-container-registry}
+  gitlab/gitlab-org/build/cng/gitlab-exporter: {<<: *gitlab, cg: gitlab-exporter}
+  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, cg: commercial-gitlab-geo-logcursor-ee}
+  gitlab/gitlab-org/build/cng/gitlab-kas: {<<: *gitlab, cg: gitlab-kas}
+  gitlab/gitlab-org/build/cng/gitlab-mailroom: {<<: *gitlab, cg: gitlab-mailroom}
+  gitlab/gitlab-org/build/cng/gitlab-pages: {<<: *gitlab, cg: gitlab-pages}
+  gitlab/gitlab-org/build/cng/gitlab-shell: {<<: *gitlab, cg: gitlab-shell}
+  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, cg: commercial-gitlab-sidekiq-ee}
+  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, cg: commercial-gitlab-toolbox-ee}
+  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, cg: commercial-gitlab-webservice-ee}
+  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, cg: commercial-gitlab-workhorse-ee}
+  gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl}
+  # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
+  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "no Chainguard image (Gitaly's cgroups init container)"}
+  gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)"}
+  gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab's own OpenBao build; Chainguard's openbao is upstream's"}
   gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway: {stays: "GitLab AI gateway; GitLab-built only"}
   gitlab/gitlab-org/gitlab-runner: gitlab-runner
   gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper: gitlab-runner-helper
