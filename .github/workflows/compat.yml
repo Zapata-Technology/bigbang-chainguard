@@ -107,7 +107,7 @@ jobs:
           ignore_failed_clean: true
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
+        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978  # v0.4.0
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 

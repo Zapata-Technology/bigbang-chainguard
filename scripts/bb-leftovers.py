@@ -7,8 +7,8 @@ earlier, in Chainguard's catalog, so the nightly report says when to add the rep
 
   bb-leftovers.py [--mapping mapping.yaml] [--org <org>]
 
-For each `until` name (and its -fips variant): in the org, in the catalog only (add it
-with chainctl, see README "Org repositories"), or not published yet. Exit 0 always; it
+For each `until` name (and its -fips variant): in the org, in the catalog only (the org
+owner can add it), or not published yet. Exit 0 always; it
 reports, it doesn't gate.
 """
 import argparse
@@ -59,7 +59,7 @@ def main():
                 if org and in_org(org, n):
                     state = "in the org (bb-convert converts it once it has tags)"
                 elif in_catalog(n):
-                    state = "PUBLISHED: add it to the org (chainctl images repos create)"
+                    state = "PUBLISHED: ask the org owner to add it"
                 else:
                     state = "not published yet"
             except (RuntimeError, OSError, subprocess.TimeoutExpired, ValueError) as e:
