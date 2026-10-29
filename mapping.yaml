@@ -269,11 +269,58 @@ overrides:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
   tempo:
     # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
-    # it; Flux's in-cluster render keeps it, and Tempo 2.10.10 refuses to start ("unknown
-    # type: opencensus", compat/object-storage.yaml). A null value deletes the default.
+    # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo
+    # 2.10.10 refuses to start: "unknown type: opencensus" (compat/object-storage.yaml).
+    # No values merge can delete the key, so this is the chart's own `config` template
+    # (tempo chart 2.1.0) with one change: receivers omit opencensus. bb-scan.py lists
+    # the chart version in scan_reviewed, so a new chart forces a review of this copy.
     upstream:
-      tempo:
-        receivers: {opencensus: null}
+      config: |
+        memberlist:
+          cluster_label: "{{ .Release.Name }}.{{ .Release.Namespace }}"
+        multitenancy_enabled: {{ .Values.tempo.multitenancyEnabled }}
+        usage_report:
+          reporting_enabled: {{ .Values.tempo.reportingEnabled }}
+        compactor:
+          compaction:
+            block_retention: {{ .Values.tempo.retention }}
+        distributor:
+          receivers:
+            {{- toYaml (omit .Values.tempo.receivers "opencensus") | nindent 8 }}
+        ingester:
+          {{- toYaml .Values.tempo.ingester | nindent 6 }}
+        server:
+          {{- toYaml .Values.tempo.server | nindent 6 }}
+        storage:
+          {{- toYaml .Values.tempo.storage | nindent 6 }}
+        querier:
+          {{- toYaml .Values.tempo.querier | nindent 6 }}
+        query_frontend:
+          {{- toYaml .Values.tempo.queryFrontend | nindent 6 }}
+        overrides:
+          {{- toYaml .Values.tempo.overrides | nindent 6 }}
+          {{- if .Values.tempo.metricsGenerator.enabled }}
+        metrics_generator:
+          {{- if .Values.tempo.metricsGenerator.processor }}
+          processor:
+            {{- toYaml .Values.tempo.metricsGenerator.processor | nindent 8 }}
+          {{- end }}
+          {{- if .Values.tempo.metricsGenerator.registry }}
+          registry:
+            {{- toYaml .Values.tempo.metricsGenerator.registry | nindent 8 }}
+          {{- end }}
+          storage:
+            path: {{ .Values.tempo.metricsGenerator.storage.path | quote }}
+            {{- if .Values.tempo.metricsGenerator.storage.remote_write }}
+            remote_write:
+              {{- toYaml .Values.tempo.metricsGenerator.storage.remote_write | nindent 10 }}
+            {{- else }}
+            remote_write:
+              - url: {{ .Values.tempo.metricsGenerator.remoteWriteUrl }}
+            {{- end }}
+          traces_storage:
+            path: {{ .Values.tempo.metricsGenerator.traces_storage.path | quote }}
+          {{- end }}
 
 # Images a package template hardcodes with no value to override (Big Bang key:
 # Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
@@ -324,4 +371,4 @@ scan_reviewed:
   kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
   alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
   addons.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)
-  tempo/chart/charts/tempo-2.1.0.tgz!tempo: overrides.tempo (opencensus set to null)
+  tempo/chart/charts/tempo-2.1.0.tgz!tempo: overrides.tempo (config template omits opencensus)

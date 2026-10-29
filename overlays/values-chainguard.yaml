@@ -990,9 +990,21 @@ tempo:
         repository: cgr.dev/zapatatechnology.com/kubectl
         tag: 1.34-dev
     upstream:
+      config: "memberlist:\n  cluster_label: \"{{ .Release.Name }}.{{ .Release.Namespace }}\"\nmultitenancy_enabled: {{ .Values.tempo.multitenancyEnabled\
+        \ }}\nusage_report:\n  reporting_enabled: {{ .Values.tempo.reportingEnabled }}\ncompactor:\n  compaction:\n    block_retention:\
+        \ {{ .Values.tempo.retention }}\ndistributor:\n  receivers:\n    {{- toYaml (omit .Values.tempo.receivers \"opencensus\"\
+        ) | nindent 8 }}\ningester:\n  {{- toYaml .Values.tempo.ingester | nindent 6 }}\nserver:\n  {{- toYaml .Values.tempo.server\
+        \ | nindent 6 }}\nstorage:\n  {{- toYaml .Values.tempo.storage | nindent 6 }}\nquerier:\n  {{- toYaml .Values.tempo.querier\
+        \ | nindent 6 }}\nquery_frontend:\n  {{- toYaml .Values.tempo.queryFrontend | nindent 6 }}\noverrides:\n  {{- toYaml\
+        \ .Values.tempo.overrides | nindent 6 }}\n  {{- if .Values.tempo.metricsGenerator.enabled }}\nmetrics_generator:\n\
+        \  {{- if .Values.tempo.metricsGenerator.processor }}\n  processor:\n    {{- toYaml .Values.tempo.metricsGenerator.processor\
+        \ | nindent 8 }}\n  {{- end }}\n  {{- if .Values.tempo.metricsGenerator.registry }}\n  registry:\n    {{- toYaml .Values.tempo.metricsGenerator.registry\
+        \ | nindent 8 }}\n  {{- end }}\n  storage:\n    path: {{ .Values.tempo.metricsGenerator.storage.path | quote }}\n\
+        \    {{- if .Values.tempo.metricsGenerator.storage.remote_write }}\n    remote_write:\n      {{- toYaml .Values.tempo.metricsGenerator.storage.remote_write\
+        \ | nindent 10 }}\n    {{- else }}\n    remote_write:\n      - url: {{ .Values.tempo.metricsGenerator.remoteWriteUrl\
+        \ }}\n    {{- end }}\n  traces_storage:\n    path: {{ .Values.tempo.metricsGenerator.traces_storage.path | quote }}\n\
+        \  {{- end }}\n"
       tempo:
-        receivers:
-          opencensus: null
         registry: cgr.dev/zapatatechnology.com
         repository: tempo
         tag: 2.10.10
