@@ -1,0 +1,5 @@
+# Newer-minor check: Alloy 1.18 -> Chainguard grafana-alloy 1.21, config-reloader 0.93 -> 0.94.
+images: {}
+test:
+  enable: [alloy]
+  expect: [grafana-alloy, prometheus-config-reloader]

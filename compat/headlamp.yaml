@@ -1,0 +1,5 @@
+# Newer-minor check: Headlamp 0.45 -> 0.46.
+images: {}
+test:
+  enable: [addons.headlamp]
+  expect: [headlamp]

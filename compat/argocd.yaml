@@ -1,0 +1,6 @@
+# Newer-minor check: Argo CD's dex 2.45 -> 2.46 and redis-exporter 1.88 -> 1.96
+# (the exporter runs when monitoring is on).
+images: {}
+test:
+  enable: [addons.argocd, prometheusOperatorCRDs, monitoring]
+  expect: [dex, prometheus-redis-exporter]

@@ -1,0 +1,6 @@
+# Newer-minor check: blackbox-exporter 0.28 -> 0.29, snmp-exporter 0.30 -> 0.31,
+# k8s-sidecar 2.11 -> 2.14, config-reloader 0.93 -> 0.94.
+images: {}
+test:
+  enable: [prometheusOperatorCRDs, monitoring]
+  expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]

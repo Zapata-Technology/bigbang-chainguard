@@ -1,0 +1,5 @@
+# Newer-minor check: Kiali 2.32 -> 2.34 (needs Istio).
+images: {}
+test:
+  enable: [istioCRDs, istiod, kiali]
+  expect: [kiali]

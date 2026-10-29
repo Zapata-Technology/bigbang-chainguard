@@ -116,6 +116,23 @@ def wait_ready(namespaces, timeout):
     return True, []
 
 
+def hr_namespaces():
+    """Namespaces the HelmReleases install into (when a test doesn't list them)."""
+    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json"))["items"]
+    return sorted({hr["spec"].get("targetNamespace") or hr["metadata"]["namespace"] for hr in hrs})
+
+
+def images_running(namespaces):
+    imgs = set()
+    for ns in namespaces:
+        for p in json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]:
+            for s in p["status"].get("containerStatuses", []) + p["status"].get("initContainerStatuses", []):
+                imgs.add(s.get("image", ""))
+            for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
+                imgs.add(c["image"])
+    return imgs
+
+
 def report(namespaces):
     ok = True
     for ns in namespaces:
@@ -228,15 +245,25 @@ def main():
             os.remove(os.path.join(secrets, f))
         os.rmdir(secrets)
 
-    ready, problems = wait_ready(test.get("namespaces", []), a.timeout)
-    ok = report(test.get("namespaces", [])) and ready
+    ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
+    namespaces = test.get("namespaces") or hr_namespaces()
+    ok = report(namespaces) and ready
     for p in problems:
         print("PROBLEM:", p)
     if not ok:
         print("\n== recent events")
-        for ns in test.get("namespaces", []) + ["bigbang"]:
+        for ns in namespaces + ["bigbang"]:
             print(kubectl("get", "events", "-n", ns, "--sort-by=.lastTimestamp", check=False) or "")
-    print(f"\nRESULT {os.path.basename(a.compat)} ({'FIPS' if a.fips else 'standard'}): {'PASS' if ok else 'FAIL'}")
+    # `expect`: images (name:tag fragments) the test is about. A pass only covers the
+    # ones that actually ran; the rest need the feature that uses them switched on.
+    running = images_running(namespaces)
+    expect = test.get("expect", [])
+    seen = [e for e in expect if any(e in i for i in running)]
+    for e in expect:
+        print(f"{'EXERCISED' if e in seen else 'NOT EXERCISED'}: {e}")
+    mode = "FIPS" if a.fips else "standard"
+    print(f"\nRESULT {os.path.basename(a.compat)} ({mode}): {'PASS' if ok else 'FAIL'}"
+          + (f"; {len(seen)} of {len(expect)} expected images ran" if expect else ""))
     return 0 if ok else 1
 
 

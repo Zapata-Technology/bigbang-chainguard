@@ -1,0 +1,5 @@
+# Newer-minor check: Renovate 44.97 -> 44.190 (a CronJob: deploy only, no run).
+images: {}
+test:
+  enable: [addons.renovate]
+  expect: [renovate]

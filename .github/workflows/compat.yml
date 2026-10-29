@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - compat/**
+      - .github/kind-compat.yaml
       - scripts/bb-compat.py
       - .github/workflows/compat.yml
   workflow_dispatch:
@@ -82,6 +83,7 @@ jobs:
         with:
           cluster_name: compat
           node_image: kindest/node:v1.34.0
+          config: .github/kind-compat.yaml
 
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
