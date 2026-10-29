@@ -93,7 +93,11 @@ class Converter:
                 self.rows.append((release, ib, "Iron Bank", "Iron Bank",
                                   f"built by scripts/bb-{m['build']}.py; set BUILD_REGISTRY to use it"))
                 return None
-            self.rows.append((release, ib, *t, f"built FROM the org's images by scripts/bb-{m['build']}.py"))
+            note = f"built FROM the org's images by scripts/bb-{m['build']}.py"
+            tag = t[0].rsplit(":", 1)[1]
+            if ib_tag and parse(tag) and parse(ib_tag) and parse(tag)[0][:2] != parse(ib_tag)[0][:2]:
+                note += f"; VERSION DIFFERS from Big Bang's {ib_tag}"
+            self.rows.append((release, ib, *t, note))
             return t
         if "ref" in m:
             std = f'{m["ref"]}:{m["tag"]}'
@@ -495,7 +499,8 @@ def report(rows, version, cg):
     ahead = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "MINOR AHEAD" in r[4]})
     older = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "is older than Iron Bank" in r[4]})
     newest = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "newest org release" in r[4]})
-    lines += ["", f"## Version differences ({len(ahead) + len(older) + len(newest)})", "",
+    built = sorted({(r[0], r[1], r[2]) for r in rows if "VERSION DIFFERS" in r[4]})
+    lines += ["", f"## Version differences ({len(ahead) + len(older) + len(newest) + len(built)})", "",
               "Big Bang tests each package with the Iron Bank version it pins. These images run a",
               "different version because the org has nothing on that MAJOR.MINOR line (the org syncs",
               "Chainguard's current release lines). Test these packages before production, or run",
@@ -504,6 +509,8 @@ def report(rows, version, cg):
     lines += [f"- {rel}: `{ib}` -> `{std}` (older patch)" for rel, ib, std in older]
     lines += [f"- {rel}: `{ib}` -> `{std}` (newest release; Iron Bank's tag has no version line)"
               for rel, ib, std in newest]
+    lines += [f"- {rel}: `{ib}` -> `{std}` (built by this repo on a different version line)"
+              for rel, ib, std in built]
     return "\n".join(lines) + "\n"
 
 

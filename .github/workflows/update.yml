@@ -87,7 +87,7 @@ jobs:
             # org images they build FROM (new kubectl/Grafana patches, new plugins).
             # builds.yml builds them on this PR and pushes them once it merges.
             if [ -n "$BUILD_REGISTRY" ]; then
-              for b in grafana-plugins base devops-tester; do
+              for b in grafana-plugins base devops-tester vault; do
                 python3 "scripts/bb-$b.py" 2>&1 || true
               done
             fi

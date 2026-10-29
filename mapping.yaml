@@ -80,7 +80,9 @@ images:
   ironbank/opensource/prometheus/blackbox_exporter: prometheus-blackbox-exporter
   ironbank/opensource/prometheus/snmp_exporter: {cg: prometheus-snmp-exporter, fips: null}
   ironbank/opensource/prometheus/memcached-exporter: memcached-exporter
-  ironbank/opensource/prometheus/jmx-exporter: {stays: "Chainguard has only jmx-exporter-iamguarded (Bitnami layout), not a drop-in"}
+  # SonarQube's JMX init container runs sh -c "curl file:///opt/jmx_exporter/jmx_prometheus_javaagent-<v>.jar";
+  # Chainguard's jmx-exporter-iamguarded has the Bitnami layout and no sh or curl.
+  ironbank/opensource/prometheus/jmx-exporter: {stays: "SonarQube's init container needs Iron Bank's /opt/jmx_exporter jar, sh and curl; Chainguard's jmx-exporter-iamguarded is the Bitnami layout"}
   ironbank/opensource/prometheus-operator/prometheus-operator: prometheus-operator
   ironbank/opensource/prometheus-operator/prometheus-config-reloader: prometheus-config-reloader
   ironbank/opensource/kubernetes/kube-state-metrics: kube-state-metrics
@@ -110,8 +112,13 @@ images:
   ironbank/anchore/enterpriseui/enterpriseui: {stays: "Anchore Enterprise is proprietary; vendor image only"}
   ironbank/anchore/cli/cli: {stays: "Anchore CLI test image (bbtests only)"}
   ironbank/microfocus/fortify/ssc: {stays: "Fortify SSC is proprietary; vendor image only"}
-  ironbank/sonarsource/sonarqube/sonarqube-community-build: {stays: "Chainguard sonarqube has only floating community/latest tags"}
-  ironbank/hashicorp/vault: {stays: "org vault is 2.x; Big Bang pins 1.21 (major change)"}
+  # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube-26.10.yaml).
+  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
+  # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
+  # scripts/bb-vault.py adds it. Chainguard carries Vault 2.x only (Big Bang pins
+  # 1.21); tested on kind as a fresh install (compat/vault-2.yaml), not as an upgrade
+  # of existing 1.21 data.
+  ironbank/hashicorp/vault: {build: vault}
   ironbank/hashicorp/vault/vault-k8s: vault-k8s
   ironbank/hashicorp/vault-csi-provider: vault-csi-provider
   ironbank/opensource/external-secrets/external-secrets: external-secrets

@@ -23,7 +23,8 @@ releases.
   - If you enable fewer packages, you need fewer images.
   - `scripts/bb-convert.py --missing` lists the ones your org lacks.
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and this repo rebuilds them FROM your Chainguard images; see
+  Big Bang's own builds, and Vault needs curl added; this repo builds those FROM your
+  Chainguard images; see
   [Images this repo builds](#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
 - **Iron Bank credentials, for the images with no Chainguard equivalent.** These are
@@ -52,7 +53,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester; do
+for b in grafana-plugins base devops-tester vault; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -186,13 +187,15 @@ conversion and you decide case by case.
 Big Bang ships three images of its own that Chainguard doesn't publish. Instead of
 depending on anyone's custom build, a script converts **Iron Bank's own recipe**
 (`hardening_manifest.yaml` and Dockerfile, pinned to a repo1 commit) into a build FROM
-your org's images:
+your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
+post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it:
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
 | `big-bang/grafana/grafana-plugins`: Grafana with plugins baked in | `bb-grafana-plugins.py` | `grafana`, `grafana-fips` | `bigbang-grafana-plugins` |
 | `big-bang/base`: bash, kubectl, yq and jq for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `bb-base.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base` |
 | `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `bb-devops-tester.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
+| `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `bb-vault.py` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
 
 Each script:
 

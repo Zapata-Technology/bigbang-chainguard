@@ -117,7 +117,7 @@ addons:
         kubectl:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-kubectl
-            tag: v1.37.1
+            tag: v1.37.2
       upstream:
         ai-gateway:
           grpc-tls-proxy:
@@ -372,8 +372,13 @@ addons:
   sonarqube:
     values:
       upstream:
+        image:
+          repository: cgr.dev/zapatatechnology.com/sonarqube
+          tag: 26.10.0.133078-community
         initContainers:
           image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        plugins:
+          image: cgr.dev/zapatatechnology.com/sonarqube:26.10.0.133078-community
   thanos:
     values:
       minio:
@@ -393,19 +398,33 @@ addons:
           tag: 0.42.5
   vault:
     values:
+      bbtests:
+        scripts:
+          image: ghcr.io/zapata-technology/bigbang-vault:v2.2.1
       minio:
         waitJob:
           scripts:
             image: cgr.dev/zapatatechnology.com/kubectl:1.37.1
       upstream:
         csi:
+          agent:
+            image:
+              repository: ghcr.io/zapata-technology/bigbang-vault
+              tag: v2.2.1
           image:
             repository: cgr.dev/zapatatechnology.com/vault-csi-provider
             tag: 1.7.4
         injector:
+          agentImage:
+            repository: ghcr.io/zapata-technology/bigbang-vault
+            tag: v2.2.1
           image:
             repository: cgr.dev/zapatatechnology.com/vault-k8s
             tag: 1.7.7
+        server:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-vault
+            tag: v2.2.1
   velero:
     values:
       bbtests:

@@ -28,7 +28,7 @@ sys.path.insert(0, HERE)
 from bbcommon import ROOT, build_registry  # noqa: E402
 from orgtags import org_name  # noqa: E402
 
-BUILDERS = ["grafana-plugins", "base", "devops-tester"]
+BUILDERS = ["grafana-plugins", "base", "devops-tester", "vault"]
 
 
 def step(title, *args, ok=(0,)):

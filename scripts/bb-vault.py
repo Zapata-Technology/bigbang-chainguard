@@ -7,7 +7,8 @@ kills Vault; this adds it:
 
   1. read the Vault tag Big Bang deploys (discovery/images.json)
   2. pin cgr.dev/<org>/vault and vault-fips -dev images by digest, on that tag's
-     MAJOR.MINOR line or, with --version, another one (e.g. "*" for the newest)
+     MAJOR.MINOR line, else the newest release (Chainguard carries only the current
+     Vault line), or the line --version names
   3. write builds/vault/build.yaml
 
   bb-vault.py [--org <org>] [--version "*"]       regenerate build.yaml
@@ -35,7 +36,14 @@ PACKAGES = ["curl"]
 
 def generate(a):
     bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
-    images = bbbuild.org_images(a.org, {"standard": "vault", "fips": "vault-fips"}, a.version or bb_tag)
+    repos = {"standard": "vault", "fips": "vault-fips"}
+    try:
+        images = bbbuild.org_images(a.org, repos, a.version or bb_tag)
+    except SystemExit as e:
+        if a.version:
+            raise
+        print(f"{e}; using the org's newest Vault instead")
+        images = bbbuild.org_images(a.org, repos, "*")
     spec = {
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}"},
         "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": img["tag"], "dev": img["dev"]}
