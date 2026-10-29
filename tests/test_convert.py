@@ -161,3 +161,9 @@ def test_flux_extras_are_deleted():
     import fluxrelease
     patches = [p["patch"] for p in fluxrelease.remove_extras()]
     assert len(patches) == 3 and all("$patch: delete" in p and "kind: Deployment" in p for p in patches)
+
+
+def test_fips_override_keeps_standard_when_the_fips_repo_has_no_tags():
+    c = convert.Converter({"images": {}}, FakeTags({"mgr": ["5.6", "5.6.2"], "mgr-fips": [], "ctl-fips": ["5.6"]}))
+    assert c.overrides("neuvector", {"repo": "@repo:mgr", "tag": "@tag:ctl:5.6"}, True) == {"repo": "mgr", "tag": "5.6"}
+    assert "keeps the standard image" in c.rows[-1][4]

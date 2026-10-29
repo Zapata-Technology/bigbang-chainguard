@@ -23,10 +23,41 @@ days.
 
 ## How the repo protects you
 
-- Every converted image comes from your own Chainguard org. The images this repo
-  builds start FROM your org's images, pinned by digest.
-- Plugin zips and upstream binaries are pinned by sha256 or digest, taken from Iron
-  Bank's own manifests, and checked on download.
-- Workflow actions are pinned to commit SHAs, and runners are hardened with
-  step-security/harden-runner.
-- Pull credentials are never committed. Sites supply them through `registryCredentials`.
+[docs/architecture.md](docs/architecture.md#7-trust-boundaries) has a diagram of the trust
+boundaries.
+
+**What a cluster runs**
+- Every converted image comes from your own Chainguard org.
+- **CI checks Chainguard's signature on every one of them** (`scripts/bb-signatures.py`:
+  cosign, keyless). Org images must be signed by Chainguard's issuer (`issuer.enforce.dev`),
+  under your org's ID (the `CHAINGUARD_ORG_ID` variable). An image Chainguard didn't sign
+  for your org fails the pull request.
+- The overlays set Big Bang's Kyverno `restrict-image-registries` allow list to exactly your
+  org, your build registry and registry1.
+- Every image that stays on Iron Bank is documented with its reason in `docs/images.md`.
+
+**What this repo builds**
+- Each build starts FROM your org's images, pinned by digest. Iron Bank's recipe is pinned
+  to a commit.
+- Plugin zips and upstream binaries are pinned by the sha256 or digest in Iron Bank's own
+  manifests, and checked on download.
+- Each image is smoke-tested (tools, versions, user, and OpenSSL `fips=yes` for `-fips`).
+- Each image is scanned with grype before it's pushed. A fixable critical CVE fails the
+  build.
+- With `SIGN_IMAGES=keyless`, pushed images get a cosign keyless signature and an SPDX SBOM
+  attestation.
+
+**The pipeline**
+- Workflow actions are pinned to commit SHAs. Dependabot proposes updates, and runners
+  are hardened with step-security/harden-runner.
+- The Chainguard pull identity CI uses can only pull, and is trusted only for this repo's
+  `main` branch and pull requests.
+- Pull credentials are never committed: sites supply them through `registryCredentials`.
+  The compat tests pass tokens through the environment, mask them, and delete the
+  temporary files they write.
+
+**Recommended repository settings** (an admin sets these)
+- Protect `main`: require the `verify` and `build` checks, and pull requests.
+- Turn on private vulnerability reporting and secret scanning push protection.
+- Once the repository is public: OpenSSF Scorecard and CodeQL, which on a private repository
+  need GitHub Advanced Security.

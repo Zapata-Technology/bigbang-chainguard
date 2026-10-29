@@ -87,9 +87,29 @@ jobs:
       - name: Build and smoke-test (standard and FIPS)
         run: |
           python3 -m pip install --quiet pyyaml
-          args=(--no-generate --build --test)
+          args=(--no-generate --build --test --built-file "${RUNNER_TEMP}/built.txt")
           [ "$PUSH" = true ] && args+=(--push --pushed-file "${RUNNER_TEMP}/pushed.txt")
           python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}"
+
+      - name: Install grype
+        if: ${{ hashFiles(format('{0}/built.txt', runner.temp)) != '' }}
+        id: grype
+        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+
+      # Chainguard bases are kept at zero known CVEs; what a build adds (packages,
+      # plugin zips, upstream binaries) must not bring a fixable critical one.
+      - name: Scan the built images (fail on fixable critical CVEs)
+        if: ${{ hashFiles(format('{0}/built.txt', runner.temp)) != '' }}
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
+        run: |
+          rc=0
+          while read -r image; do
+            [ -n "$image" ] || continue
+            echo "== $image"
+            "$GRYPE" "docker:$image" --only-fixed --fail-on critical -o table || rc=1
+          done < "${RUNNER_TEMP}/built.txt"
+          exit $rc
 
       - name: Install cosign
         if: ${{ env.PUSH == 'true' && vars.SIGN_IMAGES == 'keyless' && hashFiles(format('{0}/pushed.txt', runner.temp)) != '' }}
