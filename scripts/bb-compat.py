@@ -48,13 +48,14 @@ def kubectl(*args, capture=True, check=True):
 
 
 def test_values(chart_values, enable):
-    """Turn off every package Big Bang enables by default, then turn on the test's."""
+    """Turn off every package Big Bang enables by default (true or "auto", like metricsServer),
+    then turn on the test's."""
     vals = {"domain": "bigbang.test", "networkPolicies": {"enabled": False}}
     for k, v in chart_values.items():
-        if isinstance(v, dict) and v.get("enabled") is True and k != "networkPolicies":
+        if isinstance(v, dict) and v.get("enabled") not in (False, None) and k != "networkPolicies":
             vals[k] = {"enabled": False}
     for k, v in chart_values.get("addons", {}).items():
-        if isinstance(v, dict) and v.get("enabled") is True:
+        if isinstance(v, dict) and v.get("enabled") not in (False, None):
             vals.setdefault("addons", {})[k] = {"enabled": False}
     for dotted in enable:
         node = vals
