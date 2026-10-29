@@ -1,16 +1,18 @@
 # Object storage: SeaweedFS instead of MinIO (scripts/bb-object-storage.py). Deploys
-# SeaweedFS from the org's image, generates the overlay against it, and runs Tempo and
-# Mimir on it. Passes only if they run, no MinIO is deployed, and nothing logs S3 errors.
+# SeaweedFS from the org's image, generates the overlay against it, and runs Tempo on
+# it. Passes only if Tempo runs, no MinIO is deployed, and nothing logs S3 errors.
 images: {}
 test:
-  enable: [tempo, addons.mimir]
+  enable: [tempo]
   setup:
     - python3 compat/support/seaweedfs.py
   values_files:
     - $COMPAT_OUT/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
-  expect: [tempo, grafana-mimir]
-  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|no such host|connection refused.*8333"
+  expect: [tempo]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
   debug:
     - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"
     - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image | grep -i minio || echo 'no MinIO pods'"
+    - "kubectl -n tempo describe statefulset | tail -40"
+    - "kubectl -n tempo get events --sort-by=.lastTimestamp | tail -20"

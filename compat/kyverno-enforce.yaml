@@ -5,6 +5,11 @@ images: {}
 test:
   enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
   expect: [kyverno, headlamp, grafana]
+  values:
+    # With most packages off, Big Bang renders require-non-root-user with
+    # preconditions.all: null, which Kyverno's schema rejects. Not about images, and
+    # not this test's subject: turn that one policy off.
+    kyvernoPolicies: {values: {policies: {require-non-root-user: {enabled: false}}}}
   debug:
     - "kubectl get clusterpolicy restrict-image-registries -o jsonpath='{.spec.validationFailureAction} {.spec.rules[0].validate.message}'"
     - "kubectl get events -A --field-selector reason=PolicyViolation | tail -10"
