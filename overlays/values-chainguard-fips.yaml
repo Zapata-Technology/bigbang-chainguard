@@ -87,6 +87,11 @@ addons:
         - name: registry1.dso.mil/ironbank/opensource/kubernetes/kubectl
           newName: cgr.dev/zapatatechnology.com/kubectl-fips
           newTag: 1.35-dev
+        patches:
+        - patch: '[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value": "/bin/bash"}]'
+          target:
+            kind: Job
+            name: .*-keystore-job
     values:
       mysql:
         image:

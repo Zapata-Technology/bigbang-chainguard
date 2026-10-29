@@ -8,7 +8,9 @@ name=$1 cmd=$2 log="$COMPAT_OUT/watch-$1.log"
 nohup sh -c '
   i=0
   while [ $i -lt 480 ]; do
-    out=$(sh -c "$1" 2>/dev/null)
+    # Once a pod is gone kubectl prints "unable to retrieve container logs" on stdout;
+    # keep the last real output instead.
+    out=$(sh -c "$1" 2>/dev/null | grep -v "^unable to retrieve container logs")
     [ -n "$out" ] && printf "%s\n" "$out" > "$2"
     i=$((i+1)); sleep 5
   done' watch "$cmd" "$log" >/dev/null 2>&1 &

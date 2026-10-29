@@ -102,6 +102,8 @@ def smoke_test(image, variant, spec):
         "yq --version", "jq --version", "curl --version | head -1",
         "for t in find which grep sed; do command -v $t >/dev/null || { echo missing $t; exit 1; }; done",
         "echo tools=ok",
+        # UBI's sh is bash; Big Bang job scripts run as sh use bash features.
+        "sh -c 'a=(x y); echo sh=${a[1]}'",
         "grep -hE '^ *(default_)?properties *= *fips=yes' /etc/ssl/openssl.cnf || true",
     ])
     checks = {
@@ -109,6 +111,7 @@ def smoke_test(image, variant, spec):
         f"kubectl {kubectl_line}": rf'"v{re.escape(kubectl_line)}\.',
         f"yq {yq_line}": rf"version v?{re.escape(yq_line)}\.",
         "tools": r"^tools=ok$",
+        "sh is bash": r"^sh=y$",
     }
     if variant == "fips":
         checks["openssl fips=yes"] = r"properties *= *fips=yes"

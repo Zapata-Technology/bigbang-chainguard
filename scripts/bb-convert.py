@@ -413,6 +413,16 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     "patch": json.dumps([{"op": "replace", "path": "/spec/template/spec/containers/0/command",
                                           "value": ["/bin/bash", "-c", BASH_WAIT]}])})
                 set_path(tree, key + ["postRenderers"], pr)
+        # Containers whose command is /bin/sh -c <bash script>: run it with /bin/bash.
+        for ref in mapping.get("bash_commands", {}).get(info["key"], []):
+            kind, name, container = ref["kind"], ref["name"], ref["container"]
+            for tree in (std, fips):
+                pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                pr[0]["kustomize"].setdefault("patches", []).append({
+                    "target": {"kind": kind, "name": name},
+                    "patch": json.dumps([{"op": "replace", "path": f"/spec/template/spec/{container}/command/0",
+                                          "value": "/bin/bash"}])})
+                set_path(tree, key + ["postRenderers"], pr)
         if release in mapping.get("overrides", {}):
             spec = mapping["overrides"][release]
             _merge_into(s, c.overrides(release, spec, False))

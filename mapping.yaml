@@ -293,6 +293,16 @@ version_labels:
 bash_wait_jobs:
   kyvernoPolicies: [kyverno-kyverno-policies-wait-job]
 
+# Containers (Big Bang key: [{kind, name regex, container: containers/<i> or
+# initContainers/<i>}]) whose command is
+# /bin/sh -c with a bash script, on an image whose sh is busybox once converted: the
+# post-renderer makes the command /bin/bash. Found by scanning every package chart for
+# bash-only syntax run by sh. (Images this repo builds, like bigbang-base, link sh to
+# bash as UBI does, so jobs on them need no entry.)
+bash_commands:
+  addons.fortify:
+    - {kind: Job, name: .*-keystore-job, container: containers/0}   # secret-creator: kubectl, REQUIRED_KEYS=( ... )
+
 post_renderers:
   addons.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml

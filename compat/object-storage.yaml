@@ -7,7 +7,8 @@ test:
   enable: [tempo]
   setup:
     - python3 compat/support/seaweedfs.py tempo
-    - sh compat/support/watch.sh tempo "kubectl -n tempo logs tempo-tempo-0 --previous --tail=40"
+    - sh compat/support/watch.sh tempo "kubectl -n tempo logs tempo-tempo-0 --previous --tail=40 || kubectl -n tempo logs tempo-tempo-0 --tail=40"
+    - sh compat/support/watch.sh tempo-config "kubectl -n tempo get configmap tempo -o yaml | grep -B2 -A30 'receivers:'"
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
@@ -18,5 +19,5 @@ test:
     - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image | grep -i minio || echo 'no MinIO pods'"
     - "kubectl -n tempo describe statefulset | tail -40"
     - "cat $COMPAT_OUT/watch-tempo.log"
-    - "kubectl -n tempo get configmap tempo -o yaml | grep -A12 ' storage:'"
+    - "cat $COMPAT_OUT/watch-tempo-config.log"
     - "kubectl -n tempo get events --sort-by=.lastTimestamp | tail -20"
