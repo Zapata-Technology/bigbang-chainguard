@@ -155,3 +155,9 @@ def test_version_from_matches_another_images_release():
     tags = {"shell": ["19.4.3", "19.5.1"], "shell-fips": ["19.4.3"]}
     c = convert.Converter(m, FakeTags(tags), ib_tags={"gitlab/shell": "v14.57.3-ubi", "gitlab/base": "v19.4.2-ubi"})
     assert c.target("gitlab/shell", "v14.57.3-ubi", "gitlab")[0].endswith("shell:19.4.3")
+
+
+def test_flux_extras_are_deleted():
+    import fluxrelease
+    patches = [p["patch"] for p in fluxrelease.remove_extras()]
+    assert len(patches) == 3 and all("$patch: delete" in p and "kind: Deployment" in p for p in patches)

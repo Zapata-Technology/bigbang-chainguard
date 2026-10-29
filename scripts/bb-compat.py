@@ -180,6 +180,10 @@ def main():
         sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
         flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
         sh("kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir, capture=True)
+        # Big Bang asks for up to 1.8 CPUs per Flux controller; a CI runner's one kind
+        # node can't schedule all four. Test clusters only: requests down, limits kept.
+        kubectl("-n", "flux-system", "set", "resources", "deploy", "--all", "--requests=cpu=50m,memory=64Mi",
+                check=False)
         kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s", check=False)
         if not flux_ready():
             report(["flux-system"])

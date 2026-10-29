@@ -84,7 +84,7 @@ which org). Regenerate them for yours with `bb-run.py` before deploying.
 BB=$(cat BIGBANG_VERSION)
 
 # Flux (standard or FIPS)
-kubectl apply -k flux/            # or: kubectl apply -k flux-fips/
+kubectl apply --server-side -k flux/            # or: kubectl apply --server-side -k flux-fips/
 
 # Big Bang, FIPS off
 helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" -n bigbang --create-namespace \

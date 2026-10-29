@@ -35,6 +35,7 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bbcommon import build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
 from orgtags import REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
+import fluxrelease  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -301,16 +302,15 @@ class Converter:
         return tag if kind == "tag" else f"{self.cg}/{name}:{tag}"
 
     def flux(self, info):
-        std, fips = [], []
+        """{"standard"|"fips": (Iron Bank repo, Iron Bank tag, chosen ref)} for Flux's controllers."""
+        out = {"standard": [], "fips": []}
         for ref in info["rendered"]:
             ib_repo, ib_tag = split_ref(ref)
             t = self.target(ib_repo, ib_tag, "flux")
-            if not t:
-                continue
-            for out, r in ((std, t[0]), (fips, t[1])):
-                repo, tag = r.rsplit(":", 1)
-                out.append({"name": f"registry1.dso.mil/{ib_repo}", "newName": repo, "newTag": tag})
-        return std, fips
+            if t:
+                out["standard"].append((ib_repo, ib_tag, t[0]))
+                out["fips"].append((ib_repo, ib_tag, t[1]))
+        return out
 
 
 def dump(data, header):
@@ -321,10 +321,10 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
     ib_tags = {repo: tag for info in discovered["packages"].values() for repo, tag in ironbank_refs(info) if tag}
     c = Converter(mapping, tags, registry, strict, ib_tags)
     std, fips = {}, {}
-    flux_std = flux_fips = []
+    flux = {"standard": [], "fips": []}
     for release, info in sorted(discovered["packages"].items()):
         if release == "flux":
-            flux_std, flux_fips = c.flux(info)
+            flux = c.flux(info)
             continue
         key = info["key"].split(".")
         # Where the package's chart values live under the Big Bang key; istioGateway
@@ -367,15 +367,46 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
         "overlays/values-chainguard-fips.yaml": dump(fips, hdr + "FIPS: layer after values-chainguard.yaml.\n"
                                                  "# ... -f overlays/values-chainguard.yaml -f overlays/values-chainguard-fips.yaml -f <site>.yaml\n"),
     }
-    for d, imgs in (("flux", flux_std), ("flux-fips", flux_fips)):
-        files[f"{d}/kustomization.yaml"] = dump(
-            {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
-             "resources": [f"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref={bigbang_version}"],
-             "images": imgs},
-            hdr + ("FIPS " if d.endswith("fips") else "") + "Flux on Chainguard images.\n"
-            f"# kubectl apply -k {d}/   (needs the private-registry pull secret in flux-system)\n")
+    for d, variant in (("flux", "standard"), ("flux-fips", "fips")):
+        files[f"{d}/kustomization.yaml"] = flux_kustomization(flux[variant], bigbang_version, c, hdr, d)
     files["docs/images.md"] = report(c.rows, bigbang_version, c.cg)
     return files, c
+
+
+def flux_kustomization(controllers, bigbang_version, c, hdr, d):
+    """Big Bang's base/flux with Chainguard images. When the org's controllers are a newer
+    minor than Big Bang's, Big Bang's base has CRDs too old for them: install the upstream
+    Flux release they come from instead, with Big Bang's patches."""
+    def name(ib_repo):
+        return ib_repo.rsplit("/", 1)[1]
+    ahead = [n for ib_repo, ib_tag, ref in controllers
+             if (n := name(ib_repo)) and fluxrelease._line(ref.rsplit(":", 1)[1]) != fluxrelease._line(ib_tag)]
+    note = ""
+    if not ahead:
+        resources = [f"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref={bigbang_version}"]
+        images = [{"name": f"registry1.dso.mil/{ib_repo}", "newName": ref.rsplit(":", 1)[0],
+                   "newTag": ref.rsplit(":", 1)[1]} for ib_repo, _, ref in controllers]
+        patches = None
+    else:
+        versions = {name(ib_repo): ref.rsplit(":", 1)[1] for ib_repo, _, ref in controllers}
+        found = fluxrelease.release_for(versions)
+        if not found:
+            c.rows.append(("flux", "flux controllers", "UNRESOLVED", "UNRESOLVED",
+                           f"no Flux release has controllers on the lines of {versions}"))
+            return "# UNRESOLVED: no Flux release matches the org's controllers; see bb-convert output\n"
+        tag, _ = found
+        resources = [fluxrelease.INSTALL.format(tag=tag)]
+        images = [{"name": f"ghcr.io/fluxcd/{name(ib_repo)}", "newName": ref.rsplit(":", 1)[0],
+                   "newTag": ref.rsplit(":", 1)[1]} for ib_repo, _, ref in controllers]
+        patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work"))
+        note = (f"# The org's Flux controllers ({', '.join(sorted(ahead))}) are newer than Big Bang {bigbang_version}'s,\n"
+                f"# whose CRDs are too old for them: this installs Flux {tag} (their release) with Big Bang's patches.\n")
+    k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
+         "resources": resources, "images": images}
+    if patches:
+        k["patches"] = patches
+    return dump(k, hdr + ("FIPS " if d.endswith("fips") else "") + "Flux on Chainguard images.\n" + note
+                + f"# kubectl apply --server-side -k {d}/   (needs the private-registry pull secret in flux-system)\n")
 
 
 def allowed_registries(mapping, cg, registry=""):
