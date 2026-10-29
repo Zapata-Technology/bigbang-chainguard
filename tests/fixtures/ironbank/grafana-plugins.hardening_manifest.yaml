@@ -1,0 +1,41 @@
+apiVersion: v1
+
+name: "big-bang/grafana/grafana-plugins"
+
+tags:
+  - "13.2.3"
+  - "latest"
+
+args:
+  BASE_IMAGE: "opensource/grafana/grafana"
+  BASE_TAG: "13.2.3"
+
+labels:
+  org.opencontainers.image.title: "grafana-plugins"
+  org.opencontainers.image.description: "Grafana allows you to query, visualize, alert on and understand your metrics no matter where they are stored. The Plugins Platform makes it easy for all Grafana users to build high-quality plugins."
+  org.opencontainers.image.licenses: "GNU Affero General Public License v3.0"
+  org.opencontainers.image.url: "https://github.com/grafana/grafana"
+  org.opencontainers.image.vendor: "grafana"
+  org.opencontainers.image.version: "13.2.3"
+  mil.dso.ironbank.image.keywords: "grafana, grafana-plugins"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "grafana"
+
+resources:
+- url: https://github.com/grafana/grafana-polystat-panel/releases/download/v2.1.16/grafana-polystat-panel-2.1.16.zip
+  filename: grafana-polystat-panel.zip
+  validation:
+    type: sha256
+    value: 3e1791f83b4db03134dac24521a52407c1990a1b56356dc440580ee4664f214c
+
+- url: https://github.com/RedisGrafana/grafana-redis-datasource/releases/download/v2.2.1/redis-datasource-2.2.1.zip
+  filename: redis-datasource.zip
+  validation:
+    type: sha256
+    value: d27eabad1d5ec954ec58d95d27c14a2f727e997a4f8f19793dccaa0c86aec43e
+
+maintainers:
+- email: "AFLCMC.HNCX.Helpdesk@us.af.mil"
+  name: "Iron Bank Forge"
+  username: "ibforge"
+  cht_member: true

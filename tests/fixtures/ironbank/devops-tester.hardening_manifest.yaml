@@ -1,0 +1,54 @@
+---
+apiVersion: v1
+name: "big-bang/devops-tester"
+tags:
+- "1.4"
+- "latest"
+
+args:
+  BASE_IMAGE: "ironbank-pipelines/pipeline-runner-alpine"
+  BASE_TAG: "26"
+
+labels:
+  org.opencontainers.image.title: "Big Bang devops-tester for running a variety of script tests against Big Bang packages"
+  org.opencontainers.image.description: "Big Bang script runner to test a variety of Big Bang packages"
+  org.opencontainers.image.licenses: "Red Hat Universal Base Image EULA"
+  org.opencontainers.image.url: "https://repo1.dso.mil/dsop/big-bang/devops-tester"
+  org.opencontainers.image.vendor: "Big Bang"
+  org.opencontainers.image.version: "1.4"
+  mil.dso.ironbank.image.keywords: "Big Bang, scripts, testing"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "devops-tester"
+
+resources:
+- tag: registry.k8s.io/kubectl:v1.37.1
+  url: docker://registry.k8s.io/kubectl@sha256:99bca6e95b7cc6b860497a3a010db9462a3ca12e938d30490e6a3305e64d2abd
+- filename: "mc"
+  url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
+  validation:
+    type: sha256
+    value: "01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891"
+- tag: ghcr.io/kyverno/chainsaw:v0.2.15
+  url: docker://ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
+
+maintainers:
+- email: "aflcmc.hncx.p1cst@us.af.mil"
+  name: "Jeffrey Victor"
+  username: "jeffv"
+  cht_member: false
+- email: "aflcmc.hncx.p1cst@us.af.mil"
+  name: "Rob McCarthy"
+  username: "rob.mccarthy1"
+  cht_member: false
+- email: "aflcmc.hncx.p1cst@us.af.mil"
+  name: "Wes Vandergriff"
+  username: "jwvandergriff"
+  cht_member: false
+- email: "aflcmc.hncx.p1cst@us.af.mil"
+  name: "Steven Davis"
+  username: "steven.m.davis"
+  cht_member: false
+- email: "aflcmc.hncx.p1cst@us.af.mil"
+  name: "Andrew Kesterson"
+  username: "akesterson"
+  cht_member: false
