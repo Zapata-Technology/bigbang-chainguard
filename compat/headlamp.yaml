@@ -1,5 +1,12 @@
 # Newer-minor check: Headlamp 0.45 -> 0.46.
-images: {}
+# Trial: Chainguard kubectl -dev for Big Bang's wait job, which runs /bin/bash (the
+# first run failed with "exec: /bin/bash: no such file" on the plain kubectl image).
+images:
+  ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev}
 test:
   enable: [addons.headlamp]
-  expect: [headlamp]
+  expect: [headlamp, kubectl]
+  debug:
+    - "kubectl -n headlamp get pod -o custom-columns=POD:.metadata.name,PULLSECRETS:.spec.imagePullSecrets[*].name,IMAGES:.spec.containers[*].image,COMMAND:.spec.containers[0].command"
+    - "kubectl -n headlamp get secret private-registry -o custom-columns=CREATED:.metadata.creationTimestamp"
+    - "kubectl -n headlamp get events --sort-by=.lastTimestamp | grep -iE 'pull|secret' | tail -8"

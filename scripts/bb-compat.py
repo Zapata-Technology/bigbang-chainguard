@@ -95,10 +95,12 @@ def wait_ready(namespaces, timeout):
         for hr in hrs:
             cond = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}
             ready = cond.get("Ready", {})
-            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", "")[:160])
+            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", ""))
         line = ", ".join(f"{n}={s[0]}" for n, s in sorted(status.items()))
+        detail = "; ".join(f"{n}: {s[2][:200]}" for n, s in sorted(status.items()) if s[0] == "False")
         if line != last:
-            print(f"{time.strftime('%H:%M:%S')} helmreleases: {line or '(none yet)'}", flush=True)
+            print(f"{time.strftime('%H:%M:%S')} helmreleases: {line or '(none yet)'}"
+                  + (f"  [{detail}]" if detail else ""), flush=True)
             last = line
         failed = [n for n, s in status.items() if s[0] == "False" and s[1] in ("InstallFailed", "UpgradeFailed")]
         if failed:
@@ -254,6 +256,11 @@ def main():
         print("\n== recent events")
         for ns in namespaces + ["bigbang"]:
             print(kubectl("get", "events", "-n", ns, "--sort-by=.lastTimestamp", check=False) or "")
+    # `debug`: shell commands whose output helps explain a result (e.g. the sidecar
+    # injector's config); run whatever the outcome.
+    for cmd in test.get("debug", []):
+        print(f"\n== debug: {cmd}")
+        print(subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout[-4000:])
     # `expect`: images (name:tag fragments) the test is about. A pass only covers the
     # ones that actually ran; the rest need the feature that uses them switched on.
     running = images_running(namespaces)

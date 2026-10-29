@@ -3,3 +3,5 @@ images: {}
 test:
   enable: [alloy]
   expect: [grafana-alloy, prometheus-config-reloader]
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"

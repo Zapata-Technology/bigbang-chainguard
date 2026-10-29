@@ -4,3 +4,5 @@ images: {}
 test:
   enable: [prometheusOperatorCRDs, monitoring]
   expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"
