@@ -181,6 +181,9 @@ helm upgrade -i bigbang ... -f overlays/values-chainguard.yaml [-f overlays/valu
 
 `scripts/bb-object-storage.py --credentials-template site-object-storage.yaml` writes a
 skeleton of every credential value the site file needs.
+Keep only the entries for packages you enable: Big Bang creates Mimir's credential Secret
+whenever its keys are set, even with Mimir off, and the install fails on the missing
+`mimir` namespace.
 
 What uses S3:
 

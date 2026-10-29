@@ -7,7 +7,9 @@ test, including seaweedfs/ and seaweedfs-fips/), COMPAT_DOCKERCFG and COMPAT_FIP
      Secret (S3 identities) with throwaway test keys
   2. kubectl apply -k $COMPAT_OUT/seaweedfs (or seaweedfs-fips) and wait for the server
      and the bucket Job
-  3. write $COMPAT_OUT/site-object-storage.yaml: the site credentials, same test keys
+  3. write $COMPAT_OUT/site-object-storage.yaml: the site credentials, same test keys, for
+     the packages named on the command line only (Big Bang creates Mimir's credential
+     Secret whenever its keys are set, even with Mimir off, and the namespace is missing)
 """
 import os
 import subprocess
@@ -55,7 +57,9 @@ def main():
         raise SystemExit("the bucket Job did not complete")
 
     spec = objstore.load_spec()
+    enabled = sys.argv[1:]
     _, cred_paths, _, _ = objstore.build(spec, objstore.tokens(objstore.endpoint(), "us-east-1", "bigbang"), set())
+    cred_paths = [p for p in cred_paths if p.split(".")[p.startswith("addons.")] in enabled]
     with open(os.path.join(out, "site-object-storage.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(objstore.credentials_template(cred_paths, ACCESS, SECRET), f)
     print(f"SeaweedFS ready at {objstore.endpoint()}")

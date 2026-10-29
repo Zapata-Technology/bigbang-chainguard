@@ -6,7 +6,7 @@ images: {}
 test:
   enable: [tempo]
   setup:
-    - python3 compat/support/seaweedfs.py
+    - python3 compat/support/seaweedfs.py tempo
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
