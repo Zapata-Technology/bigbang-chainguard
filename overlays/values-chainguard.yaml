@@ -404,7 +404,7 @@ addons:
       minio:
         waitJob:
           scripts:
-            image: cgr.dev/zapatatechnology.com/kubectl:1.37.1
+            image: cgr.dev/zapatatechnology.com/kubectl:1.37.2
       upstream:
         csi:
           agent:

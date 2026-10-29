@@ -290,8 +290,14 @@ class Converter:
         if spec == "@registry":
             return self.cg
         kind, _, rest = spec[1:].partition(":")
-        name, _, version = rest.partition(":")
-        name = f"{name}-fips" if fips else name
+        base, _, version = rest.partition(":")
+        name = f"{base}-fips" if fips else base
+        if fips and kind in ("repo", "ref") and not any(parse(t) for t in self.tags.tags(name) or []):
+            # The org has no usable -fips image (e.g. neuvector-manager-fips exists without
+            # tags): the FIPS overlay keeps the standard image rather than name a missing one.
+            self.rows.append((release, f"override {spec}", base, base,
+                              f"no {name} tags in the org; FIPS overlay keeps the standard image"))
+            name = base
         if kind == "repo":
             return name
         tags = self.tags.tags(name)

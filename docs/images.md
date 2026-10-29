@@ -193,6 +193,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | neuvector | ironbank/big-bang/cypress:15.21.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.0 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.0); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.0) |
 | neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.11 | Iron Bank | Iron Bank | no Chainguard neuvector-registry-adapter image |
+| neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37 | kubectl-fips:1.37 |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37 | kubectl-fips:1.37 |  |
 | renovate | ironbank/big-bang/devops-tester:1.3 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py; VERSION DIFFERS from Big Bang's 1.3 |
@@ -219,7 +220,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | vault | ironbank/hashicorp/vault-csi-provider:v1.7.4 | vault-csi-provider:1.7.4 | vault-csi-provider-fips:1.7.4 |  |
 | vault | ironbank/hashicorp/vault/vault-k8s:v1.7.6 | vault-k8s:1.7.7 | vault-k8s-fips:1.7.7 | vault-k8s: Iron Bank v1.7.6 -> newest 1.7 patch; vault-k8s-fips: Iron Bank v1.7.6 -> newest 1.7 patch |
 | vault | ironbank/hashicorp/vault:1.21.4 | ghcr.io/zapata-technology/bigbang-vault:v2.2.1 | ghcr.io/zapata-technology/bigbang-vault-fips:v2.2.1 | built FROM the org's images by scripts/bb-vault.py; VERSION DIFFERS from Big Bang's 1.21.4 |
-| vault | ironbank/opensource/kubernetes/kubectl:v1.30.11 | kubectl:1.37.1 | kubectl-fips:1.30.14 | kubectl: MINOR AHEAD: org has no 1.30.x; using 1.37.1 (Iron Bank v1.30.11); kubectl-fips: Iron Bank v1.30.11 -> newest 1.30 patch |
+| vault | ironbank/opensource/kubernetes/kubectl:v1.30.11 | kubectl:1.37.2 | kubectl-fips:1.30.14 | kubectl: MINOR AHEAD: org has no 1.30.x; using 1.37.2 (Iron Bank v1.30.11); kubectl-fips: Iron Bank v1.30.11 -> newest 1.30 patch |
 | vault | ironbank/opensource/minio/mc:RELEASE.2025-04-16T18-13-26Z | Iron Bank | Iron Bank | MinIO not used by Zapata; org minio repos removed 2026-10-27 |
 | vault | ironbank/opensource/minio/minio:RELEASE.2025-05-24T17-08-30Z | Iron Bank | Iron Bank | MinIO not used by Zapata; org minio repos removed 2026-10-27 |
 | velero | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
@@ -294,7 +295,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.0` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
 - renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.190.2` (newer minor)
 - sonarqube: `ironbank/sonarsource/sonarqube/sonarqube-community-build:26.9.0.129388-community` -> `sonarqube:26.10.0.133078-community` (newer minor)
-- vault: `ironbank/opensource/kubernetes/kubectl:v1.30.11` -> `kubectl:1.37.1` (newer minor)
+- vault: `ironbank/opensource/kubernetes/kubectl:v1.30.11` -> `kubectl:1.37.2` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.4.2-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
 - gitlab: `gitlab/gitlab-org/build/cng/kubectl:v19.4.2-ubi` -> `gitlab-kubectl:v1.37.2` (newest release; Iron Bank's tag has no version line)
 - argocd: `ironbank/big-bang/devops-tester:1.2` -> `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1` (built by this repo on a different version line)
