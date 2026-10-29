@@ -89,14 +89,22 @@ BB=$(cat BIGBANG_VERSION)
 # Flux (standard or FIPS)
 kubectl apply --server-side -k flux/            # or: kubectl apply --server-side -k flux-fips/
 
+# Object storage (OBJECT_STORAGE=seaweedfs, the default): SeaweedFS first. The two
+# Secrets it needs are in "Object storage" below.
+kubectl apply -k seaweedfs/                     # or: kubectl apply -k seaweedfs-fips/
+
 # Big Bang, FIPS off
 helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" -n bigbang --create-namespace \
-  -f overlays/values-chainguard.yaml -f my-site.yaml
+  -f overlays/values-chainguard.yaml -f overlays/values-object-storage.yaml -f my-site.yaml
 
 # Big Bang, FIPS on
 helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" -n bigbang --create-namespace \
-  -f overlays/values-chainguard.yaml -f overlays/values-chainguard-fips.yaml -f my-site.yaml
+  -f overlays/values-chainguard.yaml -f overlays/values-chainguard-fips.yaml \
+  -f overlays/values-object-storage.yaml -f my-site.yaml
 ```
+
+With `OBJECT_STORAGE=minio`, skip `seaweedfs/` and `values-object-storage.yaml`: Big Bang
+deploys MinIO itself.
 
 The site file supplies pull credentials. Big Bang turns them into the `private-registry`
 secret in every package namespace. Never commit them:
@@ -128,46 +136,73 @@ The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Ky
   keystores. Set those in the site's `addons.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
 
-## Object storage: SeaweedFS instead of MinIO
+## Object storage: SeaweedFS (default) or MinIO
 
-Big Bang deploys MinIO in several places:
+Several packages need S3 storage:
 
-- its `minio` and `minio-operator` packages
-- inside Thanos (scalable), Mattermost and GitLab when no external storage is set
+- Big Bang's `minio` and `minio-operator` packages
+- Thanos (scalable), Mattermost and GitLab, which bundle MinIO when no external storage is set
+- Tempo, Mimir and Velero, which use S3 when given an endpoint
 
-To use [SeaweedFS](https://github.com/seaweedfs/seaweedfs), or any S3-compatible service
-you run yourself, generate an overlay that turns all of that off and points every package
-that can use S3 at your endpoint:
+The **`OBJECT_STORAGE`** setting picks the provider. Like the other settings, it comes from
+`--object-storage`, then the environment or repository variable, then the
+`OBJECT_STORAGE` file.
+
+| `OBJECT_STORAGE` | What you get |
+|---|---|
+| **`seaweedfs`** (default) | `bb-convert.py` writes `overlays/values-object-storage.yaml`, which turns every MinIO off and points each package that can use S3 at SeaweedFS. It also writes `seaweedfs/` and `seaweedfs-fips/`, which run SeaweedFS from your org's image. |
+| `minio` | Big Bang deploys MinIO itself, on Chainguard's `minio` images. No extra files. |
+
+Set **`OBJECT_STORAGE_ENDPOINT`** (same rules) to use an S3 service of your own instead of the
+in-cluster SeaweedFS. The default is `http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333`.
+
+### Deploying SeaweedFS (the default)
 
 ```bash
-python scripts/bb-object-storage.py   --endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333   --credentials-template site-object-storage.yaml   --verify                                  # render Big Bang and fail if MinIO is still deployed
+kubectl create namespace seaweedfs
+# 1. Pull credentials for cgr.dev, as for flux-system:
+kubectl -n seaweedfs create secret docker-registry private-registry --docker-server=cgr.dev   --docker-username=<pull token id> --docker-password=<pull token secret>
+# 2. S3 identities: SeaweedFS requires these keys, and the site file uses the same ones.
+cat > s3.json <<'EOF'
+{"identities": [{"name": "bigbang", "credentials": [{"accessKey": "<access key>", "secretKey": "<secret key>"}],
+                 "actions": ["Admin", "Read", "List", "Tagging", "Write"]}]}
+EOF
+kubectl -n seaweedfs create secret generic seaweedfs-s3 --from-file=s3.json && rm s3.json
+# 3. SeaweedFS (a PersistentVolumeClaim of 50Gi), plus a Job that creates every bucket:
+kubectl apply -k seaweedfs/            # or: kubectl apply -k seaweedfs-fips/
+kubectl -n seaweedfs wait job/seaweedfs-buckets --for=condition=complete --timeout=10m
 ```
+
+Then add the overlay to the Big Bang install, and put the same keys in the site file:
 
 ```bash
 helm upgrade -i bigbang ... -f overlays/values-chainguard.yaml [-f overlays/values-chainguard-fips.yaml]   -f overlays/values-object-storage.yaml -f my-site.yaml
 ```
 
-| Package | What it stores in S3 |
+`scripts/bb-object-storage.py --credentials-template site-object-storage.yaml` writes a
+skeleton of every credential value the site file needs.
+
+What uses S3:
+
+| Package | Stores |
 |---|---|
 | Tempo | traces |
 | Thanos | metric blocks; no bundled MinIO |
 | Mimir | blocks, ruler, alertmanager |
 | Mattermost | files; no bundled MinIO |
-| GitLab | registry, LFS, artifacts, uploads, packages, backups (`<prefix>-gitlab-*`) |
+| GitLab | registry, LFS, artifacts, uploads, packages, backups (`bigbang-gitlab-*`) |
 | Velero | backups, through the AWS plugin |
-| Loki | **only with `--with loki`**: Big Bang's default Loki keeps logs on local disk and needs no MinIO; S3 requires Loki's `scalable` strategy |
+| Loki | only with `bb-object-storage.py --with loki`. Big Bang's default Loki keeps logs on local disk; S3 needs Loki's `scalable` strategy |
 
-- **Requests are path-style.** Every package is configured for it, which SeaweedFS
-  requires.
-- **Credentials stay out of the overlay.** `--credentials-template` writes a skeleton of
-  every access key and secret value; fill it in and keep it with your uncommitted site file.
-- **Create the buckets first.** The script lists them. SeaweedFS doesn't create buckets on
-  first use: `echo 's3.bucket.create -name bigbang-tempo' | weed shell`.
-- **SeaweedFS itself isn't part of Big Bang.** Deploy it separately, for example with a
-  SeaweedFS Helm chart on Chainguard's `seaweedfs` images.
-- **Maintenance:** `object-storage.yaml` records where each package takes its storage
-  settings. It was checked against Big Bang 3.35.1, so recheck it when `BIGBANG_VERSION`
-  changes. `--verify` catches a package that starts deploying MinIO again.
+- **Requests are path-style.** Every package is configured for it, which SeaweedFS requires.
+- **The generated `seaweedfs/` is a single server** (master, volume, filer and S3 in one pod)
+  on one volume. For high availability, run SeaweedFS's own Helm chart and set
+  `OBJECT_STORAGE_ENDPOINT` to it.
+- **Verification follows the setting.** `bb-verify.py` renders with the overlay and fails if
+  any MinIO is still deployed. The compat test `object-storage` deploys the generated
+  `seaweedfs/` and runs Tempo on it.
+- **Package settings:** `object-storage.yaml` records where each package takes its S3
+  settings. Recheck it when `BIGBANG_VERSION` changes.
 
 ## Version compatibility
 

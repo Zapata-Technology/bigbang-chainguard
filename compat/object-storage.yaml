@@ -1,13 +1,14 @@
-# Object storage: SeaweedFS instead of MinIO (scripts/bb-object-storage.py). Deploys
-# SeaweedFS from the org's image, generates the overlay against it, and runs Tempo on
-# it. Passes only if Tempo runs, no MinIO is deployed, and nothing logs S3 errors.
+# Object storage, OBJECT_STORAGE=seaweedfs (the default): deploys the generated
+# seaweedfs/ (or seaweedfs-fips/) kustomization as a site would, then Big Bang with
+# overlays/values-object-storage.yaml, and runs Tempo on it. Passes only if Tempo runs,
+# no MinIO is deployed, and nothing logs S3 errors.
 images: {}
 test:
   enable: [tempo]
   setup:
     - python3 compat/support/seaweedfs.py
   values_files:
-    - $COMPAT_OUT/values-object-storage.yaml
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
   expect: [tempo]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"

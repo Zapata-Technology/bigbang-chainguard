@@ -49,7 +49,7 @@ def test_credentials_template_has_only_placeholders():
     tree = storage.credentials_template(["a.objectStorage.accessKey", "a.objectStorage.accessSecret",
                                          "v.secretContents.cloud"])
     assert tree["a"]["objectStorage"] == {"accessKey": "<access key>", "accessSecret": "<secret key>"}
-    assert tree["v"]["secretContents"]["cloud"].startswith("<")
+    assert tree["v"]["secretContents"]["cloud"].startswith("[default]") and "<access key>" in tree["v"]["secretContents"]["cloud"]
 
 
 def test_every_package_lists_credentials_and_buckets():
@@ -57,3 +57,37 @@ def test_every_package_lists_credentials_and_buckets():
         assert pkg["values"], name
         assert pkg.get("credentials"), name
         assert pkg.get("buckets"), name
+
+
+def test_object_storage_setting(monkeypatch):
+    import objstore
+    monkeypatch.delenv("OBJECT_STORAGE", raising=False)
+    monkeypatch.setattr(objstore, "setting", lambda name, arg=None: arg or "")
+    assert objstore.kind() == "seaweedfs"
+    assert objstore.kind("MinIO") == "minio"
+    with pytest.raises(SystemExit):
+        objstore.kind("ceph")
+    assert objstore.endpoint() == objstore.DEFAULT_ENDPOINT
+
+
+def test_seaweedfs_manifests_require_s3_auth_and_create_buckets():
+    import objstore
+    files = objstore.seaweedfs_files("cgr.dev/o/seaweedfs:v4.51", "cgr.dev/o/seaweedfs:v4.51-dev",
+                                     ["bigbang-tempo", "bigbang-velero"], "# h\n")
+    docs = list(yaml.safe_load_all(files["seaweedfs.yaml"]))
+    server = next(d for d in docs if d["kind"] == "Deployment")["spec"]["template"]["spec"]
+    assert "-s3.config=/etc/seaweedfs/s3.json" in server["containers"][0]["args"]
+    assert server["securityContext"]["runAsNonRoot"] is True
+    job = next(d for d in docs if d["kind"] == "Job")["spec"]["template"]["spec"]["containers"][0]
+    assert job["image"].endswith("-dev") and "s3.bucket.create -name bigbang-velero" in job["command"][2]
+    assert yaml.safe_load(files["kustomization.yaml"])["namespace"] == "seaweedfs"
+
+
+def test_minio_removes_the_seaweedfs_files():
+    from conftest import FakeTags
+    convert = load_script("bb-convert")
+    c = convert.Converter({"images": {}}, FakeTags({}))
+    files = {"docs/images.md": "", "docs/required-images.md": ""}
+    out = convert.object_storage_files("minio", "http://x:1", c, FakeTags({}), "3.35.1", files)
+    assert out and all(v is None for v in out.values())
+    assert "OBJECT_STORAGE=minio" in files["docs/images.md"]

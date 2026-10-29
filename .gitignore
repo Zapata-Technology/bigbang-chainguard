@@ -2,5 +2,4 @@
 __pycache__/
 .tags.json
 .pytest_cache/
-overlays/values-object-storage.yaml
 site-object-storage.yaml

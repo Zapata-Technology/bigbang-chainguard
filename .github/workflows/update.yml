@@ -125,6 +125,8 @@ jobs:
             docs/images.md
             docs/required-images.md
             builds/*/build.yaml
+            seaweedfs/*.yaml
+            seaweedfs-fips/*.yaml
           body: |
             Automated by `.github/workflows/update.yml`.
 

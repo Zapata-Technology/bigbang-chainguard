@@ -965,7 +965,7 @@ renovate:
       image:
         registry: cgr.dev/zapatatechnology.com
         repository: renovate
-        tag: 44.190.2
+        tag: 44.192.2
 tempo:
   values:
     bbtests:

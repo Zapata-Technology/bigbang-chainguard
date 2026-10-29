@@ -13,6 +13,7 @@
 #     strict: true         never a newer MINOR than Iron Bank's (no "MINOR AHEAD") for this image
 #     group: <name>        images that move together: all convert, or all stay on Iron Bank
 #     version_from: <ironbank path>  match the Iron Bank tag of another image (e.g. its release)
+#     same_patch: <name>   group members with the same name use one patch: the newest all have
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release)
@@ -190,21 +191,23 @@ images:
   # Chainguard tags every image with the GitLab release, so the images Iron Bank
   # tags with their own version (registry, shell, exporter) match on gitlab-base's
   # tag. mail_room and kubectl carry their own versions on Chainguard: newest.
+  # same_patch: rails pins the Rails images (one codebase, one database schema) and
+  # gitlab-base to the newest patch all of them have, standard and FIPS.
   gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
   gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
   gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
-  gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, cg: gitlab-base}
+  gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, same_patch: rails, cg: gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-container-registry: {<<: *gitlab, cg: gitlab-container-registry, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-exporter: {<<: *gitlab, cg: gitlab-exporter, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
-  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, cg: commercial-gitlab-geo-logcursor-ee}
+  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-geo-logcursor-ee}
   gitlab/gitlab-org/build/cng/gitlab-kas: {<<: *gitlab, cg: gitlab-kas}
   gitlab/gitlab-org/build/cng/gitlab-mailroom: {<<: *gitlab, cg: gitlab-mailroom, version: "*"}
   gitlab/gitlab-org/build/cng/gitlab-pages: {<<: *gitlab, cg: gitlab-pages}
   gitlab/gitlab-org/build/cng/gitlab-shell: {<<: *gitlab, cg: gitlab-shell, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
-  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, cg: commercial-gitlab-sidekiq-ee}
-  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, cg: commercial-gitlab-toolbox-ee}
-  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, cg: commercial-gitlab-webservice-ee}
-  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, cg: commercial-gitlab-workhorse-ee}
+  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-sidekiq-ee}
+  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-toolbox-ee}
+  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-webservice-ee}
+  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-workhorse-ee}
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
   gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "no Chainguard image (Gitaly's cgroups init container)"}

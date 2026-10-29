@@ -1,79 +1,64 @@
 #!/usr/bin/env python3
-"""Setup for compat/object-storage.yaml: SeaweedFS in the test cluster, plus the overlay.
+"""Setup for compat/object-storage.yaml: deploy SeaweedFS the way a site does.
 
-Run by bb-compat.py (a `setup` command) with COMPAT_OUT, COMPAT_DOCKERCFG and
-COMPAT_FIPS set. It:
-  1. deploys SeaweedFS (server + S3 gateway, no auth) from the org's seaweedfs(-fips)
-     image, newest release, in namespace seaweedfs
-  2. writes $COMPAT_OUT/values-object-storage.yaml and site-object-storage.yaml with
-     scripts/bb-object-storage.py, pointed at it
-  3. creates every bucket that overlay names (SeaweedFS doesn't create them on first use)
+Run by bb-compat.py (a `setup` command) with COMPAT_OUT (bb-convert's output for the
+test, including seaweedfs/ and seaweedfs-fips/), COMPAT_DOCKERCFG and COMPAT_FIPS set:
+  1. create the seaweedfs namespace, its private-registry Secret, and the seaweedfs-s3
+     Secret (S3 identities) with throwaway test keys
+  2. kubectl apply -k $COMPAT_OUT/seaweedfs (or seaweedfs-fips) and wait for the server
+     and the bucket Job
+  3. write $COMPAT_OUT/site-object-storage.yaml: the site credentials, same test keys
 """
-import json
 import os
 import subprocess
 import sys
 
+import yaml
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
-from orgtags import REGISTRY, OrgTags, org_name, resolve  # noqa: E402
+import objstore  # noqa: E402
 
-NS = "seaweedfs"
-ENDPOINT = f"http://seaweedfs.{NS}.svc.cluster.local:8333"
+NS = objstore.NAMESPACE
+# Test-only keys for a throwaway kind cluster.
+ACCESS, SECRET = "compat-access", "compat-secret-not-for-production"
 
 
-def run(*cmd, stdin=None):
+def run(*cmd, stdin=None, check=True):
     p = subprocess.run(cmd, input=stdin, text=True, capture_output=True)
-    if p.returncode:
-        raise SystemExit(f"{' '.join(cmd[:4])} failed:\n{p.stderr[-1500:]}")
-    return p.stdout
+    if check and p.returncode:
+        raise SystemExit(f"{' '.join(cmd[:5])} failed:\n{p.stdout[-1500:]}\n{p.stderr[-1500:]}")
+    return p
 
 
-def manifest(image):
-    return json.dumps({"apiVersion": "v1", "kind": "List", "items": [
-        {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "seaweedfs", "namespace": NS},
-         "spec": {"replicas": 1, "selector": {"matchLabels": {"app": "seaweedfs"}},
-                  "template": {"metadata": {"labels": {"app": "seaweedfs"}}, "spec": {
-                      "imagePullSecrets": [{"name": "private-registry"}],
-                      "containers": [{"name": "seaweedfs", "image": image,
-                                      "args": ["server", "-dir=/data", "-s3", "-s3.port=8333",
-                                               "-master.volumeSizeLimitMB=64", "-volume.max=20"],
-                                      "ports": [{"containerPort": 8333}, {"containerPort": 9333}],
-                                      "readinessProbe": {"tcpSocket": {"port": 8333}, "periodSeconds": 5},
-                                      "volumeMounts": [{"name": "data", "mountPath": "/data"}]}],
-                      "volumes": [{"name": "data", "emptyDir": {}}]}}}},
-        {"apiVersion": "v1", "kind": "Service", "metadata": {"name": "seaweedfs", "namespace": NS},
-         "spec": {"selector": {"app": "seaweedfs"}, "ports": [{"name": "s3", "port": 8333}]}},
-    ]})
+def apply_secret(*args):
+    manifest = run("kubectl", "-n", NS, "create", "secret", *args, "--dry-run=client", "-o", "yaml").stdout
+    run("kubectl", "apply", "-f", "-", stdin=manifest)
 
 
 def main():
     out = os.environ["COMPAT_OUT"]
-    repo = "seaweedfs-fips" if os.environ.get("COMPAT_FIPS") else "seaweedfs"
-    org = org_name()
-    tag, _ = resolve("*", OrgTags(org).tags(repo) or [])
-    if not tag:
-        raise SystemExit(f"{REGISTRY}/{org}/{repo} has no release tags")
-    image = f"{REGISTRY}/{org}/{repo}:{tag}"
-    print(f"seaweedfs: {image}")
+    kustomization = os.path.join(out, "seaweedfs-fips" if os.environ.get("COMPAT_FIPS") else "seaweedfs")
+    if not os.path.exists(os.path.join(kustomization, "kustomization.yaml")):
+        raise SystemExit(f"{kustomization} was not generated (OBJECT_STORAGE must be seaweedfs)")
 
-    run("kubectl", "create", "namespace", NS)
-    secret = run("kubectl", "-n", NS, "create", "secret", "generic", "private-registry",
-                 "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={os.environ['COMPAT_DOCKERCFG']}",
-                 "--dry-run=client", "-o", "yaml")
-    run("kubectl", "apply", "-f", "-", stdin=secret)
-    run("kubectl", "apply", "-f", "-", stdin=manifest(image))
+    run("kubectl", "create", "namespace", NS, check=False)
+    apply_secret("generic", "private-registry", "--type=kubernetes.io/dockerconfigjson",
+                 f"--from-file=.dockerconfigjson={os.environ['COMPAT_DOCKERCFG']}")
+    apply_secret("generic", "seaweedfs-s3", f"--from-literal=s3.json={objstore.s3_config(ACCESS, SECRET)}")
+    run("kubectl", "apply", "-k", kustomization)
     run("kubectl", "-n", NS, "rollout", "status", "deploy/seaweedfs", "--timeout=300s")
+    job = run("kubectl", "-n", NS, "wait", "job/seaweedfs-buckets", "--for=condition=complete", "--timeout=300s",
+              check=False)
+    print(run("kubectl", "-n", NS, "logs", "job/seaweedfs-buckets", "--tail=40", check=False).stdout)
+    if job.returncode:
+        raise SystemExit("the bucket Job did not complete")
 
-    listing = run(sys.executable, os.path.join(ROOT, "scripts", "bb-object-storage.py"), "--endpoint", ENDPOINT,
-                  "-o", os.path.join(out, "values-object-storage.yaml"),
-                  "--credentials-template", os.path.join(out, "site-object-storage.yaml"))
-    buckets = [ln.strip() for ln in listing.split("Buckets to create")[1].split("Credential values")[0].splitlines()
-               if ln.strip().startswith("bigbang-")]
-    commands = "".join(f"s3.bucket.create -name {b}\n" for b in buckets) + "s3.bucket.list\n"
-    print(run("kubectl", "-n", NS, "exec", "-i", "deploy/seaweedfs", "--", "weed", "shell",
-              "-master=localhost:9333", stdin=commands))
-    print(f"created {len(buckets)} buckets for {ENDPOINT}")
+    spec = objstore.load_spec()
+    _, cred_paths, _, _ = objstore.build(spec, objstore.tokens(objstore.endpoint(), "us-east-1", "bigbang"), set())
+    with open(os.path.join(out, "site-object-storage.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(objstore.credentials_template(cred_paths, ACCESS, SECRET), f)
+    print(f"SeaweedFS ready at {objstore.endpoint()}")
 
 
 if __name__ == "__main__":

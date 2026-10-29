@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bbcommon import build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
 from orgtags import REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
 import fluxrelease  # noqa: E402
+import objstore  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -55,6 +56,7 @@ class Converter:
         self.cg = f"{REGISTRY}/{tags.org}"
         self.ib_tags = ib_tags or {}   # Iron Bank repo -> tag Big Bang deploys (for `group` checks)
         self._groups = {}
+        self._group_patch = {}
         self.build_registry = registry
         self.strict = strict
         self.images = mapping["images"]
@@ -122,8 +124,14 @@ class Converter:
                     continue
                 want = self.version(m, ib_tag)
                 ahead = not (self.strict or m.get("strict"))
-                tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=ahead) if want
-                             else (None, "no Iron Bank tag"))
+                pinned = self.group_patch(m)
+                if pinned:
+                    # A group's members all run the same patch: the newest every member has.
+                    tag = exact_tag(tags, pinned, m.get("suffix"))
+                    note = None if tag else f"no {'.'.join(map(str, pinned))} tag"
+                else:
+                    tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=ahead) if want
+                                 else (None, "no Iron Bank tag"))
             if not tag:
                 refs.append(None)
                 notes.append(f"{name}: {note}")
@@ -162,6 +170,7 @@ class Converter:
         """
         if group not in self._groups:
             self._groups[group] = None
+            common = {}   # (same_patch set, version line) -> patches every member of it has
             for ib_repo, m in self.images.items():
                 if not (isinstance(m, dict) and m.get("group") == group) or ib_repo not in self.ib_tags:
                     continue
@@ -176,11 +185,32 @@ class Converter:
                     elif not resolve(self.version(m, self.ib_tags[ib_repo]), tags, m.get("suffix"),
                                      allow_ahead=not (self.strict or m.get("strict")))[0]:
                         self._groups[group] = f"org has no {name} on Iron Bank's line ({self.ib_tags[ib_repo]})"
+                    elif m.get("same_patch"):
+                        line = parse(self.version(m, self.ib_tags[ib_repo]))[0][:2]
+                        key = (m["same_patch"], line)
+                        have = {p[0] for t in tags if (p := parse(t)) and p[1] == m.get("suffix")
+                                and len(p[0]) >= 3 and p[0][:2] == line}
+                        common[key] = have if key not in common else common[key] & have
                     if self._groups[group]:
                         break
                 if self._groups[group]:
                     break
+            if self._groups[group] is None:
+                empty = sorted(f"{ln[0]} {'.'.join(map(str, ln[1]))}" for ln, have in common.items() if not have)
+                if empty:
+                    self._groups[group] = f"no {', '.join(empty)} patch that every member has"
+                else:
+                    self._group_patch[group] = {ln: max(have) for ln, have in common.items()}
         return self._groups[group] is None
+
+    def group_patch(self, m):
+        """The patch a `same_patch` member of a group must use (None otherwise)."""
+        if not (m.get("group") and m.get("same_patch")) or not self.group_ready(m["group"]):
+            return None
+        ib_repo = next((r for r, v in self.images.items() if v is m), None)
+        want = self.version(m, self.ib_tags.get(ib_repo, "")) if ib_repo else None
+        line = (m["same_patch"], parse(want)[0][:2]) if want and parse(want) else None
+        return self._group_patch.get(m["group"], {}).get(line)
 
     def ignored(self, release, path):
         dotted = ".".join(map(str, path))
@@ -436,6 +466,65 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
                 + f"# kubectl apply --server-side -k {d}/   (needs the private-registry pull secret in flux-system)\n")
 
 
+STORAGE_FILES = ("overlays/values-object-storage.yaml", "seaweedfs/kustomization.yaml", "seaweedfs/seaweedfs.yaml",
+                 "seaweedfs-fips/kustomization.yaml", "seaweedfs-fips/seaweedfs.yaml")
+
+
+def object_storage_files(kind, endpoint, c, tags, version, files):
+    """OBJECT_STORAGE=seaweedfs: the object-storage overlay and seaweedfs(-fips)/ (and a
+    section in docs/images.md and docs/required-images.md). minio: none of them (None
+    removes a file left from before)."""
+    if kind == "minio":
+        files["docs/images.md"] += "\n".join([
+            "", "## Object storage", "",
+            "OBJECT_STORAGE=minio: Big Bang deploys MinIO itself, on the images listed above.", ""])
+        return {rel: None for rel in STORAGE_FILES}
+    spec = objstore.load_spec()
+    t = objstore.tokens(endpoint, "us-east-1", "bigbang")
+    overlay, _, buckets, chosen = objstore.build(spec, t, set())
+    out = {"overlays/values-object-storage.yaml": objstore.overlay_text(
+        overlay, t, chosen, "scripts/bb-convert.py (OBJECT_STORAGE=seaweedfs)")}
+    refs = {}
+    for d, repo in (("seaweedfs", "seaweedfs"), ("seaweedfs-fips", "seaweedfs-fips")):
+        tag = objstore_tag(tags.tags(repo))
+        if not tag:
+            c.missing.add(repo)
+            c.rows.append(("object-storage", f"SeaweedFS ({d}/)", "UNRESOLVED", "UNRESOLVED",
+                           f"org has no {repo} release with a -dev twin (OBJECT_STORAGE=seaweedfs)"))
+            continue
+        refs[d] = f"{c.cg}/{repo}:{tag}"
+        header = "\n".join([
+            "# GENERATED by scripts/bb-convert.py (OBJECT_STORAGE=seaweedfs) - do not edit by hand.",
+            f"# SeaweedFS for Big Bang {version}'s object storage{' (FIPS)' if d.endswith('fips') else ''}.",
+            "# Before applying, create the private-registry and seaweedfs-s3 Secrets in the",
+            '# seaweedfs namespace (README, "Object storage").', ""])
+        for rel, text in objstore.seaweedfs_files(refs[d], f"{refs[d]}-dev", buckets, header).items():
+            out[f"{d}/{rel}"] = text
+    files["docs/images.md"] += "\n".join(
+        ["", "## Object storage", "",
+         "OBJECT_STORAGE=seaweedfs: Big Bang's MinIO is off, and packages use the S3 endpoint "
+         f"{t['endpoint']} (overlays/values-object-storage.yaml).", ""]
+        + [f"- `{d}/`: `{ref}`" for d, ref in refs.items()] + [""])
+    files["docs/required-images.md"] += "\n".join([
+        "", "## Object storage", "",
+        "With OBJECT_STORAGE=seaweedfs (the default): `seaweedfs` and `seaweedfs-fips`, each with its `-dev`",
+        "twin (the bucket Job). With OBJECT_STORAGE=minio: `minio` and `minio-client` (and their `-fips`),",
+        "already listed above.", ""])
+    return out
+
+
+def exact_tag(tags, nums, suffix=None):
+    """The org's spelling of version `nums` (plain over v-prefixed), or None."""
+    hits = [t for t in tags or [] if (p := parse(t)) and p[0] == nums and p[1] == suffix]
+    return sorted(hits, key=lambda t: t.startswith("v"))[0] if hits else None
+
+
+def objstore_tag(available):
+    """The org's newest SeaweedFS release that also has a -dev tag (the bucket Job needs a shell)."""
+    releases = sorted(((p[0], t) for t in available or [] if (p := parse(t)) and p[1] is None), reverse=True)
+    return next((t for _, t in releases if f"{t}-dev" in available), None)
+
+
 def allowed_registries(mapping, cg, registry=""):
     """The org, BUILD_REGISTRY, and the owner of every `ref` image (other builds outside the org)."""
     refs = [v[k] for v in mapping["images"].values() if isinstance(v, dict) and "ref" in v
@@ -553,6 +642,10 @@ def main():
     ap.add_argument("--mapping-overlay", action="append", default=[], metavar="FILE",
                     help="apply FILE's `images` over the mapping (e.g. compat/<test>.yaml); repeatable")
     ap.add_argument("--out", help="write the generated files under this directory instead of the repo")
+    ap.add_argument("--object-storage", help="seaweedfs (default) or minio (default: $OBJECT_STORAGE, else the "
+                                              "OBJECT_STORAGE file)")
+    ap.add_argument("--object-storage-endpoint", help="S3 endpoint for OBJECT_STORAGE=seaweedfs (default: the "
+                                                       "in-cluster SeaweedFS in seaweedfs/)")
     a = ap.parse_args()
 
     discovered = json.load(open(a.discovered))
@@ -562,6 +655,8 @@ def main():
     tags = OrgTags(org, a.tags_cache, offline=a.offline)
     files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
     files["docs/required-images.md"] = required_images(discovered, yaml.safe_load(open(a.mapping)), version)
+    files.update(object_storage_files(objstore.kind(a.object_storage), objstore.endpoint(a.object_storage_endpoint),
+                                      c, tags, version, files))
     if not a.offline:
         tags.save()
 
@@ -589,6 +684,15 @@ def main():
     for rel, text in files.items():
         p = os.path.join(a.out or ROOT, rel)
         old = open(p, encoding="utf-8").read() if os.path.exists(p) else None
+        if text is None:   # a file the current settings don't produce (OBJECT_STORAGE=minio)
+            if old is not None:
+                if a.check:
+                    print(f"{rel} should not exist with these settings; run scripts/bb-convert.py")
+                    drift = True
+                else:
+                    os.remove(p)
+                    print(f"removed {rel}")
+            continue
         if a.check:
             if old != text:
                 print(f"{rel} is out of date; run scripts/bb-convert.py")

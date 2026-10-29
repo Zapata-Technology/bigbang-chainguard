@@ -67,19 +67,19 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.4.2-ubi | cfssl-self-sign:19.4.5 | cfssl-self-sign-fips:19.4.5 | cfssl-self-sign: Iron Bank v19.4.2-ubi -> newest 19.4 patch; cfssl-self-sign-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.4.2-ubi | Iron Bank | Iron Bank | no Chainguard image (Gitaly's cgroups init container) |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.4.2-ubi | gitaly:19.4.3 | gitaly-fips:19.4.3 | gitaly: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitaly-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.4.2-ubi | gitlab-base:19.4.3 | gitlab-base-fips:19.4.3 | gitlab-base: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-base-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.4.2-ubi | gitlab-base:19.4.3 | gitlab-base-fips:19.4.3 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.41.0-gitlab-ubi | gitlab-container-registry:19.4.3 | gitlab-container-registry-fips:19.4.3 | gitlab-container-registry: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-container-registry-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.4.3 | gitlab-exporter-fips:19.4.3 | gitlab-exporter: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-exporter-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.4.2-ubi | commercial-gitlab-geo-logcursor-ee:19.4.3 | commercial-gitlab-geo-logcursor-ee-fips:19.4.3 | commercial-gitlab-geo-logcursor-ee: Iron Bank v19.4.2-ubi -> newest 19.4 patch; commercial-gitlab-geo-logcursor-ee-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.4.2-ubi | commercial-gitlab-geo-logcursor-ee:19.4.3 | commercial-gitlab-geo-logcursor-ee-fips:19.4.3 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.4.2-ubi | gitlab-kas:19.4.3 | gitlab-kas-fips:19.4.3 | gitlab-kas: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-kas-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.4.2-ubi | gitlab-mailroom:v1.1.0 | gitlab-mailroom-fips:v1.1.0 | gitlab-mailroom: newest org release (Iron Bank v19.4.2-ubi); gitlab-mailroom-fips: newest org release (Iron Bank v19.4.2-ubi) |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.5.5-gitlab2-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.4.2-ubi | gitlab-pages:19.4.3 | gitlab-pages-fips:19.4.3 | gitlab-pages: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-pages-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.57.3-ubi | gitlab-shell:19.4.3 | gitlab-shell-fips:19.4.3 | gitlab-shell: Iron Bank v19.4.2-ubi -> newest 19.4 patch; gitlab-shell-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.4.2-ubi | commercial-gitlab-sidekiq-ee:19.4.3 | commercial-gitlab-sidekiq-ee-fips:19.4.3 | commercial-gitlab-sidekiq-ee: Iron Bank v19.4.2-ubi -> newest 19.4 patch; commercial-gitlab-sidekiq-ee-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.4.2-ubi | commercial-gitlab-toolbox-ee:19.4.3 | commercial-gitlab-toolbox-ee-fips:19.4.3 | commercial-gitlab-toolbox-ee: Iron Bank v19.4.2-ubi -> newest 19.4 patch; commercial-gitlab-toolbox-ee-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.4.2-ubi | commercial-gitlab-webservice-ee:19.4.3 | commercial-gitlab-webservice-ee-fips:19.4.3 | commercial-gitlab-webservice-ee: Iron Bank v19.4.2-ubi -> newest 19.4 patch; commercial-gitlab-webservice-ee-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.4.2-ubi | commercial-gitlab-workhorse-ee:19.4.3 | commercial-gitlab-workhorse-ee-fips:19.4.3 | commercial-gitlab-workhorse-ee: Iron Bank v19.4.2-ubi -> newest 19.4 patch; commercial-gitlab-workhorse-ee-fips: Iron Bank v19.4.2-ubi -> newest 19.4 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.4.2-ubi | commercial-gitlab-sidekiq-ee:19.4.3 | commercial-gitlab-sidekiq-ee-fips:19.4.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.4.2-ubi | commercial-gitlab-toolbox-ee:19.4.3 | commercial-gitlab-toolbox-ee-fips:19.4.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.4.2-ubi | commercial-gitlab-webservice-ee:19.4.3 | commercial-gitlab-webservice-ee-fips:19.4.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.4.2-ubi | commercial-gitlab-workhorse-ee:19.4.3 | commercial-gitlab-workhorse-ee-fips:19.4.3 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-zoekt:v19.2.1-ubi | Iron Bank | Iron Bank | no Chainguard gitlab-zoekt image (code search, off by default) |
 | gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.4.2-ubi | gitlab-kubectl:v1.37.2 | gitlab-kubectl-fips:v1.37.2 | gitlab-kubectl: newest org release (Iron Bank v19.4.2-ubi); gitlab-kubectl-fips: newest org release (Iron Bank v19.4.2-ubi) |
 | gitlab | gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.4.1-ee | Iron Bank | Iron Bank | GitLab AI gateway; GitLab-built only |
@@ -196,7 +196,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.3 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py; VERSION DIFFERS from Big Bang's 1.3 |
-| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.190.2 | renovate-fips:44.190.2 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.190.2 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.190.2 (Iron Bank 44.97.2) |
+| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.192.2 | renovate-fips:44.192.2 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.192.2 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.192.2 (Iron Bank 44.97.2) |
 | renovate | ironbank/opensource/go-gitea/gitea:1.27.3 | Iron Bank | Iron Bank | org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.35 | kubectl:1.35-dev | kubectl-fips:1.35-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
@@ -292,7 +292,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - monitoring: `ironbank/opensource/prometheus/blackbox_exporter:v0.28.0` -> `prometheus-blackbox-exporter:0.29.1` (newer minor)
 - monitoring: `ironbank/opensource/prometheus/snmp_exporter:v0.30.1` -> `prometheus-snmp-exporter:0.31.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.0` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
-- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.190.2` (newer minor)
+- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.192.2` (newer minor)
 - sonarqube: `ironbank/sonarsource/sonarqube/sonarqube-community-build:26.9.0.129388-community` -> `sonarqube:26.10.0.133078-community` (newer minor)
 - vault: `ironbank/opensource/kubernetes/kubectl:v1.30.11` -> `kubectl:1.37.2-dev` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.4.2-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
@@ -307,3 +307,10 @@ Chainguard's current release lines). Test these packages before production, or r
 - thanos: `ironbank/big-bang/devops-tester:1.3` -> `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1` (built by this repo on a different version line)
 - vault: `ironbank/hashicorp/vault:1.21.4` -> `ghcr.io/zapata-technology/bigbang-vault:v2.2.1` (built by this repo on a different version line)
 - velero: `ironbank/big-bang/devops-tester:1.3` -> `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1` (built by this repo on a different version line)
+
+## Object storage
+
+OBJECT_STORAGE=seaweedfs: Big Bang's MinIO is off, and packages use the S3 endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333 (overlays/values-object-storage.yaml).
+
+- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.51`
+- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51`
