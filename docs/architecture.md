@@ -142,8 +142,8 @@ sequenceDiagram
 ```
 
 `compat.yml` is separate. It runs on pull requests that change `compat/`, or by hand, and
-deploys single packages on kind to prove they **run**, not just render. See
-[testing.md](testing.md).
+deploys single packages on kind to prove they **run**, not just render, and checks
+every running image against the image policy. See [testing.md](testing.md).
 
 ## 6. Object storage (optional)
 

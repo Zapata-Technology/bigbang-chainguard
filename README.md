@@ -303,6 +303,7 @@ endpoints) so that GitLab and Anchore render during discovery. Never deploy with
 - Changes are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security issues and the controls in place: see [SECURITY.md](SECURITY.md).
 - For the Big Bang team: [`docs/for-big-bang.md`](docs/for-big-bang.md).
+- How it's tested, and what the runtime tests found: [`docs/testing.md`](docs/testing.md).
 
 ## License
 

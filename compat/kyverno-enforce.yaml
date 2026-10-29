@@ -1,0 +1,10 @@
+# Kyverno enforcement: Big Bang's restrict-image-registries policy in Enforce mode (its
+# default) with packages deployed. Any image from a registry the overlay's allow list
+# misses is refused admission, and its pod never starts.
+images: {}
+test:
+  enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
+  expect: [kyverno, headlamp, grafana]
+  debug:
+    - "kubectl get clusterpolicy restrict-image-registries -o jsonpath='{.spec.validationFailureAction} {.spec.rules[0].validate.message}'"
+    - "kubectl get events -A --field-selector reason=PolicyViolation | tail -10"

@@ -96,3 +96,28 @@ def test_mapping_overlays_apply_after_the_org_file_and_drop_test(repo):
     m = bbcommon.load_mapping("me.example", overlays=[str(trial)])
     assert m["images"]["ironbank/v"] == {"cg": "v", "version": "*"}
     assert "test" not in m
+
+
+MAP = {"images": {"ironbank/vendor": {"stays": "proprietary"}, "ironbank/app": "app",
+                  "ironbank/mgr": {"cg": "mgr", "fips": None}}}
+
+
+def test_running_images_from_allowed_registries_pass():
+    imgs = ["cgr.dev/me.example/app:1.0", "ghcr.io/me/bigbang-base:2", "registry1.dso.mil/ironbank/vendor:3",
+            "registry.k8s.io/coredns/coredns:v1.12.1", "docker.io/kindest/kindnetd:v1"]
+    assert bbcommon.running_image_problems(imgs, "me.example", "ghcr.io/me", MAP) == []
+
+
+def test_running_image_from_elsewhere_or_unconverted_fails():
+    probs = bbcommon.running_image_problems(
+        ["docker.io/library/nginx:1", "registry1.dso.mil/ironbank/app:1.0", "cgr.dev/other.example/app:1"],
+        "me.example", "ghcr.io/me", MAP)
+    assert len(probs) == 3
+    assert any("Iron Bank image the mapping converts" in p for p in probs)
+
+
+def test_fips_mode_needs_fips_images_except_documented_ones():
+    imgs = ["cgr.dev/me.example/app-fips:1", "cgr.dev/me.example/app:1", "cgr.dev/me.example/mgr:5.6",
+            "ghcr.io/me/bigbang-base:2"]
+    probs = bbcommon.running_image_problems(imgs, "me.example", "ghcr.io/me", MAP, fips=True)
+    assert probs == ["cgr.dev/me.example/app:1: not a FIPS image", "ghcr.io/me/bigbang-base:2: not a FIPS image"]
