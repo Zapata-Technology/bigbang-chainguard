@@ -15,18 +15,18 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | anchore-enterprise | ironbank/anchore/enterprise/enterprise:6.1.1 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
 | anchore-enterprise | ironbank/anchore/enterpriseui/enterpriseui:6.1.0 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
 | anchore-enterprise | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
-| anchore-enterprise | ironbank/bitnami/analytics/redis-exporter:v1.89.0 | prometheus-redis-exporter:1.96.0 | prometheus-redis-exporter-fips:1.96.0 | prometheus-redis-exporter: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0); prometheus-redis-exporter-fips: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0) |
+| anchore-enterprise | ironbank/bitnami/analytics/redis-exporter:v1.89.0 | prometheus-redis-exporter-iamguarded:1.96.0 | prometheus-redis-exporter-iamguarded-fips:1.96.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0) |
 | anchore-enterprise | ironbank/opensource/kubernetes/kubectl:v1.35 | kubectl:1.35-dev | kubectl-fips:1.35-dev |  |
 | anchore-enterprise | ironbank/opensource/redis/redis8-slim:8.10.0 | redis:8.10.3 | redis-fips:8.10.3 | redis: Iron Bank 8.10.0 -> newest 8.10 patch; redis-fips: Iron Bank 8.10.0 -> newest 8.10 patch |
 | argocd | ironbank/big-bang/argocd:v3.4.5 | argocd:3.4.12 | argocd-fips:3.4.12 | argocd: Iron Bank v3.4.5 -> newest 3.4 patch; argocd-fips: Iron Bank v3.4.5 -> newest 3.4 patch |
 | argocd | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
 | argocd | ironbank/big-bang/cypress:15.18.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | argocd | ironbank/big-bang/devops-tester:1.2 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py; VERSION DIFFERS from Big Bang's 1.2 |
-| argocd | ironbank/bitnami/analytics/redis-exporter:v1.88.0 | prometheus-redis-exporter:1.96.0 | prometheus-redis-exporter-fips:1.96.0 | prometheus-redis-exporter: MINOR AHEAD: org has no 1.88.x; using 1.96.0 (Iron Bank v1.88.0); prometheus-redis-exporter-fips: MINOR AHEAD: org has no 1.88.x; using 1.96.0 (Iron Bank v1.88.0) |
+| argocd | ironbank/bitnami/analytics/redis-exporter:v1.88.0 | prometheus-redis-exporter-iamguarded:1.96.0 | prometheus-redis-exporter-iamguarded-fips:1.96.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.88.x; using 1.96.0 (Iron Bank v1.88.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.88.x; using 1.96.0 (Iron Bank v1.88.0) |
 | argocd | ironbank/opensource/dexidp/dex:v2.45.1 | dex:2.46.1 | dex-fips:2.46.1 | dex: MINOR AHEAD: org has no 2.45.x; using 2.46.1 (Iron Bank v2.45.1); dex-fips: MINOR AHEAD: org has no 2.45.x; using 2.46.1 (Iron Bank v2.45.1) |
 | argocd | ironbank/opensource/redis/redis8-slim:8.10.0 | redis:8.10.3 | redis-fips:8.10.3 | redis: Iron Bank 8.10.0 -> newest 8.10 patch; redis-fips: Iron Bank 8.10.0 -> newest 8.10 patch |
 | authservice | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
-| authservice | ironbank/bitnami/analytics/redis-exporter:v1.89.0 | prometheus-redis-exporter:1.96.0 | prometheus-redis-exporter-fips:1.96.0 | prometheus-redis-exporter: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0); prometheus-redis-exporter-fips: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0) |
+| authservice | ironbank/bitnami/analytics/redis-exporter:v1.89.0 | prometheus-redis-exporter-iamguarded:1.96.0 | prometheus-redis-exporter-iamguarded-fips:1.96.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.89.x; using 1.96.0 (Iron Bank v1.89.0) |
 | authservice | ironbank/istio-ecosystem/authservice:1.1.8 | authservice:1.1.8 | authservice-fips:1.1.8 |  |
 | authservice | ironbank/opensource/redis/redis8-slim:8.10.1 | redis:8.10.3 | redis-fips:8.10.3 | redis: Iron Bank 8.10.1 -> newest 8.10 patch; redis-fips: Iron Bank 8.10.1 -> newest 8.10 patch |
 | cert-manager | ironbank/jetstack/cert-manager-cainjector:v1.20.3 | cert-manager-cainjector:1.20.5 | cert-manager-cainjector-fips:1.20.5 | cert-manager-cainjector: Iron Bank v1.20.3 -> newest 1.20 patch; cert-manager-cainjector-fips: Iron Bank v1.20.3 -> newest 1.20 patch |
@@ -99,7 +99,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | grafana | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | harbor | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
 | harbor | ironbank/big-bang/devops-tester:1.3 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py; VERSION DIFFERS from Big Bang's 1.3 |
-| harbor | ironbank/bitnami/analytics/redis-exporter:v1.91.1 | prometheus-redis-exporter:1.96.0 | prometheus-redis-exporter-fips:1.96.0 | prometheus-redis-exporter: MINOR AHEAD: org has no 1.91.x; using 1.96.0 (Iron Bank v1.91.1); prometheus-redis-exporter-fips: MINOR AHEAD: org has no 1.91.x; using 1.96.0 (Iron Bank v1.91.1) |
+| harbor | ironbank/bitnami/analytics/redis-exporter:v1.91.1 | prometheus-redis-exporter-iamguarded:1.96.0 | prometheus-redis-exporter-iamguarded-fips:1.96.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.91.x; using 1.96.0 (Iron Bank v1.91.1); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.91.x; using 1.96.0 (Iron Bank v1.91.1) |
 | harbor | ironbank/opensource/goharbor/harbor-core:v2.15.2 | harbor-core:2.15.4 | harbor-core-fips:2.15.4 | harbor-core: Iron Bank v2.15.2 -> newest 2.15 patch; harbor-core-fips: Iron Bank v2.15.2 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/harbor-exporter:v2.15.2 | harbor-exporter:2.15.4 | harbor-exporter-fips:2.15.4 | harbor-exporter: Iron Bank v2.15.2 -> newest 2.15 patch; harbor-exporter-fips: Iron Bank v2.15.2 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/harbor-jobservice:v2.15.2 | harbor-jobservice:2.15.4 | harbor-jobservice-fips:2.15.4 | harbor-jobservice: Iron Bank v2.15.2 -> newest 2.15 patch; harbor-jobservice-fips: Iron Bank v2.15.2 -> newest 2.15 patch |
@@ -265,10 +265,10 @@ Chainguard's current release lines). Test these packages before production, or r
 
 - alloy: `ironbank/opensource/grafana/alloy:v1.18.0` -> `grafana-alloy:1.21.3` (newer minor)
 - alloy: `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.93.0` -> `prometheus-config-reloader:0.94.2` (newer minor)
-- anchore-enterprise: `ironbank/bitnami/analytics/redis-exporter:v1.89.0` -> `prometheus-redis-exporter:1.96.0` (newer minor)
-- argocd: `ironbank/bitnami/analytics/redis-exporter:v1.88.0` -> `prometheus-redis-exporter:1.96.0` (newer minor)
+- anchore-enterprise: `ironbank/bitnami/analytics/redis-exporter:v1.89.0` -> `prometheus-redis-exporter-iamguarded:1.96.0` (newer minor)
+- argocd: `ironbank/bitnami/analytics/redis-exporter:v1.88.0` -> `prometheus-redis-exporter-iamguarded:1.96.0` (newer minor)
 - argocd: `ironbank/opensource/dexidp/dex:v2.45.1` -> `dex:2.46.1` (newer minor)
-- authservice: `ironbank/bitnami/analytics/redis-exporter:v1.89.0` -> `prometheus-redis-exporter:1.96.0` (newer minor)
+- authservice: `ironbank/bitnami/analytics/redis-exporter:v1.89.0` -> `prometheus-redis-exporter-iamguarded:1.96.0` (newer minor)
 - flux: `ironbank/fluxcd/helm-controller:v1.6.4` -> `flux-helm-controller:1.7.1` (newer minor)
 - flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.1` (newer minor)
 - flux: `ironbank/fluxcd/notification-controller:v1.9.4` -> `flux-notification-controller:1.10.0` (newer minor)
@@ -277,7 +277,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - gitlab-runner: `gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.2.2` -> `gitlab-runner-helper:19.5.1` (newer minor)
 - gitlab-runner: `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.2.2` -> `gitlab-runner:19.5.1` (newer minor)
 - grafana: `ironbank/kiwigrid/k8s-sidecar:2.11.2` -> `k8s-sidecar:2.14.1` (newer minor)
-- harbor: `ironbank/bitnami/analytics/redis-exporter:v1.91.1` -> `prometheus-redis-exporter:1.96.0` (newer minor)
+- harbor: `ironbank/bitnami/analytics/redis-exporter:v1.91.1` -> `prometheus-redis-exporter-iamguarded:1.96.0` (newer minor)
 - headlamp: `ironbank/opensource/headlamp-k8s/headlamp:v0.45.0` -> `headlamp:0.46.0` (newer minor)
 - kiali: `ironbank/opensource/kiali/kiali:v2.32.0` -> `kiali:2.34.0` (newer minor)
 - kyverno-reporter: `ironbank/nirmata/policy-reporter/policy-reporter-ui:2.8.1` -> `kyverno-policy-reporter-ui:2.9.0` (newer minor)

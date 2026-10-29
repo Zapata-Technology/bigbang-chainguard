@@ -90,7 +90,10 @@ images:
   ironbank/opensource/thanos/thanos: thanos
   ironbank/opensource/jimmidyson/configmap-reload: configmap-reload
   ironbank/opensource/memcached/memcached: memcached
-  ironbank/bitnami/analytics/redis-exporter: prometheus-redis-exporter
+  # Bitnami's Redis chart (redis-bb) starts the exporter with /bin/bash -ec "redis_exporter ...":
+  # it needs the Bitnami layout, which Chainguard ships as -iamguarded. The plain
+  # prometheus-redis-exporter has no shell: redis-bb's StatefulSet failed (compat/argocd, harbor).
+  ironbank/bitnami/analytics/redis-exporter: prometheus-redis-exporter-iamguarded
   ironbank/opensource/elasticsearch-exporter: prometheus-elasticsearch-exporter
   ironbank/afdco/prometheus/mysqld_exporter: prometheus-mysqld-exporter
 

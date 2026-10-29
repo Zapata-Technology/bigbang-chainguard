@@ -16,7 +16,7 @@ addons:
           metrics:
             image:
               registry: cgr.dev/zapatatechnology.com
-              repository: prometheus-redis-exporter
+              repository: prometheus-redis-exporter-iamguarded
               tag: 1.96.0
       upstream:
         kubectlImage: cgr.dev/zapatatechnology.com/kubectl:1.35-dev
@@ -42,7 +42,7 @@ addons:
           metrics:
             image:
               registry: cgr.dev/zapatatechnology.com
-              repository: prometheus-redis-exporter
+              repository: prometheus-redis-exporter-iamguarded
               tag: 1.96.0
       upgradeJob:
         image:
@@ -69,7 +69,7 @@ addons:
           metrics:
             image:
               registry: cgr.dev/zapatatechnology.com
-              repository: prometheus-redis-exporter
+              repository: prometheus-redis-exporter-iamguarded
               tag: 1.96.0
   externalSecrets:
     values:
@@ -225,7 +225,7 @@ addons:
           metrics:
             image:
               registry: cgr.dev/zapatatechnology.com
-              repository: prometheus-redis-exporter
+              repository: prometheus-redis-exporter-iamguarded
               tag: 1.96.0
       upstream:
         core:

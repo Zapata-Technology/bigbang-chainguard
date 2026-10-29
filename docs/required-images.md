@@ -108,7 +108,7 @@ lists the ones your org doesn't have yet.
 | `prometheus-mysqld-exporter` | `prometheus-mysqld-exporter-fips` | fortify |
 | `prometheus-node-exporter` | `prometheus-node-exporter-fips` | monitoring |
 | `prometheus-operator` | `prometheus-operator-fips` | monitoring |
-| `prometheus-redis-exporter` | `prometheus-redis-exporter-fips` | anchore-enterprise, argocd, authservice, harbor |
+| `prometheus-redis-exporter-iamguarded` | `prometheus-redis-exporter-iamguarded-fips` | anchore-enterprise, argocd, authservice, harbor |
 | `prometheus-snmp-exporter` | none: FIPS keeps the standard image | monitoring |
 | `redis` | `redis-fips` | anchore-enterprise, argocd, authservice, harbor |
 | `renovate` | `renovate-fips` | renovate |

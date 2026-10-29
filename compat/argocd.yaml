@@ -4,6 +4,6 @@
 images: {}
 test:
   enable: [addons.argocd, prometheusOperatorCRDs]
-  expect: [dex, prometheus-redis-exporter]
+  expect: [dex, prometheus-redis-exporter-iamguarded]
   values:
     addons: {argocd: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
