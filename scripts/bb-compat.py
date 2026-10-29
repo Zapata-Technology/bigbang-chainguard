@@ -90,7 +90,11 @@ def wait_ready(namespaces, timeout):
     end = time.time() + timeout
     last = ""
     while time.time() < end:
-        hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json"))["items"]
+        out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
+        if not out:   # API server busy on a loaded runner: try again
+            time.sleep(20)
+            continue
+        hrs = json.loads(out)["items"]
         status = {}
         for hr in hrs:
             cond = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}
@@ -220,7 +224,14 @@ def main():
                          "--dry-run=client", "-o", "yaml")
         sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
         flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
-        sh("kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir, capture=True)
+        for i in range(3):   # the Flux release manifest comes from github.com
+            p = subprocess.run(["kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir],
+                               capture_output=True, text=True)
+            if not p.returncode:
+                break
+            if i == 2:
+                raise SystemExit(f"installing Flux failed:\n{p.stderr[-2000:]}")
+            time.sleep(30)
         # Big Bang asks for up to 1.8 CPUs per Flux controller; a CI runner's one kind
         # node can't schedule all four. Test clusters only: requests down, limits kept.
         kubectl("-n", "flux-system", "set", "resources", "deploy", "--all", "--requests=cpu=50m,memory=64Mi",

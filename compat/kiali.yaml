@@ -1,10 +1,10 @@
 # Newer-minor check: Kiali 2.32 -> 2.34 (needs Istio).
-# The first run found Kiali's injected sidecar pulling Iron Bank's proxyv2:1.31.1;
-# the debug commands show what the sidecar injector was configured with.
+# Also checks injected sidecars: istio-init and istio-proxy must both be Chainguard's.
 images: {}
 test:
-  enable: [istioCRDs, istiod, kiali]
-  expect: [kiali]
+  # istioGateway: Big Bang lists the gateways in Kiali's CR; with none it is invalid.
+  enable: [istioCRDs, istiod, istioGateway, kiali]
+  expect: [kiali, istio-proxy]
   debug:
     - "kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath='{.data.values}' | python3 -c \"import json,sys; g=json.load(sys.stdin)['global']; print('hub', g.get('hub'), 'tag', g.get('tag'), 'proxy.image', g.get('proxy', {}).get('image'))\""
     - "kubectl get pods -A -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image"

@@ -1,5 +1,8 @@
-# Newer-minor check: Harbor's redis-exporter 1.91 -> 1.96 (runs when monitoring is on).
+# Newer-minor check: Harbor's redis-exporter 1.91 -> 1.96. The package's own
+# monitoring switch turns its exporters on without the whole monitoring stack.
 images: {}
 test:
-  enable: [addons.harbor, certManager, prometheusOperatorCRDs, monitoring]
+  enable: [addons.harbor, prometheusOperatorCRDs]
   expect: [prometheus-redis-exporter]
+  values:
+    addons: {harbor: {values: {monitoring: {enabled: true}}}}

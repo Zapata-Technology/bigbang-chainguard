@@ -57,7 +57,7 @@ images:
   # --- Logging / tracing / metrics ---
   ironbank/opensource/grafana/alloy: grafana-alloy
   ironbank/opensource/grafana/alloy-operator: {cg: grafana-alloy-operator, version: "0.9"}   # Chainguard tags the operator release (0.9.x), Iron Bank the app (1.11)
-  ironbank/opensource/grafana/helm-chart-toolbox-kubectl: {cg: kubectl, tag: "1.34"}   # toolbox "1.0" is its own version, not kubectl's
+  ironbank/opensource/grafana/helm-chart-toolbox-kubectl: {cg: kubectl, version: "1.34", suffix: dev}   # toolbox "1.0" is its own version, not kubectl's
   ironbank/opensource/grafana/loki: loki
   ironbank/bigbang/grafana/loki-canary: loki-canary
   ironbank/bigbang/grafana/loki-helm-test: {stays: "Big Bang test image (helm test only)"}
@@ -241,13 +241,14 @@ template_defaults:
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
   istiod:
-    # Injected sidecars: istio-proxy honours a full proxy.image, but istio-init is built
-    # from hub/proxy.image:tag, so set all three (compat/kiali.yaml found istio-init on
-    # Iron Bank's proxyv2).
+    # Injected sidecars: istio-proxy uses proxy.image, istio-init uses proxy_init.image
+    # (default "proxyv2", built as hub/proxyv2:tag), and both fall back to hub and tag.
+    # compat/kiali.yaml found istio-init on Iron Bank's, then on cgr.dev/<org>/proxyv2.
     upstream:
       global:
         hub: "@registry"
         proxy: {image: "@repo:istio-proxy"}
+        proxy_init: {image: "@ref:istio-proxy:ib=ironbank/opensource/istio/pilot"}
         tag: "@tag:istio-proxy:ib=ironbank/opensource/istio/pilot"   # same Istio release; the proxy is only injected, never rendered
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry

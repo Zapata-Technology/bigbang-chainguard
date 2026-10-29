@@ -404,7 +404,7 @@ addons:
       minio:
         waitJob:
           scripts:
-            image: cgr.dev/zapatatechnology.com/kubectl:1.37.1-dev
+            image: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev
       upstream:
         csi:
           agent:
@@ -476,7 +476,7 @@ alloy:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: kubectl
-            tag: '1.34'
+            tag: 1.34-dev
       collectorCommon:
         alloy:
           configReloader:
@@ -651,6 +651,8 @@ istiod:
         hub: cgr.dev/zapatatechnology.com
         proxy:
           image: istio-proxy
+        proxy_init:
+          image: cgr.dev/zapatatechnology.com/istio-proxy:1.31.3
         tag: 1.31.3
       image: cgr.dev/zapatatechnology.com/istio-pilot:1.31.3
 kiali:
