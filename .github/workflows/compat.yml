@@ -102,6 +102,7 @@ jobs:
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
+          KIND_CLUSTER: compat
         run: |
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
           echo "::add-mask::$CGR_TOKEN"

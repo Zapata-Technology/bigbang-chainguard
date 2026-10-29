@@ -1,8 +1,10 @@
-# Upgrade test: Vault 1.21 (Iron Bank, what Big Bang 3.35.1 pins) -> Chainguard vault 2.x.
-# Chainguard only carries Vault 2.x, so vault stays on Iron Bank unless this passes.
+# Upgrade test: Vault 1.21 (Iron Bank, what Big Bang 3.35.1 pins) -> Chainguard vault 2.x,
+# as bigbang-vault (Chainguard vault plus curl, which Big Bang's vault post-start hook
+# needs; builds/vault). Chainguard only carries Vault 2.x, so vault stays on Iron Bank
+# unless this passes. The harness builds bigbang-vault and loads it into kind.
 # Run: scripts/bb-compat.py compat/vault-2.yaml (in CI: the compat workflow)
 images:
-  ironbank/hashicorp/vault: {cg: vault, version: "*"}
+  ironbank/hashicorp/vault: {build: vault, version: "*"}
 test:
   enable: [addons.vault]
   namespaces: [vault]

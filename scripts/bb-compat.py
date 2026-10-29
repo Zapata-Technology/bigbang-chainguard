@@ -33,7 +33,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, deep_merge  # noqa: E402
+from bbcommon import ROOT, build_registry, deep_merge, load_build  # noqa: E402
 
 
 def sh(*cmd, check=True, capture=False, stdin=None):
@@ -151,12 +151,33 @@ def main():
     ap.add_argument("--fips", action="store_true", help="deploy with the FIPS overlay too")
     ap.add_argument("--timeout", type=int, default=1500, help="seconds to wait for the package (default 1500)")
     ap.add_argument("--bigbang", default=os.path.join(ROOT, "work", "bigbang"))
+    ap.add_argument("--kind-cluster", default=os.environ.get("KIND_CLUSTER"),
+                    help="load images this repo builds into this kind cluster instead of pulling them")
     a = ap.parse_args()
 
     spec = yaml.safe_load(open(a.compat))
     test = spec.get("test", {})
     out = tempfile.mkdtemp(prefix="bb-compat-")
     print(f"== {os.path.basename(a.compat)}: trial mapping {json.dumps(spec.get('images', {}))}", flush=True)
+
+    # Images the trial mapping builds (`build:`, with an optional `version` line): generate,
+    # build and smoke-test them here and load them into kind, so an upgrade is tested
+    # before anything is pushed. Before bb-convert, which reads their build.yaml.
+    for m in spec.get("images", {}).values():
+        if isinstance(m, dict) and m.get("build"):
+            name = m["build"]
+            print(f"\n== build {name}", flush=True)
+            version = ["--version", str(m["version"])] if m.get("version") else []
+            rc = subprocess.run([sys.executable, os.path.join(HERE, f"bb-{name}.py"), *version,
+                                 "--build", "--test", "--force"]).returncode
+            if rc:
+                raise SystemExit(f"\nRESULT: building {name} failed (see above); nothing was deployed")
+            img = load_build(name)["image"]["fips" if a.fips else "standard"]
+            ref = f"{build_registry() or 'bb-local'}/{img['name']}:{img['tag']}"
+            if a.kind_cluster:
+                sh("kind", "load", "docker-image", ref, "--name", a.kind_cluster, capture=True)
+                print(f"loaded {ref} into kind/{a.kind_cluster}")
+
     rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--mapping-overlay", a.compat,
                          "--out", out]).returncode
     if rc not in (0, 3):

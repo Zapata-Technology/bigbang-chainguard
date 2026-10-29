@@ -3,6 +3,8 @@
 #   grafana-plugins   Grafana with Iron Bank's plugin set
 #   base              Big Bang's job base image (bash, kubectl, yq, jq, curl)
 #   devops-tester     Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc)
+#   vault             Chainguard Vault plus curl (Big Bang's post-start hook); built only
+#                     once the mapping uses it (compat/vault-2.yaml tests it first)
 #
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
@@ -19,6 +21,7 @@ on:
       - scripts/bb-grafana-plugins.py
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
+      - scripts/bb-vault.py
       - scripts/bbbuild.py
       - .github/workflows/builds.yml
   push:
@@ -28,6 +31,7 @@ on:
       - scripts/bb-grafana-plugins.py
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
+      - scripts/bb-vault.py
       - scripts/bbbuild.py
       - .github/workflows/builds.yml
   workflow_dispatch:
@@ -46,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester]
+        name: [grafana-plugins, base, devops-tester, vault]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
