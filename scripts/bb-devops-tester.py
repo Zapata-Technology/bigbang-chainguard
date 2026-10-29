@@ -99,7 +99,7 @@ def smoke_test(image, variant, spec):
         "kubectl version --client -o json | grep -o '\"gitVersion\": *\"[^\"]*\"'",
         "echo velero=$(velero version --client-only | grep -o 'v[0-9.]*' | head -1)",
         "echo kyverno=$(kyverno version | grep -o 'v\\?[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+' | head -1)",
-        "echo chainsaw=$(chainsaw version 2>&1 | grep -o 'v[0-9.]*' | head -1)",
+        "echo chainsaw=$(chainsaw version 2>&1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -1)",
         "mc --version | head -1", "curl --version | head -1",
         "grep -hE '^ *(default_)?properties *= *fips=yes' /etc/ssl/openssl.cnf || true",
     ])
@@ -108,7 +108,7 @@ def smoke_test(image, variant, spec):
         f"kubectl {line(v['kubectl'])}": rf'"v{re.escape(line(v["kubectl"]))}\.',
         f"velero {line(v['velero'])}": rf"^velero=v{re.escape(line(v['velero']))}\.",
         f"kyverno {line(v['kyverno'])}": rf"^kyverno=v?{re.escape(line(v['kyverno']))}\.",
-        "chainsaw": r"^chainsaw=v\d",
+        f"chainsaw {line(v['chainsaw'])}": rf"^chainsaw={re.escape(line(v['chainsaw']))}\.",
         "mc": r"^mc version",
     }
     if variant == "fips":
