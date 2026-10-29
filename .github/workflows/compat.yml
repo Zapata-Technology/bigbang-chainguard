@@ -56,6 +56,9 @@ jobs:
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      # fluxrelease.py reads Flux releases from api.github.com; authenticated, the
+      # parallel jobs don't share the anonymous rate limit.
+      GITHUB_TOKEN: ${{ github.token }}
     permissions:
       contents: read
       id-token: write

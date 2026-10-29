@@ -8,5 +8,7 @@ test:
   enable: [addons.sonarqube]
   namespaces: [sonarqube]
   values:
-    # SonarQube starts slowly on a shared CI runner; allow 15 minutes instead of 4.
-    addons: {sonarqube: {values: {upstream: {startupProbe: {failureThreshold: 90}}}}}
+    # SonarQube is slow on a shared CI runner: 15 minutes to start, and more slack
+    # before a busy moment counts as a failed liveness or readiness check.
+    addons: {sonarqube: {values: {upstream: {startupProbe: {failureThreshold: 90},
+      livenessProbe: {failureThreshold: 20}, readinessProbe: {failureThreshold: 20}}}}}

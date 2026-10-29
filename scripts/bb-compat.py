@@ -114,11 +114,23 @@ def wait_ready(namespaces, timeout):
         time.sleep(20)
     else:
         return False, [f"timed out; HelmReleases: {last}"]
-    for ns in namespaces:
-        # report() judges each pod; this only gives slow starters time.
-        kubectl("wait", "pod", "-n", ns, "--all", "--for=condition=Ready",
-                f"--timeout={max(60, int(end - time.time()))}s",
-                "--field-selector=status.phase!=Succeeded", check=False)
+    # Give slow starters time (NeuVector's enforcers restart until they join the
+    # controllers): poll until every pod that isn't a finished Job pod is Ready, and
+    # stays so for two polls, or the time runs out. report() judges the result.
+    steady = 0
+    while time.time() < end and steady < 2:
+        pending = []
+        for ns in namespaces:
+            out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
+            for p in json.loads(out)["items"] if out else []:
+                if p["status"].get("phase") == "Succeeded":
+                    continue
+                if not all(s.get("ready") for s in p["status"].get("containerStatuses", [{}])):
+                    pending.append(f"{ns}/{p['metadata']['name']}")
+        steady = steady + 1 if not pending else 0
+        if pending:
+            print(f"{time.strftime('%H:%M:%S')} waiting for {len(pending)} pods: {', '.join(pending[:6])}", flush=True)
+        time.sleep(20)
     return True, []
 
 
