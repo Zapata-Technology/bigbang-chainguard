@@ -2,4 +2,5 @@
 images: {}
 test:
   enable: [renovate]
-  expect: [renovate]
+  # A CronJob: nothing runs until its schedule, so this only checks it installs.
+  no_pods: true

@@ -1,5 +1,5 @@
 # Newer-minor check: NeuVector's prometheus-exporter 1.0 -> 1.1 (runs when monitoring is on).
 images: {}
 test:
-  enable: [neuvector, prometheusOperatorCRDs, monitoring]
+  enable: [neuvector, certManager, prometheusOperatorCRDs, monitoring]
   expect: [neuvector-prometheus-exporter]

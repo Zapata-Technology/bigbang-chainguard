@@ -135,7 +135,7 @@ def images_running(namespaces):
     return imgs
 
 
-def report(namespaces):
+def report(namespaces, no_pods=False):
     ok = True
     for ns in namespaces:
         pods = json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]
@@ -159,7 +159,7 @@ def report(namespaces):
                 logs = kubectl("logs", "-n", ns, p["metadata"]["name"], "--all-containers", "--tail=40",
                                check=False) or ""
                 print("         logs:\n" + "\n".join("           " + ln for ln in logs.splitlines()[-40:]))
-        if not pods:
+        if not pods and not no_pods:
             ok = False
     return ok
 
@@ -249,7 +249,7 @@ def main():
 
     ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
     namespaces = test.get("namespaces") or hr_namespaces()
-    ok = report(namespaces) and ready
+    ok = report(namespaces, test.get("no_pods", False)) and ready
     for p in problems:
         print("PROBLEM:", p)
     if not ok:

@@ -167,3 +167,11 @@ def test_fips_override_keeps_standard_when_the_fips_repo_has_no_tags():
     c = convert.Converter({"images": {}}, FakeTags({"mgr": ["5.6", "5.6.2"], "mgr-fips": [], "ctl-fips": ["5.6"]}))
     assert c.overrides("neuvector", {"repo": "@repo:mgr", "tag": "@tag:ctl:5.6"}, True) == {"repo": "mgr", "tag": "5.6"}
     assert "keeps the standard image" in c.rows[-1][4]
+
+
+def test_override_tag_from_iron_banks_deployed_tag():
+    c = convert.Converter({"images": {}}, FakeTags({"proxy": ["1.31.3", "1.32.0"], "proxy-fips": ["1.31.2"]}),
+                          ib_tags={"ironbank/istio/proxyv2": "1.31.1"})
+    spec = {"tag": "@tag:proxy:ib=ironbank/istio/proxyv2", "image": "@repo:proxy", "hub": "@registry"}
+    assert c.overrides("istiod", spec, False) == {"tag": "1.31.3", "image": "proxy", "hub": "cgr.dev/example.com"}
+    assert c.overrides("istiod", spec, True)["tag"] == "1.31.2"

@@ -1,8 +1,7 @@
 # Newer-minor check: Headlamp 0.45 -> 0.46.
-# Trial: Chainguard kubectl -dev for Big Bang's wait job, which runs /bin/bash (the
-# first run failed with "exec: /bin/bash: no such file" on the plain kubectl image).
-images:
-  ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev}
+# Big Bang's wait job runs /bin/bash: it failed on Chainguard's kubectl and passed on
+# kubectl -dev, which mapping.yaml now uses for every kubectl image.
+images: {}
 test:
   enable: [addons.headlamp]
   expect: [headlamp, kubectl]

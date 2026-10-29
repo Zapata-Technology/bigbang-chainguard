@@ -2,5 +2,5 @@
 # (the exporter runs when monitoring is on).
 images: {}
 test:
-  enable: [addons.argocd, prometheusOperatorCRDs, monitoring]
+  enable: [addons.argocd, certManager, prometheusOperatorCRDs, monitoring]
   expect: [dex, prometheus-redis-exporter]

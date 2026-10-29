@@ -7,3 +7,6 @@ images:
 test:
   enable: [addons.sonarqube]
   namespaces: [sonarqube]
+  values:
+    # SonarQube starts slowly on a shared CI runner; allow 15 minutes instead of 4.
+    addons: {sonarqube: {values: {upstream: {startupProbe: {failureThreshold: 90}}}}}

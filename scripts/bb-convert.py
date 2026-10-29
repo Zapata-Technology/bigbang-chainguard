@@ -277,7 +277,8 @@ class Converter:
     def overrides(self, release, spec, fips):
         """Expand a mapping.yaml `overrides` block. Tokens:
           @repo:<name>            <name>, or <name>-fips in the FIPS overlay
-          @tag:<name>:<version>   org tag of <name>(-fips) for <version> (same rules as images)
+          @tag:<name>:<version>   org tag of <name>(-fips) for <version> (same rules as images);
+                                  <version> "ib=<Iron Bank repo>" means that image's deployed tag
           @ref:<name>:<version>   cgr.dev/<org>/<name>(-fips):<tag>
           @registry               cgr.dev/<org>
         """
@@ -305,6 +306,8 @@ class Converter:
             self.missing.add(name)
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"org has no {name}"))
             return spec
+        if version.startswith("ib="):
+            version = self.ib_tags.get(version[3:], "")
         tag, note = resolve(version, tags, allow_ahead=not self.strict)
         if not tag:
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"{name}: {note}"))

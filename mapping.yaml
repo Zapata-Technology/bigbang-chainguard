@@ -159,7 +159,9 @@ images:
   ironbank/opensource/minio/operator-sidecar: {stays: "no Chainguard minio-operator-sidecar image", until: minio-operator-sidecar}
 
   # --- Shared building blocks ---
-  ironbank/opensource/kubernetes/kubectl: kubectl
+  # Big Bang's jobs run kubectl scripts with /bin/bash; Chainguard's kubectl has no
+  # shell, its -dev variant has (compat/headlamp.yaml: wait job failed, then passed).
+  ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev}
   ironbank/opensource/postgres/postgresql: postgres
   ironbank/opensource/redis/redis8-slim: redis
   ironbank/opensource/nginx/nginx: nginx
@@ -215,7 +217,8 @@ images:
 hubs:
   istiod:
     upstream.image: ironbank/opensource/istio/pilot
-    upstream.global.proxy.image: ironbank/opensource/istio/proxyv2
+    # The sidecar proxy is set in overrides.istiod: istio-init takes its image from
+    # global.hub + proxy.image + global.tag, not from a full proxy.image reference.
   istio-cni:
     upstream.image: ironbank/opensource/istio/install-cni
   ztunnel:
@@ -237,6 +240,15 @@ template_defaults:
 # @registry (cgr.dev/<org>)
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
+  istiod:
+    # Injected sidecars: istio-proxy honours a full proxy.image, but istio-init is built
+    # from hub/proxy.image:tag, so set all three (compat/kiali.yaml found istio-init on
+    # Iron Bank's proxyv2).
+    upstream:
+      global:
+        hub: "@registry"
+        proxy: {image: "@repo:istio-proxy"}
+        tag: "@tag:istio-proxy:ib=ironbank/opensource/istio/pilot"   # same Istio release; the proxy is only injected, never rendered
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6).

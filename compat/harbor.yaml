@@ -1,5 +1,5 @@
 # Newer-minor check: Harbor's redis-exporter 1.91 -> 1.96 (runs when monitoring is on).
 images: {}
 test:
-  enable: [addons.harbor, prometheusOperatorCRDs, monitoring]
+  enable: [addons.harbor, certManager, prometheusOperatorCRDs, monitoring]
   expect: [prometheus-redis-exporter]
