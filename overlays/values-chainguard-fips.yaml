@@ -372,8 +372,13 @@ addons:
   sonarqube:
     values:
       upstream:
+        image:
+          repository: cgr.dev/zapatatechnology.com/sonarqube
+          tag: 26.10.0.133078-community
         initContainers:
           image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6
+        plugins:
+          image: cgr.dev/zapatatechnology.com/sonarqube:26.10.0.133078-community
   thanos:
     values:
       minio:
@@ -393,19 +398,33 @@ addons:
           tag: 0.42.5
   vault:
     values:
+      bbtests:
+        scripts:
+          image: ghcr.io/zapata-technology/bigbang-vault-fips:v2.2.1
       minio:
         waitJob:
           scripts:
             image: cgr.dev/zapatatechnology.com/kubectl-fips:1.30.14
       upstream:
         csi:
+          agent:
+            image:
+              repository: ghcr.io/zapata-technology/bigbang-vault-fips
+              tag: v2.2.1
           image:
             repository: cgr.dev/zapatatechnology.com/vault-csi-provider-fips
             tag: 1.7.4
         injector:
+          agentImage:
+            repository: ghcr.io/zapata-technology/bigbang-vault-fips
+            tag: v2.2.1
           image:
             repository: cgr.dev/zapatatechnology.com/vault-k8s-fips
             tag: 1.7.7
+        server:
+          image:
+            repository: ghcr.io/zapata-technology/bigbang-vault-fips
+            tag: v2.2.1
   velero:
     values:
       bbtests:
@@ -468,7 +487,7 @@ alloy:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: grafana-alloy-fips
-            tag: 1.21.2
+            tag: 1.21.3
 certManager:
   values:
     bbtests:
