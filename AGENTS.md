@@ -76,8 +76,7 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 Follow [docs/adding-a-package.md](docs/adding-a-package.md). In short: find the image in
 `discovery/images.json`, find the Chainguard name (`chainctl images catalog --name <n>`),
 add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the repository
-(`bb-convert.py --missing` lists them), adding it is the org owner's decision: Chainguard
-repositories can cost money. Ask before adding one.
+(`bb-convert.py --missing` lists them), add it as below ("Add a repository to the org").
 
 ### A compat (kind) test fails
 1. Get the log: `gh api --allow-escape-sequences repos/<owner>/<repo>/actions/jobs/<id>/logs`
@@ -96,8 +95,20 @@ repositories can cost money. Ask before adding one.
   it (the Tempo case). Fix with `overrides`.
 - Then add the finding's key to `scan_reviewed` with one line saying how it is handled.
 
+### Add a repository to the org
+Big Bang orgs have a Chainguard license with unlimited repositories, so add what the
+conversion needs. For each name, standard and `-fips`:
+
+```bash
+chainctl images catalog --name <name> -o json          # its id and catalog_tier
+chainctl images repos create <name> --parent <org> --tier <catalog_tier>
+chainctl images repos update <name> --parent <org> --source <id>   # start syncing tags
+```
+
+Tags appear after the sync; `bb-convert.py` converts the image on its next run.
+
 ### Chainguard published an Iron Bank leftover
-Ask the org owner to add the repository (standard and `-fips`), wait for tags,
+Add the repository (above, standard and `-fips`), wait for tags,
 replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the package's
 compat test if it has one.
 

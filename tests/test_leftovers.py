@@ -28,7 +28,7 @@ def test_only_until_images_are_listed_with_fips(monkeypatch, capsys):
 
 def test_published_and_in_org(monkeypatch, capsys):
     out = run(monkeypatch, capsys, org_has={"beta"}, catalog_has={"alpha", "beta"})
-    assert "PUBLISHED: ask the org owner to add it" in out["alpha"]
+    assert "PUBLISHED: add it to the org" in out["alpha"]
     assert "in the org" in out["beta"]
     assert "not published yet" in out["alpha-fips"]
 
