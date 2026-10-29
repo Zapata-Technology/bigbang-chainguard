@@ -105,6 +105,19 @@ addons:
       bbtests:
         scripts:
           image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+      global:
+        certificates:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-certificates
+            tag: 19.4.3
+        gitlabBase:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-base
+            tag: 19.4.3
+        kubectl:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-kubectl
+            tag: v1.37.1
       upstream:
         ai-gateway:
           grpc-tls-proxy:
@@ -113,11 +126,72 @@ addons:
               tag: 1.31.8
           test:
             image: cgr.dev/zapatatechnology.com/busybox:1.38.0
+        gitlab:
+          geo-logcursor:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee
+              tag: 19.4.3
+          gitaly:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitaly
+              tag: 19.4.3
+          gitlab-exporter:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-exporter
+              tag: 19.4.3
+          gitlab-pages:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-pages
+              tag: 19.4.3
+          gitlab-shell:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-shell
+              tag: 19.4.3
+          kas:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-kas
+              tag: 19.4.3
+          mailroom:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-mailroom
+              tag: v1.1.0
+          migrations:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
+              tag: 19.4.3
+          praefect:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitaly
+              tag: 19.4.3
+          sidekiq:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee
+              tag: 19.4.3
+          toolbox:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
+              tag: 19.4.3
+          webservice:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee
+              tag: 19.4.3
+            workhorse:
+              image: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
+              tag: 19.4.3
         gitlab-zoekt:
           gateway:
             image:
               repository: cgr.dev/zapatatechnology.com/nginx
               tag: 1.31.8
+        registry:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-container-registry
+            tag: 19.4.3
+        shared-secrets:
+          selfsign:
+            image:
+              repository: cgr.dev/zapatatechnology.com/cfssl-self-sign
+              tag: 19.4.5
   gitlabRunner:
     values:
       upstream:
@@ -256,6 +330,11 @@ addons:
         image:
           repository: cgr.dev/zapatatechnology.com/grafana-mimir
           tag: 3.2.3
+        kafka:
+          image:
+            registry: cgr.dev/zapatatechnology.com
+            repository: kafka-native
+            tag: 4.3.2
         memcached:
           image:
             repository: cgr.dev/zapatatechnology.com/memcached
@@ -882,3 +961,7 @@ twistlock:
         tag: 2.1.0-kubectl1.36.5
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl:1.36
+ztunnel:
+  values:
+    upstream:
+      image: cgr.dev/zapatatechnology.com/ztunnel:1.31.3

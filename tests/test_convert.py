@@ -111,3 +111,47 @@ def test_required_images_is_org_independent():
     assert "| `app` | `app-fips` | pkg |" in md
     assert "| `nofips` | none: FIPS keeps the standard image | pkg |" in md
     assert "vendor" not in md
+
+
+GROUP = {"images": {
+    "gitlab/web": {"group": "gl", "strict": True, "fallback": "ironbank", "cg": "web"},
+    "gitlab/shell": {"group": "gl", "strict": True, "fallback": "ironbank", "cg": "shell"},
+    "ironbank/opt": {"cg": "opt", "fallback": "ironbank"},
+    "ironbank/strict": {"cg": "old", "strict": True},
+}}
+IB_TAGS = {"gitlab/web": "v19.4.2-ubi", "gitlab/shell": "v14.57.3-ubi"}
+
+
+def test_fallback_keeps_iron_bank_instead_of_failing():
+    c = convert.Converter(GROUP, FakeTags({}), ib_tags=IB_TAGS)
+    assert c.target("ironbank/opt", "1.0.0", "pkg") is None
+    assert c.rows[-1][2] == "Iron Bank" and "falls back" in c.rows[-1][4]
+    assert "opt" in c.optional_missing and not c.missing
+
+
+def test_strict_per_image():
+    c = convert.Converter(GROUP, FakeTags(ORG_TAGS))
+    assert c.target("ironbank/strict", "2.3.1", "pkg") is None
+    assert c.rows[-1][2] == "UNRESOLVED"
+
+
+def test_group_converts_together():
+    tags = {"web": ["19.4.5"], "web-fips": ["19.4.5"], "shell": ["14.57.4"], "shell-fips": ["14.57.4"]}
+    c = convert.Converter(GROUP, FakeTags(tags), ib_tags=IB_TAGS)
+    assert c.target("gitlab/web", "v19.4.2-ubi", "gitlab")[0].endswith("web:19.4.5")
+    assert c.target("gitlab/shell", "v14.57.3-ubi", "gitlab")[0].endswith("shell:14.57.4")
+
+
+def test_group_falls_back_together_when_one_member_is_off_the_line():
+    tags = {"web": ["19.4.5"], "web-fips": ["19.4.5"], "shell": ["14.58.0"], "shell-fips": ["14.58.0"]}
+    c = convert.Converter(GROUP, FakeTags(tags), ib_tags=IB_TAGS)
+    assert c.target("gitlab/web", "v19.4.2-ubi", "gitlab") is None
+    assert "move together" in c.rows[-1][4] and "shell" in c.rows[-1][4]
+
+
+def test_version_from_matches_another_images_release():
+    m = {"images": {"gitlab/shell": {"group": "gl", "strict": True, "cg": "shell",
+                                     "version_from": "gitlab/base"}}}
+    tags = {"shell": ["19.4.3", "19.5.1"], "shell-fips": ["19.4.3"]}
+    c = convert.Converter(m, FakeTags(tags), ib_tags={"gitlab/shell": "v14.57.3-ubi", "gitlab/base": "v19.4.2-ubi"})
+    assert c.target("gitlab/shell", "v14.57.3-ubi", "gitlab")[0].endswith("shell:19.4.3")

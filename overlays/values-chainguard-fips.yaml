@@ -56,7 +56,7 @@ addons:
   authservice:
     values:
       image:
-        repository: cgr.dev/zapatatechnology.com/authservice
+        repository: cgr.dev/zapatatechnology.com/authservice-fips
         tag: 1.1.8
       redis-bb:
         cleanUpgrade:
@@ -105,6 +105,19 @@ addons:
       bbtests:
         scripts:
           image: ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2
+      global:
+        certificates:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-certificates-fips
+            tag: 19.4.3
+        gitlabBase:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-base-fips
+            tag: 19.4.3
+        kubectl:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-kubectl-fips
+            tag: v1.37.2
       upstream:
         ai-gateway:
           grpc-tls-proxy:
@@ -113,11 +126,72 @@ addons:
               tag: 1.31.8
           test:
             image: cgr.dev/zapatatechnology.com/busybox-fips:1.38.0
+        gitlab:
+          geo-logcursor:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee-fips
+              tag: 19.4.3
+          gitaly:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitaly-fips
+              tag: 19.4.3
+          gitlab-exporter:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
+              tag: 19.4.3
+          gitlab-pages:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-pages-fips
+              tag: 19.4.3
+          gitlab-shell:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-shell-fips
+              tag: 19.4.3
+          kas:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-kas-fips
+              tag: 19.4.3
+          mailroom:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitlab-mailroom-fips
+              tag: v1.1.0
+          migrations:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee-fips
+              tag: 19.4.3
+          praefect:
+            image:
+              repository: cgr.dev/zapatatechnology.com/gitaly-fips
+              tag: 19.4.3
+          sidekiq:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee-fips
+              tag: 19.4.3
+          toolbox:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee-fips
+              tag: 19.4.3
+          webservice:
+            image:
+              repository: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee-fips
+              tag: 19.4.3
+            workhorse:
+              image: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee-fips
+              tag: 19.4.3
         gitlab-zoekt:
           gateway:
             image:
               repository: cgr.dev/zapatatechnology.com/nginx-fips
               tag: 1.31.8
+        registry:
+          image:
+            repository: cgr.dev/zapatatechnology.com/gitlab-container-registry-fips
+            tag: 19.4.3
+        shared-secrets:
+          selfsign:
+            image:
+              repository: cgr.dev/zapatatechnology.com/cfssl-self-sign-fips
+              tag: 19.4.5
   gitlabRunner:
     values:
       upstream:
@@ -256,6 +330,11 @@ addons:
         image:
           repository: cgr.dev/zapatatechnology.com/grafana-mimir-fips
           tag: 3.2.3
+        kafka:
+          image:
+            registry: cgr.dev/zapatatechnology.com
+            repository: kafka-native
+            tag: 4.3.2
         memcached:
           image:
             repository: cgr.dev/zapatatechnology.com/memcached-fips
@@ -874,3 +953,7 @@ twistlock:
         tag: 2.1.0-kubectl1.36.6
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl-fips:1.36
+ztunnel:
+  values:
+    upstream:
+      image: cgr.dev/zapatatechnology.com/ztunnel-fips:1.31.3

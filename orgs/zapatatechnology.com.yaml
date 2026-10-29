@@ -8,10 +8,6 @@ images:
   # MinIO is not used at Zapata; the org's minio repos were removed 2026-10-27.
   ironbank/opensource/minio/minio: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
   ironbank/opensource/minio/mc: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
-  # authservice-fips was added to the org 2026-10-29 but had no tags yet, so the FIPS
-  # overlay keeps the standard image for now. Drop this entry once
-  # `chainctl images list --repo authservice-fips` shows 1.1.x tags.
-  ironbank/istio-ecosystem/authservice: {cg: authservice, fips: null}
   # Grafana comes from the signed build in Zapata-Technology/grafana-plugins (Key
   # Vault signature, SBOM, SLSA provenance) instead of builds/grafana-plugins.
   # Bump `tag` when that repo publishes a new Grafana; keep its build-specs.yaml
