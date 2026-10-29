@@ -29,8 +29,9 @@ boundaries.
 **What a cluster runs**
 - Every converted image comes from your own Chainguard org.
 - **CI checks Chainguard's signature on every one of them** (`scripts/bb-signatures.py`:
-  cosign, keyless, Chainguard's GitHub Actions identity). An image Chainguard didn't build
-  fails the pull request.
+  cosign, keyless). Org images must be signed by Chainguard's issuer (`issuer.enforce.dev`),
+  under your org's ID (the `CHAINGUARD_ORG_ID` variable). An image Chainguard didn't sign
+  for your org fails the pull request.
 - The overlays set Big Bang's Kyverno `restrict-image-registries` allow list to exactly your
   org, your build registry and registry1.
 - Every image that stays on Iron Bank is documented with its reason in `docs/images.md`.

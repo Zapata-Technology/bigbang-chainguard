@@ -72,6 +72,8 @@ already build. `orgs/zapatatechnology.com.yaml` is an example.
 - `CGR_ACTIONS_ID` secret: an assumable Chainguard identity in your org with
   `registry.pull`, trusted for your repo's `main` branch and pull requests.
 - `CHAINGUARD_ORG` and `BUILD_REGISTRY` repository variables, unless they're in the files.
+- `CHAINGUARD_ORG_ID` repository variable (`chainctl iam organizations list`): the signature
+  check then requires Chainguard's signature under your org.
 - `RELEASE_PAT` secret (optional): lets CI run on the nightly bot's pull requests.
 - `SIGN_IMAGES=keyless` repository variable (optional): signs the images this repo pushes
   with cosign keyless and attaches an SBOM. The signatures go to the public Sigstore log.
