@@ -125,6 +125,47 @@ The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Ky
   keystores. Set those in the site's `addons.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
 
+## Object storage: SeaweedFS instead of MinIO
+
+Big Bang deploys MinIO in several places:
+
+- its `minio` and `minio-operator` packages
+- inside Thanos (scalable), Mattermost and GitLab when no external storage is set
+
+To use [SeaweedFS](https://github.com/seaweedfs/seaweedfs), or any S3-compatible service
+you run yourself, generate an overlay that turns all of that off and points every package
+that can use S3 at your endpoint:
+
+```bash
+python scripts/bb-object-storage.py   --endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333   --credentials-template site-object-storage.yaml   --verify                                  # render Big Bang and fail if MinIO is still deployed
+```
+
+```bash
+helm upgrade -i bigbang ... -f overlays/values-chainguard.yaml [-f overlays/values-chainguard-fips.yaml]   -f overlays/values-object-storage.yaml -f my-site.yaml
+```
+
+| Package | What it stores in S3 |
+|---|---|
+| Tempo | traces |
+| Thanos | metric blocks; no bundled MinIO |
+| Mimir | blocks, ruler, alertmanager |
+| Mattermost | files; no bundled MinIO |
+| GitLab | registry, LFS, artifacts, uploads, packages, backups (`<prefix>-gitlab-*`) |
+| Velero | backups, through the AWS plugin |
+| Loki | **only with `--with loki`**: Big Bang's default Loki keeps logs on local disk and needs no MinIO; S3 requires Loki's `scalable` strategy |
+
+- **Requests are path-style.** Every package is configured for it, which SeaweedFS
+  requires.
+- **Credentials stay out of the overlay.** `--credentials-template` writes a skeleton of
+  every access key and secret value; fill it in and keep it with your uncommitted site file.
+- **Create the buckets first.** The script lists them. SeaweedFS doesn't create buckets on
+  first use: `echo 's3.bucket.create -name bigbang-tempo' | weed shell`.
+- **SeaweedFS itself isn't part of Big Bang.** Deploy it separately, for example with a
+  SeaweedFS Helm chart on Chainguard's `seaweedfs` images.
+- **Maintenance:** `object-storage.yaml` records where each package takes its storage
+  settings. It was checked against Big Bang 3.35.1, so recheck it when `BIGBANG_VERSION`
+  changes. `--verify` catches a package that starts deploying MinIO again.
+
 ## Version compatibility
 
 Tags follow one rule: the newest patch on the MAJOR.MINOR line that Iron Bank pins, and
