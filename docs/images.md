@@ -192,6 +192,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | neuvector | ironbank/big-bang/cypress:15.21.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.0 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.0); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.0) |
 | neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.11 | Iron Bank | Iron Bank | no Chainguard neuvector-registry-adapter image |
+| neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.3 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-devops-tester.py; VERSION DIFFERS from Big Bang's 1.3 |
