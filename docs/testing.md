@@ -1,12 +1,13 @@
 # Testing
 
 Rendering Big Bang only proves that each value now names a Chainguard image. The packages
-also have to **run** on those images, so testing has four layers. Each layer catches
+also have to **run** on those images, so testing has several layers. Each layer catches
 things the one before can't.
 
 ```mermaid
 flowchart LR
-    U[Unit tests<br/>pytest tests/] --> V[Render verify<br/>bb-verify.py<br/>standard + FIPS]
+    U[Unit tests<br/>pytest tests/] --> SC[Chart scan<br/>bb-scan.py<br/>sh needs bash, empty defaults]
+    SC --> V[Render verify<br/>bb-verify.py<br/>standard + FIPS]
     V --> S[Signatures<br/>bb-signatures.py<br/>cosign, every org image]
     V --> B[Image builds<br/>builds.yml<br/>smoke test + grype]
     S --> C[Run on kind<br/>compat.yml<br/>one package per job]
@@ -15,7 +16,7 @@ flowchart LR
 
 | Layer | Runs | Catches |
 |---|---|---|
-| **Unit** (`tests/`) | every PR (`ci.yml`) | Tag selection, settings and org files, conversion rules, value-path discovery, Iron Bank recipe parsing, the image policy |
+| **Unit** (`tests/`) | every PR (`ci.yml`) | Tag selection, settings and org files, conversion rules and post-renderer patches, value-path discovery, Iron Bank recipe parsing, the image policy, object-storage credentials, the chart scan's rules, the leftovers report, and every `compat/*.yaml` being well formed |
 | **Chart scan** (`bb-scan.py`) | every PR | Shell code run by `sh` that needs bash (Chainguard `-dev` images' `sh` is busybox; UBI's is bash), and empty chart defaults written into an app config. Each finding must be listed in `mapping.yaml` `scan_reviewed` with its fix. |
 | **Render verify** (`bb-verify.py`) | every PR, standard and FIPS | An image the overlays don't convert; a non-FIPS image in the FIPS overlay |
 | **Signatures** (`bb-signatures.py`) | every PR | An org image Chainguard didn't sign for your org, or a tag that doesn't exist. This found `neuvector-manager-fips:5.6`, which had no tags. |
@@ -50,7 +51,7 @@ Each test then:
 
 ## Results (Big Bang 3.35.1, 2026-10-29)
 
-Every test passes in standard and FIPS mode.
+Every test in this table passes in standard and FIPS mode, except the ones marked new.
 
 | Test | What runs | Notes |
 |---|---|---|
@@ -70,6 +71,14 @@ Every test passes in standard and FIPS mode.
 | renovate | renovate 44.190 | A CronJob: installs only |
 | kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
 | object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README) |
+| keycloak (new) | Keycloak 26.8 with Big Bang's PostgreSQL | |
+| external-secrets (new) | External Secrets Operator 2.12 | |
+| fluentbit (new) | Fluent Bit 5.1 shipping to Loki | |
+| gatekeeper (new) | Gatekeeper 3.23 and its kubectl jobs | |
+| metrics-server (new) | metrics-server 0.9 | kind's kubelet certificates may need `--kubelet-insecure-tls` |
+| thanos (new) | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
+| velero (new) | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
+| istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
 
 ## What the runtime tests found
 

@@ -59,7 +59,7 @@ def main():
     spec = objstore.load_spec()
     enabled = sys.argv[1:]
     _, cred_paths, _, _ = objstore.build(spec, objstore.tokens(objstore.endpoint(), "us-east-1", "bigbang"), set())
-    cred_paths = [p for p in cred_paths if p.split(".")[p.startswith("addons.")] in enabled]
+    cred_paths = objstore.credentials_for(cred_paths, enabled)
     with open(os.path.join(out, "site-object-storage.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(objstore.credentials_template(cred_paths, ACCESS, SECRET), f)
     print(f"SeaweedFS ready at {objstore.endpoint()}")
