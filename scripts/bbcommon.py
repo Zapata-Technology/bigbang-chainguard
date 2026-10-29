@@ -10,13 +10,63 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def setting(name, arg=None):
-    """A repo setting: the command-line value, else $<name>, else the <name> file at the repo root."""
+    """A repo setting: the command-line value, else $<name>, else the <name> file at the repo root.
+
+    Lines starting with # in the file are comments; a file with only comments is unset.
+    """
     if arg:
         return arg.strip()
     if os.environ.get(name):
         return os.environ[name].strip()
     p = os.path.join(ROOT, name)
-    return open(p).read().strip() if os.path.exists(p) else ""
+    if not os.path.exists(p):
+        return ""
+    lines = [ln.strip() for ln in open(p, encoding="utf-8") if ln.strip() and not ln.lstrip().startswith("#")]
+    return lines[0] if lines else ""
+
+
+def load_mapping(org, path=None):
+    """mapping.yaml with orgs/<org>.yaml (that org's own choices) applied over it.
+
+    An org file's `images` entries replace mapping.yaml's entry for the same Iron Bank
+    image; its other sections are merged in.
+    """
+    mapping = yaml.safe_load(open(path or os.path.join(ROOT, "mapping.yaml")))
+    p = os.path.join(ROOT, "orgs", f"{org}.yaml")
+    if org and os.path.exists(p):
+        local = yaml.safe_load(open(p)) or {}
+        mapping["images"].update(local.pop("images", {}) or {})
+        deep_merge(mapping, local)
+    return mapping
+
+
+def split_ref(ref):
+    """'registry1.dso.mil/ironbank/x/y:1.2' -> ('ironbank/x/y', '1.2'); tag may be None."""
+    for h in IRONBANK_HOSTS:
+        if ref.startswith(h + "/"):
+            ref = ref[len(h) + 1:]
+    ref = ref.split("@")[0]
+    last = ref.rsplit("/", 1)[-1]
+    if ":" in last:
+        repo, tag = ref.rsplit(":", 1)
+        return repo, tag
+    return ref, None
+
+
+def ironbank_refs(info):
+    """Every (Iron Bank repo, tag) a discovered release uses: rendered images, plus images
+    set only in values (test jobs that are off by default render nothing)."""
+    refs = {split_ref(r) for r in info["rendered"]}
+    for n in info["values"]:
+        v = n["value"]
+        if n["shape"] == "string":
+            repo, tag = split_ref(v)
+            refs.add((repo, tag or n.get("tag")))
+        elif n["shape"] in ("repo", "name"):
+            key = "repository" if n["shape"] == "repo" else "image"
+            full = f'{v["registry"]}/{v[key]}' if v.get("registry") else v[key]
+            refs.add((split_ref(full)[0], v.get("tag", v.get("release"))))
+    return refs
 
 
 def build_registry(arg=None):
@@ -38,7 +88,7 @@ def build_target(m, registry):
     spec = load_build(m["build"])
     if not (registry and spec):
         return None
-    return tuple(f"{registry}/{spec['image'][v]['name']}:{spec['tag']}" for v in ("standard", "fips"))
+    return tuple(f"{registry}/{spec['image'][v]['name']}:{spec['image'][v]['tag']}" for v in ("standard", "fips"))
 
 
 def deep_merge(a, b):

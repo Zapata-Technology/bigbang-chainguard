@@ -116,11 +116,12 @@ def parse(tag):
 _IB_SUFFIXES = re.compile(r"-(amd64|arm64|ubi\d*|ubi-fips|fips)$")
 
 
-def resolve(ib_tag, tags, suffix=None):
+def resolve(ib_tag, tags, suffix=None, allow_ahead=True):
     """Pick the org tag for an Iron Bank tag.
 
     If the org has nothing on that MAJOR.MINOR line, the newest release of the same
-    MAJOR above it is used and the note starts with "MINOR AHEAD".
+    MAJOR above it is used and the note starts with "MINOR AHEAD" (unless
+    allow_ahead is False: then the image is unresolved).
 
     The newest patch on the Iron Bank tag's MAJOR.MINOR line (the helm-charts pin
     policy: Chainguard rebuilds patches for CVEs, so the newest patch is the one to
@@ -155,6 +156,8 @@ def resolve(ib_tag, tags, suffix=None):
     # The org syncs only the current release stream, so Big Bang can pin a line
     # the org no longer has. Take the newest release of the same MAJOR and flag it.
     ahead = [(n, t) for n, t in candidates if n[0] == nums[0] and n[:2] > line and len(n) >= 3]
+    if ahead and not allow_ahead:
+        return None, f"org has no {'.'.join(map(str, line))}.x (--strict-versions; newer {nums[0]}.x exists)"
     if ahead:
         n, t = max(ahead, key=lambda x: (x[0], not x[1].startswith("v")))
         return t, f"MINOR AHEAD: org has no {'.'.join(map(str, line))}.x; using {t} (Iron Bank {ib_tag})"

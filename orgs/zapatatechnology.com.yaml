@@ -1,0 +1,18 @@
+# zapatatechnology.com's own choices. bb-convert.py and bb-verify.py apply this over
+# mapping.yaml when CHAINGUARD_ORG is zapatatechnology.com: each entry under
+# `images` replaces mapping.yaml's entry for that Iron Bank image.
+#
+# Another org copies nothing from here; add orgs/<your org>.yaml only if you need
+# exceptions of your own.
+images:
+  # MinIO is not used at Zapata; the org's minio repos were removed 2026-10-27.
+  ironbank/opensource/minio/minio: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  ironbank/opensource/minio/mc: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  # The org has authservice but no authservice-fips repo (new repos cost money), so
+  # the FIPS overlay keeps the standard image. Drop this entry once it is added.
+  ironbank/istio-ecosystem/authservice: {cg: authservice, fips: null}
+  # Grafana comes from the signed build in Zapata-Technology/grafana-plugins (Key
+  # Vault signature, SBOM, SLSA provenance) instead of builds/grafana-plugins.
+  # Bump `tag` when that repo publishes a new Grafana; keep its build-specs.yaml
+  # digests equal to builds/grafana-plugins/build.yaml.
+  ironbank/big-bang/grafana/grafana-plugins: {ref: ghcr.io/zapata-technology/grafana-plugins, fips: ghcr.io/zapata-technology/grafana-plugins-fips, tag: "13.2.5", note: "signed build from Zapata-Technology/grafana-plugins"}
