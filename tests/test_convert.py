@@ -175,3 +175,14 @@ def test_override_tag_from_iron_banks_deployed_tag():
     spec = {"tag": "@tag:proxy:ib=ironbank/istio/proxyv2", "image": "@repo:proxy", "hub": "@registry"}
     assert c.overrides("istiod", spec, False) == {"tag": "1.31.3", "image": "proxy", "hub": "cgr.dev/example.com"}
     assert c.overrides("istiod", spec, True)["tag"] == "1.31.2"
+
+
+def test_group_members_share_one_patch():
+    tags = {"web": ["19.4.3", "19.4.5"], "web-fips": ["19.4.3", "19.4.5"],
+            "shell": ["19.4.3"], "shell-fips": ["19.4.3", "19.4.5"]}
+    m = {"images": {"gitlab/web": {"group": "gl", "strict": True, "cg": "web", "same_patch": "rails"},
+                    "gitlab/shell": {"group": "gl", "strict": True, "cg": "shell", "version_from": "gitlab/web",
+                                     "same_patch": "rails"}}}
+    c = convert.Converter(m, FakeTags(tags), ib_tags={"gitlab/web": "v19.4.2-ubi", "gitlab/shell": "v14.57.3-ubi"})
+    assert c.target("gitlab/web", "v19.4.2-ubi", "gitlab") == ("cgr.dev/example.com/web:19.4.3",
+                                                               "cgr.dev/example.com/web-fips:19.4.3")

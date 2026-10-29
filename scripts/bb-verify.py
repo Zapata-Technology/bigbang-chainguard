@@ -14,13 +14,15 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from bbcommon import IRONBANK_HOSTS, build_registry, build_target, load_mapping  # noqa: E402
+from bbcommon import IRONBANK_HOSTS, build_registry, build_target, load_mapping, split_ref  # noqa: E402
+import objstore  # noqa: E402
 from orgtags import REGISTRY, org_name  # noqa: E402
 
 
@@ -33,6 +35,8 @@ def main():
     ap.add_argument("--build-registry", help="registry of the images this repo builds (default: $BUILD_REGISTRY, "
                                              "else the BUILD_REGISTRY file)")
     ap.add_argument("-o", "--output", help="also write the rendered image list here")
+    ap.add_argument("--object-storage", help="seaweedfs (default) or minio (default: $OBJECT_STORAGE, else the "
+                                              "OBJECT_STORAGE file)")
     a = ap.parse_args()
 
     values = [os.path.join(ROOT, "discovery", "render-inputs.yaml"),
@@ -41,11 +45,25 @@ def main():
     if a.fips:
         values.append(os.path.join(ROOT, "overlays", "values-chainguard-fips.yaml"))
         flux = os.path.join(ROOT, "flux-fips", "kustomization.yaml")
+    # OBJECT_STORAGE=seaweedfs: render the way a site deploys it, with the object-storage
+    # overlay and (placeholder) credentials, and require that no MinIO is left.
+    storage = objstore.kind(a.object_storage)
+    overlay = os.path.join(ROOT, "overlays", "values-object-storage.yaml")
+    creds = tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False)
+    if storage == "seaweedfs":
+        if not os.path.exists(overlay):
+            sys.exit("OBJECT_STORAGE=seaweedfs but overlays/values-object-storage.yaml is missing: run bb-convert.py")
+        spec = objstore.load_spec()
+        _, cred_paths, _, _ = objstore.build(spec, objstore.tokens(objstore.endpoint(), "us-east-1", "bigbang"), set())
+        yaml.safe_dump(objstore.credentials_template(cred_paths, "verify", "verify-secret"), creds)
+        values += [overlay, creds.name]
+    creds.close()
     cmd = [sys.executable, os.path.join(HERE, "bb-images.py"), "--bigbang", a.bigbang, "--pkgs", a.pkgs,
            "--flux-kustomization", flux]
     for v in values:
         cmd += ["--values", v]
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    os.unlink(creds.name)
     if p.returncode:
         sys.exit(p.stderr)
     found = json.loads(p.stdout)
@@ -67,6 +85,10 @@ def main():
             no_fips.add(v["cg"])
 
     problems = [f"{rel}: render failed: {err}" for rel, err in found["errors"].items()]
+    if storage == "seaweedfs":
+        problems += [f"{rel}: {ref} is MinIO, but OBJECT_STORAGE=seaweedfs"
+                     for rel, info in sorted(found["packages"].items()) for ref in info["rendered"]
+                     if split_ref(ref)[0] in objstore.MINIO_SERVERS]
     counts = {"ours": 0, "ironbank": 0}
     for rel, info in sorted(found["packages"].items()):
         for img in info["rendered"]:

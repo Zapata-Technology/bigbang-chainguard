@@ -17,10 +17,13 @@ ARG USER_ID=1000
 
 USER root
 
+# UBI's /bin/sh is bash and Big Bang's job scripts rely on it (Alloy's upgrade job runs
+# a bash here-string under /bin/sh); the -dev image's /bin/sh is busybox.
 RUN set -e; \
     apk add --no-cache ${PACKAGES}; \
     addgroup -g "${USER_ID}" "${USER_NAME}"; \
-    adduser -D -u "${USER_ID}" -G "${USER_NAME}" -s /sbin/nologin "${USER_NAME}"
+    adduser -D -u "${USER_ID}" -G "${USER_NAME}" -s /sbin/nologin "${USER_NAME}"; \
+    ln -sf bash /bin/sh
 
 LABEL org.opencontainers.image.description="Chainguard rebuild of Big Bang's base job image (bash, kubectl, yq, jq, curl)"
 

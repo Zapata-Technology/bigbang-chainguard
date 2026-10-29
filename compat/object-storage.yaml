@@ -1,0 +1,23 @@
+# Object storage, OBJECT_STORAGE=seaweedfs (the default): deploys the generated
+# seaweedfs/ (or seaweedfs-fips/) kustomization as a site would, then Big Bang with
+# overlays/values-object-storage.yaml, and runs Tempo on it. Passes only if Tempo runs,
+# no MinIO is deployed, and nothing logs S3 errors.
+images: {}
+test:
+  enable: [tempo]
+  setup:
+    - python3 compat/support/seaweedfs.py tempo
+    - sh compat/support/watch.sh tempo "kubectl -n tempo logs tempo-tempo-0 --previous --tail=40 || kubectl -n tempo logs tempo-tempo-0 --tail=40"
+    - sh compat/support/watch.sh tempo-config "kubectl -n tempo get configmap tempo -o yaml | grep -B2 -A30 'receivers:'"
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+  expect: [tempo]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
+  debug:
+    - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image | grep -i minio || echo 'no MinIO pods'"
+    - "kubectl -n tempo describe statefulset | tail -40"
+    - "cat $COMPAT_OUT/watch-tempo.log"
+    - "cat $COMPAT_OUT/watch-tempo-config.log"
+    - "kubectl -n tempo get events --sort-by=.lastTimestamp | tail -20"

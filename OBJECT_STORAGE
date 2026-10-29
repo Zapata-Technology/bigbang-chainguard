@@ -1,0 +1,7 @@
+# Object storage for Big Bang: seaweedfs (the default when this file has no value) or
+# minio. seaweedfs: bb-convert.py writes overlays/values-object-storage.yaml (MinIO off,
+# packages on S3) and seaweedfs/ + seaweedfs-fips/ (SeaweedFS from your org's image).
+# minio: Big Bang deploys MinIO itself, on Chainguard's minio images. Put the choice on a
+# line of its own below, or set the OBJECT_STORAGE environment / repository variable, or
+# pass --object-storage. OBJECT_STORAGE_ENDPOINT (same rules) points at an S3 service of
+# your own instead of the in-cluster SeaweedFS.

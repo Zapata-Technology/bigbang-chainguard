@@ -103,7 +103,7 @@ flowchart TB
         direction TB
         U[Big Bang chart defaults<br/>Iron Bank images] --> O1[values-chainguard.yaml<br/>Chainguard images, registry1 blanks,<br/>Kyverno allow list]
         O1 --> O2[values-chainguard-fips.yaml<br/>optional: -fips images]
-        O2 --> O3[values-object-storage.yaml<br/>optional: SeaweedFS / S3, no MinIO]
+        O2 --> O3[values-object-storage.yaml<br/>OBJECT_STORAGE=seaweedfs, the default:<br/>SeaweedFS / S3, no MinIO]
         O3 --> O4[my-site.yaml<br/>domain, registryCredentials, SSO, ...]
     end
     FL[kubectl apply --server-side -k flux/<br/>or flux-fips/] --> helm
@@ -142,10 +142,10 @@ sequenceDiagram
 ```
 
 `compat.yml` is separate. It runs on pull requests that change `compat/`, or by hand, and
-deploys single packages on kind to prove they **run**, not just render. See
-[testing.md](testing.md).
+deploys single packages on kind to prove they **run**, not just render, and checks
+every running image against the image policy. See [testing.md](testing.md).
 
-## 6. Object storage (optional)
+## 6. Object storage (SeaweedFS by default)
 
 ```mermaid
 flowchart LR
@@ -158,8 +158,10 @@ flowchart LR
     X[minio, minio-operator,<br/>bundled MinIO] -. turned off .- bb
 ```
 
-`scripts/bb-object-storage.py` writes this overlay from `object-storage.yaml`. Credentials
-stay in the site file, and `--verify` fails if any MinIO server is still deployed.
+With `OBJECT_STORAGE=seaweedfs` (the default), `bb-convert.py` writes this overlay from
+`object-storage.yaml`, plus `seaweedfs/` (SeaweedFS from your org's image, S3 auth from a
+Secret, a bucket Job). `OBJECT_STORAGE=minio` keeps Big Bang's own MinIO instead. Credentials
+stay in the site file, and `bb-verify.py` fails if any MinIO is still deployed.
 
 ## 7. Trust boundaries
 

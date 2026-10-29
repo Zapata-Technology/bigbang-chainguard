@@ -24,6 +24,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -33,7 +34,8 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, build_registry, deep_merge, load_build  # noqa: E402
+from bbcommon import ROOT, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
+from orgtags import org_name  # noqa: E402
 
 
 def sh(*cmd, check=True, capture=False, stdin=None):
@@ -259,6 +261,16 @@ def main():
             print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
             raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
 
+        # `setup`: commands run before Big Bang (e.g. deploy SeaweedFS and generate the
+        # object-storage overlay). They get COMPAT_OUT (a scratch dir for files they write,
+        # which `values_files` can name), COMPAT_DOCKERCFG (registry credentials for their
+        # own pull secrets) and COMPAT_FIPS.
+        env = dict(os.environ, COMPAT_OUT=out, COMPAT_DOCKERCFG=dcj, COMPAT_FIPS="1" if a.fips else "")
+        for cmd in test.get("setup", []):
+            print(f"\n== setup: {cmd}", flush=True)
+            if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
+                raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
+
         chart = os.path.join(a.bigbang, "chart")
         values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
         deep_merge(values, test.get("values", {}) or {})
@@ -267,6 +279,8 @@ def main():
         args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
         if a.fips:
             args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
+        for f in test.get("values_files", []):
+            args += ["-f", f.replace("$COMPAT_OUT", out)]
         print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
         sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
            *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
@@ -288,9 +302,37 @@ def main():
     # injector's config); run whatever the outcome.
     for cmd in test.get("debug", []):
         print(f"\n== debug: {cmd}")
-        print(subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout[-4000:])
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
+                           env=dict(os.environ, COMPAT_OUT=out))
+        print((p.stdout + p.stderr)[-4000:])
     # `expect`: images (name:tag fragments) the test is about. A pass only covers the
     # ones that actually ran; the rest need the feature that uses them switched on.
+    # Every image the test's namespaces and Flux run must be the conversion's: the org,
+    # BUILD_REGISTRY or a documented Iron Bank leftover, and -fips in FIPS mode. This is
+    # what catches images injected at runtime (Istio's istio-init sidecar).
+    spec_images = set()
+    for ns in namespaces + ["flux-system"]:
+        out_ns = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
+        for p in json.loads(out_ns)["items"] if out_ns else []:
+            spec_images |= {c["image"] for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]}
+    org = org_name()
+    policy = running_image_problems(spec_images, org, build_registry(),
+                                    load_mapping(org, overlays=[a.compat]), fips=a.fips)
+    for p in policy:
+        print("IMAGE POLICY:", p)
+    print(f"image policy: {len(spec_images)} images, {len(policy)} problems")
+    ok = ok and not policy
+    # `forbid_log`: a regex no pod in the test namespaces may log (e.g. S3 errors).
+    if test.get("forbid_log"):
+        rx = re.compile(test["forbid_log"])
+        for ns in namespaces:
+            out_ns = kubectl("get", "pod", "-n", ns, "-o", "jsonpath={.items[*].metadata.name}", check=False) or ""
+            for pod in out_ns.split():
+                logs = kubectl("logs", "-n", ns, pod, "--all-containers", "--tail=500", check=False) or ""
+                hits = [ln for ln in logs.splitlines() if rx.search(ln)]
+                if hits:
+                    ok = False
+                    print(f"FORBIDDEN LOG in {ns}/{pod}: {hits[0][:300]}")
     running = images_running(namespaces)
     expect = test.get("expect", [])
     seen = [e for e in expect if any(e in i for i in running)]

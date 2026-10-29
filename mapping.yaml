@@ -13,6 +13,7 @@
 #     strict: true         never a newer MINOR than Iron Bank's (no "MINOR AHEAD") for this image
 #     group: <name>        images that move together: all convert, or all stay on Iron Bank
 #     version_from: <ironbank path>  match the Iron Bank tag of another image (e.g. its release)
+#     same_patch: <name>   group members with the same name use one patch: the newest all have
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release)
@@ -190,21 +191,23 @@ images:
   # Chainguard tags every image with the GitLab release, so the images Iron Bank
   # tags with their own version (registry, shell, exporter) match on gitlab-base's
   # tag. mail_room and kubectl carry their own versions on Chainguard: newest.
+  # same_patch: rails pins the Rails images (one codebase, one database schema) and
+  # gitlab-base to the newest patch all of them have, standard and FIPS.
   gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
   gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
   gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
-  gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, cg: gitlab-base}
+  gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, same_patch: rails, cg: gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-container-registry: {<<: *gitlab, cg: gitlab-container-registry, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-exporter: {<<: *gitlab, cg: gitlab-exporter, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
-  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, cg: commercial-gitlab-geo-logcursor-ee}
+  gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-geo-logcursor-ee}
   gitlab/gitlab-org/build/cng/gitlab-kas: {<<: *gitlab, cg: gitlab-kas}
   gitlab/gitlab-org/build/cng/gitlab-mailroom: {<<: *gitlab, cg: gitlab-mailroom, version: "*"}
   gitlab/gitlab-org/build/cng/gitlab-pages: {<<: *gitlab, cg: gitlab-pages}
   gitlab/gitlab-org/build/cng/gitlab-shell: {<<: *gitlab, cg: gitlab-shell, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
-  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, cg: commercial-gitlab-sidekiq-ee}
-  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, cg: commercial-gitlab-toolbox-ee}
-  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, cg: commercial-gitlab-webservice-ee}
-  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, cg: commercial-gitlab-workhorse-ee}
+  gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-sidekiq-ee}
+  gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-toolbox-ee}
+  gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-webservice-ee}
+  gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-workhorse-ee}
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
   gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "no Chainguard image (Gitaly's cgroups init container)"}
@@ -264,6 +267,60 @@ overrides:
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+  tempo:
+    # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
+    # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo
+    # 2.10.10 refuses to start: "unknown type: opencensus" (compat/object-storage.yaml).
+    # No values merge can delete the key, so this is the chart's own `config` template
+    # (tempo chart 2.1.0) with one change: receivers omit opencensus. bb-scan.py lists
+    # the chart version in scan_reviewed, so a new chart forces a review of this copy.
+    upstream:
+      config: |
+        memberlist:
+          cluster_label: "{{ .Release.Name }}.{{ .Release.Namespace }}"
+        multitenancy_enabled: {{ .Values.tempo.multitenancyEnabled }}
+        usage_report:
+          reporting_enabled: {{ .Values.tempo.reportingEnabled }}
+        compactor:
+          compaction:
+            block_retention: {{ .Values.tempo.retention }}
+        distributor:
+          receivers:
+            {{- toYaml (omit .Values.tempo.receivers "opencensus") | nindent 8 }}
+        ingester:
+          {{- toYaml .Values.tempo.ingester | nindent 6 }}
+        server:
+          {{- toYaml .Values.tempo.server | nindent 6 }}
+        storage:
+          {{- toYaml .Values.tempo.storage | nindent 6 }}
+        querier:
+          {{- toYaml .Values.tempo.querier | nindent 6 }}
+        query_frontend:
+          {{- toYaml .Values.tempo.queryFrontend | nindent 6 }}
+        overrides:
+          {{- toYaml .Values.tempo.overrides | nindent 6 }}
+          {{- if .Values.tempo.metricsGenerator.enabled }}
+        metrics_generator:
+          {{- if .Values.tempo.metricsGenerator.processor }}
+          processor:
+            {{- toYaml .Values.tempo.metricsGenerator.processor | nindent 8 }}
+          {{- end }}
+          {{- if .Values.tempo.metricsGenerator.registry }}
+          registry:
+            {{- toYaml .Values.tempo.metricsGenerator.registry | nindent 8 }}
+          {{- end }}
+          storage:
+            path: {{ .Values.tempo.metricsGenerator.storage.path | quote }}
+            {{- if .Values.tempo.metricsGenerator.storage.remote_write }}
+            remote_write:
+              {{- toYaml .Values.tempo.metricsGenerator.storage.remote_write | nindent 10 }}
+            {{- else }}
+            remote_write:
+              - url: {{ .Values.tempo.metricsGenerator.remoteWriteUrl }}
+            {{- end }}
+          traces_storage:
+            path: {{ .Values.tempo.metricsGenerator.traces_storage.path | quote }}
+          {{- end }}
 
 # Images a package template hardcodes with no value to override (Big Bang key:
 # Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
@@ -275,6 +332,23 @@ overrides:
 version_labels:
   istiod:
     Deployment/istiod: ironbank/opensource/istio/pilot
+
+# Wait jobs (Big Bang key: [Job names]) whose script starts #!/bin/sh but is bash
+# (arrays). Iron Bank's kubectl is UBI, where sh is bash; the Chainguard -dev image's sh
+# is busybox, so the script dies on its first line. bb-convert writes a Flux
+# post-renderer that runs the job's scripts with bash. Found by compat/kyverno-enforce.yaml.
+bash_wait_jobs:
+  kyvernoPolicies: [kyverno-kyverno-policies-wait-job]
+
+# Containers (Big Bang key: [{kind, name regex, container: containers/<i> or
+# initContainers/<i>}]) whose command is
+# /bin/sh -c with a bash script, on an image whose sh is busybox once converted: the
+# post-renderer makes the command /bin/bash. Found by scanning every package chart for
+# bash-only syntax run by sh. (Images this repo builds, like bigbang-base, link sh to
+# bash as UBI does, so jobs on them need no entry.)
+bash_commands:
+  addons.fortify:
+    - {kind: Job, name: .*-keystore-job, container: containers/0}   # secret-creator: kubectl, REQUIRED_KEYS=( ... )
 
 post_renderers:
   addons.fortify:
@@ -290,3 +364,11 @@ ignore:
   - {release: kyverno-policies, path: policies}          # image patterns in policy parameters
   - {release: kyverno-policies, path: celPoliciesBeta}
   - {release: twistlock, path: console.trustedImages}    # Prisma trusted-registry rules
+
+# scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
+# finding not listed here, so each new Big Bang release gets the same review.
+scan_reviewed:
+  kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
+  alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
+  addons.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)
+  tempo/chart/charts/tempo-2.1.0.tgz!tempo: overrides.tempo (config template omits opencensus)

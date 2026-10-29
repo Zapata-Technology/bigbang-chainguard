@@ -94,6 +94,40 @@ def build_target(m, registry):
     return tuple(f"{registry}/{spec['image'][v]['name']}:{spec['image'][v]['tag']}" for v in ("standard", "fips"))
 
 
+# Images kind itself runs (CNI, DNS, storage): cluster plumbing, not Big Bang.
+CLUSTER_IMAGES = ("registry.k8s.io/", "docker.io/kindest/")
+
+
+def image_name(ref):
+    """'cgr.dev/org/kubectl-fips:1.37-dev@sha256:..' -> 'kubectl-fips'."""
+    return ref.split("@")[0].rsplit("/", 1)[-1].split(":")[0]
+
+
+def running_image_problems(images, org, registry, mapping, fips=False):
+    """Why each image a cluster runs breaks the conversion's promise ([] if none).
+
+    Allowed: the org (cgr.dev/<org>), BUILD_REGISTRY, an Iron Bank image the mapping
+    keeps there (stays, fallback, group), and kind's own images. With fips, every org
+    and build image must be a -fips one unless the mapping says it has no FIPS variant.
+    """
+    imgs = mapping["images"]
+    keep = {k for k, v in imgs.items() if isinstance(v, dict)
+            and ("stays" in v or v.get("fallback") == "ironbank" or v.get("group") or "build" in v)}
+    no_fips = {v["cg"] for v in imgs.values() if isinstance(v, dict) and "cg" in v and v.get("fips", "x") is None}
+    problems = []
+    for ref in sorted(set(images)):
+        ours = ref.startswith(f"cgr.dev/{org}/") or bool(registry) and ref.startswith(registry + "/")
+        if ours:
+            if fips and not image_name(ref).endswith("-fips") and image_name(ref) not in no_fips:
+                problems.append(f"{ref}: not a FIPS image")
+        elif ref.startswith(IRONBANK_HOSTS):
+            if split_ref(ref)[0] not in keep:
+                problems.append(f"{ref}: Iron Bank image the mapping converts")
+        elif not ref.startswith(CLUSTER_IMAGES):
+            problems.append(f"{ref}: not from cgr.dev/{org}, {registry or 'a build registry'} or Iron Bank")
+    return problems
+
+
 def deep_merge(a, b):
     for k, v in b.items():
         if isinstance(v, dict) and isinstance(a.get(k), dict):

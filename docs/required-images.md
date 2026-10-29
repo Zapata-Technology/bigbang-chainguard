@@ -121,3 +121,9 @@ lists the ones your org doesn't have yet.
 | `velero` | `velero-fips` | velero |
 | `velero-plugin-for-aws` | `velero-plugin-for-aws-fips` | velero |
 | `ztunnel` | `ztunnel-fips` | ztunnel |
+
+## Object storage
+
+With OBJECT_STORAGE=seaweedfs (the default): `seaweedfs` and `seaweedfs-fips`, each with its `-dev`
+twin (the bucket Job). With OBJECT_STORAGE=minio: `minio` and `minio-client` (and their `-fips`),
+already listed above.

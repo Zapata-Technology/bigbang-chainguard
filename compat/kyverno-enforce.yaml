@@ -1,0 +1,19 @@
+# Kyverno enforcement: Big Bang's restrict-image-registries policy in Enforce mode (its
+# default) with packages deployed. Any image from a registry the overlay's allow list
+# misses is refused admission, and its pod never starts.
+images: {}
+test:
+  enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
+  expect: [kyverno, headlamp, grafana]
+  setup:
+    - sh compat/support/watch.sh policies "kubectl get clusterpolicy -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message | grep -v True"
+  values:
+    # Big Bang's require-non-root-group/-user policies render preconditions.all: null
+    # (rejected by Kyverno's schema) unless some container is excluded; Istio, which
+    # usually supplies that list, is off here. Exclude a container name nothing uses.
+    kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
+  debug:
+    - "kubectl get clusterpolicy -o custom-columns='NAME:.metadata.name,READY:.status.conditions[0].status,REASON:.status.conditions[0].reason,MESSAGE:.status.conditions[0].message'"
+    - "cat $COMPAT_OUT/watch-policies.log"
+    - "kubectl get clusterpolicy restrict-image-registries -o jsonpath='{.spec.validationFailureAction} {.spec.rules[0].validate.message}'"
+    - "kubectl get events -A --field-selector reason=PolicyViolation | tail -10"
