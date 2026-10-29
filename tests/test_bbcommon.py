@@ -87,3 +87,12 @@ def test_image_nodes_shapes():
     found = {(".".join(map(str, p)), shape) for p, shape, _ in bbcommon.image_nodes(values)}
     assert found == {("global.imageRegistry", "registry"), ("app.image", "repo"), ("split.image", "repo"),
                      ("istio", "hub"), ("job.image", "string"), ("list.0.image", "string")}
+
+
+def test_mapping_overlays_apply_after_the_org_file_and_drop_test(repo):
+    (repo / "mapping.yaml").write_text("images:\n  ironbank/v: {stays: major}\n")
+    trial = repo / "trial.yaml"
+    trial.write_text("images:\n  ironbank/v: {cg: v, version: '*'}\ntest:\n  enable: [addons.v]\n")
+    m = bbcommon.load_mapping("me.example", overlays=[str(trial)])
+    assert m["images"]["ironbank/v"] == {"cg": "v", "version": "*"}
+    assert "test" not in m

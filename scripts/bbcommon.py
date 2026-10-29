@@ -25,16 +25,19 @@ def setting(name, arg=None):
     return lines[0] if lines else ""
 
 
-def load_mapping(org, path=None):
-    """mapping.yaml with orgs/<org>.yaml (that org's own choices) applied over it.
+def load_mapping(org, path=None, overlays=()):
+    """mapping.yaml with orgs/<org>.yaml (that org's own choices) and then each of
+    `overlays` (e.g. compat/<test>.yaml) applied over it.
 
-    An org file's `images` entries replace mapping.yaml's entry for the same Iron Bank
-    image; its other sections are merged in.
+    An overlay's `images` entries replace mapping.yaml's entry for the same Iron Bank
+    image; its other sections are merged in (a compat file's `test` section is not
+    part of the mapping and is dropped).
     """
     mapping = yaml.safe_load(open(path or os.path.join(ROOT, "mapping.yaml")))
-    p = os.path.join(ROOT, "orgs", f"{org}.yaml")
-    if org and os.path.exists(p):
+    org_file = os.path.join(ROOT, "orgs", f"{org}.yaml")
+    for p in ([org_file] if org and os.path.exists(org_file) else []) + list(overlays):
         local = yaml.safe_load(open(p)) or {}
+        local.pop("test", None)
         mapping["images"].update(local.pop("images", {}) or {})
         deep_merge(mapping, local)
     return mapping

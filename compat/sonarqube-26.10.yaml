@@ -1,0 +1,9 @@
+# Upgrade test: SonarQube 26.9 community (Iron Bank) -> Chainguard sonarqube 26.10
+# community (no FIPS image), with its JMX exporter from Chainguard's
+# jmx-exporter-iamguarded (Bitnami file layout, same 1.6 version).
+images:
+  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
+  ironbank/opensource/prometheus/jmx-exporter: {cg: jmx-exporter-iamguarded, fips: jmx-exporter-iamguarded-fips}
+test:
+  enable: [addons.sonarqube]
+  namespaces: [sonarqube]

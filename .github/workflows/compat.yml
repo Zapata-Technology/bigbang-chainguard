@@ -1,0 +1,121 @@
+# Upgrade tests: deploy one Big Bang package on Chainguard images in a throwaway kind
+# cluster, with a trial mapping from compat/<test>.yaml (e.g. Vault 2.x where Big
+# Bang pins 1.21), and check that it runs. One job per test and mode; nothing here
+# changes the overlays. Runs on pull requests that change a test, or by hand; the
+# results tell you whether to move an image from `stays` to the trial mapping.
+name: Compat - upgrade tests
+
+on:
+  pull_request:
+    paths:
+      - compat/**
+      - scripts/bb-compat.py
+      - .github/workflows/compat.yml
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: Comma-separated compat/<test> names (empty = all)
+        default: ""
+      fips:
+        description: Also run each test with the FIPS overlay
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      - id: m
+        env:
+          TESTS: ${{ inputs.tests }}
+          FIPS: ${{ inputs.fips != false }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import glob, json, os
+          names = [t.strip() for t in os.environ["TESTS"].split(",") if t.strip()] or \
+                  sorted(os.path.basename(p)[:-5] for p in glob.glob("compat/*.yaml"))
+          modes = ["standard", "fips"] if os.environ["FIPS"] == "true" else ["standard"]
+          print("matrix=" + json.dumps({"include": [{"test": n, "mode": m} for n in names for m in modes]}))
+          EOF
+
+  test:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: ${{ matrix.test }} (${{ matrix.mode }})
+    env:
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
+      BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2  # v5.0.0
+        with:
+          version: v3.18.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
+        with:
+          cluster_name: compat
+          node_image: kindest/node:v1.34.0
+
+      - name: Log into Chainguard
+        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
+        with:
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Fetch Big Bang
+        run: |
+          python3 -m pip install --quiet pyyaml
+          tag=$(cat BIGBANG_VERSION)
+          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
+            git clone -q --depth 1 --branch "$tag" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
+            rm -rf work/bigbang; sleep $((30 * i))
+          done
+          test -d work/bigbang/chart
+
+      - name: Deploy and check
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
+          echo "::add-mask::$CGR_TOKEN"
+          export CGR_TOKEN
+          python3 scripts/bb-compat.py "compat/${{ matrix.test }}.yaml" \
+            ${{ matrix.mode == 'fips' && '--fips' || '' }} | tee "${RUNNER_TEMP}/compat.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.test }} (${{ matrix.mode }})"
+            echo '```'
+            grep -E "^RESULT|^PROBLEM|^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
