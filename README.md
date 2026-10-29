@@ -245,6 +245,9 @@ and verification accepts them.
 
 ## How the conversion works
 
+[docs/architecture.md](docs/architecture.md) has diagrams of the pipeline, the builds,
+how the overlays layer at deploy time, the nightly update, and the trust boundaries.
+
 ```
 scripts/bb-fetch.py     clone Big Bang at BIGBANG_VERSION + every package at its pinned tag
 scripts/bb-images.py    render Big Bang with every package on, render each package with the
@@ -296,7 +299,7 @@ endpoints) so that GitLab and Anchore render during discovery. Never deploy with
 ## Contributing and support
 
 - Changes are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
-- Security issues: see [SECURITY.md](SECURITY.md).
+- Security issues and the controls in place: see [SECURITY.md](SECURITY.md).
 - For the Big Bang team: [`docs/for-big-bang.md`](docs/for-big-bang.md).
 
 ## License

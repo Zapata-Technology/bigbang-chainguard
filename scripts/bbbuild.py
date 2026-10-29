@@ -126,6 +126,7 @@ def main(name, doc, generate, build_args, smoke_test):
     ap.add_argument("--test", action="store_true", help="smoke-test each built image (implies --build)")
     ap.add_argument("--push", action="store_true", help="push both images to BUILD_REGISTRY (implies --build)")
     ap.add_argument("--pushed-file", help="append each pushed image as <repo>@<digest> (for signing)")
+    ap.add_argument("--built-file", help="append each built image reference (for scanning)")
     a = ap.parse_args()
 
     building = a.build or a.test or a.push
@@ -150,6 +151,9 @@ def main(name, doc, generate, build_args, smoke_test):
         for k, v in args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         subprocess.run(cmd + [os.path.join(ROOT, "builds", spec.get("context", name))], check=True)
+        if a.built_file:
+            with open(a.built_file, "a") as f:
+                f.write(ref + "\n")
         if a.test:
             smoke_test(ref, variant, spec)
         if a.push:

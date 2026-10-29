@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Check Chainguard's signature on every org image the overlays deploy.
+
+  bb-signatures.py rendered.json [rendered-fips.json ...]
+
+Each input is the image list bb-verify.py writes with -o (Big Bang rendered with the
+overlays). Every image from cgr.dev/<org> must carry a valid cosign signature from
+Chainguard's image build pipeline (keyless, GitHub Actions OIDC), so a tag that was
+re-pointed to something Chainguard didn't build fails CI. Needs cosign, and registry
+credentials for cgr.dev in the Docker config (setup-chainctl provides both in CI).
+
+Images are checked once each; tags are resolved to digests so the result is about the
+exact image a cluster would pull.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from orgtags import REGISTRY, org_name  # noqa: E402
+
+# Chainguard signs its images from GitHub Actions in its chainguard-images organization.
+ISSUER = "https://token.actions.githubusercontent.com"
+IDENTITY = r"^https://github\.com/chainguard-images/"
+
+
+def images(paths, prefix):
+    found = set()
+    for p in paths:
+        for info in json.load(open(p))["packages"].values():
+            found |= {ref for ref in info["rendered"] if ref.startswith(prefix)}
+    return sorted(found)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("rendered", nargs="+", help="bb-verify.py -o output(s)")
+    ap.add_argument("--org", help="Chainguard org (default: $CHAINGUARD_ORG, else the CHAINGUARD_ORG file)")
+    a = ap.parse_args()
+
+    refs = images(a.rendered, f"{REGISTRY}/{org_name(a.org)}/")
+    print(f"checking Chainguard signatures on {len(refs)} images", flush=True)
+    bad = []
+    for ref in refs:
+        p = subprocess.run(["cosign", "verify", "--certificate-oidc-issuer", ISSUER,
+                            "--certificate-identity-regexp", IDENTITY, ref],
+                           capture_output=True, text=True)
+        if p.returncode:
+            bad.append(ref)
+            print(f"  UNSIGNED or invalid: {ref}\n    {p.stderr.strip().splitlines()[-1] if p.stderr else ''}")
+        else:
+            print(f"  ok {ref}")
+    if bad:
+        raise SystemExit(f"{len(bad)} of {len(refs)} images failed signature verification")
+    print(f"all {len(refs)} images carry Chainguard's signature")
+
+
+if __name__ == "__main__":
+    main()
