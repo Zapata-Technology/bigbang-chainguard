@@ -46,6 +46,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Unit tests
+        run: |
+          python3 -m pip install --quiet pyyaml pytest
+          python3 -m pytest -q tests
+
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
         with:

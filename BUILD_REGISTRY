@@ -1,1 +1,5 @@
-ghcr.io/zapata-technology
+# Registry for the images this repo builds (bigbang-base, bigbang-grafana-plugins,
+# bigbang-devops-tester), e.g. ghcr.io/<owner>. Put it on a line of its own below,
+# or set the BUILD_REGISTRY environment variable / GitHub repository variable, or
+# pass --build-registry. Empty: those images stay on Iron Bank. Never cgr.dev:
+# Chainguard registries don't accept pushes.

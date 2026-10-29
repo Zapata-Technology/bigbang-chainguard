@@ -2,17 +2,21 @@
 """Generate the Chainguard overlays for Big Bang from discovery + mapping.yaml.
 
   bb-convert.py --discovered discovery/images.json [--tags-cache .tags.json]
-                [--org <chainguard org>] [--check] [--missing]
+                [--org <chainguard org>] [--check] [--missing] [--strict-versions]
 
 Writes:
   overlays/values-chainguard.yaml       standard images (FIPS off)
   overlays/values-chainguard-fips.yaml  -fips images; layer it after the first file
   flux/kustomization.yaml, flux-fips/kustomization.yaml
   docs/images.md                        per-package table, including what stays on Iron Bank
+  docs/required-images.md               Chainguard repositories an org needs (org-independent)
 
 --check    regenerate in memory; exit 1 on unmapped or untagged images, 3 if a
            file would change only (newer org patches since the last run)
 --missing  print the org repositories that discovery needs but the org lacks
+--strict-versions
+           never move to a newer MINOR than Iron Bank: an image whose MAJOR.MINOR line
+           the org lacks is unresolved (exit 1) instead of "MINOR AHEAD"
 --org      Chainguard org to point the overlays at (cgr.dev/<org>); default
            $CHAINGUARD_ORG, else the CHAINGUARD_ORG file
 --build-registry
@@ -23,32 +27,20 @@ import argparse
 import copy
 import json
 import os
+import re
 import sys
 
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import IRONBANK_HOSTS, build_registry, build_target  # noqa: E402
-from orgtags import REGISTRY, OrgTags, org_name, resolve  # noqa: E402
+from bbcommon import build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
+from orgtags import REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Unmapped(Exception):
     pass
-
-
-def split_ref(ref):
-    """'registry1.dso.mil/ironbank/x/y:1.2' -> ('ironbank/x/y', '1.2'); tag may be None."""
-    for h in IRONBANK_HOSTS:
-        if ref.startswith(h + "/"):
-            ref = ref[len(h) + 1:]
-    ref = ref.split("@")[0]
-    last = ref.rsplit("/", 1)[-1]
-    if ":" in last:
-        repo, tag = ref.rsplit(":", 1)
-        return repo, tag
-    return ref, None
 
 
 def set_path(tree, path, value):
@@ -58,9 +50,10 @@ def set_path(tree, path, value):
 
 
 class Converter:
-    def __init__(self, mapping, tags, registry=""):
+    def __init__(self, mapping, tags, registry="", strict=False):
         self.cg = f"{REGISTRY}/{tags.org}"
         self.build_registry = registry
+        self.strict = strict
         self.images = mapping["images"]
         self.hubs = mapping.get("hubs", {})
         self.defaults = mapping.get("template_defaults", [])
@@ -69,6 +62,7 @@ class Converter:
         self.rows = []          # (release, ironbank ref, standard, fips, note)
         self.missing = set()    # org repos needed but absent
         self.unmapped = set()
+        self.ready = set()      # (Iron Bank repo, org repo): `stays ... until` whose org repo now has tags
 
     def target(self, ib_repo, ib_tag, release):
         """(standard ref, fips ref, note) for an Iron Bank repo:tag, or None if it stays."""
@@ -81,6 +75,8 @@ class Converter:
         ib = f"{ib_repo}:{ib_tag}" if ib_tag else ib_repo
         if "stays" in m:
             self.rows.append((release, ib, "Iron Bank", "Iron Bank", m["stays"]))
+            if m.get("until") and any(parse(t) for t in self.tags.tags(m["until"]) or []):
+                self.ready.add((ib_repo, m["until"]))
             return None
         if "build" in m:
             t = build_target(m, self.build_registry)
@@ -112,13 +108,16 @@ class Converter:
                     notes.append(f"org has no {name}")
                     continue
                 want = m.get("version", ib_tag)
-                tag, note = resolve(want, tags, m.get("suffix")) if want else (None, "no Iron Bank tag")
+                tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=not self.strict) if want
+                             else (None, "no Iron Bank tag"))
             if not tag:
                 refs.append(None)
                 notes.append(f"{name}: {note}")
                 continue
             if note:
                 notes.append(f"{name}: {note}")
+            elif str(m.get("version")) == "*":
+                notes.append(f"{name}: newest org release (Iron Bank {ib_tag})")
             refs.append(f"{self.cg}/{name}:{tag}")
         std, fips = refs
         if fips_name is None:
@@ -246,7 +245,7 @@ class Converter:
             self.missing.add(name)
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"org has no {name}"))
             return spec
-        tag, note = resolve(version, tags)
+        tag, note = resolve(version, tags, allow_ahead=not self.strict)
         if not tag:
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"{name}: {note}"))
             return spec
@@ -269,8 +268,8 @@ def dump(data, header):
     return header + yaml.safe_dump(data, sort_keys=True, default_flow_style=False, width=120)
 
 
-def generate(discovered, mapping, tags, bigbang_version, registry=""):
-    c = Converter(mapping, tags, registry)
+def generate(discovered, mapping, tags, bigbang_version, registry="", strict=False):
+    c = Converter(mapping, tags, registry, strict)
     std, fips = {}, {}
     flux_std = flux_fips = []
     for release, info in sorted(discovered["packages"].items()):
@@ -310,6 +309,7 @@ def generate(discovered, mapping, tags, bigbang_version, registry=""):
     set_path(std, ["kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"],
              ["registry1.dso.mil", "registry.dso.mil"] + allowed_registries(mapping, c.cg, c.build_registry))
     hdr = ("# GENERATED by scripts/bb-convert.py from mapping.yaml - do not edit by hand.\n"
+           f"# Generated for {c.cg}: another org regenerates it (README, \"Use it with your org\").\n"
            f"# Big Bang {bigbang_version}. ")
     files = {
         "overlays/values-chainguard.yaml": dump(std, hdr + "Standard (non-FIPS) Chainguard images.\n"
@@ -353,6 +353,49 @@ def _merge(a, b):
     return deep_merge(copy.deepcopy(a), b)
 
 
+def required_images(discovered, mapping, version):
+    """Markdown: every Chainguard repository the conversion pulls from, for any org.
+
+    Read from mapping.yaml alone (no org file, no org tags), so it is the same for
+    every org: the list to check a Chainguard subscription against.
+    """
+    need = {}  # (standard, fips or None) -> {packages}
+    def add(std, fips, release):
+        need.setdefault((std, fips), set()).add(release)
+
+    images = mapping["images"]
+    for release, info in discovered["packages"].items():
+        for ib_repo, _ in ironbank_refs(info):
+            m = images.get(ib_repo)
+            if m is None:
+                continue
+            m = {"cg": m} if isinstance(m, str) else m
+            if "cg" in m:
+                add(m["cg"], m.get("fips", m["cg"] + "-fips") if "fips" in m else m["cg"] + "-fips", release)
+            elif "build" in m and (spec := load_build(m["build"])):
+                repos = {v: img.get("dev", img.get("base")).split("@")[0].rsplit(":", 1)[0].rsplit("/", 1)[1]
+                         for v, img in spec["image"].items()}
+                add(repos["standard"], repos.get("fips"), f"{release} (builds/{m['build']})")
+    for release, spec in mapping.get("overrides", {}).items():
+        for tok in re.findall(r"@(?:repo|tag|ref):([\w.-]+)", json.dumps(spec)):
+            add(tok, tok + "-fips", release)
+    rows = sorted(need.items())
+    fips = sorted({f for (_, f) in need if f})
+    lines = [f"# Chainguard images needed for Big Bang {version}", "",
+             "Generated by `scripts/bb-convert.py` from `mapping.yaml`. It is the same for every org:",
+             "check your Chainguard subscription against it before you start. `bb-convert.py --missing`",
+             "lists the ones your org doesn't have yet.", "",
+             f"- **{len(rows)} standard images** for a standard (FIPS off) deployment",
+             f"- **{len(fips)} FIPS images** for a FIPS deployment (Chainguard FIPS images are usually a separate entitlement)",
+             "- Every package is counted. Enable fewer packages and you need fewer images; the last column",
+             "  shows which packages use each one.", "",
+             "| Standard | FIPS | Used by |", "|---|---|---|"]
+    for (std, f), rels in rows:
+        lines.append(f"| `{std}` | {f'`{f}`' if f else 'none: FIPS keeps the standard image'} | "
+                     f"{', '.join(sorted(rels))} |")
+    return "\n".join(lines) + "\n"
+
+
 def report(rows, version, cg):
     lines = [f"# Image map for Big Bang {version}", "",
              "Generated by `scripts/bb-convert.py`. Every image each package deploys, and what replaces it.",
@@ -368,6 +411,18 @@ def report(rows, version, cg):
         lines.append("| " + " | ".join(x.replace(f"{cg}/", "").replace("|", "\\|") for x in r) + " |")
     stays = sorted({(r[1].split(":")[0], r[4]) for r in rows if r[2] == "Iron Bank"})
     lines += ["", f"## Stays on Iron Bank ({len(stays)})", ""] + [f"- `{i}`: {why}" for i, why in stays]
+    ahead = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "MINOR AHEAD" in r[4]})
+    older = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "is older than Iron Bank" in r[4]})
+    newest = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "newest org release" in r[4]})
+    lines += ["", f"## Version differences ({len(ahead) + len(older) + len(newest)})", "",
+              "Big Bang tests each package with the Iron Bank version it pins. These images run a",
+              "different version because the org has nothing on that MAJOR.MINOR line (the org syncs",
+              "Chainguard's current release lines). Test these packages before production, or run",
+              "`bb-convert.py --strict-versions` to refuse them.", ""]
+    lines += [f"- {rel}: `{ib}` -> `{std}` (newer minor)" for rel, ib, std in ahead]
+    lines += [f"- {rel}: `{ib}` -> `{std}` (older patch)" for rel, ib, std in older]
+    lines += [f"- {rel}: `{ib}` -> `{std}` (newest release; Iron Bank's tag has no version line)"
+              for rel, ib, std in newest]
     return "\n".join(lines) + "\n"
 
 
@@ -382,13 +437,17 @@ def main():
     ap.add_argument("--org", help="Chainguard org (default: $CHAINGUARD_ORG, else the CHAINGUARD_ORG file)")
     ap.add_argument("--build-registry", help="registry of the images this repo builds (default: $BUILD_REGISTRY, "
                                              "else the BUILD_REGISTRY file)")
+    ap.add_argument("--strict-versions", action="store_true",
+                    help="never use a newer MINOR than Iron Bank's (no MINOR AHEAD)")
     a = ap.parse_args()
 
     discovered = json.load(open(a.discovered))
-    mapping = yaml.safe_load(open(a.mapping))
+    org = org_name(a.org)
+    mapping = load_mapping(org, a.mapping)
     version = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip()
-    tags = OrgTags(org_name(a.org), a.tags_cache, offline=a.offline)
-    files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry))
+    tags = OrgTags(org, a.tags_cache, offline=a.offline)
+    files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
+    files["docs/required-images.md"] = required_images(discovered, yaml.safe_load(open(a.mapping)), version)
     if not a.offline:
         tags.save()
 
@@ -402,6 +461,10 @@ def main():
         for r in unresolved:
             print(f"  {r[0]}: {r[1]} -> {r[4]}")
         rc = 1
+    if c.ready:
+        print("Ready to convert (the org now has tags; change the `stays` entry in mapping.yaml):")
+        for ib, repo in sorted(c.ready):
+            print(f"  {ib} -> {repo}")
     if a.missing:
         print("Org repositories needed but missing:", *sorted(c.missing) or ["(none)"], sep="\n  ")
         return rc

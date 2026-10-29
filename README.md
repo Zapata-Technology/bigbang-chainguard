@@ -1,20 +1,84 @@
 # Big Bang on Chainguard images
 
-Run [Big Bang](https://repo1.dso.mil/big-bang/bigbang) with images from a Chainguard
-org (`cgr.dev/<org>`, set in [`CHAINGUARD_ORG`](#using-another-chainguard-org); this repo uses
-`zapatatechnology.com`) instead of Iron Bank, with FIPS as an option. Big Bang itself is not forked: this repo produces values overlays for the
-unmodified upstream chart, plus a Flux kustomization.
+Run [Big Bang](https://repo1.dso.mil/big-bang/bigbang) with images from **your own
+Chainguard org** (`cgr.dev/<org>`) instead of Iron Bank, with FIPS as an option.
 
-| File | Use |
-|---|---|
-| `overlays/values-chainguard.yaml` | Standard Chainguard images for every package (FIPS off) |
-| `overlays/values-chainguard-fips.yaml` | `-fips` images; layer it **after** the standard overlay |
-| `flux/`, `flux-fips/` | Big Bang's `base/flux` with Chainguard images |
-| `docs/images.md` | Every image each package deploys and what replaces it, including what stays on Iron Bank and why |
+Big Bang itself is not forked. This repo generates values overlays for the unmodified
+upstream chart, plus a Flux kustomization:
 
-All four are generated. Don't edit them by hand; change `mapping.yaml` and regenerate.
+- It discovers every image Big Bang deploys.
+- It maps each image to its Chainguard equivalent.
+- It pins your org's tags.
+- It verifies the result by rendering Big Bang again.
+
+A nightly job keeps the overlays current with your org's patches and with new Big Bang
+releases.
+
+## What you need
+
+- **A Chainguard subscription with the images Big Bang uses.**
+  - [`docs/required-images.md`](docs/required-images.md) lists every repository and which
+    packages use it. It is generated and the same for every org: about 90 standard images,
+    plus their `-fips` twins if you want FIPS.
+  - If you enable fewer packages, you need fewer images.
+  - `scripts/bb-convert.py --missing` lists the ones your org lacks.
+- **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
+  Big Bang's own builds, and this repo rebuilds them FROM your Chainguard images; see
+  [Images this repo builds](#images-this-repo-builds). This is optional: without a
+  registry, those images stay on Iron Bank.
+- **Iron Bank credentials, for the images with no Chainguard equivalent.** These are
+  vendor products and the GitLab image set. [`docs/images.md`](docs/images.md) lists them
+  under "Stays on Iron Bank", with the reasons.
+- **Tools:** `helm` 3, Python 3.12 with `pyyaml`, and `chainctl`.
+
+## Use it with your org
+
+```bash
+pip install pyyaml
+chainctl auth login --audience cgr.dev        # a login that can pull from your org
+python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --save
+```
+
+`bb-run.py` runs the whole pipeline:
+
+1. fetches Big Bang
+2. discovers images
+3. stops if your org is missing repositories, and lists them
+4. generates the build specs
+5. writes the overlays
+6. verifies them, standard and FIPS
+
+`--save` writes the org and registry into the `CHAINGUARD_ORG` and `BUILD_REGISTRY` files,
+so later runs need no flags. Then build and push this repo's images:
+
+```bash
+for b in grafana-plugins base devops-tester; do
+  python scripts/bb-$b.py --no-generate --build --test --push
+done
+```
+
+Each setting is read in this order: the command-line flag (`--org`, `--build-registry`),
+then the environment variable or GitHub repository variable (`CHAINGUARD_ORG`,
+`BUILD_REGISTRY`), then the file of the same name at the repo root.
+
+**Your own exceptions go in `orgs/<org>.yaml`.** It is applied over `mapping.yaml` for your
+org only. Each `images` entry there replaces the shared entry for that Iron Bank image. Use
+it for things like keeping a package you don't license on Iron Bank, or using an image you
+already build. `orgs/zapatatechnology.com.yaml` is an example.
+
+### CI for your copy
+
+- `CGR_ACTIONS_ID` secret: an assumable Chainguard identity in your org with
+  `registry.pull`, trusted for your repo's `main` branch and pull requests.
+- `CHAINGUARD_ORG` and `BUILD_REGISTRY` repository variables, unless they're in the files.
+- `RELEASE_PAT` secret (optional): lets CI run on the nightly bot's pull requests.
+- `SIGN_IMAGES=keyless` repository variable (optional): signs the images this repo pushes
+  with cosign keyless and attaches an SBOM. The signatures go to the public Sigstore log.
 
 ## Deploy
+
+The overlays in this repo were generated for `zapatatechnology.com` (each file's header says
+which org). Regenerate them for yours with `bb-run.py` before deploying.
 
 ```bash
 BB=$(cat BIGBANG_VERSION)
@@ -39,7 +103,7 @@ registryCredentials:
   - registry: cgr.dev
     username: <Chainguard pull token id>
     password: <Chainguard pull token secret>
-  - registry: ghcr.io                 # BUILD_REGISTRY (grafana-plugins, bigbang-base)
+  - registry: ghcr.io                 # your BUILD_REGISTRY, if it is private
     username: <GitHub user>
     password: <read:packages token>
   - registry: registry1.dso.mil       # only if a package in docs/images.md "Stays on Iron Bank" is enabled
@@ -50,95 +114,90 @@ registryCredentials:
 Create a pull token with `chainctl auth pull-token --repository=cgr.dev --parent=<org>`.
 Flux needs the same `private-registry` secret in `flux-system` before `kubectl apply -k flux/`.
 
-The overlay also adds `cgr.dev/<org>` and `BUILD_REGISTRY` to Big Bang's Kyverno
+The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Kyverno
 `restrict-image-registries` policy. Without that, Kyverno blocks every pod.
 
 ### FIPS notes
 
-- The FIPS overlay swaps each image for its `-fips` twin. Images with no FIPS variant are
-  listed in `docs/images.md`.
+- The FIPS overlay swaps each image for its `-fips` twin. Images with no FIPS variant keep
+  the standard image, and `docs/images.md` lists them.
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
   keystores. Set those in the site's `addons.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
 
-## Using another Chainguard org
+## Version compatibility
 
-The org is a setting, not part of the code. In order of precedence:
+Tags follow one rule: the newest patch on the MAJOR.MINOR line that Iron Bank pins, and
+never `latest`. Chainguard orgs carry Chainguard's *current* release lines, so sometimes
+the org has nothing on Big Bang's line:
 
-1. `--org <org>` on `bb-convert.py` and `bb-verify.py`
-2. the `CHAINGUARD_ORG` environment variable (in CI: the `CHAINGUARD_ORG` repository variable)
-3. the `CHAINGUARD_ORG` file at the repo root
+- **Newer minor ("MINOR AHEAD").** The newest release of the same MAJOR is used. Big Bang
+  never tested that combination.
+- **Newest release.** Images Iron Bank tags by date (MinIO) have no version line to match.
 
-The overlays carry the org's own tags, so a different org means regenerating them, not
-editing them:
-
-```bash
-echo example.com > CHAINGUARD_ORG
-chainctl auth login --audience cgr.dev      # a login that can pull from that org
-python scripts/bb-convert.py --missing      # repos the org must add (and their -fips twins)
-python scripts/bb-convert.py
-python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs
-python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips
-```
-
-Then:
-
-- In GitHub, set `CGR_ACTIONS_ID` to an assumable identity in that org with the
-  `registry.pull` role. Leave `CHAINGUARD_ORG` unset unless you want CI to override the file.
-- Build your own `grafana-plugins` and `bigbang-base` images (next section), or leave
-  `BUILD_REGISTRY` empty to keep Iron Bank's.
-- `--tags-cache` files record their org. A cache written for another org is ignored.
+`docs/images.md` ends with a **Version differences** section listing every such image.
+Test those packages before production, or run with `--strict-versions` (on `bb-run.py`
+or `bb-convert.py`). Strict mode never moves to a newer minor; those images then fail
+conversion and you decide case by case.
 
 ## Images this repo builds
 
-Two of Big Bang's images are Big Bang's own builds on Iron Bank, and Chainguard publishes
-no equivalent. Instead of depending on someone's custom image, a script converts Iron
-Bank's own recipe (`hardening_manifest.yaml` and Dockerfile, pinned to a repo1 commit)
-into a build FROM your org's images:
+Big Bang ships three images of its own that Chainguard doesn't publish. Instead of
+depending on anyone's custom build, a script converts **Iron Bank's own recipe**
+(`hardening_manifest.yaml` and Dockerfile, pinned to a repo1 commit) into a build FROM
+your org's images:
 
-| Iron Bank image | Script | Built FROM | Images |
+| Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
-| `big-bang/grafana/grafana-plugins`: Grafana with plugins baked in | `bb-grafana-plugins.py` | `grafana`, `grafana-fips` | `grafana-plugins`, `-fips` |
-| `big-bang/base`: bash, kubectl, yq, jq, curl for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `bb-base.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base`, `-fips` |
+| `big-bang/grafana/grafana-plugins`: Grafana with plugins baked in | `bb-grafana-plugins.py` | `grafana`, `grafana-fips` | `bigbang-grafana-plugins` |
+| `big-bang/base`: bash, kubectl, yq and jq for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `bb-base.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base` |
+| `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `bb-devops-tester.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
 
 Each script:
 
-1. reads the tag Big Bang deploys from `discovery/images.json`
+1. reads the tag Big Bang deploys
 2. reads Iron Bank's recipe from [repo1](https://repo1.dso.mil/dsop):
-   - **grafana-plugins:** the plugin zips, their sha256 (checked on download), and where Iron Bank unpacks each one
-   - **base:** kubectl and yq versions, microdnf packages, and the uid 1000 user
+   - the plugin zips and their sha256, which are checked on download
+   - the package and tool versions
+   - the non-root user
 3. pins the org images it builds FROM by digest, on Iron Bank's MAJOR.MINOR line
-4. writes `builds/<name>/build.yaml`, the input for `builds/<name>/Dockerfile`
+4. writes `builds/<name>/build.yaml`, the input for the Dockerfile
 
 ```bash
 python scripts/bb-base.py                           # regenerate builds/base/build.yaml
 python scripts/bb-base.py --build --test            # build standard + FIPS, run the smoke test
 python scripts/bb-base.py --build --test --push     # and push to BUILD_REGISTRY
-python scripts/bb-convert.py                        # point the overlays at them
 ```
 
-`bb-grafana-plugins.py` works the same way. Its smoke test checks that Grafana loads every
-plugin with a valid signature. The base smoke test checks the uid, bash, kubectl and yq
-versions, jq, curl and the other tools. Both check that `-fips` images default OpenSSL to
-`fips=yes`.
+The smoke tests:
+
+- **grafana-plugins:** Grafana loads every plugin with a valid signature.
+- **base and devops-tester:** the uid, and each tool at Iron Bank's version line.
+- **Every `-fips` image:** OpenSSL defaults to `fips=yes`.
+
+Each image also has a `-fips` twin.
 
 Differences from Iron Bank:
 
-- **base** runs on the `-dev` image, because Big Bang's jobs need a shell. kubectl and yq are
-  in `/usr/bin`, not `/usr/local/bin`; no Big Bang chart calls them by full path. Iron
-  Bank's `CCE-*.sh` RHEL STIG scripts don't apply to Wolfi, and `build.yaml` lists them as
-  not ported.
-- **base** is tagged `<Iron Bank tag>-kubectl<version>`, so a kubectl patch gets a new tag.
+- **base and devops-tester run on the `-dev` image**, because Big Bang's jobs need a shell.
+  Tools are in `/usr/bin`, and no Big Bang chart calls them by full path. Iron Bank's
+  `CCE-*.sh` RHEL STIG scripts don't apply to Wolfi, and `build.yaml` lists them as not
+  ported.
+- **Tags:** base and devops-tester are tagged `<Iron Bank tag>-kubectl<version>`, so a
+  kubectl patch gets a new tag.
+- **chainsaw** (devops-tester) has no Chainguard package. It is copied from upstream at
+  the digest Iron Bank pins, as Iron Bank does, and is not FIPS-built.
 
-`BUILD_REGISTRY` is where the images go: `--build-registry`, else the `BUILD_REGISTRY`
-variable, else the `BUILD_REGISTRY` file (this repo: `ghcr.io/zapata-technology`). It can't be
-`cgr.dev`, because Chainguard registries don't accept pushes. **Leave it empty to keep Iron
-Bank's images**: the overlays then leave those values alone and verification accepts them.
+**`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
+**Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,
+and verification accepts them.
 
-The overlays point at `<BUILD_REGISTRY>/<image>:<tag>` from each `build.yaml`, so push the
-images before deploying a regenerated overlay. In CI, `builds.yml` builds and smoke-tests
-every image on each change. Run it by hand with `push` checked to publish them (with
-`ghcr.io/<owner>`, it pushes using this repo's token).
+**How images get published (`builds.yml` in CI):**
+
+- Every change builds and smoke-tests the images.
+- A merge to `main` pushes them to `BUILD_REGISTRY` (signed when `SIGN_IMAGES=keyless`).
+- The nightly job regenerates the build specs, so a new Grafana or kubectl patch, or a
+  plugin added by Iron Bank, arrives as a pull request.
 
 ## How the conversion works
 
@@ -147,52 +206,55 @@ scripts/bb-fetch.py     clone Big Bang at BIGBANG_VERSION + every package at its
 scripts/bb-images.py    render Big Bang with every package on, render each package with the
                         values Big Bang gives it, and record every deployed image and the
                         value path that sets it            -> discovery/images.json
-scripts/bb-convert.py   map each Iron Bank image (mapping.yaml), resolve the org tag, write
-                        the overlays at those same value paths -> overlays/, flux*/, docs/images.md
+scripts/bb-convert.py   map each Iron Bank image (mapping.yaml + orgs/<org>.yaml), resolve the
+                        org tag, write the overlays at those same value paths
+                                                           -> overlays/, flux*/, docs/
 scripts/bb-verify.py    render again with the overlays: every image must be an org image
                         (a -fips one with --fips) or a documented Iron Bank image
+scripts/bb-run.py       all of the above, in order
 ```
 
-Value paths are found automatically from each chart's computed values. That covers
-repository/tag pairs, registry+repository splits, single image strings, tags in sibling
-keys (`release`, `crdRelease`, `image_version`, `version`), and images inside lists. It
-also blanks Big Bang's chart-wide registry1 registry settings (`global.imageRegistry`,
-Kyverno's `defaultRegistry`), which would otherwise win. For the few packages these
-rules can't express, `mapping.yaml` has four escape hatches:
+Value paths are found automatically from each chart's computed values:
+
+- repository/tag pairs
+- registry+repository splits
+- single image strings
+- tags in sibling keys (`release`, `crdRelease`, `image_version`, `version`)
+- images inside lists
+
+It also blanks Big Bang's chart-wide registry1 registry settings (`global.imageRegistry`,
+Kyverno's `defaultRegistry`), which would otherwise win. For the few packages these rules
+can't express, `mapping.yaml` has four escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
 - `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag).
 - `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job).
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
 
-Tags follow the helm-charts pin policy: the newest patch on the Iron Bank tag's
-MAJOR.MINOR line, and never `latest`.
+An Iron Bank image with no Chainguard equivalent yet can be marked
+`{stays: <reason>, until: <chainguard repo>}`. The conversion then reports when your org's
+repo has tags, so you know when to switch it over.
+
+[`docs/adding-a-package.md`](docs/adding-a-package.md) walks through mapping a new image.
 
 ## Upgrades
 
-- **Nightly** (`update.yml`): regenerates against the newest org patches and opens a PR.
+- **Nightly** (`update.yml`): regenerates against the newest org patches and Iron Bank
+  recipes, and opens a PR.
 - **New Big Bang release**: the same job bumps `BIGBANG_VERSION` and re-runs discovery.
   If the release adds an image that `mapping.yaml` doesn't cover, CI fails on that PR and
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.
-- **CI** (`ci.yml`): every PR re-runs discovery, conversion and verification for both modes.
-
-Run it locally:
-
-```bash
-pip install pyyaml
-chainctl auth login --audience cgr.dev
-python scripts/bb-fetch.py
-python scripts/bb-images.py --bigbang work/bigbang --pkgs work/pkgs --values discovery/render-inputs.yaml -o discovery/images.json
-python scripts/bb-convert.py --missing     # org repos the conversion needs but the org lacks
-python scripts/bb-convert.py
-python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs
-python scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips
-```
+- **CI** (`ci.yml`): unit tests, then discovery, conversion and verification for both modes.
 
 `discovery/render-inputs.yaml` holds render-only placeholders (fake database and Redis
 endpoints) so that GitLab and Anchore render during discovery. Never deploy with it.
 
+## Contributing and support
+
+- Changes are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Security issues: see [SECURITY.md](SECURITY.md).
+- For the Big Bang team: [`docs/for-big-bang.md`](docs/for-big-bang.md).
+
 ## License
 
 [Apache License 2.0](LICENSE). Copyright 2026 Zapata Technology; see [NOTICE](NOTICE).
-Improvements are welcome back as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).

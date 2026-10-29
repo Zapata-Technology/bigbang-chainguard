@@ -1,12 +1,16 @@
 # Iron Bank repository (path after registry1.dso.mil/) -> Chainguard repository in
-# cgr.dev/<org> (the org is set in CHAINGUARD_ORG; see the README).
+# cgr.dev/<org> (the org is set in CHAINGUARD_ORG; see the README). An org's own
+# exceptions go in orgs/<org>.yaml, which replaces entries here for that org.
 #
 #   <ironbank path>: <chainguard name>            FIPS variant is <name>-fips
 #   <ironbank path>: {cg: <name>, fips: <name>}   FIPS variant named differently
 #   <ironbank path>: {cg: <name>, fips: null}     no FIPS variant; FIPS overlay keeps the standard image
 #   <ironbank path>: {stays: <reason>}            no Chainguard equivalent; stays on Iron Bank
+#   <ironbank path>: {stays: <reason>, until: <name>}  same, and bb-convert reports when the org's
+#                                                 <name> repo has tags (ready to convert)
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
+#                                                 ("*": the org's newest release)
 #   <ironbank path>: {build: <name>}              built FROM the org's images by this repo
 #                                                 (builds/<name>/, pushed to BUILD_REGISTRY)
 #   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org
@@ -24,10 +28,11 @@ images:
   ironbank/opensource/istio/pilot: istio-pilot
   ironbank/opensource/istio/proxyv2: istio-proxy
   ironbank/opensource/istio/install-cni: istio-install-cni
-  # Org repo istio-ztunnel was created 2026-10-28 but had no tags yet; switch back to
-  # {cg: istio-ztunnel, fips: null} once it syncs. ztunnel is off by default (ambient only).
-  ironbank/opensource/istio/ztunnel: {stays: "org istio-ztunnel has no tags yet; recheck"}
-  ironbank/istio-ecosystem/authservice: {stays: "no Chainguard authservice image"}
+  # Chainguard's istio-ztunnel had no tags when this was written. `until` makes
+  # bb-convert report it as ready once the org's repo has tags; then map it as
+  # {cg: istio-ztunnel, fips: null}. ztunnel is off by default (ambient only).
+  ironbank/opensource/istio/ztunnel: {stays: "Chainguard istio-ztunnel had no tags yet", until: istio-ztunnel}
+  ironbank/istio-ecosystem/authservice: authservice
 
   # --- Kiali ---
   ironbank/opensource/kiali/kiali: kiali
@@ -135,13 +140,13 @@ images:
   ironbank/opensource/goharbor/registry: harbor-registry
   ironbank/opensource/goharbor/trivy-adapter: harbor-trivy-adapter
 
-  # MinIO: the user stopped using MinIO on 2026-10-27 and the org's minio repos
-  # were deleted. Big Bang's minio packages (and mattermost's bundled minio) stay
-  # on Iron Bank unless those repos are added back.
-  ironbank/opensource/minio/minio: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
-  ironbank/opensource/minio/mc: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
-  ironbank/opensource/minio/operator: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
-  ironbank/opensource/minio/operator-sidecar: {stays: "MinIO not used by Zapata; org minio repos removed 2026-10-27"}
+  # MinIO (minio, mattermost's bundled minio, bucket-init jobs). Iron Bank pins
+  # RELEASE.<date> tags, which have no MAJOR.MINOR line to match, so these take the
+  # org's newest release (docs/images.md flags it).
+  ironbank/opensource/minio/minio: {cg: minio, version: "*"}
+  ironbank/opensource/minio/mc: {cg: minio-client, version: "*"}
+  ironbank/opensource/minio/operator: {stays: "no Chainguard minio-operator image", until: minio-operator}
+  ironbank/opensource/minio/operator-sidecar: {stays: "no Chainguard minio-operator-sidecar image", until: minio-operator-sidecar}
 
   # --- Shared building blocks ---
   ironbank/opensource/kubernetes/kubectl: kubectl
@@ -157,9 +162,10 @@ images:
   ironbank/redhat/ubi/ubi9-minimal: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
 
   # --- Big Bang CI test images (bbtests, disabled by default) ---
-  ironbank/big-bang/cypress: {stays: "Big Bang CI test image (bbtests)"}
-  ironbank/big-bang/devops-tester: {stays: "Big Bang CI test image (bbtests)"}
-  ironbank/opensource/bats/bats: {stays: "Big Bang CI test image (bbtests)"}
+  ironbank/big-bang/cypress: {stays: "Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish"}
+  # scripts/bb-devops-tester.py rebuilds it FROM the org's kubectl -dev images.
+  ironbank/big-bang/devops-tester: {build: devops-tester}
+  ironbank/opensource/bats/bats: bats
 
   # --- GitLab (CNG images are GitLab-built on UBI and versioned together) ---
   # Chainguard publishes some GitLab components, but the CNG set has to move as one

@@ -1,0 +1,29 @@
+name: Something doesn't work
+description: A conversion, verification, build or deployment problem
+labels: [bug]
+body:
+  - type: input
+    id: bigbang
+    attributes:
+      label: Big Bang version
+      description: The contents of BIGBANG_VERSION
+    validations:
+      required: true
+  - type: input
+    id: package
+    attributes:
+      label: Package and image
+      placeholder: e.g. monitoring, ironbank/opensource/prometheus/prometheus
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [standard, FIPS, both]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The output of bb-convert.py / bb-verify.py / the build, or the pod error. Remove any credentials.
+      render: shell
+    validations:
+      required: true

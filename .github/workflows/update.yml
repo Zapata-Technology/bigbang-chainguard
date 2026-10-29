@@ -83,6 +83,14 @@ jobs:
             --values discovery/render-inputs.yaml -o discovery/images.json
           {
             echo '```'
+            # The images this repo builds: re-read Iron Bank's recipes and re-pin the
+            # org images they build FROM (new kubectl/Grafana patches, new plugins).
+            # builds.yml builds them on this PR and pushes them once it merges.
+            if [ -n "$BUILD_REGISTRY" ]; then
+              for b in grafana-plugins base devops-tester; do
+                python3 "scripts/bb-$b.py" 2>&1 || true
+              done
+            fi
             python3 scripts/bb-convert.py 2>&1 || true
             python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs 2>&1 || true
             python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips 2>&1 || true
@@ -112,6 +120,8 @@ jobs:
             flux/kustomization.yaml
             flux-fips/kustomization.yaml
             docs/images.md
+            docs/required-images.md
+            builds/*/build.yaml
           body: |
             Automated by `.github/workflows/update.yml`.
 

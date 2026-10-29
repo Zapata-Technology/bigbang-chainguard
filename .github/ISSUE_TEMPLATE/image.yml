@@ -1,0 +1,21 @@
+name: Image mapping
+description: An image that should map to a different Chainguard image, or now has a Chainguard equivalent
+labels: [mapping]
+body:
+  - type: input
+    id: ironbank
+    attributes:
+      label: Iron Bank image
+      placeholder: ironbank/opensource/example/example
+    validations:
+      required: true
+  - type: input
+    id: chainguard
+    attributes:
+      label: Chainguard image (and its -fips twin, if any)
+      placeholder: example / example-fips
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Version differences, entrypoint or user differences, whether you deployed it.

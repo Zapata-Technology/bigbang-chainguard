@@ -20,7 +20,7 @@ import yaml
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from bbcommon import IRONBANK_HOSTS, build_registry, build_target  # noqa: E402
+from bbcommon import IRONBANK_HOSTS, build_registry, build_target, load_mapping  # noqa: E402
 from orgtags import REGISTRY, org_name  # noqa: E402
 
 
@@ -52,10 +52,11 @@ def main():
     if a.output:
         open(a.output, "w", newline="\n").write(p.stdout)
 
-    mapping = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml")))["images"]
+    org = org_name(a.org)
+    mapping = load_mapping(org)["images"]
     refs = [v[k] for v in mapping.values() if isinstance(v, dict) and "ref" in v for k in ("ref", "fips") if v.get(k)]
     registry = build_registry(a.build_registry)
-    ours = tuple({f"{REGISTRY}/{org_name(a.org)}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs}
+    ours = tuple({f"{REGISTRY}/{org}/"} | {r.rsplit("/", 1)[0] + "/" for r in refs}
                  | ({registry + "/"} if registry else set()))
     stays = {k for k, v in mapping.items() if isinstance(v, dict)
              and ("stays" in v or ("build" in v and not build_target(v, registry)))}

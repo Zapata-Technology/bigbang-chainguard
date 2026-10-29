@@ -1,1 +1,4 @@
-zapatatechnology.com
+# Your Chainguard org: the images are pulled from cgr.dev/<org>. Put the org name on
+# a line of its own below (for example: example.com), or leave this file as is and
+# set the CHAINGUARD_ORG environment variable / GitHub repository variable, or pass
+# --org. See the README, "Use it with your org".

@@ -1,0 +1,52 @@
+apiVersion: v1
+
+name: "big-bang/base"
+
+tags:
+  - "2.1.0"
+  - "latest"
+
+args:
+  BASE_IMAGE: "redhat/ubi/ubi9-minimal"
+  BASE_TAG: "9.8"
+
+labels:
+  org.opencontainers.image.title: "Big Bang UBI Base Image"
+  org.opencontainers.image.description: "Proprietary UBI image built with cURL, Kubectl, YQ, and JQ utilites for use in Big Bang jobs"
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "N/A"
+  org.opencontainers.image.vendor: "Big Bang"
+  org.opencontainers.image.version: "2.1.0"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "Big Bang"
+
+resources:
+- url: https://dl.k8s.io/v1.36.0/bin/linux/amd64/kubectl
+  filename: kubectl.amd64
+  validation:
+    type: sha256
+    value: 123d8c8844f46b1244c547fffb3c17180c0c26dac9890589fe7e67763298748e
+
+- url: https://dl.k8s.io/v1.36.0/bin/linux/arm64/kubectl
+  filename: kubectl.arm64
+  validation:
+    type: sha256
+    value: 9f9d9c44a7b5264515ac9da5991584e2395bd50662e651132337e7b4d0c56f8f
+
+- url: https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_amd64
+  filename: yq.amd64
+  validation:
+    type: sha256
+    value: 8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f
+
+- url: https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_arm64
+  filename: yq.arm64
+  validation:
+    type: sha256
+    value: 189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf1d57a71b
+
+maintainers:
+- email: "AFLCMC.HNCX.Helpdesk@us.af.mil"
+  name: "Iron Bank Forge"
+  username: "ibforge"
+  cht_member: true
