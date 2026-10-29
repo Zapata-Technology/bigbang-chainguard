@@ -302,7 +302,9 @@ def main():
     # injector's config); run whatever the outcome.
     for cmd in test.get("debug", []):
         print(f"\n== debug: {cmd}")
-        print(subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout[-4000:])
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
+                           env=dict(os.environ, COMPAT_OUT=out))
+        print((p.stdout + p.stderr)[-4000:])
     # `expect`: images (name:tag fragments) the test is about. A pass only covers the
     # ones that actually ran; the rest need the feature that uses them switched on.
     # Every image the test's namespaces and Flux run must be the conversion's: the org,
