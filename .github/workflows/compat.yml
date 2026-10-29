@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - compat/**
+      - .github/kind-compat.yaml
       - scripts/bb-compat.py
       - .github/workflows/compat.yml
   workflow_dispatch:
@@ -55,6 +56,9 @@ jobs:
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      # fluxrelease.py reads Flux releases from api.github.com; authenticated, the
+      # parallel jobs don't share the anonymous rate limit.
+      GITHUB_TOKEN: ${{ github.token }}
     permissions:
       contents: read
       id-token: write
@@ -77,11 +81,27 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Four kind nodes each pull the package's images (NeuVector's are large): the
+      # runner's disk filled up ("No space left on device"). Drop preinstalled
+      # toolchains these jobs don't use (~30 GB).
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      # kind's nodes share the runner's kernel; NeuVector's enforcers ran out of inotify
+      # instances ("Failed to open file monitor! too many open files"). kind's documented fix.
+      - name: Raise inotify limits
+        run: sudo sysctl -w fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=512
+
       - name: Create a kind cluster
         uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
         with:
           cluster_name: compat
           node_image: kindest/node:v1.34.0
+          config: .github/kind-compat.yaml
+          # kind-action's cleanup tries to remove a registry container it never created.
+          ignore_failed_clean: true
 
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978

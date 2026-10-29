@@ -90,15 +90,21 @@ def wait_ready(namespaces, timeout):
     end = time.time() + timeout
     last = ""
     while time.time() < end:
-        hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json"))["items"]
+        out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
+        if not out:   # API server busy on a loaded runner: try again
+            time.sleep(20)
+            continue
+        hrs = json.loads(out)["items"]
         status = {}
         for hr in hrs:
             cond = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}
             ready = cond.get("Ready", {})
-            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", "")[:160])
+            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", ""))
         line = ", ".join(f"{n}={s[0]}" for n, s in sorted(status.items()))
+        detail = "; ".join(f"{n}: {s[2][:200]}" for n, s in sorted(status.items()) if s[0] == "False")
         if line != last:
-            print(f"{time.strftime('%H:%M:%S')} helmreleases: {line or '(none yet)'}", flush=True)
+            print(f"{time.strftime('%H:%M:%S')} helmreleases: {line or '(none yet)'}"
+                  + (f"  [{detail}]" if detail else ""), flush=True)
             last = line
         failed = [n for n, s in status.items() if s[0] == "False" and s[1] in ("InstallFailed", "UpgradeFailed")]
         if failed:
@@ -108,16 +114,49 @@ def wait_ready(namespaces, timeout):
         time.sleep(20)
     else:
         return False, [f"timed out; HelmReleases: {last}"]
-    for ns in namespaces:
-        # report() judges each pod; this only gives slow starters time.
-        kubectl("wait", "pod", "-n", ns, "--all", "--for=condition=Ready",
-                f"--timeout={max(60, int(end - time.time()))}s",
-                "--field-selector=status.phase!=Succeeded", check=False)
+    # Give slow starters time (NeuVector's enforcers restart until they join the
+    # controllers): poll until every pod that isn't a finished Job pod is Ready with no
+    # new restarts for three polls in a row (a crash-looping pod is Ready between
+    # crashes), or the time runs out. report() judges the result.
+    steady, last_restarts = 0, None
+    while time.time() < end and steady < 3:
+        pending, restarts = [], 0
+        for ns in namespaces:
+            out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
+            for p in json.loads(out)["items"] if out else []:
+                if p["status"].get("phase") == "Succeeded":
+                    continue
+                statuses = p["status"].get("containerStatuses", [{}])
+                restarts += sum(s.get("restartCount", 0) for s in statuses)
+                if not all(s.get("ready") for s in statuses):
+                    pending.append(f"{ns}/{p['metadata']['name']}")
+        steady = steady + 1 if not pending and restarts == last_restarts else 0
+        last_restarts = restarts
+        if pending:
+            print(f"{time.strftime('%H:%M:%S')} waiting for {len(pending)} pods: {', '.join(pending[:6])}", flush=True)
+        time.sleep(20)
     return True, []
 
 
-def report(namespaces):
-    ok = True
+def hr_namespaces():
+    """Namespaces the HelmReleases install into (when a test doesn't list them)."""
+    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json"))["items"]
+    return sorted({hr["spec"].get("targetNamespace") or hr["metadata"]["namespace"] for hr in hrs})
+
+
+def images_running(namespaces):
+    imgs = set()
+    for ns in namespaces:
+        for p in json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]:
+            for s in p["status"].get("containerStatuses", []) + p["status"].get("initContainerStatuses", []):
+                imgs.add(s.get("image", ""))
+            for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
+                imgs.add(c["image"])
+    return imgs
+
+
+def report(namespaces, no_pods=False):
+    ok, total = True, 0
     for ns in namespaces:
         pods = json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]
         print(f"\n== {ns}: {len(pods)} pods")
@@ -140,9 +179,10 @@ def report(namespaces):
                 logs = kubectl("logs", "-n", ns, p["metadata"]["name"], "--all-containers", "--tail=40",
                                check=False) or ""
                 print("         logs:\n" + "\n".join("           " + ln for ln in logs.splitlines()[-40:]))
-        if not pods:
-            ok = False
-    return ok
+        total += len(pods)
+    # A namespace may hold only CRDs or config (e.g. prometheus-operator-crds); the test
+    # still needs some pods unless it says it has none (a CronJob-only package).
+    return ok and (total > 0 or no_pods)
 
 
 def main():
@@ -201,7 +241,14 @@ def main():
                          "--dry-run=client", "-o", "yaml")
         sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
         flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
-        sh("kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir, capture=True)
+        for i in range(3):   # the Flux release manifest comes from github.com
+            p = subprocess.run(["kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir],
+                               capture_output=True, text=True)
+            if not p.returncode:
+                break
+            if i == 2:
+                raise SystemExit(f"installing Flux failed:\n{p.stderr[-2000:]}")
+            time.sleep(30)
         # Big Bang asks for up to 1.8 CPUs per Flux controller; a CI runner's one kind
         # node can't schedule all four. Test clusters only: requests down, limits kept.
         kubectl("-n", "flux-system", "set", "resources", "deploy", "--all", "--requests=cpu=50m,memory=64Mi",
@@ -228,15 +275,30 @@ def main():
             os.remove(os.path.join(secrets, f))
         os.rmdir(secrets)
 
-    ready, problems = wait_ready(test.get("namespaces", []), a.timeout)
-    ok = report(test.get("namespaces", [])) and ready
+    ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
+    namespaces = test.get("namespaces") or hr_namespaces()
+    ok = report(namespaces, test.get("no_pods", False)) and ready
     for p in problems:
         print("PROBLEM:", p)
     if not ok:
         print("\n== recent events")
-        for ns in test.get("namespaces", []) + ["bigbang"]:
+        for ns in namespaces + ["bigbang"]:
             print(kubectl("get", "events", "-n", ns, "--sort-by=.lastTimestamp", check=False) or "")
-    print(f"\nRESULT {os.path.basename(a.compat)} ({'FIPS' if a.fips else 'standard'}): {'PASS' if ok else 'FAIL'}")
+    # `debug`: shell commands whose output helps explain a result (e.g. the sidecar
+    # injector's config); run whatever the outcome.
+    for cmd in test.get("debug", []):
+        print(f"\n== debug: {cmd}")
+        print(subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout[-4000:])
+    # `expect`: images (name:tag fragments) the test is about. A pass only covers the
+    # ones that actually ran; the rest need the feature that uses them switched on.
+    running = images_running(namespaces)
+    expect = test.get("expect", [])
+    seen = [e for e in expect if any(e in i for i in running)]
+    for e in expect:
+        print(f"{'EXERCISED' if e in seen else 'NOT EXERCISED'}: {e}")
+    mode = "FIPS" if a.fips else "standard"
+    print(f"\nRESULT {os.path.basename(a.compat)} ({mode}): {'PASS' if ok else 'FAIL'}"
+          + (f"; {len(seen)} of {len(expect)} expected images ran" if expect else ""))
     return 0 if ok else 1
 
 

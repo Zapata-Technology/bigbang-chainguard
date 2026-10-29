@@ -1,0 +1,7 @@
+# Newer-minor check: Alloy 1.18 -> Chainguard grafana-alloy 1.21, config-reloader 0.93 -> 0.94.
+images: {}
+test:
+  enable: [alloy, loki]   # alloy needs somewhere to send logs and events
+  expect: [grafana-alloy, prometheus-config-reloader]
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"

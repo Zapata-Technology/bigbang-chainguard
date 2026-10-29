@@ -1,0 +1,5 @@
+# Newer-minor check: Mimir's memcached-exporter 0.16 -> 0.18, rollout-operator 0.40 -> 0.41.
+images: {}
+test:
+  enable: [addons.mimir]
+  expect: [memcached-exporter, grafana-rollout-operator]

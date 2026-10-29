@@ -1,0 +1,8 @@
+# Newer-minor check: NeuVector's prometheus-exporter 1.0 -> 1.1, switched on directly
+# (upstream.exporter) instead of deploying the whole monitoring stack.
+images: {}
+test:
+  enable: [neuvector, prometheusOperatorCRDs]
+  expect: [neuvector-prometheus-exporter]
+  values:
+    neuvector: {values: {upstream: {exporter: {enabled: true}}}}

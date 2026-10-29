@@ -1,0 +1,9 @@
+# kind cluster for the compat tests. Each node reports the runner's full CPU and
+# memory, so three workers let Big Bang's resource requests schedule on one runner.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+  - role: worker

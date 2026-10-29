@@ -1,0 +1,6 @@
+# Newer-minor check: Renovate 44.97 -> 44.190 (a CronJob: deploy only, no run).
+images: {}
+test:
+  enable: [renovate]
+  # A CronJob: nothing runs until its schedule, so this only checks it installs.
+  no_pods: true

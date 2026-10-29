@@ -1,0 +1,8 @@
+# Newer-minor check: blackbox-exporter 0.28 -> 0.29, snmp-exporter 0.30 -> 0.31,
+# k8s-sidecar 2.11 -> 2.14, config-reloader 0.93 -> 0.94.
+images: {}
+test:
+  enable: [certManager, prometheusOperatorCRDs, monitoring]
+  expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"

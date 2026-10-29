@@ -1,0 +1,11 @@
+# Newer-minor check: Kiali 2.32 -> 2.34 (needs Istio).
+# Also checks injected sidecars: istio-init and istio-proxy must both be Chainguard's.
+images: {}
+test:
+  # istioGateway: Big Bang lists the gateways in Kiali's CR; with none it is invalid.
+  enable: [istioCRDs, istiod, istioGateway, kiali]
+  expect: [kiali, istio-proxy]
+  debug:
+    - "kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath='{.data.values}' | python3 -c \"import json,sys; g=json.load(sys.stdin)['global']; print('hub', g.get('hub'), 'tag', g.get('tag'), 'proxy.image', g.get('proxy', {}).get('image'))\""
+    - "kubectl get pods -A -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image"
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"

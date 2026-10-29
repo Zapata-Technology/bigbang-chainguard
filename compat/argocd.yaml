@@ -1,0 +1,9 @@
+# Newer-minor check: Argo CD's dex 2.45 -> 2.46 and redis-exporter 1.88 -> 1.96.
+# The exporter is switched on directly (redis-bb.upstream.metrics) instead of deploying the
+# whole monitoring stack, which overloaded the CI runner.
+images: {}
+test:
+  enable: [addons.argocd, prometheusOperatorCRDs]
+  expect: [dex, prometheus-redis-exporter-iamguarded]
+  values:
+    addons: {argocd: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}

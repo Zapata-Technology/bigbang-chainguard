@@ -1,0 +1,6 @@
+# Newer-minor check: Loki's memcached-exporter 0.16 -> 0.18, rollout-operator 0.40 -> 0.41,
+# k8s-sidecar 2.11 -> 2.14.
+images: {}
+test:
+  enable: [loki]
+  expect: [memcached-exporter, grafana-rollout-operator, k8s-sidecar]

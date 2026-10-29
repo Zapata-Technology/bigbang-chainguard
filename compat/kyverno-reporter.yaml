@@ -1,0 +1,6 @@
+# Newer-minor check: policy-reporter 3.10 -> 3.11, UI 2.8 -> 2.9, kyverno plugin 0.6 -> 0.7
+# (needs Kyverno).
+images: {}
+test:
+  enable: [kyverno, kyvernoReporter]
+  expect: [kyverno-policy-reporter, kyverno-policy-reporter-ui, kyverno-policy-reporter-plugin-kyverno]

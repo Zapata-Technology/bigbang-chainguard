@@ -1,0 +1,11 @@
+# Newer-minor check: Headlamp 0.45 -> 0.46.
+# Big Bang's wait job runs /bin/bash: it failed on Chainguard's kubectl and passed on
+# kubectl -dev, which mapping.yaml now uses for every kubectl image.
+images: {}
+test:
+  enable: [addons.headlamp]
+  expect: [headlamp, kubectl]
+  debug:
+    - "kubectl -n headlamp get pod -o custom-columns=POD:.metadata.name,PULLSECRETS:.spec.imagePullSecrets[*].name,IMAGES:.spec.containers[*].image,COMMAND:.spec.containers[0].command"
+    - "kubectl -n headlamp get secret private-registry -o custom-columns=CREATED:.metadata.creationTimestamp"
+    - "kubectl -n headlamp get events --sort-by=.lastTimestamp | grep -iE 'pull|secret' | tail -8"

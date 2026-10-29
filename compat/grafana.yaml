@@ -1,0 +1,5 @@
+# Newer-minor check: Grafana's k8s-sidecar 2.11 -> 2.14.
+images: {}
+test:
+  enable: [grafana]
+  expect: [k8s-sidecar]

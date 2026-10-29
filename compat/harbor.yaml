@@ -1,0 +1,8 @@
+# Newer-minor check: Harbor's redis-exporter 1.91 -> 1.96, switched on directly
+# (redis-bb.upstream.metrics) instead of deploying the whole monitoring stack.
+images: {}
+test:
+  enable: [addons.harbor, prometheusOperatorCRDs]
+  expect: [prometheus-redis-exporter-iamguarded]
+  values:
+    addons: {harbor: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
