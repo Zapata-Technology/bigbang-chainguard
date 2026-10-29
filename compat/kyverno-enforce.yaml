@@ -11,5 +11,7 @@ test:
     # usually supplies that list, is off here. Exclude a container name nothing uses.
     kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
   debug:
+    - "kubectl get clusterpolicy -o custom-columns='NAME:.metadata.name,READY:.status.conditions[0].status,REASON:.status.conditions[0].reason,MESSAGE:.status.conditions[0].message'"
+    - "kubectl -n kyverno logs job/kyverno-kyverno-policies-wait-job --tail=20"
     - "kubectl get clusterpolicy restrict-image-registries -o jsonpath='{.spec.validationFailureAction} {.spec.rules[0].validate.message}'"
     - "kubectl get events -A --field-selector reason=PolicyViolation | tail -10"

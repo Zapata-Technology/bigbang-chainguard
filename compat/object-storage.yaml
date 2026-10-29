@@ -16,4 +16,6 @@ test:
     - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"
     - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image | grep -i minio || echo 'no MinIO pods'"
     - "kubectl -n tempo describe statefulset | tail -40"
+    - "kubectl -n tempo logs tempo-tempo-0 --previous --tail=40 || kubectl -n tempo logs tempo-tempo-0 --tail=40"
+    - "kubectl -n tempo get configmap tempo -o yaml | grep -A12 ' storage:'"
     - "kubectl -n tempo get events --sort-by=.lastTimestamp | tail -20"
