@@ -317,3 +317,11 @@ ignore:
   - {release: kyverno-policies, path: policies}          # image patterns in policy parameters
   - {release: kyverno-policies, path: celPoliciesBeta}
   - {release: twistlock, path: console.trustedImages}    # Prisma trusted-registry rules
+
+# scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
+# finding not listed here, so each new Big Bang release gets the same review.
+scan_reviewed:
+  kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
+  alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
+  addons.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)
+  tempo/chart/charts/tempo-2.1.0.tgz!tempo: overrides.tempo (opencensus set to null)

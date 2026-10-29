@@ -70,6 +70,9 @@ jobs:
             --values discovery/render-inputs.yaml -o work/images.json
           diff -u discovery/images.json work/images.json
 
+      - name: Shell and empty-default scan (sh is busybox on Chainguard -dev images)
+        run: python3 scripts/bb-scan.py --pkgs work/pkgs --bigbang work/bigbang
+
       - name: Overlays are current
         run: |
           rc=0

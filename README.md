@@ -321,6 +321,10 @@ can't express, `mapping.yaml` has these escape hatches:
 - `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI
   images run `sh` as bash; Chainguard's `-dev` images run busybox `sh`. A Flux
   post-renderer runs those scripts with bash (Kyverno policies' wait job).
+- `bash_commands`: containers whose `/bin/sh -c` script is really bash; a post-renderer
+  makes the command `/bin/bash` (Fortify's keystore job).
+- `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
+  handled. CI fails on a new finding.
 
 An Iron Bank image with no Chainguard equivalent yet can be marked
 `{stays: <reason>, until: <chainguard repo>}`. The conversion then reports when your org's

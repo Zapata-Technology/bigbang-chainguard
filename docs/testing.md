@@ -16,6 +16,7 @@ flowchart LR
 | Layer | Runs | Catches |
 |---|---|---|
 | **Unit** (`tests/`) | every PR (`ci.yml`) | Tag selection, settings and org files, conversion rules, value-path discovery, Iron Bank recipe parsing, the image policy |
+| **Chart scan** (`bb-scan.py`) | every PR | Shell code run by `sh` that needs bash (Chainguard `-dev` images' `sh` is busybox; UBI's is bash), and empty chart defaults written into an app config. Each finding must be listed in `mapping.yaml` `scan_reviewed` with its fix. |
 | **Render verify** (`bb-verify.py`) | every PR, standard and FIPS | An image the overlays don't convert; a non-FIPS image in the FIPS overlay |
 | **Signatures** (`bb-signatures.py`) | every PR | An org image Chainguard didn't sign for your org, or a tag that doesn't exist. This found `neuvector-manager-fips:5.6`, which had no tags. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE |
@@ -68,7 +69,7 @@ Every test passes in standard and FIPS mode.
 | neuvector | controller, enforcer, manager, scanner 5.6 | Prometheus exporter not exercised |
 | renovate | renovate 44.190 | A CronJob: installs only |
 | kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
-| object-storage | Tempo and Mimir on SeaweedFS, no MinIO | |
+| object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README) |
 
 ## What the runtime tests found
 
@@ -83,6 +84,14 @@ None of these showed up when rendering. All are fixed in the overlays:
 | kiali | The gateway wait job compares proxy tags with istiod's version label, which the chart sets to Big Bang's patch | A Flux post-renderer sets the label to the deployed patch |
 | argocd, harbor | Bitnami's Redis chart starts the exporter with `/bin/bash -ec redis_exporter` | `prometheus-redis-exporter-iamguarded` |
 | sonarqube | Its JMX init container needs Iron Bank's `/opt/jmx_exporter` jar, `sh` and `curl` | The JMX exporter stays on Iron Bank |
+| kyverno-enforce | Kyverno policies' wait script is `#!/bin/sh` with bash arrays; busybox `sh` fails on it | `bash_wait_jobs`: a post-renderer runs it with bash |
+| kyverno-enforce | Big Bang's non-root policies render `preconditions.all: null` with no excluded containers | The test excludes a placeholder container (Istio normally supplies the list) |
+| object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps | `overrides.tempo` sets it to null |
+| object-storage | Big Bang creates Mimir's credential Secret even with Mimir off | Site file sets credentials only for enabled packages |
+
+The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
+job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's keystore job
+(`bash_commands`).
 
 ## CI environment notes
 
