@@ -1,0 +1,7 @@
+# metrics-server (Big Bang's "auto": on only where the cluster has none; kind has none).
+images: {}
+test:
+  enable: [addons.metricsServer]
+  expect: [metrics-server]
+  debug:
+    - "kubectl top nodes"

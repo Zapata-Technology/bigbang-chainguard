@@ -1,0 +1,38 @@
+# OpenSSF Scorecard: branch protection, pinned dependencies, token permissions, signed
+# releases and the rest, published to the Scorecard API and code scanning. Scorecard
+# only scores public repositories; the job is skipped while this one is private.
+name: scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "29 6 * * 1"
+  branch_protection_rule:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: scorecard
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370  # v4.39.1
+        with:
+          sarif_file: results.sarif

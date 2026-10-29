@@ -1,0 +1,13 @@
+# Velero with the AWS plugin, backup storage location on SeaweedFS (object-storage overlay).
+images: {}
+test:
+  enable: [addons.velero]
+  setup:
+    - python3 compat/support/seaweedfs.py velero
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+  expect: [velero, velero-plugin-for-aws]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
+  debug:
+    - "kubectl -n velero get backupstoragelocations -o wide"

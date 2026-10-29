@@ -60,10 +60,40 @@ jobs:
       id-token: write
       packages: write
     steps:
-      - name: Harden the runner (Audit all outbound calls)
+      # Block every outbound call not listed (GitHub, PyPI, Chainguard, repo1/registry1,
+      # and what this workflow's tools download). A blocked call fails the step and
+      # shows up in the job's annotations: add the host here if it is expected.
+      - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            *.cgr.dev:443
+            api.github.com:443
+            cgr.dev:443
+            codeload.github.com:443
+            console-api.enforce.dev:443
+            dl.enforce.dev:443
+            files.pythonhosted.org:443
+            fulcio.sigstore.dev:443
+            ghcr.io:443
+            github.com:443
+            grype.anchore.io:443
+            issuer.enforce.dev:443
+            objects.githubusercontent.com:443
+            pipelines.actions.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            registry1.dso.mil:443
+            rekor.sigstore.dev:443
+            release-assets.githubusercontent.com:443
+            repo1.dso.mil:443
+            results-receiver.actions.githubusercontent.com:443
+            token.actions.githubusercontent.com:443
+            toolbox-data.anchore.io:443
+            tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 

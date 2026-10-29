@@ -64,6 +64,9 @@ jobs:
       id-token: write
       packages: read
     steps:
+      # Audit only: the kind nodes pull every image a test needs through Docker's network,
+      # from whichever registries that test touches; a blocked pull would look like the
+      # image failure these tests exist to find. ci/builds/update run in block mode.
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
         with:

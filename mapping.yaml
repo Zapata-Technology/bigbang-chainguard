@@ -65,7 +65,7 @@ images:
   ironbank/grafana/grafana-enterprise-logs: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/opensource/grafana/tempo: tempo
-  ironbank/opensource/grafana/tempo-query: {stays: "no Chainguard tempo-query image"}
+  ironbank/opensource/grafana/tempo-query: {stays: "no Chainguard tempo-query image", until: tempo-query}
   ironbank/opensource/grafana/mimir: grafana-mimir
   ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
   ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}
@@ -109,7 +109,7 @@ images:
   ironbank/neuvector/neuvector/manager: neuvector-manager
   ironbank/neuvector/neuvector/scanner: neuvector-scanner
   ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
-  ironbank/opensource/neuvector/registry-adapter: {stays: "no Chainguard neuvector-registry-adapter image"}
+  ironbank/opensource/neuvector/registry-adapter: {stays: "no Chainguard neuvector-registry-adapter image", until: neuvector-registry-adapter}
   ironbank/twistlock/console/console: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/twistlock/defender/defender: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/anchore/enterprise/enterprise: {stays: "Anchore Enterprise is proprietary; vendor image only"}
@@ -142,7 +142,7 @@ images:
   ironbank/opensource/velero/velero: velero
   ironbank/opensource/velero/velero-plugin-for-aws: velero-plugin-for-aws
   ironbank/opensource/mattermost/mattermost: mattermost
-  ironbank/opensource/mattermost/mattermost-operator: {stays: "no Chainguard mattermost-operator image"}
+  ironbank/opensource/mattermost/mattermost-operator: {stays: "no Chainguard mattermost-operator image", until: mattermost-operator}
   ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
   ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank}
   ironbank/container-hardening-tools/renovate/renovate: renovate
@@ -211,7 +211,7 @@ images:
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
   gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "no Chainguard image (Gitaly's cgroups init container)"}
-  gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)"}
+  gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)", until: gitlab-zoekt}
   gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab's own OpenBao build; Chainguard's openbao is upstream's"}
   gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway: {stays: "GitLab AI gateway; GitLab-built only"}
   gitlab/gitlab-org/gitlab-runner: gitlab-runner

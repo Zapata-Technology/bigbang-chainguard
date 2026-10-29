@@ -1,0 +1,5 @@
+# OPA Gatekeeper: controller, audit, and its kubectl CRD/upgrade jobs.
+images: {}
+test:
+  enable: [gatekeeper]
+  expect: [gatekeeper]
