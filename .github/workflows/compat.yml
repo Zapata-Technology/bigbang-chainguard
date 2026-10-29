@@ -34,7 +34,7 @@ jobs:
       - id: m
         env:
           TESTS: ${{ inputs.tests }}
-          FIPS: ${{ inputs.fips != false }}
+          FIPS: ${{ github.event_name != 'workflow_dispatch' || inputs.fips }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import glob, json, os
@@ -102,6 +102,7 @@ jobs:
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
+          KIND_CLUSTER: compat
         run: |
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
           echo "::add-mask::$CGR_TOKEN"

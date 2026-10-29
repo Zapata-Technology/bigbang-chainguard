@@ -117,6 +117,10 @@ def main(name, doc, generate, build_args, smoke_test):
     ap.add_argument("--org", help="Chainguard org (default: $CHAINGUARD_ORG, else the CHAINGUARD_ORG file)")
     ap.add_argument("--build-registry", help="push target (default: $BUILD_REGISTRY, else the BUILD_REGISTRY file)")
     ap.add_argument("--ref", default="master", help="Iron Bank repo branch or commit to read (default: master)")
+    ap.add_argument("--version", help="build on this version line instead of Big Bang's (\"*\": newest), "
+                                      "where the builder supports it")
+    ap.add_argument("--force", action="store_true",
+                    help="build even if the mapping doesn't use this image (upgrade tests)")
     ap.add_argument("--no-generate", action="store_true", help="build from the existing build.yaml")
     ap.add_argument("--build", action="store_true", help="docker build the standard and FIPS images")
     ap.add_argument("--test", action="store_true", help="smoke-test each built image (implies --build)")
@@ -124,13 +128,15 @@ def main(name, doc, generate, build_args, smoke_test):
     ap.add_argument("--pushed-file", help="append each pushed image as <repo>@<digest> (for signing)")
     a = ap.parse_args()
 
+    building = a.build or a.test or a.push
+    org = org_name(a.org)
+    if building and not a.force and not any(isinstance(v, dict) and v.get("build") == name
+                                            for v in load_mapping(org)["images"].values()):
+        print(f"skipped: the mapping for {org} doesn't use builds/{name} (mapping.yaml or orgs/{org}.yaml)")
+        return 0
     out = os.path.join(ROOT, "builds", name)
     spec = yaml.safe_load(open(os.path.join(out, "build.yaml"))) if a.no_generate else generate(a)
-    if not (a.build or a.test or a.push):
-        return 0
-    org = org_name(a.org)
-    if not any(isinstance(v, dict) and v.get("build") == name for v in load_mapping(org)["images"].values()):
-        print(f"skipped: orgs/{org}.yaml maps this image elsewhere, so the overlays don't use builds/{name}")
+    if not building:
         return 0
     registry = build_registry(a.build_registry)
     if a.push and not registry:

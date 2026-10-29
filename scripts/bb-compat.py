@@ -33,7 +33,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, deep_merge  # noqa: E402
+from bbcommon import ROOT, build_registry, deep_merge, load_build  # noqa: E402
 
 
 def sh(*cmd, check=True, capture=False, stdin=None):
@@ -48,13 +48,14 @@ def kubectl(*args, capture=True, check=True):
 
 
 def test_values(chart_values, enable):
-    """Turn off every package Big Bang enables by default, then turn on the test's."""
+    """Turn off every package Big Bang enables by default (true or "auto", like metricsServer),
+    then turn on the test's."""
     vals = {"domain": "bigbang.test", "networkPolicies": {"enabled": False}}
     for k, v in chart_values.items():
-        if isinstance(v, dict) and v.get("enabled") is True and k != "networkPolicies":
+        if isinstance(v, dict) and v.get("enabled") not in (False, None) and k != "networkPolicies":
             vals[k] = {"enabled": False}
     for k, v in chart_values.get("addons", {}).items():
-        if isinstance(v, dict) and v.get("enabled") is True:
+        if isinstance(v, dict) and v.get("enabled") not in (False, None):
             vals.setdefault("addons", {})[k] = {"enabled": False}
     for dotted in enable:
         node = vals
@@ -76,6 +77,12 @@ def credentials():
     dockercfg = {"auths": {r: {"username": u, "password": p, "auth": base64.b64encode(f"{u}:{p}".encode()).decode()}
                            for r, u, p in regs}}
     return values, dockercfg
+
+
+def flux_ready():
+    deps = json.loads(kubectl("get", "deploy", "-n", "flux-system", "-o", "json"))["items"]
+    return bool(deps) and all(d.get("status", {}).get("readyReplicas", 0) >= d["spec"].get("replicas", 1)
+                              for d in deps)
 
 
 def wait_ready(namespaces, timeout):
@@ -144,12 +151,33 @@ def main():
     ap.add_argument("--fips", action="store_true", help="deploy with the FIPS overlay too")
     ap.add_argument("--timeout", type=int, default=1500, help="seconds to wait for the package (default 1500)")
     ap.add_argument("--bigbang", default=os.path.join(ROOT, "work", "bigbang"))
+    ap.add_argument("--kind-cluster", default=os.environ.get("KIND_CLUSTER"),
+                    help="load images this repo builds into this kind cluster instead of pulling them")
     a = ap.parse_args()
 
     spec = yaml.safe_load(open(a.compat))
     test = spec.get("test", {})
     out = tempfile.mkdtemp(prefix="bb-compat-")
     print(f"== {os.path.basename(a.compat)}: trial mapping {json.dumps(spec.get('images', {}))}", flush=True)
+
+    # Images the trial mapping builds (`build:`, with an optional `version` line): generate,
+    # build and smoke-test them here and load them into kind, so an upgrade is tested
+    # before anything is pushed. Before bb-convert, which reads their build.yaml.
+    for m in spec.get("images", {}).values():
+        if isinstance(m, dict) and m.get("build"):
+            name = m["build"]
+            print(f"\n== build {name}", flush=True)
+            version = ["--version", str(m["version"])] if m.get("version") else []
+            rc = subprocess.run([sys.executable, os.path.join(HERE, f"bb-{name}.py"), *version,
+                                 "--build", "--test", "--force"]).returncode
+            if rc:
+                raise SystemExit(f"\nRESULT: building {name} failed (see above); nothing was deployed")
+            img = load_build(name)["image"]["fips" if a.fips else "standard"]
+            ref = f"{build_registry() or 'bb-local'}/{img['name']}:{img['tag']}"
+            if a.kind_cluster:
+                sh("kind", "load", "docker-image", ref, "--name", a.kind_cluster, capture=True)
+                print(f"loaded {ref} into kind/{a.kind_cluster}")
+
     rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--mapping-overlay", a.compat,
                          "--out", out]).returncode
     if rc not in (0, 3):
@@ -174,7 +202,15 @@ def main():
         sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
         flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
         sh("kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir, capture=True)
-        kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s")
+        # Big Bang asks for up to 1.8 CPUs per Flux controller; a CI runner's one kind
+        # node can't schedule all four. Test clusters only: requests down, limits kept.
+        kubectl("-n", "flux-system", "set", "resources", "deploy", "--all", "--requests=cpu=50m,memory=64Mi",
+                check=False)
+        kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s", check=False)
+        if not flux_ready():
+            report(["flux-system"])
+            print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
+            raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
 
         chart = os.path.join(a.bigbang, "chart")
         values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
