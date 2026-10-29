@@ -1,0 +1,13 @@
+# End to end with scripts/bb-install.py, the way a user installs: preflight, pull
+# secrets, Flux, SeaweedFS with generated S3 keys, Big Bang with the overlays, then
+# `status`. Tempo on SeaweedFS and Keycloak (generated admin password; FIPS needs 14+
+# characters) show the generated credentials work.
+images: {}
+test:
+  installer: true
+  enable: [tempo, addons.keycloak]
+  namespaces: [tempo, keycloak, seaweedfs]
+  expect: [tempo, keycloak, seaweedfs]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  debug:
+    - "kubectl -n bigbang get secret bb-install -o jsonpath='{.data}' | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'"

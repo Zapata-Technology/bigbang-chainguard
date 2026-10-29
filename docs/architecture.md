@@ -107,6 +107,19 @@ flowchart LR
 
 ## 4. Deploying: how the overlays layer
 
+`scripts/bb-install.py install --site my-site.yaml [--fips]` does all of this in order:
+
+```mermaid
+flowchart LR
+    PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs] --> CR[Credentials<br/>env or hidden prompt,<br/>kept in bigbang/bb-install]
+    CR --> FX[Flux<br/>pull secret + flux/]
+    FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
+    SW --> BB[Big Bang<br/>helm upgrade -i with<br/>the overlays below]
+    BB --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy]
+```
+
+The layering it uses:
+
 ```mermaid
 flowchart TB
     subgraph helm[helm upgrade -i bigbang ... -f each file, last one wins]

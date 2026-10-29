@@ -68,6 +68,31 @@ def credentials():
     return values, dockerconfig(regs)
 
 
+def run_installer(a, test, out):
+    """Install with bb-install.py from the regenerated overlays in `out`: a site file
+    from the test's packages and values, credentials only through the environment."""
+    chart = os.path.join(a.bigbang, "chart")
+    values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+    deep_merge(values, test.get("values", {}) or {})
+    site = os.path.join(out, "site.yaml")
+    yaml.safe_dump(values, open(site, "w"))
+    env = dict(os.environ)
+    if os.environ.get("CGR_TOKEN"):
+        env.update(CGR_USERNAME="_token", CGR_PASSWORD=os.environ["CGR_TOKEN"])
+    if os.environ.get("GHCR_TOKEN"):
+        env.update(BUILD_REGISTRY_USERNAME=os.environ.get("GHCR_USER", "x"),
+                   BUILD_REGISTRY_PASSWORD=os.environ["GHCR_TOKEN"])
+    base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
+    install = base + ["install", "--site", site, "--chart", chart, "--small-cluster", "--yes",
+                      "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
+    print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
+    rc = subprocess.run(install, env=env, cwd=ROOT).returncode
+    print(f"\n== bb-install.py status (install exited {rc})", flush=True)
+    subprocess.run(base + ["status"], env=env, cwd=ROOT)
+    if rc:
+        print(f"PROBLEM: bb-install.py install exited {rc}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("compat", help="compat/<test>.yaml")
@@ -109,53 +134,58 @@ def main():
         if any(k in ln for k in spec.get("images", {})):
             print(ln.rstrip())
 
-    cred_values, dockercfg = credentials()
-    secrets = tempfile.mkdtemp(prefix="bb-compat-secrets-")
-    try:
-        creds = os.path.join(secrets, "creds.yaml")
-        yaml.safe_dump(cred_values, open(creds, "w"))
-        dcj = os.path.join(secrets, "config.json")
-        json.dump(dockercfg, open(dcj, "w"))
+    if test.get("installer"):
+        # `installer: true`: deploy with scripts/bb-install.py exactly as a user would,
+        # then check the result like any other test.
+        run_installer(a, test, out)
+    else:
+        cred_values, dockercfg = credentials()
+        secrets = tempfile.mkdtemp(prefix="bb-compat-secrets-")
+        try:
+            creds = os.path.join(secrets, "creds.yaml")
+            yaml.safe_dump(cred_values, open(creds, "w"))
+            dcj = os.path.join(secrets, "config.json")
+            json.dump(dockercfg, open(dcj, "w"))
 
-        print("\n== flux", flush=True)
-        kubectl("create", "namespace", "flux-system", check=False)
-        secret = kubectl("-n", "flux-system", "create", "secret", "generic", "private-registry",
-                         "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={dcj}",
-                         "--dry-run=client", "-o", "yaml")
-        sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
-        flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
-        if not install_flux(flux_dir, small_cluster=True):
-            report(["flux-system"])
-            print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
-            raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
+            print("\n== flux", flush=True)
+            kubectl("create", "namespace", "flux-system", check=False)
+            secret = kubectl("-n", "flux-system", "create", "secret", "generic", "private-registry",
+                             "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={dcj}",
+                             "--dry-run=client", "-o", "yaml")
+            sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
+            flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
+            if not install_flux(flux_dir, small_cluster=True):
+                report(["flux-system"])
+                print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
+                raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
 
-        # `setup`: commands run before Big Bang (e.g. deploy SeaweedFS and generate the
-        # object-storage overlay). They get COMPAT_OUT (a scratch dir for files they write,
-        # which `values_files` can name), COMPAT_DOCKERCFG (registry credentials for their
-        # own pull secrets) and COMPAT_FIPS.
-        env = dict(os.environ, COMPAT_OUT=out, COMPAT_DOCKERCFG=dcj, COMPAT_FIPS="1" if a.fips else "")
-        for cmd in test.get("setup", []):
-            print(f"\n== setup: {cmd}", flush=True)
-            if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
-                raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
+            # `setup`: commands run before Big Bang (e.g. deploy SeaweedFS and generate the
+            # object-storage overlay). They get COMPAT_OUT (a scratch dir for files they write,
+            # which `values_files` can name), COMPAT_DOCKERCFG (registry credentials for their
+            # own pull secrets) and COMPAT_FIPS.
+            env = dict(os.environ, COMPAT_OUT=out, COMPAT_DOCKERCFG=dcj, COMPAT_FIPS="1" if a.fips else "")
+            for cmd in test.get("setup", []):
+                print(f"\n== setup: {cmd}", flush=True)
+                if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
+                    raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
 
-        chart = os.path.join(a.bigbang, "chart")
-        values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
-        deep_merge(values, test.get("values", {}) or {})
-        tv = os.path.join(secrets, "test.yaml")
-        yaml.safe_dump(values, open(tv, "w"))
-        args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
-        if a.fips:
-            args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
-        for f in test.get("values_files", []):
-            args += ["-f", f.replace("$COMPAT_OUT", out)]
-        print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
-        sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
-           *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
-    finally:
-        for f in os.listdir(secrets):
-            os.remove(os.path.join(secrets, f))
-        os.rmdir(secrets)
+            chart = os.path.join(a.bigbang, "chart")
+            values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+            deep_merge(values, test.get("values", {}) or {})
+            tv = os.path.join(secrets, "test.yaml")
+            yaml.safe_dump(values, open(tv, "w"))
+            args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
+            if a.fips:
+                args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
+            for f in test.get("values_files", []):
+                args += ["-f", f.replace("$COMPAT_OUT", out)]
+            print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
+            sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
+               *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
+        finally:
+            for f in os.listdir(secrets):
+                os.remove(os.path.join(secrets, f))
+            os.rmdir(secrets)
 
     ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
     namespaces = test.get("namespaces") or hr_namespaces()

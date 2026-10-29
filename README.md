@@ -83,6 +83,42 @@ already build. `orgs/zapatatechnology.com.yaml` is an example.
 The overlays in this repo were generated for `zapatatechnology.com` (each file's header says
 which org). Regenerate them for yours with `bb-run.py` before deploying.
 
+### The installer (recommended)
+
+```bash
+python scripts/bb-install.py init                      # asks for your domain and packages, writes my-site.yaml
+export CGR_USERNAME=... CGR_PASSWORD=...               # a pull token: chainctl auth pull-token create \
+                                                       #   --repository=oci --parent=<org> --ttl=8760h
+python scripts/bb-install.py install --site my-site.yaml          # add --fips for FIPS images
+python scripts/bb-install.py status                    # any time: what's healthy and what isn't
+```
+
+`install` does every step below for you, in order, and is safe to re-run:
+
+1. **Preflight:** kubectl and helm, Kubernetes 1.34+, a default StorageClass for SeaweedFS,
+   the site file's domain, and which of your packages still need Iron Bank credentials.
+2. **Credentials:** the pull token from the environment (or a hidden prompt; leave them out of
+   the site file), kept in the cluster's `bigbang/bb-install` Secret so later runs don't ask.
+   They are never printed or put on a command line.
+3. **Flux**, with its pull secret.
+4. **SeaweedFS**, with random S3 keys generated once and reused, its two Secrets, and the
+   bucket Job (skipped with `OBJECT_STORAGE=minio`).
+5. **Big Bang**, with the overlays in the right order. Object-storage credentials go only to
+   the packages you enabled; Keycloak gets a random admin password long enough for FIPS
+   (`kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}'`,
+   base64), unless your site file sets one.
+6. **Wait and report:** every HelmRelease and pod, and any running image that isn't the
+   conversion's.
+
+Re-run `install` to upgrade after pulling new overlays, to switch to FIPS (`--fips`) or back,
+or to apply a changed site file. `uninstall` removes Big Bang, SeaweedFS and Flux; SeaweedFS's
+volume and the stored keys stay unless you add `--delete-data`. `compat/installer.yaml` runs
+the installer end to end on kind in CI.
+
+### Doing it by hand
+
+What the installer does, as commands:
+
 ```bash
 BB=$(cat BIGBANG_VERSION)
 
@@ -122,7 +158,9 @@ registryCredentials:
     password: <Iron Bank CLI secret>
 ```
 
-Create a pull token with `chainctl auth pull-token --repository=cgr.dev --parent=<org>`.
+Create a pull token with
+`chainctl auth pull-token create --repository=oci --parent=<org> --ttl=8760h` (a year, the
+maximum).
 Flux needs the same `private-registry` secret in `flux-system` before `kubectl apply -k flux/`.
 
 The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Kyverno
@@ -157,6 +195,8 @@ Set **`OBJECT_STORAGE_ENDPOINT`** (same rules) to use an S3 service of your own 
 in-cluster SeaweedFS. The default is `http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333`.
 
 ### Deploying SeaweedFS (the default)
+
+`bb-install.py install` does all of this. By hand:
 
 ```bash
 kubectl create namespace seaweedfs
@@ -304,6 +344,7 @@ scripts/bb-scan.py      read every package chart for sh scripts that need bash a
                         scan_reviewed
 scripts/bb-run.py       all of the above, in order
 scripts/bb-leftovers.py which `stays ... until` images Chainguard now publishes (nightly report)
+scripts/bb-install.py   deploy it: init, install (re-run to upgrade or switch FIPS), status, uninstall
 ```
 
 Value paths are found automatically from each chart's computed values:

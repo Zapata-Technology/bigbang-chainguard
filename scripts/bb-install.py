@@ -57,6 +57,12 @@ NAMESPACE = "bigbang"
 STATE_SECRET = "bb-install"            # credentials and install mode, kept in the cluster
 CHART = "oci://registry1.dso.mil/bigbang/bigbang"
 MIN_KUBERNETES = (1, 34)               # Big Bang's chart requires it
+# Big Bang's own release writes Thanos's object storage Secret into `monitoring`, a
+# namespace only Flux creates (when the monitoring HelmRelease installs), so a fresh
+# install fails with "namespaces monitoring not found". Big Bang's chart creates every
+# other package namespace itself, so only this one is made up front, with Helm's
+# ownership metadata so a later Big Bang that templates it can adopt it.
+EARLY_NAMESPACES = {"monitoring": "monitoring", "addons.thanos": "monitoring"}
 
 
 def say(msg):
@@ -197,6 +203,12 @@ class Credentials:
         self.values["s3-access-key"], self.values["s3-secret-key"] = access, secret
         return access, secret
 
+    def generated(self, key, make):
+        """A value generated once and kept (e.g. Keycloak's admin password)."""
+        if not self.values.get(key):
+            self.values[key] = make()
+        return self.values[key]
+
     def save(self, mode):
         self.values["mode"] = mode
         with tempfile.TemporaryDirectory(prefix="bb-install-") as d:
@@ -315,12 +327,19 @@ def install(a):
         else:
             say("warning: no registry1 credentials; the packages listed above won't pull their Iron Bank images")
     s3 = creds.s3(generate=co.in_cluster_seaweedfs()) if co.s3 else None
+    keycloak_password = creds.generated("keycloak-admin-password", lambda: secrets.token_urlsafe(24))
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
     with tempfile.TemporaryDirectory(prefix="bb-install-") as d:
         cfg = os.path.join(d, "config.json")
         json.dump(dockerconfig(registries), open(cfg, "w"))
+        for ns in sorted({EARLY_NAMESPACES[k] for k in enabled if k in EARLY_NAMESPACES}):
+            sh("kubectl", "apply", "-f", "-", capture=True, stdin=yaml.safe_dump({
+                "apiVersion": "v1", "kind": "Namespace", "metadata": {
+                    "name": ns, "labels": {"app.kubernetes.io/managed-by": "Helm"},
+                    "annotations": {"meta.helm.sh/release-name": "bigbang",
+                                    "meta.helm.sh/release-namespace": NAMESPACE}}}))
         step("Flux")
         apply_secret("flux-system", "private-registry", "generic", "--type=kubernetes.io/dockerconfigjson",
                      f"--from-file=.dockerconfigjson={cfg}")
@@ -338,6 +357,12 @@ def install(a):
                                                  for r, u, p in registries]}
         if co.s3:
             deep_merge(secret_values, object_storage_values(co, enabled, s3))
+        if "addons.keycloak" in enabled and not _site_sets_keycloak_password(site):
+            # Big Bang's default admin password ("password") is too short for Keycloak's
+            # FIPS mode (14+ characters); a random one works in both modes. Read it with:
+            # kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}'
+            deep_merge(secret_values, {"addons": {"keycloak": {"values": {"upstream": {"secrets": {"env": {
+                "stringData": {"KEYCLOAK_ADMIN_PASSWORD": keycloak_password}}}}}}}})
         sv = os.path.join(d, "credentials.yaml")
         with open(sv, "w", encoding="utf-8") as fh:
             yaml.safe_dump(secret_values, fh)
@@ -353,6 +378,12 @@ def install(a):
     time.sleep(10)
     ok, problems = wait_ready(hr_namespaces(), a.timeout)
     return status_report(co, a.fips, problems) if ok else status_report(co, a.fips, problems, failed=True)
+
+
+def _site_sets_keycloak_password(site):
+    env = (((((site.get("addons") or {}).get("keycloak") or {}).get("values") or {}).get("upstream") or {})
+           .get("secrets") or {}).get("env") or {}
+    return bool((env.get("stringData") or {}).get("KEYCLOAK_ADMIN_PASSWORD"))
 
 
 def _build_registry_host(co):
@@ -388,16 +419,32 @@ def status_report(co, fips, problems=(), failed=False):
     if unhealthy:
         step("pods that aren't healthy")
         report(sorted(set(unhealthy)))
-    policy = running_image_problems(images, co.org, _build_registry_host(co) and _build_registry(co),
-                                    load_mapping(co.org), fips=fips) if co.org else []
+    policy = running_image_problems(images, co.org, _build_registry(co), load_mapping(co.org),
+                                    fips=fips) if co.org else []
     step(f"images: {len(images)} running, {len(policy)} not from the conversion")
     for p in policy:
         say(f"  {p}")
     for p in problems:
         say(f"PROBLEM: {p}")
+    behind = deployed_version_note(co)
+    if behind:
+        say(behind)
     healthy = not (failed or bad or unhealthy or policy)
     say(f"\n{'HEALTHY' if healthy else 'NOT HEALTHY'}: {len(hrs) - bad}/{len(hrs)} HelmReleases ready")
     return 0 if healthy else 1
+
+
+def deployed_version_note(co):
+    """A line saying the cluster is behind this checkout (re-run install to upgrade)."""
+    out = sh("helm", "list", "-n", NAMESPACE, "-o", "json", check=False, capture=True) or "[]"
+    rel = next((r for r in json.loads(out) if r.get("name") == "bigbang"), None)
+    if not rel:
+        return ""
+    deployed = rel.get("chart", "").rsplit("-", 1)[-1]
+    if deployed and deployed != co.version:
+        return (f"update available: the cluster runs Big Bang {deployed}, this checkout has {co.version}; "
+                "re-run bb-install.py install to upgrade")
+    return ""
 
 
 def _build_registry(co):
