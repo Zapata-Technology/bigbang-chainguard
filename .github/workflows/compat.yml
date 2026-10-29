@@ -84,6 +84,8 @@ jobs:
           cluster_name: compat
           node_image: kindest/node:v1.34.0
           config: .github/kind-compat.yaml
+          # kind-action's cleanup tries to remove a registry container it never created.
+          ignore_failed_clean: true
 
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
