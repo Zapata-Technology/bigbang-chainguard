@@ -3,5 +3,10 @@ images: {}
 test:
   enable: [addons.metricsServer]
   expect: [metrics-server]
+  setup:
+    - sh compat/support/watch.sh pullsecret "kubectl -n kube-system get secret private-registry -o name; kubectl -n kube-system get events --field-selector reason=FailedToRetrieveImagePullSecret -o name"
   debug:
     - "kubectl top nodes"
+    - "cat $COMPAT_OUT/watch-pullsecret.log"
+    - "helm get manifest bigbang -n bigbang | grep -B2 -A8 'name: private-registry' | grep -A3 'namespace: kube-system'"
+    - "kubectl -n kube-system get secret private-registry -o jsonpath='{.metadata.labels}'"

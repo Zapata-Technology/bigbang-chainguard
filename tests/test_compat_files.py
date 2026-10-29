@@ -24,7 +24,10 @@ def test_compat_file(path):
     for f in test.get("values_files", []):
         assert f.startswith("$COMPAT_OUT/"), f
     for cmd in test.get("setup", []):
-        script = shlex.split(cmd)[1]
+        words = shlex.split(cmd)
+        if words[0] not in ("python3", "python", "sh", "bash"):
+            continue   # a plain command (kubectl ...)
+        script = words[1]
         assert os.path.exists(os.path.join(ROOT, script)), script
         if script.endswith("seaweedfs.py"):
             # Credentials only go to the packages named here; each must be one the test runs.

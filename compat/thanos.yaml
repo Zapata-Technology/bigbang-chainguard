@@ -3,6 +3,10 @@ images: {}
 test:
   enable: [monitoring, addons.thanos]
   setup:
+    # Big Bang creates monitoring-objstore-secret in `monitoring` as part of its own
+    # release, before Flux creates that namespace for the monitoring HelmRelease: a fresh
+    # install fails with "namespaces monitoring not found". bb-install.py does the same.
+    - kubectl create namespace monitoring
     - python3 compat/support/seaweedfs.py thanos
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml

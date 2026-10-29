@@ -42,6 +42,7 @@ jobs:
           allowed-endpoints: >
             *.blob.core.windows.net:443
             *.cgr.dev:443
+            *.r2.cloudflarestorage.com:443
             api.github.com:443
             cgr.dev:443
             codeload.github.com:443

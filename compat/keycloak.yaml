@@ -2,4 +2,18 @@
 images: {}
 test:
   enable: [addons.keycloak]
+  values:
+    addons:
+      keycloak:
+        values:
+          upstream:
+            secrets:
+              env:
+                stringData:
+                  # Big Bang's default admin password ("password") is too short for
+                  # Keycloak's FIPS mode (BC-FIPS needs 14+ characters). Test-only value;
+                  # bb-install.py generates a random one for real installs.
+                  KEYCLOAK_ADMIN_PASSWORD: compat-keycloak-admin-not-a-secret
   expect: [keycloak, postgres]
+  debug:
+    - "kubectl -n keycloak logs statefulset/keycloak-keycloak --tail=40"
