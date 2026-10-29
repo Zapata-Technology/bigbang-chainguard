@@ -78,6 +78,12 @@ def credentials():
     return values, dockercfg
 
 
+def flux_ready():
+    deps = json.loads(kubectl("get", "deploy", "-n", "flux-system", "-o", "json"))["items"]
+    return bool(deps) and all(d.get("status", {}).get("readyReplicas", 0) >= d["spec"].get("replicas", 1)
+                              for d in deps)
+
+
 def wait_ready(namespaces, timeout):
     """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines)."""
     end = time.time() + timeout
@@ -174,7 +180,11 @@ def main():
         sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
         flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
         sh("kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir, capture=True)
-        kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s")
+        kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s", check=False)
+        if not flux_ready():
+            report(["flux-system"])
+            print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
+            raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
 
         chart = os.path.join(a.bigbang, "chart")
         values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))

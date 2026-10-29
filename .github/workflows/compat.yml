@@ -34,7 +34,7 @@ jobs:
       - id: m
         env:
           TESTS: ${{ inputs.tests }}
-          FIPS: ${{ inputs.fips != false }}
+          FIPS: ${{ github.event_name != 'workflow_dispatch' || inputs.fips }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import glob, json, os
