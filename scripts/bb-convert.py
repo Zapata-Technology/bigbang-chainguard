@@ -489,11 +489,14 @@ def main():
                                              "else the BUILD_REGISTRY file)")
     ap.add_argument("--strict-versions", action="store_true",
                     help="never use a newer MINOR than Iron Bank's (no MINOR AHEAD)")
+    ap.add_argument("--mapping-overlay", action="append", default=[], metavar="FILE",
+                    help="apply FILE's `images` over the mapping (e.g. compat/<test>.yaml); repeatable")
+    ap.add_argument("--out", help="write the generated files under this directory instead of the repo")
     a = ap.parse_args()
 
     discovered = json.load(open(a.discovered))
     org = org_name(a.org)
-    mapping = load_mapping(org, a.mapping)
+    mapping = load_mapping(org, a.mapping, a.mapping_overlay)
     version = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip()
     tags = OrgTags(org, a.tags_cache, offline=a.offline)
     files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
@@ -523,7 +526,7 @@ def main():
         return rc
     drift = False
     for rel, text in files.items():
-        p = os.path.join(ROOT, rel)
+        p = os.path.join(a.out or ROOT, rel)
         old = open(p, encoding="utf-8").read() if os.path.exists(p) else None
         if a.check:
             if old != text:
