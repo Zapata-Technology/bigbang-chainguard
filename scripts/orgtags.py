@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.error
 import urllib.request
 
@@ -40,6 +41,20 @@ def _basic_auth():
     return "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode()
 
 
+def _open(req, timeout, attempts=4):
+    """urlopen with retries for timeouts, connection errors, 429 and 5xx (not other 4xx)."""
+    for i in range(attempts):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if e.code != 429 and e.code < 500 or i == attempts - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if i == attempts - 1:
+                raise
+        time.sleep(5 * (i + 1))
+
+
 class OrgTags:
     def __init__(self, org, cache=None, offline=False):
         self.org = org
@@ -55,7 +70,7 @@ class OrgTags:
             self._auth = _basic_auth()
         url = f"https://{REGISTRY}/token?scope=repository:{self.org}/{repo}:pull&service={REGISTRY}"
         req = urllib.request.Request(url, headers={"Authorization": self._auth})
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _open(req, 30) as r:
             return json.load(r)["token"]
 
     def digest(self, repo, tag):
@@ -66,7 +81,7 @@ class OrgTags:
                             "application/vnd.docker.distribution.manifest.v2+json"])
         req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/manifests/{tag}", method="HEAD",
                                      headers={"Authorization": f"Bearer {self._token(repo)}", "Accept": accept})
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _open(req, 30) as r:
             return r.headers["Docker-Content-Digest"]
 
     def tags(self, repo):
@@ -81,7 +96,7 @@ class OrgTags:
             url = f"https://{REGISTRY}/v2/{self.org}/{repo}/tags/list?n=1000"
             while url:
                 req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-                with urllib.request.urlopen(req, timeout=60) as r:
+                with _open(req, 60) as r:
                     tags += json.load(r).get("tags") or []
                     link = r.headers.get("Link", "")
                 m = re.search(r"<([^>]+)>", link)

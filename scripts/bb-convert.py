@@ -115,7 +115,7 @@ class Converter:
                     refs.append(None)
                     notes.append(f"org has no {name}")
                     continue
-                want = m.get("version", ib_tag)
+                want = self.version(m, ib_tag)
                 ahead = not (self.strict or m.get("strict"))
                 tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=ahead) if want
                              else (None, "no Iron Bank tag"))
@@ -143,6 +143,12 @@ class Converter:
             return None
         return std, fips or std
 
+    def version(self, m, ib_tag):
+        """The version to match: `version`, the Iron Bank tag of `version_from`, or the image's own."""
+        if m.get("version_from"):
+            return self.ib_tags.get(m["version_from"])
+        return m.get("version", ib_tag)
+
     def group_ready(self, group):
         """True if every image of a `group` that Big Bang deploys resolves in this org.
 
@@ -162,7 +168,7 @@ class Converter:
                     if tags is None:
                         (self.optional_missing if m.get("fallback") else self.missing).add(name)
                         self._groups[group] = f"org has no {name}"
-                    elif not resolve(m.get("version", self.ib_tags[ib_repo]), tags, m.get("suffix"),
+                    elif not resolve(self.version(m, self.ib_tags[ib_repo]), tags, m.get("suffix"),
                                      allow_ahead=not (self.strict or m.get("strict")))[0]:
                         self._groups[group] = f"org has no {name} on Iron Bank's line ({self.ib_tags[ib_repo]})"
                     if self._groups[group]:

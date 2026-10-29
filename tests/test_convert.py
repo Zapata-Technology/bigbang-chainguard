@@ -147,3 +147,11 @@ def test_group_falls_back_together_when_one_member_is_off_the_line():
     c = convert.Converter(GROUP, FakeTags(tags), ib_tags=IB_TAGS)
     assert c.target("gitlab/web", "v19.4.2-ubi", "gitlab") is None
     assert "move together" in c.rows[-1][4] and "shell" in c.rows[-1][4]
+
+
+def test_version_from_matches_another_images_release():
+    m = {"images": {"gitlab/shell": {"group": "gl", "strict": True, "cg": "shell",
+                                     "version_from": "gitlab/base"}}}
+    tags = {"shell": ["19.4.3", "19.5.1"], "shell-fips": ["19.4.3"]}
+    c = convert.Converter(m, FakeTags(tags), ib_tags={"gitlab/shell": "v14.57.3-ubi", "gitlab/base": "v19.4.2-ubi"})
+    assert c.target("gitlab/shell", "v14.57.3-ubi", "gitlab")[0].endswith("shell:19.4.3")
