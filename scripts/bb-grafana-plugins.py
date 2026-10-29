@@ -15,7 +15,7 @@ with plugins baked in), so this converts Iron Bank's own recipe instead:
   bb-grafana-plugins.py [--org <org>] [--ref master]       regenerate build.yaml
   bb-grafana-plugins.py --build [--test] [--push]          also build both images
 
---build    docker build <BUILD_REGISTRY>/grafana-plugins:<tag> and -fips:<tag>
+--build    docker build <BUILD_REGISTRY>/bigbang-grafana-plugins:<tag> and -fips:<tag>
            (bb-local/... when BUILD_REGISTRY is empty)
 --test     start each image and check Grafana loads every plugin with a valid
            signature (and, for -fips, that OpenSSL defaults to fips=yes)
@@ -40,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bbbuild  # noqa: E402
 
 NAME = "grafana-plugins"
+IMAGE = "bigbang-grafana-plugins"   # not grafana-plugins: avoids clashing with an existing package of that name
 IB_IMAGE = "ironbank/big-bang/grafana/grafana-plugins"
 IB_PROJECT = "big-bang/grafana/grafana-plugins"
 
@@ -79,18 +80,19 @@ def generate(a):
             raise SystemExit(f"Iron Bank's Dockerfile does not unpack {res['filename']}; update plugin_layout()")
         plugins.append(plugin(res, unzips[res["filename"]]))
     empty = [d for d in dirs if d not in {p["dir"] for p in plugins} and d.startswith("/var/lib/bb-plugins/")]
-    tag, images = bbbuild.org_images(a.org, {"standard": "grafana", "fips": "grafana-fips"}, bb_tag)
+    images = bbbuild.org_images(a.org, {"standard": "grafana", "fips": "grafana-fips"}, bb_tag)
     spec = {
-        "tag": tag,
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
                      "commit": commit, "manifest_tags": manifest.get("tags", [])},
-        "image": {v: {"name": NAME + ("-fips" if v == "fips" else ""), **img} for v, img in images.items()},
+        # Tagged with the Grafana version each is built FROM.
+        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), **img} for v, img in images.items()},
         "plugins": plugins,
         "empty_dirs": empty,
     }
     bbbuild.write_spec(NAME, spec, "# Big Bang's grafana-plugins image rebuilt FROM the Chainguard org's grafana images,\n"
                                    "# with the plugin set from Iron Bank's hardening_manifest.yaml at `ironbank.commit`.\n")
-    print(f"grafana {tag}, plugins " + ", ".join(p["id"] for p in plugins))
+    print(f"grafana {images['standard']['tag']} / fips {images['fips']['tag']}, plugins "
+          + ", ".join(p["id"] for p in plugins))
     return spec
 
 

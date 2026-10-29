@@ -28,7 +28,6 @@ Wolfi and are listed in build.yaml as not ported.
 """
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,25 +66,25 @@ def generate(a):
     bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
     commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, a.ref)
     pkgs, user, kubectl, yq, cce = recipe(manifest, dockerfile)
-    kubectl_tag, images = bbbuild.org_images(a.org, {"standard": "kubectl", "fips": "kubectl-fips"}, kubectl)
+    images = bbbuild.org_images(a.org, {"standard": "kubectl", "fips": "kubectl-fips"}, kubectl)
     yq_line = ".".join(yq.split(".")[:2])
     wolfi = {UBI_TO_WOLFI.get(p, p) for p in pkgs} - {None}
     packages = sorted(set(UBI_USERLAND) | wolfi) + [f"yq~{yq_line}"]
     spec = {
-        # Iron Bank's tag plus the kubectl it carries, so a kubectl patch gets a new tag.
-        "tag": f"{bb_tag}-kubectl{kubectl_tag}",
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
                      "commit": commit, "manifest_tags": manifest.get("tags", []),
                      "kubectl": kubectl, "yq": yq, "microdnf": pkgs},
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "dev": img["dev"]}
-                  for v, img in images.items()},
+        # Tagged <Iron Bank tag>-kubectl<version>, so a kubectl patch gets a new tag.
+        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": f"{bb_tag}-kubectl{img['tag']}",
+                      "dev": img["dev"]} for v, img in images.items()},
         "packages": packages,
         "user": user,
         "not_ported": [f"{c}.sh: RHEL STIG setting for UBI; not applicable to Wolfi" for c in cce],
     }
     bbbuild.write_spec(NAME, spec, "# Big Bang's base job image rebuilt FROM the Chainguard org's kubectl -dev images,\n"
                                    "# with the contents of Iron Bank's big-bang/base at `ironbank.commit`.\n")
-    print(f"kubectl {kubectl_tag} (Iron Bank {kubectl}), yq {yq_line}.x, packages {' '.join(packages)}")
+    print(f"kubectl {images['standard']['tag']} / fips {images['fips']['tag']} (Iron Bank {kubectl}), "
+          f"yq {yq_line}.x, packages {' '.join(packages)}")
     return spec
 
 
@@ -98,29 +97,22 @@ def smoke_test(image, variant, spec):
     kubectl_line = ".".join(spec["ironbank"]["kubectl"].split(".")[:2])
     yq_line = ".".join(spec["ironbank"]["yq"].split(".")[:2])
     script = "; ".join([
-        "set -e",
         "echo uid=$(id -u)",
         "kubectl version --client -o json | grep -o '\"gitVersion\": *\"[^\"]*\"'",
         "yq --version", "jq --version", "curl --version | head -1",
         "for t in find which grep sed; do command -v $t >/dev/null || { echo missing $t; exit 1; }; done",
         "echo tools=ok",
-        "cat /etc/ssl/openssl.cnf 2>/dev/null | grep -E '^ *(default_)?properties *= *fips=yes' || echo openssl=nofips",
+        "grep -hE '^ *(default_)?properties *= *fips=yes' /etc/ssl/openssl.cnf || true",
     ])
-    p = subprocess.run(["docker", "run", "--rm", image, "bash", "-c", script], capture_output=True, text=True)
-    out = p.stdout + p.stderr
-    print("  " + out.strip().replace("\n", "\n  "))
     checks = {
-        "script ran": p.returncode == 0,
-        f"uid {spec['user']['id']}": f"uid={spec['user']['id']}" in out,
-        f"kubectl {kubectl_line}": re.search(rf'"v{re.escape(kubectl_line)}\.', out) is not None,
-        f"yq {yq_line}": re.search(rf"version v?{re.escape(yq_line)}\.", out) is not None,
-        "tools": "tools=ok" in out,
+        f"uid {spec['user']['id']}": rf"^uid={spec['user']['id']}$",
+        f"kubectl {kubectl_line}": rf'"v{re.escape(kubectl_line)}\.',
+        f"yq {yq_line}": rf"version v?{re.escape(yq_line)}\.",
+        "tools": r"^tools=ok$",
     }
     if variant == "fips":
-        checks["openssl fips=yes"] = "openssl=nofips" not in out
-    failed = [k for k, ok in checks.items() if not ok]
-    if failed:
-        raise SystemExit(f"{image}: failed {', '.join(failed)}")
+        checks["openssl fips=yes"] = r"properties *= *fips=yes"
+    bbbuild.run_checks(image, script, checks)
 
 
 if __name__ == "__main__":
