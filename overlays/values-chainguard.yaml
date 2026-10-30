@@ -7,7 +7,7 @@ addons:
     values:
       ui-redis:
         cleanUpgrade:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -26,14 +26,14 @@ addons:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       global:
         image:
           repository: cgr.dev/zapatatechnology.com/argocd
           tag: 3.4.12
       redis-bb:
         cleanUpgrade:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -47,7 +47,7 @@ addons:
       upgradeJob:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
       upstream:
         dex:
           image:
@@ -60,7 +60,7 @@ addons:
         tag: 1.1.8
       redis-bb:
         cleanUpgrade:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -75,7 +75,7 @@ addons:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
       upstream:
         image:
           repository: cgr.dev/zapatatechnology.com/external-secrets
@@ -109,16 +109,16 @@ addons:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       global:
         certificates:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-certificates
-            tag: 19.4.3
+            tag: 19.4.5
         gitlabBase:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-base
-            tag: 19.4.3
+            tag: 19.4.5
         kubectl:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-kubectl
@@ -135,27 +135,27 @@ addons:
           geo-logcursor:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee
-              tag: 19.4.3
+              tag: 19.4.5
           gitaly:
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-exporter:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-exporter
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-pages:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-pages
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-shell:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-shell
-              tag: 19.4.3
+              tag: 19.4.5
           kas:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-kas
-              tag: 19.4.3
+              tag: 19.4.5
           mailroom:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-mailroom
@@ -163,26 +163,26 @@ addons:
           migrations:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
-              tag: 19.4.3
+              tag: 19.4.5
           praefect:
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly
-              tag: 19.4.3
+              tag: 19.4.5
           sidekiq:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee
-              tag: 19.4.3
+              tag: 19.4.5
           toolbox:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
-              tag: 19.4.3
+              tag: 19.4.5
           webservice:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee
-              tag: 19.4.3
+              tag: 19.4.5
             workhorse:
               image: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
-              tag: 19.4.3
+              tag: 19.4.5
         gitlab-zoekt:
           gateway:
             image:
@@ -191,7 +191,7 @@ addons:
         registry:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-container-registry
-            tag: 19.4.3
+            tag: 19.4.5
         shared-secrets:
           selfsign:
             image:
@@ -203,17 +203,17 @@ addons:
         image:
           image: gitlab-runner
           registry: cgr.dev/zapatatechnology.com
-          tag: 19.5.1
+          tag: 19.5.2
         runners:
           helper:
             registry: cgr.dev/zapatatechnology.com
             repository: gitlab-runner-helper
-            tag: 19.5.1
+            tag: 19.5.2
   harbor:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       postgresql:
         image:
           registry: cgr.dev/zapatatechnology.com
@@ -221,7 +221,7 @@ addons:
           tag: '18.6'
       redis-bb:
         cleanUpgrade:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         upstream:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -278,7 +278,7 @@ addons:
   keycloak:
     values:
       bbtests:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
       postgresql:
         image:
           registry: cgr.dev/zapatatechnology.com
@@ -288,6 +288,12 @@ addons:
         image:
           repository: cgr.dev/zapatatechnology.com/keycloak
           tag: 26.8.1
+        podSecurityContext:
+          runAsGroup: null
+          runAsUser: null
+        securityContext:
+          runAsGroup: null
+          runAsUser: null
   mattermost:
     values:
       database:
@@ -299,11 +305,11 @@ addons:
       minio:
         bbtests:
           scripts:
-            image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+            image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
         bucketInit:
           image:
             repository: ghcr.io/zapata-technology/bigbang-base
-            tag: 2.1.0-kubectl1.36.5
+            tag: 2.1.0-kubectl1.36.6
         waitJob:
           image: cgr.dev/zapatatechnology.com/kubectl:1.36-dev
       postgresql:
@@ -318,13 +324,13 @@ addons:
       upstream:
         image:
           repository: cgr.dev/zapatatechnology.com/metrics-server
-          tag: 0.9.0
+          tag: 0.9.1
   mimir:
     values:
       upgradeJob:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
       upstream:
         gateway:
           nginx:
@@ -357,11 +363,11 @@ addons:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       bucketInit:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
   minioOperator:
@@ -369,11 +375,11 @@ addons:
       tenantPatchJob:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
       tenantWaitJob:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
   sonarqube:
     values:
       upstream:
@@ -381,7 +387,7 @@ addons:
           repository: cgr.dev/zapatatechnology.com/sonarqube
           tag: 26.10.0.133078-community
         initContainers:
-          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+          image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         plugins:
           image: cgr.dev/zapatatechnology.com/sonarqube:26.10.0.133078-community
   thanos:
@@ -389,11 +395,11 @@ addons:
       minio:
         bbtests:
           scripts:
-            image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+            image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
         bucketInit:
           image:
             repository: ghcr.io/zapata-technology/bigbang-base
-            tag: 2.1.0-kubectl1.36.5
+            tag: 2.1.0-kubectl1.36.6
         waitJob:
           image: cgr.dev/zapatatechnology.com/kubectl:1.36-dev
       upstream:
@@ -434,7 +440,7 @@ addons:
     values:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       upstream:
         image:
           repository: cgr.dev/zapatatechnology.com/velero
@@ -460,13 +466,13 @@ addons:
         kubectl:
           image:
             repository: ghcr.io/zapata-technology/bigbang-base
-            tag: 2.1.0-kubectl1.36.5
+            tag: 2.1.0-kubectl1.36.6
 alloy:
   values:
     autoRollingUpgrade:
       image:
         repository: ghcr.io/zapata-technology/bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
     global:
       image:
         registry: ''
@@ -523,7 +529,7 @@ eckOperator:
     upgradeCrds:
       image:
         repository: ghcr.io/zapata-technology/bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
     upstream:
       image:
         repository: cgr.dev/zapatatechnology.com/eck-operator
@@ -532,7 +538,7 @@ elasticsearchKibana:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         networkWait:
           image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
     elasticsearch:
@@ -556,7 +562,7 @@ fluentbit:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
     upstream:
       hotReload:
         image:
@@ -585,7 +591,7 @@ gatekeeper:
         probeWebhook:
           image:
             repository: ghcr.io/zapata-technology/bigbang-base
-            tag: 2.1.0-kubectl1.36.5
+            tag: 2.1.0-kubectl1.36.6
       postUpgrade:
         labelNamespace:
           image:
@@ -608,14 +614,14 @@ grafana:
     autoRollingUpgrade:
       image:
         repository: ghcr.io/zapata-technology/bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
     global:
       imageRegistry: ''
     upstream:
       downloadDashboardsImage:
         registry: ghcr.io/zapata-technology
         repository: bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
       image:
         registry: ghcr.io/zapata-technology
         repository: grafana-plugins
@@ -746,7 +752,7 @@ kyvernoPolicies:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+        image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
     policies:
       restrict-image-registries:
         parameters:
@@ -774,12 +780,12 @@ kyvernoReporter:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: kyverno-policy-reporter-ui
-          tag: 2.9.0
+          tag: 2.9.1
 loki:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
         networkWait:
           image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
     gateway:
@@ -812,11 +818,11 @@ loki:
     minio:
       bbtests:
         scripts:
-          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+          image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
       bucketInit:
         image:
           repository: ghcr.io/zapata-technology/bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.36-dev
     rollout_operator:
@@ -833,7 +839,7 @@ monitoring:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
     blackboxExporter:
       configReloader:
         image:
@@ -850,7 +856,7 @@ monitoring:
       image:
         registry: ghcr.io/zapata-technology
         repository: bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
     snmpExporter:
       configmapReload:
         image:
@@ -865,7 +871,7 @@ monitoring:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-alertmanager
-            tag: 0.34.1
+            tag: 0.34.2
       crds:
         upgradeJob:
           image:
@@ -877,7 +883,7 @@ monitoring:
         downloadDashboardsImage:
           registry: ghcr.io/zapata-technology
           repository: bigbang-base
-          tag: 2.1.0-kubectl1.36.5
+          tag: 2.1.0-kubectl1.36.6
         image:
           registry: ghcr.io/zapata-technology
           repository: grafana-plugins
@@ -913,7 +919,7 @@ monitoring:
             image:
               registry: ghcr.io/zapata-technology
               repository: bigbang-base
-              tag: 2.1.0-kubectl1.36.5
+              tag: 2.1.0-kubectl1.36.6
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: prometheus-operator
@@ -937,7 +943,7 @@ neuvector:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
     monitor:
       exporter:
         image:
@@ -954,12 +960,12 @@ neuvector:
           image:
             registry: ''
             repository: neuvector-scanner
-            tag: v4.312
+            tag: v4.313
         updater:
           image:
             registry: ghcr.io/zapata-technology
             repository: bigbang-base
-            tag: 2.1.0-kubectl1.36.5
+            tag: 2.1.0-kubectl1.36.6
       enforcer:
         image:
           repository: neuvector-enforcer
@@ -972,19 +978,19 @@ renovate:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.1
+        image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
         networkWait:
           image: cgr.dev/zapatatechnology.com/kubectl:1.35-dev
     upstream:
       image:
         registry: cgr.dev/zapatatechnology.com
         repository: renovate
-        tag: 44.192.2
+        tag: 44.196.1
 tempo:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
     upgradeJob:
       image:
         repository: cgr.dev/zapatatechnology.com/kubectl
@@ -1012,11 +1018,11 @@ twistlock:
   values:
     bbtests:
       scripts:
-        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.5
+        image: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
     init:
       image:
         repository: ghcr.io/zapata-technology/bigbang-base
-        tag: 2.1.0-kubectl1.36.5
+        tag: 2.1.0-kubectl1.36.6
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl:1.36-dev
 ztunnel:
