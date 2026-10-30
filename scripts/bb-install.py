@@ -38,6 +38,7 @@ cluster (a previous run keeps them in the bigbang/bb-install Secret), or a hidde
                                  for the in-cluster SeaweedFS they are generated
 """
 import argparse
+import atexit
 import getpass
 import io
 import json
@@ -209,6 +210,25 @@ def fetch_chart(version, cache=CHART_CACHE):
     shutil.rmtree(dest, ignore_errors=True)
     os.replace(part, dest)
     return chart
+
+
+def mirrored_checkout(co, mirror):
+    """A copy of the overlays, Flux and SeaweedFS files with cgr.dev/<org> and the build
+    registry replaced by the site's registry prefix (an air-gapped site, bb-airgap.py).
+    Headers ("Generated for cgr.dev/<org>:") keep the org, so the rest reads the same."""
+    d = tempfile.mkdtemp(prefix="bb-install-mirror-")
+    atexit.register(shutil.rmtree, d, True)
+    hosts = [f"{REGISTRY}/{co.org}"] + ([_build_registry(co)] if _build_registry(co) else [])
+    rx = re.compile("(" + "|".join(re.escape(h) for h in hosts) + r")(?=/|['\"]?\s*$)", re.M)
+    for name in ("overlays", "flux", "flux-fips", "seaweedfs", "seaweedfs-fips", "RELEASE"):
+        src = co.path(name)
+        files = [src] if os.path.isfile(src) else [os.path.join(dp, f) for dp, _, fn in os.walk(src) for f in fn]
+        for s in files:
+            t = os.path.join(d, os.path.relpath(s, co.root))
+            os.makedirs(os.path.dirname(t), exist_ok=True)
+            with open(t, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(rx.sub(mirror.rstrip("/"), open(s, encoding="utf-8").read()))
+    return Checkout(d)
 
 
 def chart(a):
@@ -470,8 +490,13 @@ def install(a):
     co = Checkout(a.overlays)
     a.version = a.version or co.version
     site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
+    stored = read_secret(NAMESPACE, STATE_SECRET) or {}
     if a.git_mirror is None:   # remembered from an earlier run
-        a.git_mirror = (read_secret(NAMESPACE, STATE_SECRET) or {}).get("git-mirror") or None
+        a.git_mirror = stored.get("git-mirror") or None
+    if a.registry_mirror is None:
+        a.registry_mirror = stored.get("registry-mirror") or None
+    if a.registry_mirror:
+        co = mirrored_checkout(co, a.registry_mirror)
     step("preflight")
     defaults = chart_defaults(a)
     enabled, problems, notes = preflight(a, co, site, defaults)
@@ -501,12 +526,24 @@ def install(a):
         say(f"package git repositories from {a.git_mirror} instead of repo1")
     if a.new_pull_token:
         creds.forget("cgr")
-    cgr = creds.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD",
-                         "a Chainguard pull token (chainctl auth pull-token create --repository=oci "
-                         f"--parent={co.org} --ttl=8760h)",
-                         make=pull_token_maker(co.org, interactive, ask=not (a.yes or a.new_pull_token)))
-    registries = [("cgr.dev", *cgr)]
-    build = _build_registry_host(co)
+    if a.registry_mirror is not None:
+        creds.values["registry-mirror"] = a.registry_mirror or ""
+    if a.registry_mirror:
+        # Air-gapped: every image comes from the site's registry (bb-airgap.py lists them).
+        host = a.registry_mirror.split("/", 1)[0]
+        say(f"images from {a.registry_mirror} instead of cgr.dev and the build registry")
+        got = creds.registry("mirror", host, "MIRROR_USERNAME", "MIRROR_PASSWORD",
+                             "the site registry holding the images; skip if it allows anonymous pulls",
+                             required=False)
+        registries = [(host, *got)] if got else []
+        build = None
+    else:
+        cgr = creds.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD",
+                             "a Chainguard pull token (chainctl auth pull-token create --repository=oci "
+                             f"--parent={co.org} --ttl=8760h)",
+                             make=pull_token_maker(co.org, interactive, ask=not (a.yes or a.new_pull_token)))
+        registries = [("cgr.dev", *cgr)]
+        build = _build_registry_host(co)
     if build:
         got = creds.registry("build", build, "BUILD_REGISTRY_USERNAME", "BUILD_REGISTRY_PASSWORD",
                              "images this repo builds; skip if they are public", required=False)
@@ -992,6 +1029,12 @@ def status_report(co, fips, problems=(), failed=False):
     if unhealthy:
         step("pods that aren't healthy")
         report(sorted(set(unhealthy)))
+    mirror = (read_secret(NAMESPACE, STATE_SECRET) or {}).get("registry-mirror")
+    if mirror:   # judge the site registry's copies as the images they were copied from
+        build = _build_registry(co)
+        images = {f"{build if build and i.split('/')[-1].startswith('bigbang-') else REGISTRY + '/' + co.org}"
+                  f"/{i[len(mirror.rstrip('/')) + 1:]}" if i.startswith(mirror.rstrip("/") + "/") else i
+                  for i in images}
     policy = running_image_problems(images, co.org, _build_registry(co), load_mapping(co.org),
                                     fips=fips) if co.org else []
     step(f"images: {len(images)} running, {len(policy)} not from the conversion")
@@ -1200,6 +1243,9 @@ def main():
                                     "list; default $CHAINGUARD_ORG_ID, else any Chainguard signer)")
     p.add_argument("--plan", action="store_true",
                    help="show what would change (version, FIPS, packages, image tags) and stop")
+    p.add_argument("--registry-mirror", metavar="PREFIX",
+                   help="the site registry holding the images (air-gapped; bb-airgap.py lists them): "
+                        "cgr.dev/<org> and the build registry become PREFIX; remembered, \"\" turns it off")
     p.add_argument("--git-mirror", metavar="URL",
                    help="a git server mirroring repo1 (same paths under URL) for Big Bang's chart and "
                         "packages; remembered, \"\" turns it off")

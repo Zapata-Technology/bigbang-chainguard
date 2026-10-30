@@ -171,6 +171,24 @@ to retry it every two minutes while it waits, and ends a timeout with the host t
 a git server you run with repo1's paths under that URL (kept in sync with repo1, for
 example by a scheduled `git fetch` of each package repository); the mirror is remembered.
 
+**Disconnected sites.** On a connected machine, `scripts/bb-airgap.py --site my-site.yaml
+[--fips] --out bundle/` gathers what the site's packages need: this checkout with Big Bang's
+chart and Flux rendered to plain manifests, a bare git clone of Big Bang and of each enabled
+package at its pinned tag, and `images.txt` (every image the install runs, as `<source>
+<name:tag>`). It doesn't copy images: moving them into the site's registry is the site's
+step, with its own tooling and under its Chainguard license. Inside the site:
+
+```bash
+./push-git.sh https://git.site.example/bigbang      # the package repositories, repo1's paths
+python3 bigbang-chainguard/scripts/bb-install.py install --site my-site.yaml   --git-mirror https://git.site.example/bigbang --registry-mirror registry.site.example/bigbang
+```
+
+`--registry-mirror` points every Chainguard and built image (and Kyverno's allow list) at the
+site registry, takes its credentials from `MIRROR_USERNAME`/`MIRROR_PASSWORD` if it needs
+them, and is remembered. The default packages need 54 images and 17 repositories; packages
+that keep Iron Bank images need those too (`bundle.json` lists them). Signature checks need
+Sigstore's public services, so leave `--verify-signatures` off inside a disconnected site.
+
 **GitOps.** `install --gitops DIR` does everything except the `helm` step: it writes `DIR`
 (Big Bang's HelmRelease, its chart from repo1, and the values files as ConfigMaps) and
 applies it. Commit `DIR` to your own git repository and point a Flux Kustomization at it
