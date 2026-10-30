@@ -150,3 +150,21 @@ def test_status_says_when_the_cluster_is_behind(monkeypatch):
     assert "update available" in install.deployed_version_note(co) and co.version in install.deployed_version_note(co)
     monkeypatch.setattr(install, "sh", lambda *c, **k: _json.dumps([{"name": "bigbang", "chart": f"bigbang-{co.version}"}]))
     assert install.deployed_version_note(co) == ""
+
+
+def test_keycloak_database_password_only_on_a_fresh_keycloak(monkeypatch):
+    on = ["addons.keycloak"]
+    _Env(monkeypatch)
+    monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
+    pw = install.keycloak_database_password(install.Credentials({}, False), {}, on)
+    assert pw and len(pw) >= 14                                        # fresh: generated, FIPS-long
+    _Env(monkeypatch, {"keycloak-db-password": "kept-from-the-first-install"})
+    monkeypatch.setattr(install, "_keycloak_installed", lambda: True)
+    assert install.keycloak_database_password(install.Credentials({}, False), {}, on) == \
+        "kept-from-the-first-install"                                  # re-run: the same one
+    _Env(monkeypatch)
+    assert install.keycloak_database_password(install.Credentials({}, False), {}, on) is None  # running on the default
+    assert install.keycloak_database_password(install.Credentials({}, False), {}, []) is None  # Keycloak off
+    external = {"addons": {"keycloak": {"database": {"host": "db.example.com"}}}}
+    monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
+    assert install.keycloak_database_password(install.Credentials({}, False), external, on) is None

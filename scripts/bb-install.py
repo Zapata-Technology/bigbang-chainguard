@@ -57,12 +57,6 @@ NAMESPACE = "bigbang"
 STATE_SECRET = "bb-install"            # credentials and install mode, kept in the cluster
 CHART = "oci://registry1.dso.mil/bigbang/bigbang"
 MIN_KUBERNETES = (1, 34)               # Big Bang's chart requires it
-# Big Bang's own release writes Thanos's object storage Secret into `monitoring`, a
-# namespace only Flux creates (when the monitoring HelmRelease installs), so a fresh
-# install fails with "namespaces monitoring not found". Big Bang's chart creates every
-# other package namespace itself, so only this one is made up front, with Helm's
-# ownership metadata so a later Big Bang that templates it can adopt it.
-EARLY_NAMESPACES = {"monitoring": "monitoring", "addons.thanos": "monitoring"}
 
 
 def say(msg):
@@ -246,6 +240,10 @@ def preflight(a, co, site, defaults):
         problems.append("the site file has no `domain` (bb-install.py init writes one)")
     files = co.overlays(a.fips) + [a.site]
     enabled = enabled_packages(merged_values(defaults, files))
+    on = set(enabled)
+    if on & {"monitoring", "addons.thanos"} and "prometheusOperatorCRDs" not in on:
+        problems.append("monitoring/Thanos need prometheusOperatorCRDs (it installs the CRDs and creates the "
+                        "monitoring namespace): leave it on in the site file")
     if co.in_cluster_seaweedfs() and server:
         scs = json.loads(kubectl("get", "storageclass", "-o", "json", check=False) or '{"items": []}')["items"]
         if not any(s["metadata"].get("annotations", {}).get("storageclass.kubernetes.io/is-default-class") == "true"
@@ -328,18 +326,13 @@ def install(a):
             say("warning: no registry1 credentials; the packages listed above won't pull their Iron Bank images")
     s3 = creds.s3(generate=co.in_cluster_seaweedfs()) if co.s3 else None
     keycloak_password = creds.generated("keycloak-admin-password", lambda: secrets.token_urlsafe(24))
+    keycloak_db_password = keycloak_database_password(creds, site, enabled)
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
     with tempfile.TemporaryDirectory(prefix="bb-install-") as d:
         cfg = os.path.join(d, "config.json")
         json.dump(dockerconfig(registries), open(cfg, "w"))
-        for ns in sorted({EARLY_NAMESPACES[k] for k in enabled if k in EARLY_NAMESPACES}):
-            sh("kubectl", "apply", "-f", "-", capture=True, stdin=yaml.safe_dump({
-                "apiVersion": "v1", "kind": "Namespace", "metadata": {
-                    "name": ns, "labels": {"app.kubernetes.io/managed-by": "Helm"},
-                    "annotations": {"meta.helm.sh/release-name": "bigbang",
-                                    "meta.helm.sh/release-namespace": NAMESPACE}}}))
         step("Flux")
         apply_secret("flux-system", "private-registry", "generic", "--type=kubernetes.io/dockerconfigjson",
                      f"--from-file=.dockerconfigjson={cfg}")
@@ -363,6 +356,13 @@ def install(a):
             # kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}'
             deep_merge(secret_values, {"addons": {"keycloak": {"values": {"upstream": {"secrets": {"env": {
                 "stringData": {"KEYCLOAK_ADMIN_PASSWORD": keycloak_password}}}}}}}})
+        if keycloak_db_password:
+            # FIPS also rejects Big Bang's default database password ("keycloak"): the
+            # PostgreSQL driver's SCRAM hashing needs 112+ bits. Keycloak's side and the
+            # bundled PostgreSQL's (hardcoded by Big Bang) must match.
+            deep_merge(secret_values, {"addons": {"keycloak": {"values": {
+                "upstream": {"database": {"password": keycloak_db_password}},
+                "postgresql": {"global": {"postgresql": {"auth": {"password": keycloak_db_password}}}}}}}})
         sv = os.path.join(d, "credentials.yaml")
         with open(sv, "w", encoding="utf-8") as fh:
             yaml.safe_dump(secret_values, fh)
@@ -378,6 +378,35 @@ def install(a):
     time.sleep(10)
     ok, problems = wait_ready(hr_namespaces(), a.timeout)
     return status_report(co, a.fips, problems) if ok else status_report(co, a.fips, problems, failed=True)
+
+
+def keycloak_database_password(creds, site, enabled):
+    """A generated password for Keycloak's bundled PostgreSQL, or None to leave it alone:
+    Keycloak off, the site sets one (or an external database), or Keycloak already runs on
+    Big Bang's default (PostgreSQL keeps the password it started with; changing it here
+    would lock Keycloak out of its own database)."""
+    if "addons.keycloak" not in enabled or _site_sets_keycloak_db_password(site):
+        return None
+    if creds.values.get("keycloak-db-password") or not _keycloak_installed():
+        return creds.generated("keycloak-db-password", lambda: secrets.token_urlsafe(24))
+    say("note: Keycloak already runs on Big Bang's default database password; FIPS needs 14+ "
+        "characters, so change it in PostgreSQL and the site file before switching to --fips")
+    return None
+
+
+def _keycloak_values(site):
+    return (((site.get("addons") or {}).get("keycloak") or {}).get("values") or {})
+
+
+def _site_sets_keycloak_db_password(site):
+    database = ((site.get("addons") or {}).get("keycloak") or {}).get("database") or {}
+    return bool((((_keycloak_values(site).get("upstream") or {}).get("database") or {}).get("password"))
+                or database.get("host") or database.get("password"))
+
+
+def _keycloak_installed():
+    """True if a Keycloak HelmRelease already exists (its database has a password)."""
+    return bool(kubectl("get", "helmrelease", "-n", NAMESPACE, "keycloak", "-o", "name", check=False))
 
 
 def _site_sets_keycloak_password(site):

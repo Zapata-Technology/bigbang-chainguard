@@ -136,13 +136,14 @@ builds on the PR and pushes on merge.
 - **Big Bang creates Mimir's credential Secret whenever its keys are set**, even with Mimir
   off: set object-storage credentials only for enabled packages.
 - **Kyverno policies render `preconditions.all: null`** unless some container is excluded.
-- **Big Bang's release writes Thanos's object storage Secret into `monitoring`**, which only
-  Flux creates: create it first on a fresh cluster (the installer does). Big Bang's chart
-  creates every other package namespace itself, so never pre-create those (Helm refuses to
-  adopt them).
+- **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
+  `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
+  monitoring or Thanos on, keep `prometheusOperatorCRDs` on (the installer checks).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
-- **Keycloak FIPS** rejects Big Bang's default admin password (`password`): 14+ characters.
+- **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database
+  password (`keycloak`, via the PostgreSQL driver's SCRAM hashing): both need 14+ characters.
+  The database password can't change on a running Keycloak (PostgreSQL keeps it).
 - **cgr.dev serves layers and signatures from `*.r2.cloudflarestorage.com`**: harden-runner
   must allow it.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs

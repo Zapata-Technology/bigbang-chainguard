@@ -100,8 +100,8 @@ None of these showed up when rendering. All are fixed in the overlays:
 | object-storage | Big Bang creates Mimir's credential Secret even with Mimir off | Site file sets credentials only for enabled packages |
 
 | velero | The chart's placeholder snapshot location has an empty credential that Flux keeps; Velero's CRD rejects it | No snapshot locations with S3 object storage |
-| thanos | Big Bang writes Thanos's object storage Secret into `monitoring` before Flux creates it | Create `monitoring` first (the installer does) |
-| keycloak (FIPS) | Big Bang's default admin password is too short for FIPS | Test password; the installer generates one |
+| thanos | Monitoring depends on the `prometheusOperatorCRDs` package, which also creates the `monitoring` namespace | Keep it on (the installer's preflight checks) |
+| keycloak (FIPS) | Big Bang's default admin (`password`) and database (`keycloak`) passwords are too short for FIPS ("password must be at least 112 bits") | Test passwords; the installer generates both on a fresh Keycloak |
 | every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
 
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade

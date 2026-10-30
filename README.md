@@ -104,9 +104,11 @@ python scripts/bb-install.py status                    # any time: what's health
 4. **SeaweedFS**, with random S3 keys generated once and reused, its two Secrets, and the
    bucket Job (skipped with `OBJECT_STORAGE=minio`).
 5. **Big Bang**, with the overlays in the right order. Object-storage credentials go only to
-   the packages you enabled; Keycloak gets a random admin password long enough for FIPS
-   (`kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}'`,
-   base64), unless your site file sets one.
+   the packages you enabled. Keycloak gets random admin and database passwords long
+   enough for FIPS (Big Bang's defaults are too short), unless your site file sets them;
+   the database one only on a fresh Keycloak, since PostgreSQL keeps the password it
+   started with. Read the admin one with
+   `kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}' | base64 -d`.
 6. **Wait and report:** every HelmRelease and pod, and any running image that isn't the
    conversion's.
 
