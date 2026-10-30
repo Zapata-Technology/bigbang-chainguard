@@ -266,3 +266,13 @@ def test_digest_pins_skip_a_repo_used_at_two_tags():
     c.target("ironbank/a", "1.2.5", "rel")
     c.target("ironbank/b", "1.2.3", "rel")
     assert c.digest_pins("rel", "standard") == []     # kustomize matches by name: ambiguous
+
+
+def test_render_emulates_kustomize_digest_pins():
+    images = load_script("bb-images")
+    pin = {"name": "cgr.dev/o/app", "digest": "sha256:" + "a" * 64}
+    assert images.kustomize_image("cgr.dev/o/app", "1.2", pin) == "cgr.dev/o/app@sha256:" + "a" * 64
+    assert images.kustomize_image("cgr.dev/o/app", "", pin).endswith("@sha256:" + "a" * 64)   # tag set elsewhere (a CR)
+    assert images.kustomize_image("r1/x", "1", {"newName": "cgr.dev/o/x", "newTag": "2"}) == "cgr.dev/o/x:2"
+    assert images.kustomize_image("cgr.dev/o/x", "", {"newName": "cgr.dev/o/y"}) == "cgr.dev/o/y"
+    assert images.kustomize_image("cgr.dev/o/x", "1", None) is None
