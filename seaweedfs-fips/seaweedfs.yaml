@@ -45,7 +45,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: seaweedfs
-        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51
+        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51@sha256:0951e2bcdb9a1053644d43f40c523c15463561b984ee2e9cce3da7bff1346590
         args:
         - server
         - -dir=/data
@@ -143,7 +143,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: buckets
-        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51-dev
+        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51-dev@sha256:f16795eff6194c8d5ae0410fdac90418855c2d54a8a7bc2c71504c9797dfdb7f
         command:
         - /bin/sh
         - -c

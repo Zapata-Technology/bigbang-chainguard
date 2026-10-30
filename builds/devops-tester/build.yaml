@@ -21,7 +21,7 @@ image:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
-    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:da8ab35c2899b7d4ece1faa947ea4cfc68bc7d28c13dd4ce8b139162727dc402
+    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:5435624f7ed2aa5f4e32435819cfd3d30d1afb850b3ae26de6f2d3bd80a969d7
     kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:f4db2a7da434887b25d662f2fb6b5d51799ad91b4402dc49cdd3e8ce96518309
 chainsaw: ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
 packages:
