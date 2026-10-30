@@ -175,6 +175,19 @@ def bigbang_releases(bigbang, extra_values):
         }
 
 
+def kustomize_image(name, tag, entry):
+    """What a Flux post-renderer's kustomize images entry makes of name[:tag]: newName
+    replaces the name; a digest replaces the tag (bb-convert's digest pins), else newTag
+    does; otherwise the tag stays. None without an entry."""
+    if not entry:
+        return None
+    name = entry.get("newName", name)
+    if entry.get("digest"):
+        return f"{name}@{entry['digest']}"
+    tag = entry.get("newTag", tag)
+    return f"{name}:{tag}" if tag else name
+
+
 def flux_images(bigbang):
     k = yaml.safe_load(open(os.path.join(bigbang, "base", "flux", "kustomization.yaml")))
     return sorted(f'{i["newName"]}:{i["newTag"]}' for i in k.get("images", []))
@@ -243,8 +256,7 @@ def main():
         rendered = set()
         for ref in images_in(out):
             name, _, tag = ref.rpartition(":") if ":" in ref.rsplit("/", 1)[-1] else (ref, "", "")
-            rn = r["renames"].get(name)
-            rendered.add(f'{rn.get("newName", name)}:{rn.get("newTag", tag)}' if rn else ref)
+            rendered.add(kustomize_image(name, tag, r["renames"].get(name)) or ref)
         result["packages"][r["release"]] = {"key": os.path.basename(d), "rendered": sorted(rendered),
                                             "values": nodes}
     text = json.dumps(result, indent=2, sort_keys=True)

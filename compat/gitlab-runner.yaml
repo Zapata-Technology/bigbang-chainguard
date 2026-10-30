@@ -5,6 +5,21 @@ test:
   timeout: 3300
   enable: [addons.gitlab, addons.gitlabRunner]
   namespaces: [gitlab, gitlab-runner, gitlab-deps]
+  values:
+    addons:
+      gitlab:
+        # A pull request's kind cluster has 2 CPUs: one replica of each, and time for
+        # the database migrations (the first run timed out at Flux's 10 minutes with
+        # migrations, Sidekiq and webservice still starting).
+        flux:
+          timeout: 40m
+        values:
+          gitlab:
+            webservice: {minReplicas: 1, maxReplicas: 1}
+            sidekiq: {minReplicas: 1, maxReplicas: 1}
+            gitlab-shell: {minReplicas: 1, maxReplicas: 1}
+            kas: {minReplicas: 1, maxReplicas: 1}
+          registry: {hpa: {minReplicas: 1, maxReplicas: 1}}
   setup:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
