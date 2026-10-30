@@ -433,8 +433,11 @@ def _sig_args(**kw):
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"]) == ("audit", None)
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["istiod"])[0] == "off"
+    assert install.signature_choice(_sig_args(registry_mirror="r.site/bb"), install.Credentials({}, False),
+                                    ["kyverno"])[0] == "off"            # disconnected: no Sigstore
     c = install.Credentials({}, False)
-    assert install.signature_choice(_sig_args(), c, ["kyverno"]) == ("off", None)
     assert install.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["kyverno"]) == \
         ("enforce", "abc")
     _Env(monkeypatch, {"signatures": "audit"})

@@ -7,7 +7,8 @@ Tags are <Big Bang version>-cg.<n>: n counts this repo's releases for that Big B
 (3.35.1-cg.1, 3.35.1-cg.2, ... then 3.36.0-cg.1), so a tag says which Big Bang it deploys
 and which revision of the overlays. The release holds bigbang-chainguard-<tag>.tar.gz (the
 checkout at the tagged commit, with RELEASE set to the tag so bb-install.py can report
-it) and its sha256. The notes list the Big Bang version, the org, and the image changes
+it), its sha256 and, with cosign on the PATH (release.yml), a keyless Sigstore signature
+bundle tied to this repository's release workflow. The notes say how to verify it, list the Big Bang version, the org, and the image changes
 since the previous release. release.yml runs this on main when the deployable files change.
 Needs git (with tags fetched) and gh.
 """
@@ -16,6 +17,7 @@ import hashlib
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -25,6 +27,7 @@ sys.path.insert(0, HERE)
 from bbcommon import ROOT  # noqa: E402
 
 OVERLAY = "overlays/values-chainguard.yaml"
+REPO = os.environ.get("GITHUB_REPOSITORY", "Zapata-Technology/bigbang-chainguard")
 
 
 def git(*args):
@@ -75,10 +78,16 @@ def image_changes(old_text, new_text):
 def notes(tag, prev, bigbang, org):
     out = [f"Big Bang **{bigbang}** on Chainguard images from `{org}`.", "",
            "```bash",
-           f"curl -fsSLO https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'Zapata-Technology/bigbang-chainguard')}"
-           f"/releases/download/{tag}/bigbang-chainguard-{tag}.tar.gz",
+           f"curl -fsSLO https://github.com/{REPO}/releases/download/{tag}/bigbang-chainguard-{tag}.tar.gz",
            f"tar xzf bigbang-chainguard-{tag}.tar.gz && cd bigbang-chainguard-{tag}",
            "python scripts/bb-install.py init && python scripts/bb-install.py install --site my-site.yaml",
+           "```", "",
+           "Check the archive came from this repository's release workflow:", "",
+           "```bash",
+           f"cosign verify-blob --bundle bigbang-chainguard-{tag}.tar.gz.sigstore.json \\",
+           "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\",
+           f"  --certificate-identity-regexp '^https://github.com/{REPO}/.github/workflows/release.yml@' \\",
+           f"  bigbang-chainguard-{tag}.tar.gz",
            "```", ""]
     if prev:
         old = subprocess.run(["git", "show", f"{prev}:{OVERLAY}"], cwd=ROOT, capture_output=True, text=True).stdout
@@ -103,7 +112,11 @@ def archive(tag, dest):
     digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
     with open(path + ".sha256", "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{digest}  {os.path.basename(path)}\n")
-    return path
+    assets = [path, path + ".sha256"]
+    if shutil.which("cosign"):
+        subprocess.run(["cosign", "sign-blob", "--yes", "--bundle", path + ".sigstore.json", path], check=True)
+        assets.append(path + ".sigstore.json")
+    return assets
 
 
 def main():
@@ -126,10 +139,10 @@ def main():
     if a.dry_run:
         return 0
     os.makedirs(a.dist, exist_ok=True)
-    path = archive(tag, a.dist)
+    assets = archive(tag, a.dist)
     notes_file = os.path.join(a.dist, "notes.md")
     open(notes_file, "w", encoding="utf-8").write(body)
-    subprocess.run(["gh", "release", "create", tag, path, path + ".sha256", "--target", git("rev-parse", "HEAD"),
+    subprocess.run(["gh", "release", "create", tag, *assets, "--target", git("rev-parse", "HEAD"),
                     "--title", f"{tag} (Big Bang {bigbang})", "--notes-file", notes_file, "--generate-notes"]
                    + (["--notes-start-tag", prev] if prev else []), cwd=ROOT, check=True)
     return 0

@@ -142,14 +142,25 @@ Big Bang doesn't create on its own. The installer picks one way and remembers it
 **Releases.** Each change to what gets deployed is released as `<Big Bang version>-cg.<n>`
 (for example `3.35.1-cg.2`) with an archive to install from and notes listing the image
 changes. Install from a release rather than `main` to know exactly what you run; `install`
-prints the release it deploys.
+prints the release it deploys. Each archive is signed keylessly by the release workflow; the
+release notes show the `cosign verify-blob` command that checks it.
 
-**Image signatures.** `--verify-signatures audit|enforce` adds a Kyverno policy that checks
+**Pinned images.** Every Chainguard image is pinned to the digest its tag had when the
+overlays were generated, so a cluster runs exactly what CI tested even though Chainguard
+rebuilds images under the same tag. New digests arrive in the nightly pull request, which
+deploys them on kind before it merges.
+
+**Image signatures.** With Kyverno on, the installer adds a Kyverno policy (audit mode
+unless you pass `--verify-signatures enforce` or `off`) that checks
 Chainguard's keyless signature on every `cgr.dev/<org>` image a Pod runs, with the same
 signer rules CI's `bb-signatures.py` uses. Audit records failures in Kyverno's policy
 reports; enforce refuses the Pod. Add `--org-id <id>` (`chainctl iam organizations list`)
 to require signatures under your org. The cluster needs to reach rekor.sigstore.dev and
 Sigstore's TUF mirror. Images this repo builds and Iron Bank leftovers aren't covered.
+
+**Credentials in the cluster.** The installer keeps the pull token, S3 keys and generated
+passwords in the Secret `bigbang/bb-install`: restrict who can read Secrets there with RBAC
+and turn on encryption at rest for Secrets (SECURITY.md).
 
 **Installer image.** Instead of installing kubectl, helm and Python, run the installer from
 its image (Chainguard's kubectl -dev image plus the tools; Big Bang's chart is inside):
@@ -461,6 +472,8 @@ can't express, `mapping.yaml` has these escape hatches:
   post-renderer runs those scripts with bash (Kyverno policies' wait job).
 - `bash_commands`: containers whose `/bin/sh -c` script is really bash; a post-renderer
   makes the command `/bin/bash` (Fortify's keystore job).
+- `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
+  (Keycloak in 3.35.1); their images stay on tags instead of digests.
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
 

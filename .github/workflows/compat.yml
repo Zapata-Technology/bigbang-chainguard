@@ -8,6 +8,15 @@ name: Compat - upgrade tests
 on:
   pull_request:
     paths:
+      # What a cluster runs changes: the nightly pull request's new tags and digests are
+      # tested on kind before they merge, not only rendered.
+      - BIGBANG_VERSION
+      - mapping.yaml
+      - orgs/**
+      - object-storage.yaml
+      - overlays/**
+      - flux/**
+      - flux-fips/**
       - compat/**
       - .github/kind-compat.yaml
       - scripts/bb-compat.py

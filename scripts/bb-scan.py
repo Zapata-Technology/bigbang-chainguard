@@ -4,6 +4,9 @@ Chainguard's, beyond image names:
 
   shell   shell code run by sh that needs bash (arrays, here-strings, ...). UBI's sh is
           bash; a Chainguard -dev image's sh is busybox, which stops at the first line.
+  renderers  a Big Bang HelmRelease template that writes a package's postRenderers
+          without the `postRenderers:` key (Keycloak in 3.35.1): any post-renderer the
+          overlays give that package (digest pins, bash fixes) breaks its HelmRelease
   nulls   chart defaults with no value inside a map the chart writes out with toYaml
           (Tempo's `opencensus:` receiver). Helm 3 drops them; Flux's render kept it,
           and the application refused the config.
@@ -52,6 +55,13 @@ def shell_findings(name, text):
     return [f"{name}: sh runs bash ({', '.join(sorted(set(hits)))})"] if hits else []
 
 
+def renderer_findings(name, text):
+    """A HelmRelease template that renders .postRenderers but never writes the key."""
+    if name.endswith("helmrelease.yaml") and ".postRenderers" in text and "postRenderers:" not in text:
+        return [f"{name}: postRenderers written without their key (no_post_renderers)"]
+    return []
+
+
 def nulls(d, path=()):
     if isinstance(d, dict):
         for k, v in d.items():
@@ -96,7 +106,8 @@ def scan(root, prefix=""):
             if f.endswith(".tgz"):
                 found += scan_archive(p, rel + f)
             elif re.search(r"\.(sh|yaml|tpl)$", f):
-                found += shell_findings(rel + f, open(p, encoding="utf-8", errors="replace").read())
+                text = open(p, encoding="utf-8", errors="replace").read()
+                found += shell_findings(rel + f, text) + renderer_findings(rel + f, text)
     return found
 
 

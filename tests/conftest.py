@@ -33,6 +33,12 @@ class FakeTags:
     def tags(self, repo):
         return self.repos.get(repo)
 
+    def pinned(self, repo, tag):
+        """A stable fake digest for <repo>:<tag> (OrgTags.pinned)."""
+        if tag not in (self.repos.get(repo) or []):
+            return None
+        return "sha256:" + format(abs(hash((repo, tag))) % 16 ** 12, "012x").ljust(64, "0")
+
 
 @pytest.fixture
 def fake_tags():

@@ -247,3 +247,22 @@ def test_bash_wait_script_runs_sh_scripts_with_bash(tmp_path):
     assert subprocess.run([bash, "-c", convert.BASH_WAIT], cwd=empty).returncode == 0
     (ok / "z.sh").write_text("exit 3\n", newline="\n")
     assert subprocess.run([bash, "-c", convert.BASH_WAIT], cwd=ok, capture_output=True).returncode == 1
+
+
+def test_digest_pins_each_org_image_once_per_variant(conv):
+    conv.target("ironbank/app", "1.2.3", "rel")
+    conv.target("ironbank/nofips", "3.0.1", "rel")
+    std = conv.digest_pins("rel", "standard")
+    fips = conv.digest_pins("rel", "fips")
+    assert [p["name"] for p in std] == ["cgr.dev/example.com/app", "cgr.dev/example.com/nofips"]
+    assert [p["name"] for p in fips] == ["cgr.dev/example.com/app-fips", "cgr.dev/example.com/nofips"]
+    assert all(p["digest"].startswith("sha256:") and len(p["digest"]) == 71 for p in std + fips)
+    assert conv.digest_pins("other", "standard") == []
+
+
+def test_digest_pins_skip_a_repo_used_at_two_tags():
+    c = convert.Converter({"images": {"ironbank/a": "app", "ironbank/b": {"cg": "app", "tag": "1.2.3"}}},
+                          FakeTags(ORG_TAGS))
+    c.target("ironbank/a", "1.2.5", "rel")
+    c.target("ironbank/b", "1.2.3", "rel")
+    assert c.digest_pins("rel", "standard") == []     # kustomize matches by name: ambiguous

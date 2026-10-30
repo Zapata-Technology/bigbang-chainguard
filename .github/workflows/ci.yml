@@ -49,6 +49,7 @@ jobs:
             console-api.enforce.dev:443
             dl.enforce.dev:443
             files.pythonhosted.org:443
+            grype.anchore.io:443
             fulcio.sigstore.dev:443
             get.helm.sh:443
             ghcr.io:443
@@ -65,9 +66,12 @@ jobs:
             repo1.dso.mil:443
             results-receiver.actions.githubusercontent.com:443
             token.actions.githubusercontent.com:443
+            toolbox-data.anchore.io:443
             tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0   # the base branch's docs/images.md, for the CVE gate
 
       - name: Set up Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
@@ -126,3 +130,19 @@ jobs:
         env:
           CHAINGUARD_ORG_ID: ${{ vars.CHAINGUARD_ORG_ID }}
         run: python3 scripts/bb-signatures.py "${RUNNER_TEMP}/rendered.json" "${RUNNER_TEMP}/rendered-fips.json"
+
+      - name: Install grype
+        if: github.event_name == 'pull_request'
+        id: grype
+        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+
+      # A pull request may not move to an image with a fixable Critical CVE (the nightly
+      # update included): scripts/bb-cve.py --changed-from.
+      - name: No fixable Critical CVEs in new images
+        if: github.event_name == 'pull_request'
+        env:
+          GRYPE: ${{ steps.grype.outputs.cmd }}
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          export PATH="$(dirname "$GRYPE"):$PATH"
+          python3 scripts/bb-cve.py --changed-from "$BASE"

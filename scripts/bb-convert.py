@@ -69,6 +69,7 @@ class Converter:
         self.optional_missing = set()  # absent repos of `fallback: ironbank` images
         self.unmapped = set()
         self.ready = set()      # (Iron Bank repo, org repo): `stays ... until` whose org repo now has tags
+        self.used = {}          # release -> {"standard"|"fips": {org ref}}: what digest_pins() pins
 
     def target(self, ib_repo, ib_tag, release):
         """(standard ref, fips ref, note) for an Iron Bank repo:tag, or None if it stays."""
@@ -154,7 +155,31 @@ class Converter:
         self.rows.append((release, ib, std or "UNRESOLVED", fips or "UNRESOLVED", "; ".join(notes)))
         if not std:
             return None
+        used = self.used.setdefault(release, {"standard": set(), "fips": set()})
+        used["standard"].add(std)
+        used["fips"].add(fips or std)
         return std, fips or std
+
+    def digest_pins(self, release, variant):
+        """Kustomize image entries pinning each org image the release deploys to the digest
+        its tag has now. Chainguard rebuilds images under the same tag (keycloak 26.8.1 on
+        2026-10-30 changed file modes and broke Big Bang's uid); pinned, a rebuild reaches a
+        cluster only through the nightly pull request, after its tests. A post-renderer, not
+        values: charts reuse image tags in labels and version checks, where a digest breaks
+        them. A repository the release uses at two tags is left unpinned (kustomize matches
+        by name only), as are images set in custom resources rather than pod specs."""
+        by_repo = {}
+        for ref in self.used.get(release, {}).get(variant, ()):
+            repo, tag = ref.rsplit(":", 1)
+            by_repo.setdefault(repo, set()).add(tag)
+        pins = []
+        for repo, tags in sorted(by_repo.items()):
+            if len(tags) != 1:
+                continue
+            digest = self.tags.pinned(repo[len(self.cg) + 1:], next(iter(tags)))
+            if digest:
+                pins.append({"name": repo, "digest": digest})
+        return pins
 
     def version(self, m, ib_tag):
         """The version to match: `version`, the Iron Bank tag of `version_from`, or the image's own."""
@@ -431,6 +456,16 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
             set_path(std, key + root, _merge(_get(std, key + root), s))
         if f:
             set_path(fips, key + root, _merge(_get(fips, key + root), f))
+        # Org images pinned to today's digests (Converter.digest_pins); after values, so
+        # the images the values just set are covered. Not for a package whose Big Bang
+        # template can't take post-renderers (mapping no_post_renderers).
+        for tree, variant in (() if info["key"] in mapping.get("no_post_renderers", {})
+                              else ((std, "standard"), (fips, "fips"))):
+            pins = c.digest_pins(release, variant)
+            if pins:
+                pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                pr[0]["kustomize"].setdefault("images", []).extend(pins)
+                set_path(tree, key + ["postRenderers"], pr)
     # Big Bang's Kyverno policy only admits Iron Bank registries by default.
     set_path(std, ["kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"],
              ["registry1.dso.mil", "registry.dso.mil"] + allowed_registries(mapping, c.cg, c.build_registry))
@@ -455,13 +490,21 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
     Flux release they come from instead, with Big Bang's patches."""
     def name(ib_repo):
         return ib_repo.rsplit("/", 1)[1]
+
+    def pin(image):
+        """The controller pinned to its tag's digest (Converter.digest_pins says why)."""
+        if image["newName"].startswith(c.cg + "/"):
+            digest = c.tags.pinned(image["newName"][len(c.cg) + 1:], image["newTag"])
+            if digest:
+                image["digest"] = digest
+        return image
     ahead = [n for ib_repo, ib_tag, ref in controllers
              if (n := name(ib_repo)) and fluxrelease._line(ref.rsplit(":", 1)[1]) != fluxrelease._line(ib_tag)]
     note = ""
     if not ahead:
         resources = [f"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref={bigbang_version}"]
-        images = [{"name": f"registry1.dso.mil/{ib_repo}", "newName": ref.rsplit(":", 1)[0],
-                   "newTag": ref.rsplit(":", 1)[1]} for ib_repo, _, ref in controllers]
+        images = [pin({"name": f"registry1.dso.mil/{ib_repo}", "newName": ref.rsplit(":", 1)[0],
+                       "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
         patches = None
     else:
         versions = {name(ib_repo): ref.rsplit(":", 1)[1] for ib_repo, _, ref in controllers}
@@ -472,8 +515,8 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
             return "# UNRESOLVED: no Flux release matches the org's controllers; see bb-convert output\n"
         tag, _ = found
         resources = [fluxrelease.INSTALL.format(tag=tag)]
-        images = [{"name": f"ghcr.io/fluxcd/{name(ib_repo)}", "newName": ref.rsplit(":", 1)[0],
-                   "newTag": ref.rsplit(":", 1)[1]} for ib_repo, _, ref in controllers]
+        images = [pin({"name": f"ghcr.io/fluxcd/{name(ib_repo)}", "newName": ref.rsplit(":", 1)[0],
+                       "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
         patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work"))
         note = (f"# The org's Flux controllers ({', '.join(sorted(ahead))}) are newer than Big Bang {bigbang_version}'s,\n"
                 f"# whose CRDs are too old for them: this installs Flux {tag} (their release) with Big Bang's patches.\n")
@@ -517,7 +560,9 @@ def object_storage_files(kind, endpoint, c, tags, version, files):
             f"# SeaweedFS for Big Bang {version}'s object storage{' (FIPS)' if d.endswith('fips') else ''}.",
             "# Before applying, create the private-registry and seaweedfs-s3 Secrets in the",
             '# seaweedfs namespace (README, "Object storage").', ""])
-        for rel, text in objstore.seaweedfs_files(refs[d], f"{refs[d]}-dev", buckets, header).items():
+        pinned = [f"{r}@{dg}" if (dg := tags.pinned(r.rsplit("/", 1)[1].split(":")[0], r.rsplit(":", 1)[1])) else r
+                  for r in (refs[d], f"{refs[d]}-dev")]
+        for rel, text in objstore.seaweedfs_files(*pinned, buckets, header).items():
             out[f"{d}/{rel}"] = text
     files["docs/images.md"] += "\n".join(
         ["", "## Object storage", "",

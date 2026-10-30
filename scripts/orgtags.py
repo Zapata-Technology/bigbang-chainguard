@@ -63,6 +63,7 @@ class OrgTags:
         cached = json.load(open(cache)) if cache and os.path.exists(cache) else {}
         # A cache written for another org is useless: its tag lists are not this org's.
         self.cache = cached.get("tags", {}) if cached.get("org") == org else {}
+        self.digests = cached.get("digests", {}) if cached.get("org") == org else {}
         self._auth = None
 
     def _token(self, repo):
@@ -72,6 +73,15 @@ class OrgTags:
         req = urllib.request.Request(url, headers={"Authorization": self._auth})
         with _open(req, 30) as r:
             return json.load(r)["token"]
+
+    def pinned(self, repo, tag):
+        """digest() through the cache; None offline when it isn't cached."""
+        key = f"{repo}:{tag}"
+        if key not in self.digests:
+            if self.offline:
+                return None
+            self.digests[key] = self.digest(repo, tag)
+        return self.digests[key]
 
     def digest(self, repo, tag):
         """Manifest digest of <org>/<repo>:<tag> (the multi-arch index when there is one)."""
@@ -111,7 +121,8 @@ class OrgTags:
     def save(self):
         if self.cache_path:
             with open(self.cache_path, "w", newline="\n") as f:
-                json.dump({"org": self.org, "tags": self.cache}, f, indent=1, sort_keys=True)
+                json.dump({"org": self.org, "tags": self.cache, "digests": self.digests}, f, indent=1,
+                          sort_keys=True)
                 f.write("\n")
 
 
