@@ -80,6 +80,8 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | velero (new) | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
 | istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
 | installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
+| installer-tls (new) | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
+| installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 
 ## What the runtime tests found
 

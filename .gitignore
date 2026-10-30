@@ -3,3 +3,4 @@ __pycache__/
 .tags.json
 .pytest_cache/
 site-object-storage.yaml
+/dist/
