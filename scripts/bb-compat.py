@@ -21,14 +21,12 @@ Pull credentials come from the environment and are never printed:
   GHCR_USER, GHCR_TOKEN       for BUILD_REGISTRY on ghcr.io (optional)
 """
 import argparse
-import base64
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
-import time
 
 import yaml
 
@@ -36,17 +34,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bbcommon import ROOT, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
 from orgtags import org_name  # noqa: E402
-
-
-def sh(*cmd, check=True, capture=False, stdin=None):
-    p = subprocess.run(cmd, input=stdin, text=True, capture_output=capture)
-    if check and p.returncode:
-        raise SystemExit(f"failed ({p.returncode}): {' '.join(cmd[:4])} ...\n{(p.stderr or '')[-2000:]}")
-    return p.stdout if capture else p.returncode
-
-
-def kubectl(*args, capture=True, check=True):
-    return sh("kubectl", *args, capture=capture, check=check)
+from bbcluster import (dockerconfig, hr_namespaces, images_running, install_flux,  # noqa: E402
+                       kubectl, report, sh, wait_ready)
 
 
 def test_values(chart_values, enable):
@@ -76,115 +65,32 @@ def credentials():
     if not regs:
         raise SystemExit("set CGR_TOKEN (and GHCR_TOKEN for BUILD_REGISTRY images)")
     values = {"registryCredentials": [{"registry": r, "username": u, "password": p} for r, u, p in regs]}
-    dockercfg = {"auths": {r: {"username": u, "password": p, "auth": base64.b64encode(f"{u}:{p}".encode()).decode()}
-                           for r, u, p in regs}}
-    return values, dockercfg
+    return values, dockerconfig(regs)
 
 
-def flux_ready():
-    deps = json.loads(kubectl("get", "deploy", "-n", "flux-system", "-o", "json"))["items"]
-    return bool(deps) and all(d.get("status", {}).get("readyReplicas", 0) >= d["spec"].get("replicas", 1)
-                              for d in deps)
-
-
-def wait_ready(namespaces, timeout):
-    """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines)."""
-    end = time.time() + timeout
-    last = ""
-    while time.time() < end:
-        out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
-        if not out:   # API server busy on a loaded runner: try again
-            time.sleep(20)
-            continue
-        hrs = json.loads(out)["items"]
-        status = {}
-        for hr in hrs:
-            cond = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}
-            ready = cond.get("Ready", {})
-            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", ""))
-        line = ", ".join(f"{n}={s[0]}" for n, s in sorted(status.items()))
-        detail = "; ".join(f"{n}: {s[2][:200]}" for n, s in sorted(status.items()) if s[0] == "False")
-        if line != last:
-            print(f"{time.strftime('%H:%M:%S')} helmreleases: {line or '(none yet)'}"
-                  + (f"  [{detail}]" if detail else ""), flush=True)
-            last = line
-        failed = [n for n, s in status.items() if s[0] == "False" and s[1] in ("InstallFailed", "UpgradeFailed")]
-        if failed:
-            return False, [f"HelmRelease {n}: {status[n][1]} {status[n][2]}" for n in failed]
-        if status and all(s[0] == "True" for s in status.values()):
-            break
-        time.sleep(20)
-    else:
-        return False, [f"timed out; HelmReleases: {last}"]
-    # Give slow starters time (NeuVector's enforcers restart until they join the
-    # controllers): poll until every pod that isn't a finished Job pod is Ready with no
-    # new restarts for three polls in a row (a crash-looping pod is Ready between
-    # crashes), or the time runs out. report() judges the result.
-    steady, last_restarts = 0, None
-    while time.time() < end and steady < 3:
-        pending, restarts = [], 0
-        for ns in namespaces:
-            out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
-            for p in json.loads(out)["items"] if out else []:
-                if p["status"].get("phase") == "Succeeded":
-                    continue
-                statuses = p["status"].get("containerStatuses", [{}])
-                restarts += sum(s.get("restartCount", 0) for s in statuses)
-                if not all(s.get("ready") for s in statuses):
-                    pending.append(f"{ns}/{p['metadata']['name']}")
-        steady = steady + 1 if not pending and restarts == last_restarts else 0
-        last_restarts = restarts
-        if pending:
-            print(f"{time.strftime('%H:%M:%S')} waiting for {len(pending)} pods: {', '.join(pending[:6])}", flush=True)
-        time.sleep(20)
-    return True, []
-
-
-def hr_namespaces():
-    """Namespaces the HelmReleases install into (when a test doesn't list them)."""
-    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json"))["items"]
-    return sorted({hr["spec"].get("targetNamespace") or hr["metadata"]["namespace"] for hr in hrs})
-
-
-def images_running(namespaces):
-    imgs = set()
-    for ns in namespaces:
-        for p in json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]:
-            for s in p["status"].get("containerStatuses", []) + p["status"].get("initContainerStatuses", []):
-                imgs.add(s.get("image", ""))
-            for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
-                imgs.add(c["image"])
-    return imgs
-
-
-def report(namespaces, no_pods=False):
-    ok, total = True, 0
-    for ns in namespaces:
-        pods = json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]
-        print(f"\n== {ns}: {len(pods)} pods")
-        for p in pods:
-            phase = p["status"].get("phase")
-            statuses = p["status"].get("containerStatuses", []) + p["status"].get("initContainerStatuses", [])
-            ready = all(s.get("ready") for s in p["status"].get("containerStatuses", []))
-            restarts = sum(s.get("restartCount", 0) for s in statuses)
-            good = phase == "Succeeded" or (phase == "Running" and ready)
-            ok &= good
-            print(f"  {'OK  ' if good else 'FAIL'} {p['metadata']['name']} {phase} ready={ready} restarts={restarts}")
-            for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
-                print(f"         {c['name']}: {c['image']}")
-            if not good or restarts:
-                for s in statuses:
-                    st = s.get("state", {})
-                    why = st.get("waiting") or st.get("terminated") or {}
-                    if why:
-                        print(f"         {s['name']} {why.get('reason')}: {str(why.get('message', ''))[:300]}")
-                logs = kubectl("logs", "-n", ns, p["metadata"]["name"], "--all-containers", "--tail=40",
-                               check=False) or ""
-                print("         logs:\n" + "\n".join("           " + ln for ln in logs.splitlines()[-40:]))
-        total += len(pods)
-    # A namespace may hold only CRDs or config (e.g. prometheus-operator-crds); the test
-    # still needs some pods unless it says it has none (a CronJob-only package).
-    return ok and (total > 0 or no_pods)
+def run_installer(a, test, out):
+    """Install with bb-install.py from the regenerated overlays in `out`: a site file
+    from the test's packages and values, credentials only through the environment."""
+    chart = os.path.join(a.bigbang, "chart")
+    values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+    deep_merge(values, test.get("values", {}) or {})
+    site = os.path.join(out, "site.yaml")
+    yaml.safe_dump(values, open(site, "w"))
+    env = dict(os.environ)
+    if os.environ.get("CGR_TOKEN"):
+        env.update(CGR_USERNAME="_token", CGR_PASSWORD=os.environ["CGR_TOKEN"])
+    if os.environ.get("GHCR_TOKEN"):
+        env.update(BUILD_REGISTRY_USERNAME=os.environ.get("GHCR_USER", "x"),
+                   BUILD_REGISTRY_PASSWORD=os.environ["GHCR_TOKEN"])
+    base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
+    install = base + ["install", "--site", site, "--chart", chart, "--small-cluster", "--yes",
+                      "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
+    print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
+    rc = subprocess.run(install, env=env, cwd=ROOT).returncode
+    print(f"\n== bb-install.py status (install exited {rc})", flush=True)
+    subprocess.run(base + ["status"], env=env, cwd=ROOT)
+    if rc:
+        print(f"PROBLEM: bb-install.py install exited {rc}")
 
 
 def main():
@@ -228,66 +134,58 @@ def main():
         if any(k in ln for k in spec.get("images", {})):
             print(ln.rstrip())
 
-    cred_values, dockercfg = credentials()
-    secrets = tempfile.mkdtemp(prefix="bb-compat-secrets-")
-    try:
-        creds = os.path.join(secrets, "creds.yaml")
-        yaml.safe_dump(cred_values, open(creds, "w"))
-        dcj = os.path.join(secrets, "config.json")
-        json.dump(dockercfg, open(dcj, "w"))
+    if test.get("installer"):
+        # `installer: true`: deploy with scripts/bb-install.py exactly as a user would,
+        # then check the result like any other test.
+        run_installer(a, test, out)
+    else:
+        cred_values, dockercfg = credentials()
+        secrets = tempfile.mkdtemp(prefix="bb-compat-secrets-")
+        try:
+            creds = os.path.join(secrets, "creds.yaml")
+            yaml.safe_dump(cred_values, open(creds, "w"))
+            dcj = os.path.join(secrets, "config.json")
+            json.dump(dockercfg, open(dcj, "w"))
 
-        print("\n== flux", flush=True)
-        kubectl("create", "namespace", "flux-system", check=False)
-        secret = kubectl("-n", "flux-system", "create", "secret", "generic", "private-registry",
-                         "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={dcj}",
-                         "--dry-run=client", "-o", "yaml")
-        sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
-        flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
-        for i in range(3):   # the Flux release manifest comes from github.com
-            p = subprocess.run(["kubectl", "apply", "--server-side", "--force-conflicts", "-k", flux_dir],
-                               capture_output=True, text=True)
-            if not p.returncode:
-                break
-            if i == 2:
-                raise SystemExit(f"installing Flux failed:\n{p.stderr[-2000:]}")
-            time.sleep(30)
-        # Big Bang asks for up to 1.8 CPUs per Flux controller; a CI runner's one kind
-        # node can't schedule all four. Test clusters only: requests down, limits kept.
-        kubectl("-n", "flux-system", "set", "resources", "deploy", "--all", "--requests=cpu=50m,memory=64Mi",
-                check=False)
-        kubectl("-n", "flux-system", "rollout", "status", "deploy", "--timeout=600s", check=False)
-        if not flux_ready():
-            report(["flux-system"])
-            print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
-            raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
+            print("\n== flux", flush=True)
+            kubectl("create", "namespace", "flux-system", check=False)
+            secret = kubectl("-n", "flux-system", "create", "secret", "generic", "private-registry",
+                             "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={dcj}",
+                             "--dry-run=client", "-o", "yaml")
+            sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
+            flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
+            if not install_flux(flux_dir, small_cluster=True):
+                report(["flux-system"])
+                print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
+                raise SystemExit("\nRESULT: Flux did not start (pods and events above); Big Bang was not deployed")
 
-        # `setup`: commands run before Big Bang (e.g. deploy SeaweedFS and generate the
-        # object-storage overlay). They get COMPAT_OUT (a scratch dir for files they write,
-        # which `values_files` can name), COMPAT_DOCKERCFG (registry credentials for their
-        # own pull secrets) and COMPAT_FIPS.
-        env = dict(os.environ, COMPAT_OUT=out, COMPAT_DOCKERCFG=dcj, COMPAT_FIPS="1" if a.fips else "")
-        for cmd in test.get("setup", []):
-            print(f"\n== setup: {cmd}", flush=True)
-            if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
-                raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
+            # `setup`: commands run before Big Bang (e.g. deploy SeaweedFS and generate the
+            # object-storage overlay). They get COMPAT_OUT (a scratch dir for files they write,
+            # which `values_files` can name), COMPAT_DOCKERCFG (registry credentials for their
+            # own pull secrets) and COMPAT_FIPS.
+            env = dict(os.environ, COMPAT_OUT=out, COMPAT_DOCKERCFG=dcj, COMPAT_FIPS="1" if a.fips else "")
+            for cmd in test.get("setup", []):
+                print(f"\n== setup: {cmd}", flush=True)
+                if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
+                    raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
 
-        chart = os.path.join(a.bigbang, "chart")
-        values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
-        deep_merge(values, test.get("values", {}) or {})
-        tv = os.path.join(secrets, "test.yaml")
-        yaml.safe_dump(values, open(tv, "w"))
-        args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
-        if a.fips:
-            args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
-        for f in test.get("values_files", []):
-            args += ["-f", f.replace("$COMPAT_OUT", out)]
-        print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
-        sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
-           *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
-    finally:
-        for f in os.listdir(secrets):
-            os.remove(os.path.join(secrets, f))
-        os.rmdir(secrets)
+            chart = os.path.join(a.bigbang, "chart")
+            values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+            deep_merge(values, test.get("values", {}) or {})
+            tv = os.path.join(secrets, "test.yaml")
+            yaml.safe_dump(values, open(tv, "w"))
+            args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
+            if a.fips:
+                args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
+            for f in test.get("values_files", []):
+                args += ["-f", f.replace("$COMPAT_OUT", out)]
+            print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
+            sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
+               *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
+        finally:
+            for f in os.listdir(secrets):
+                os.remove(os.path.join(secrets, f))
+            os.rmdir(secrets)
 
     ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
     namespaces = test.get("namespaces") or hr_namespaces()

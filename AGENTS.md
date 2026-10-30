@@ -56,6 +56,8 @@ python scripts/check.py --online     # + overlays current + verify std/FIPS (cha
 python scripts/bb-run.py             # fetch, discover, scan, convert, verify: the whole pipeline
 python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml
 python scripts/bb-compat.py compat/<test>.yaml [--fips]   # one package on a kind cluster
+python scripts/bb-install.py install --site my-site.yaml [--fips]   # what a user runs to deploy
+python scripts/bb-install.py status                              # health of a deployed cluster
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
@@ -112,6 +114,14 @@ Add the repository (above, standard and `-fips`), wait for tags,
 replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the package's
 compat test if it has one.
 
+### Change how Big Bang is deployed
+The user-facing path is `scripts/bb-install.py`; keep it and the README's "Doing it by hand"
+commands in step. Cluster helpers it shares with the kind harness live in
+`scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
+kind; `tests/test_install.py` covers its decisions without a cluster. A new credential or
+generated value goes in the `bigbang/bb-install` Secret through `Credentials`, never on a
+command line or in output.
+
 ### Change an image this repo builds
 Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with
 `scripts/bb-<name>.py`; the smoke test in that script must cover the change. `builds.yml`
@@ -126,6 +136,16 @@ builds on the PR and pushes on merge.
 - **Big Bang creates Mimir's credential Secret whenever its keys are set**, even with Mimir
   off: set object-storage credentials only for enabled packages.
 - **Kyverno policies render `preconditions.all: null`** unless some container is excluded.
+- **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
+  `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
+  monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).
+- **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
+  object storage the overlay sets no snapshot locations.
+- **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database
+  password (`keycloak`, via the PostgreSQL driver's SCRAM hashing): both need 14+ characters.
+  The database password can't change on a running Keycloak (PostgreSQL keeps it).
+- **cgr.dev serves layers and signatures from `*.r2.cloudflarestorage.com`**: harden-runner
+  must allow it.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
   the matching upstream Flux release (`fluxrelease.py`).
 - GHCR refuses the first push to a new package from Actions: re-run the failed job.

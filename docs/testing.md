@@ -79,6 +79,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | thanos (new) | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
 | velero (new) | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
 | istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
+| installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak | Generated S3 keys and Keycloak password |
 
 ## What the runtime tests found
 
@@ -97,6 +98,11 @@ None of these showed up when rendering. All are fixed in the overlays:
 | kyverno-enforce | Big Bang's non-root policies render `preconditions.all: null` with no excluded containers | The test excludes a placeholder container (Istio normally supplies the list) |
 | object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps even when our values set it to null | `overrides.tempo` replaces the chart's config template with a copy that omits it |
 | object-storage | Big Bang creates Mimir's credential Secret even with Mimir off | Site file sets credentials only for enabled packages |
+
+| velero | The chart's placeholder snapshot location has an empty credential that Flux keeps; Velero's CRD rejects it | No snapshot locations with S3 object storage |
+| thanos | Monitoring depends on the `prometheusOperatorCRDs` package, which also creates the `monitoring` namespace | Keep it on (the installer's preflight checks) |
+| keycloak (FIPS) | Big Bang's default admin (`password`) and database (`keycloak`) passwords are too short for FIPS ("password must be at least 112 bits") | Test passwords; the installer generates both on a fresh Keycloak |
+| every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
 
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
 job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's keystore job
