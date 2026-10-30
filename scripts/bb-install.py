@@ -98,6 +98,8 @@ class Checkout:
         self.org = self.registry.split("/", 1)[1] if self.registry else None
         m = re.search(r"Big Bang (\d+\.\d+\.\d+)", header)
         self.version = m.group(1) if m else open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip()
+        release = os.path.join(root, "RELEASE")    # in release archives (scripts/release.py)
+        self.release = open(release, encoding="utf-8").read().strip() if os.path.exists(release) else None
         self.object_storage = os.path.join(root, "overlays", "values-object-storage.yaml")
         self.s3 = None
         if os.path.exists(self.object_storage):
@@ -423,7 +425,8 @@ def install(a):
     step("preflight")
     defaults = chart_defaults(a)
     enabled, problems, notes = preflight(a, co, site, defaults)
-    say(f"Big Bang {a.version}, images from {co.registry}, {'FIPS' if a.fips else 'standard'}; "
+    say(f"Big Bang {a.version}{f' (release {co.release})' if co.release else ''}, images from {co.registry}, "
+        f"{'FIPS' if a.fips else 'standard'}; "
         f"object storage: {'SeaweedFS in the cluster' if co.in_cluster_seaweedfs() else (co.s3 or {}).get('endpoint', 'MinIO (Big Bang)')}")
     say(f"packages: {', '.join(enabled)}")
     for n in notes:
@@ -462,6 +465,7 @@ def install(a):
     s3 = creds.s3(generate=co.in_cluster_seaweedfs()) if co.s3 else None
     keycloak_password = creds.generated("keycloak-admin-password", lambda: secrets.token_urlsafe(24))
     keycloak_db_password = keycloak_database_password(creds, site, enabled)
+    tls = tls_choice(a, creds, site, enabled)
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
@@ -498,14 +502,29 @@ def install(a):
             deep_merge(secret_values, {"addons": {"keycloak": {"values": {
                 "upstream": {"database": {"password": keycloak_db_password}},
                 "postgresql": {"global": {"postgresql": {"auth": {"password": keycloak_db_password}}}}}}}})
+        if tls == "own":
+            deep_merge(secret_values, {"istioGateway": {"values": {"gateways": {"public": {"gatewayCerts": [
+                {"name": GATEWAY_CERT, "tls": {"cert": creds.values["tls-cert"], "key": creds.values["tls-key"]}}]}}}}})
         sv = os.path.join(d, "credentials.yaml")
         with open(sv, "w", encoding="utf-8") as fh:
             yaml.safe_dump(secret_values, fh)
-        ref, version = chart_ref(a)
-        files = [x for f in co.overlays(a.fips) + [a.site] for x in ("-f", f)]
-        sh("helm", "upgrade", "-i", "bigbang", ref, *version, "-n", NAMESPACE, "--create-namespace",
-           *files, "-f", sv, "--timeout", "15m", capture=True)
-        say(f"helm release bigbang applied ({len(enabled)} packages); Flux installs them now")
+        if a.gitops:
+            # Credentials in a Secret the HelmRelease reads; everything else in files to commit.
+            apply_secret(NAMESPACE, GITOPS_SECRET, "generic", f"--from-file=values.yaml={sv}")
+            write_gitops(a.gitops, co, a.fips, a.site)
+            sh("kubectl", "apply", "-k", a.gitops, capture=True)
+            say(f"wrote {a.gitops} and applied it; commit it and let a Flux Kustomization keep it in sync "
+                f"({a.gitops}/README.md)")
+        else:
+            ref, version = chart_ref(a)
+            files = [x for f in co.overlays(a.fips) + [a.site] for x in ("-f", f)]
+            sh("helm", "upgrade", "-i", "bigbang", ref, *version, "-n", NAMESPACE, "--create-namespace",
+               *files, "-f", sv, "--timeout", "15m", capture=True)
+        say(f"Big Bang applied ({len(enabled)} packages); Flux installs them now")
+
+    if tls:
+        step(f"TLS for *.{site['domain']}")
+        gateway_tls(site["domain"], tls, creds.values.get("tls-issuer"), wait=900)
 
     if a.no_wait:
         return 0
@@ -548,6 +567,188 @@ def _site_sets_keycloak_password(site):
     env = (((((site.get("addons") or {}).get("keycloak") or {}).get("values") or {}).get("upstream") or {})
            .get("secrets") or {}).get("env") or {}
     return bool((env.get("stringData") or {}).get("KEYCLOAK_ADMIN_PASSWORD"))
+
+
+# ---------------------------------------------------------------- GitOps
+
+GITOPS_SECRET = "bb-install-values"    # bigbang/<this>: the credential values (never in git)
+BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
+
+GITOPS_README = """# Big Bang {version} on Chainguard images, deployed by Flux
+
+Written by `bb-install.py install --gitops`. Commit this directory to your own git
+repository; Flux then keeps the cluster matching it. Nothing here is secret: the pull
+credentials, S3 keys and generated passwords are in the cluster Secret
+`bigbang/{secret}`, which this HelmRelease reads last.
+
+- `bigbang.yaml`: Big Bang's chart from repo1 at {version} (no Iron Bank login) and its
+  HelmRelease, with the values below in order.
+- `values/`: the overlays from bigbang-chainguard{release} and your site file. Change
+  the site file here; to upgrade, re-run `install --gitops` from a newer checkout.
+
+Keep it in sync (your repository's URL and this directory's path):
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata: {{name: site, namespace: flux-system}}
+spec: {{interval: 5m, url: https://git.example.com/you/site.git, ref: {{branch: main}}}}
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata: {{name: bigbang, namespace: flux-system}}
+spec: {{interval: 10m, prune: true, path: ./{path}, sourceRef: {{kind: GitRepository, name: site}}}}
+```
+"""
+
+
+def gitops_manifests(version, value_maps):
+    """Big Bang's GitRepository (repo1, the tag) and HelmRelease reading `value_maps`
+    (ConfigMaps, in order) and then the credentials Secret."""
+    repo = {"apiVersion": "source.toolkit.fluxcd.io/v1", "kind": "GitRepository",
+            "metadata": {"name": "bigbang", "namespace": NAMESPACE},
+            "spec": {"interval": "10m", "url": BIGBANG_GIT, "ref": {"tag": version}}}
+    release = {"apiVersion": "helm.toolkit.fluxcd.io/v2", "kind": "HelmRelease",
+               "metadata": {"name": "bigbang", "namespace": NAMESPACE},
+               "spec": {"interval": "10m", "timeout": "15m",
+                        "chart": {"spec": {"chart": "./chart", "reconcileStrategy": "Revision",
+                                           "sourceRef": {"kind": "GitRepository", "name": "bigbang"}}},
+                        "install": {"remediation": {"retries": 3}},
+                        "upgrade": {"remediation": {"retries": 3}},
+                        "valuesFrom": [{"kind": "ConfigMap", "name": n} for n in value_maps]
+                        + [{"kind": "Secret", "name": GITOPS_SECRET}]}}
+    return [repo, release]
+
+
+def write_gitops(out, co, fips, site_path):
+    """A kustomization directory: the values files as ConfigMaps (layered in the same order
+    as the helm path), Big Bang's GitRepository and HelmRelease, and a README."""
+    os.makedirs(os.path.join(out, "values"), exist_ok=True)
+    generators = []
+    for i, f in enumerate(co.overlays(fips) + [site_path]):
+        name = f"{i:02d}-{os.path.basename(f)}"
+        shutil.copyfile(f, os.path.join(out, "values", name))
+        generators.append({"name": f"bigbang-values-{i:02d}", "files": [f"values.yaml=values/{name}"]})
+    # Kustomize doesn't rewrite valuesFrom names, so no hash suffix; the watch label makes
+    # Flux reconcile the HelmRelease when a values ConfigMap changes instead.
+    kust = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization", "namespace": NAMESPACE,
+            "resources": ["bigbang.yaml"], "configMapGenerator": generators,
+            "generatorOptions": {"disableNameSuffixHash": True,
+                                 "labels": {"reconcile.fluxcd.io/watch": "Enabled"}}}
+    with open(os.path.join(out, "kustomization.yaml"), "w", encoding="utf-8", newline="\n") as f:
+        yaml.safe_dump(kust, f, sort_keys=False)
+    with open(os.path.join(out, "bigbang.yaml"), "w", encoding="utf-8", newline="\n") as f:
+        yaml.safe_dump_all(gitops_manifests(co.version, [g["name"] for g in generators]), f, sort_keys=False)
+    with open(os.path.join(out, "README.md"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(GITOPS_README.format(version=co.version, secret=GITOPS_SECRET,
+                                     release=f" {co.release}" if co.release else "",
+                                     path=os.path.basename(os.path.normpath(out))))
+
+
+# ---------------------------------------------------------------- TLS
+
+GATEWAY_CERT = "public-cert"           # the Secret Big Bang's public gateway serves
+SELF_SIGNED_CA = "bb-install-ca"       # cert-manager/<this>: the self-signed CA to trust
+
+
+def _site_sets_gateway_certs(site):
+    public = ((((site.get("istioGateway") or {}).get("values") or {}).get("gateways") or {}).get("public") or {})
+    return bool(public.get("gatewayCerts"))
+
+
+def tls_choice(a, creds, site, enabled):
+    """How the public gateway gets its certificate, or None without an Istio gateway:
+    site (the site file sets gatewayCerts), own (--tls-cert/--tls-key), issuer (a
+    cert-manager ClusterIssuer the site runs: ACME, Vault, a company CA) or self-signed (a
+    CA cert-manager makes; the default). The choice is kept so re-runs don't need the flags."""
+    if not {"istiod", "istioGateway"} <= set(enabled):
+        return None
+    if _site_sets_gateway_certs(site):
+        return "site"
+    if a.tls_cert or a.tls_key:
+        if not (a.tls_cert and a.tls_key):
+            raise SystemExit("--tls-cert and --tls-key go together")
+        creds.values.update({"tls-mode": "own", "tls-cert": open(a.tls_cert, encoding="utf-8").read(),
+                             "tls-key": open(a.tls_key, encoding="utf-8").read()})
+    elif a.tls_issuer:
+        creds.values.update({"tls-mode": "issuer", "tls-issuer": a.tls_issuer})
+    elif a.tls_self_signed:
+        creds.values["tls-mode"] = "self-signed"
+    mode = creds.values.setdefault("tls-mode", "self-signed")
+    if mode != "own":
+        creds.values.pop("tls-cert", None)
+        creds.values.pop("tls-key", None)
+    if mode != "issuer":
+        creds.values.pop("tls-issuer", None)
+    if mode in ("issuer", "self-signed") and "certManager" not in enabled:
+        raise SystemExit(f"TLS {mode} uses cert-manager: leave certManager on, or pass --tls-cert and --tls-key")
+    return mode
+
+
+def tls_manifests(domain, mode, issuer=None):
+    """cert-manager objects for the gateway certificate: a self-signed CA and its issuer
+    (self-signed), then the wildcard Certificate Big Bang's public gateway serves."""
+    docs = []
+    if mode == "self-signed":
+        issuer = SELF_SIGNED_CA
+        docs += [
+            {"apiVersion": "cert-manager.io/v1", "kind": "ClusterIssuer", "metadata": {"name": "bb-install-selfsigned"},
+             "spec": {"selfSigned": {}}},
+            {"apiVersion": "cert-manager.io/v1", "kind": "Certificate",
+             "metadata": {"name": SELF_SIGNED_CA, "namespace": "cert-manager"},
+             "spec": {"isCA": True, "commonName": f"Big Bang {domain} CA", "secretName": SELF_SIGNED_CA,
+                      "duration": "87600h", "privateKey": {"algorithm": "ECDSA", "size": 256},
+                      "issuerRef": {"name": "bb-install-selfsigned", "kind": "ClusterIssuer"}}},
+            {"apiVersion": "cert-manager.io/v1", "kind": "ClusterIssuer", "metadata": {"name": SELF_SIGNED_CA},
+             "spec": {"ca": {"secretName": SELF_SIGNED_CA}}},
+        ]
+    docs.append({"apiVersion": "cert-manager.io/v1", "kind": "Certificate",
+                 "metadata": {"name": GATEWAY_CERT, "namespace": "istio-gateway"},
+                 "spec": {"secretName": GATEWAY_CERT, "dnsNames": [f"*.{domain}", domain],
+                          "duration": "2160h", "renewBefore": "360h",
+                          "privateKey": {"algorithm": "ECDSA", "size": 256, "rotationPolicy": "Always"},
+                          "issuerRef": {"name": issuer, "kind": "ClusterIssuer"}}})
+    return docs
+
+
+def gateway_tls(domain, mode, issuer, wait):
+    """Apply the cert-manager objects once Big Bang has installed cert-manager and made the
+    istio-gateway namespace (never pre-create it: Helm won't adopt it). With a certificate
+    from values (own, site), remove a Certificate an earlier run left, so they don't fight."""
+    if mode in ("own", "site"):
+        kubectl("-n", "istio-gateway", "delete", "certificate", GATEWAY_CERT, "--ignore-not-found", check=False)
+        say(f"the public gateway serves {'your certificate' if mode == 'own' else 'the site file certificate'}")
+        return True
+    manifest = yaml.safe_dump_all(tls_manifests(domain, mode, issuer))
+    end = time.time() + wait
+    while True:
+        ready = kubectl("get", "crd", "certificates.cert-manager.io", check=False) and \
+            kubectl("get", "namespace", "istio-gateway", check=False)
+        # cert-manager's webhook refuses objects until it is up: keep trying.
+        if ready:
+            sh("kubectl", "apply", "-f", "-", stdin=manifest, check=False, capture=True)
+            if kubectl("-n", "istio-gateway", "get", "certificate", GATEWAY_CERT, check=False):
+                break
+        if time.time() > end:
+            say("warning: cert-manager wasn't ready to issue the gateway certificate; re-run install")
+            return False
+        time.sleep(15)
+    say(f"cert-manager issues *.{domain} from {'a self-signed CA' if mode == 'self-signed' else issuer} "
+        f"into istio-gateway/{GATEWAY_CERT}")
+    return True
+
+
+def tls_problem(state):
+    """Why the gateway certificate cert-manager issues isn't Ready, or ''."""
+    if state.get("tls-mode") not in ("issuer", "self-signed"):
+        return ""
+    out = kubectl("-n", "istio-gateway", "get", "certificate", GATEWAY_CERT, "-o", "json", check=False)
+    if not out:
+        return f"no istio-gateway/{GATEWAY_CERT} Certificate: re-run install"
+    ready = {c["type"]: c for c in json.loads(out).get("status", {}).get("conditions", [])}.get("Ready", {})
+    if ready.get("status") == "True":
+        return ""
+    return f"gateway certificate not issued yet: {ready.get('message', 'no status')[:200]}"
 
 
 def _build_registry_host(co):
@@ -594,8 +795,11 @@ def status_report(co, fips, problems=(), failed=False):
     for note in (deployed_version_note(co), pull_token_note(state)):
         if note:
             say(note)
+    tls = tls_problem(state)
+    if tls:
+        say(f"PROBLEM: {tls}")
     access_report(state)
-    healthy = not (failed or bad or unhealthy or policy)
+    healthy = not (failed or bad or unhealthy or policy or tls)
     say(f"\n{'HEALTHY' if healthy else 'NOT HEALTHY'}: {len(hrs) - bad}/{len(hrs)} HelmReleases ready")
     return 0 if healthy else 1
 
@@ -619,6 +823,9 @@ def access_report(state):
         say(f"  gateway {g} (point the domain's DNS here)")
     for h in hosts:
         say(f"  https://{h}")
+    if state.get("tls-mode") == "self-signed":
+        say(f"  TLS: self-signed; trust its CA: kubectl -n cert-manager get secret {SELF_SIGNED_CA} "
+            "-o jsonpath='{.data.ca\\.crt}' | base64 -d > bigbang-ca.crt")
     if state.get("keycloak-admin-password"):
         say(f"  Keycloak admin password: kubectl -n {NAMESPACE} get secret {STATE_SECRET} "
             "-o jsonpath='{.data.keycloak-admin-password}' | base64 -d")
@@ -661,11 +868,17 @@ def uninstall(a):
                                    else " (its volume and S3 keys stay; --delete-data removes them)"))
     if not a.keep_flux:
         what.append("Flux")
+    state = read_secret(NAMESPACE, STATE_SECRET) or {}
+    made_token = a.delete_data and state.get("cgr-created") and state.get("cgr-username")
+    if made_token:
+        what.append("the cgr.dev pull token install made (its Chainguard identity)")
     say("This removes:\n  " + "\n  ".join(what))
     if not a.yes:
         if not sys.stdin.isatty() or input("Type 'uninstall' to continue: ").strip() != "uninstall":
             raise SystemExit("not confirmed; nothing removed (--yes skips this question)")
     step("Big Bang")
+    # Installed with --gitops: remove the HelmRelease first, or Flux puts the release back.
+    kubectl("-n", NAMESPACE, "delete", "helmrelease", "bigbang", "--ignore-not-found", "--wait=true", check=False)
     sh("helm", "uninstall", "bigbang", "-n", NAMESPACE, "--wait", "--timeout", "15m", check=False, capture=True)
     end = time.time() + 900
     while time.time() < end:
@@ -686,6 +899,14 @@ def uninstall(a):
     if not a.keep_flux:
         step("Flux")
         sh("kubectl", "delete", "--ignore-not-found", "-k", co.path("flux"), check=False, capture=True)
+    if made_token:
+        step("pull token")
+        # Only a token this installer made (cgr-created): one from the environment or the
+        # site file belongs to someone else.
+        rc = subprocess.run(["chainctl", "iam", "identities", "delete", state["cgr-username"], "--yes"],
+                            capture_output=True, text=True).returncode if shutil.which("chainctl") else None
+        say("deleted its identity" if rc == 0 else
+            "couldn't delete it (needs chainctl, logged in); it expires on its own within a year")
     if a.delete_data:
         kubectl("-n", NAMESPACE, "delete", "secret", STATE_SECRET, "--ignore-not-found", check=False)
     say("\ndone")
@@ -754,6 +975,14 @@ def main():
                    help="lower Flux's CPU/memory requests (kind or another small test cluster)")
     p.add_argument("--yes", action="store_true", help="never prompt (credentials from the environment, the "
                                                       "cluster, or a pull token made with your chainctl login)")
+    p.add_argument("--tls-cert", help="the gateway's certificate (PEM, *.<domain>; with --tls-key)")
+    p.add_argument("--tls-key", help="its private key (PEM)")
+    p.add_argument("--tls-issuer", help="a cert-manager ClusterIssuer of yours to issue *.<domain> (ACME, Vault, ...)")
+    p.add_argument("--tls-self-signed", action="store_true",
+                   help="a self-signed CA made by cert-manager (the default when nothing else is set)")
+    p.add_argument("--gitops", metavar="DIR",
+                   help="instead of helm: write DIR (Big Bang's HelmRelease and the values) to commit to your "
+                        "git repo, and apply it; credentials stay in a cluster Secret")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
     sub.add_parser("status", help="what's running and what isn't")

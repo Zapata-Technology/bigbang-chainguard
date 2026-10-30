@@ -288,3 +288,86 @@ def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "https://grafana.example.com" in out and "203.0.113.5" in out and "*.example.com" not in out
     assert "never-shown" not in out and "keycloak-admin-password" in out
+
+
+ISTIO = ["certManager", "istioGateway", "istiod"]
+
+
+def _tls_args(**kw):
+    return install.argparse.Namespace(**{"tls_cert": None, "tls_key": None, "tls_issuer": None,
+                                         "tls_self_signed": False, **kw})
+
+
+def test_tls_defaults_to_self_signed_and_is_remembered(monkeypatch):
+    _Env(monkeypatch)
+    c = install.Credentials({}, False)
+    assert install.tls_choice(_tls_args(), c, {}, ISTIO) == "self-signed"
+    _Env(monkeypatch, {"tls-mode": "issuer", "tls-issuer": "letsencrypt"})
+    c = install.Credentials({}, False)
+    assert install.tls_choice(_tls_args(), c, {}, ISTIO) == "issuer" and c.values["tls-issuer"] == "letsencrypt"
+
+
+def test_tls_own_certificate_goes_in_the_state_not_the_issuer(tmp_path, monkeypatch):
+    _Env(monkeypatch, {"tls-mode": "issuer", "tls-issuer": "old"})
+    cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
+    cert.write_text("CERT")
+    key.write_text("KEY")
+    c = install.Credentials({}, False)
+    assert install.tls_choice(_tls_args(tls_cert=str(cert), tls_key=str(key)), c, {}, ISTIO) == "own"
+    assert c.values["tls-cert"] == "CERT" and c.values["tls-key"] == "KEY" and "tls-issuer" not in c.values
+    with pytest.raises(SystemExit, match="go together"):
+        install.tls_choice(_tls_args(tls_cert=str(cert)), c, {}, ISTIO)
+
+
+def test_tls_is_skipped_without_a_gateway_and_respects_the_site_file(monkeypatch):
+    _Env(monkeypatch)
+    assert install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["tempo"]) is None
+    site = {"istioGateway": {"values": {"gateways": {"public": {"gatewayCerts": [{"name": "public-cert"}]}}}}}
+    assert install.tls_choice(_tls_args(), install.Credentials({}, False), site, ISTIO) == "site"
+
+
+def test_tls_from_cert_manager_needs_cert_manager(monkeypatch):
+    _Env(monkeypatch)
+    with pytest.raises(SystemExit, match="certManager"):
+        install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["istioGateway", "istiod"])
+
+
+def test_tls_manifests():
+    docs = install.tls_manifests("example.com", "self-signed")
+    cert = docs[-1]
+    assert cert["metadata"] == {"name": "public-cert", "namespace": "istio-gateway"}
+    assert cert["spec"]["dnsNames"] == ["*.example.com", "example.com"]
+    assert cert["spec"]["issuerRef"]["name"] == "bb-install-ca"
+    assert [d["kind"] for d in docs] == ["ClusterIssuer", "Certificate", "ClusterIssuer", "Certificate"]
+    [only] = install.tls_manifests("example.com", "issuer", "letsencrypt")
+    assert only["spec"]["issuerRef"] == {"name": "letsencrypt", "kind": "ClusterIssuer"}
+
+
+def test_tls_problem_reports_an_unissued_certificate(monkeypatch):
+    import json as _json
+    status = {"status": {"conditions": [{"type": "Ready", "status": "False", "message": "Issuing"}]}}
+    monkeypatch.setattr(install, "kubectl", lambda *a, **k: _json.dumps(status))
+    assert "Issuing" in install.tls_problem({"tls-mode": "self-signed"})
+    assert install.tls_problem({"tls-mode": "own"}) == ""
+    status["status"]["conditions"][0]["status"] = "True"
+    assert install.tls_problem({"tls-mode": "issuer"}) == ""
+
+
+def test_gitops_directory_layers_values_like_the_helm_path(tmp_path):
+    co = install.Checkout(ROOT)
+    site = tmp_path / "my-site.yaml"
+    site.write_text("domain: example.com\n")
+    out = tmp_path / "gitops"
+    install.write_gitops(str(out), co, True, str(site))
+    kust = yaml.safe_load((out / "kustomization.yaml").read_text())
+    files = [g["files"][0].split("=", 1)[1] for g in kust["configMapGenerator"]]
+    expected = [os.path.basename(f) for f in co.overlays(True)] + ["my-site.yaml"]
+    assert [f.split("-", 1)[1] for f in files] == [f"{e}" for e in expected]
+    assert all((out / f).exists() for f in files)
+    repo, release = yaml.safe_load_all((out / "bigbang.yaml").read_text())
+    assert repo["spec"]["url"].startswith("https://repo1.dso.mil/") and repo["spec"]["ref"]["tag"] == co.version
+    names = [v["name"] for v in release["spec"]["valuesFrom"]]
+    assert names[:-1] == [g["name"] for g in kust["configMapGenerator"]]
+    assert release["spec"]["valuesFrom"][-1] == {"kind": "Secret", "name": "bb-install-values"}  # credentials last
+    text = "".join(p.read_text() for p in out.rglob("*") if p.is_file())
+    assert "registryCredentials" not in text                       # nothing secret in what gets committed

@@ -120,13 +120,35 @@ machine).
    the database one only on a fresh Keycloak, since PostgreSQL keeps the password it
    started with. Read the admin one with
    `kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}' | base64 -d`.
-7. **Wait and report:** every HelmRelease and pod, any running image that isn't the
+7. **TLS** for `*.<domain>` on the public gateway (below).
+8. **Wait and report:** every HelmRelease and pod, any running image that isn't the
    conversion's, the gateway addresses to point DNS at, and each app's URL.
 
 Re-run `install` to upgrade after pulling new overlays, to switch to FIPS (`--fips`) or back,
 or to apply a changed site file. `uninstall` removes Big Bang, SeaweedFS and Flux; SeaweedFS's
-volume and the stored keys stay unless you add `--delete-data`. `compat/installer.yaml` runs
-the installer end to end on kind in CI.
+volume, the stored keys and a pull token the installer made stay unless you add
+`--delete-data`. `compat/installer*.yaml` run the installer end to end on kind in CI.
+
+**TLS.** Big Bang's public gateway serves the Secret `istio-gateway/public-cert`, which
+Big Bang doesn't create on its own. The installer picks one way and remembers it:
+
+| Option | What happens |
+|---|---|
+| (nothing) | A self-signed CA made by cert-manager issues `*.<domain>`. `status` prints how to save the CA to trust it. Good for test sites. |
+| `--tls-issuer <ClusterIssuer>` | Your cert-manager ClusterIssuer (ACME/Let's Encrypt, Vault, a company CA) issues it; cert-manager renews it. |
+| `--tls-cert cert.pem --tls-key key.pem` | Your certificate, passed to Big Bang's `gatewayCerts`. Kept in the cluster Secret, not in a file. |
+| `gatewayCerts` in the site file | Left alone. |
+
+**Releases.** Each change to what gets deployed is released as `<Big Bang version>-cg.<n>`
+(for example `3.35.1-cg.2`) with an archive to install from and notes listing the image
+changes. Install from a release rather than `main` to know exactly what you run; `install`
+prints the release it deploys.
+
+**GitOps.** `install --gitops DIR` does everything except the `helm` step: it writes `DIR`
+(Big Bang's HelmRelease, its chart from repo1, and the values files as ConfigMaps) and
+applies it. Commit `DIR` to your own git repository and point a Flux Kustomization at it
+(`DIR/README.md` has the YAML); the credentials stay in the cluster Secret
+`bigbang/bb-install-values`, out of git.
 
 ### Doing it by hand
 

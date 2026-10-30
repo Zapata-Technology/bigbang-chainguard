@@ -115,8 +115,9 @@ flowchart LR
     PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>kept in bigbang/bb-install]
     CR --> FX[Flux<br/>pull secret + flux/]
     FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
-    SW --> BB[Big Bang<br/>helm upgrade -i with<br/>the overlays below]
-    BB --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
+    SW --> BB[Big Bang<br/>helm upgrade -i with the overlays,<br/>or --gitops: a Flux HelmRelease]
+    BB --> TL[TLS<br/>cert-manager self-signed CA,<br/>your ClusterIssuer, or your cert]
+    TL --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
 ```
 
 The layering it uses:

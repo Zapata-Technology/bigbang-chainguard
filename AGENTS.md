@@ -61,7 +61,9 @@ python scripts/bb-install.py status                              # health of a d
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
-`compat/`), `update.yml` (nightly bot PR), `codeql.yml` / `scorecard.yml` (public repo only).
+`compat/` or the installer), `update.yml` (nightly bot PR), `release.yml` (tags
+`<bigbang>-cg.<n>` on main when deployable files change), `codeql.yml` / `scorecard.yml`
+(public repo only).
 
 ## Playbooks
 
@@ -122,6 +124,12 @@ kind; `tests/test_install.py` covers its decisions without a cluster. A new cred
 generated value goes in the `bigbang/bb-install` Secret through `Credentials` (a pull token it
 makes with chainctl too: `chainctl_pull_token` captures the output), never on a
 command line or in output.
+
+### Write a compat test
+`compat/<name>.yaml`: `enable` (Big Bang keys), `namespaces`, `expect` (image fragments that
+must run), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
+(commands that must exit 0), `installer: true` with `installer_args`. Unknown keys fail
+`tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
 ### Change an image this repo builds
 Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with

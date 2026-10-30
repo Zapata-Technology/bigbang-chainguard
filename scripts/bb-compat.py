@@ -85,7 +85,7 @@ def run_installer(a, test, out):
                    BUILD_REGISTRY_PASSWORD=os.environ["GHCR_TOKEN"])
     base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
     install = base + ["install", "--site", site, "--small-cluster", "--yes",
-                      "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
+                      "--timeout", str(a.timeout)] + (["--fips"] if a.fips else []) + test.get("installer_args", [])
     print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
     rc = subprocess.run(install, env=env, cwd=ROOT).returncode
     print(f"\n== bb-install.py status (install exited {rc})", flush=True)
@@ -232,6 +232,16 @@ def main():
                 if hits:
                     ok = False
                     print(f"FORBIDDEN LOG in {ns}/{pod}: {hits[0][:300]}")
+    # `check`: shell commands that must succeed for a pass (e.g. an HTTPS request through
+    # the gateway with the CA the installer made).
+    for cmd in test.get("check", []):
+        print(f"\n== check: {cmd}", flush=True)
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
+                           env=dict(os.environ, COMPAT_OUT=out))
+        print((p.stdout + p.stderr)[-2000:])
+        if p.returncode:
+            ok = False
+            print(f"CHECK FAILED ({p.returncode}): {cmd}")
     running = images_running(namespaces)
     expect = test.get("expect", [])
     seen = [e for e in expect if any(e in i for i in running)]

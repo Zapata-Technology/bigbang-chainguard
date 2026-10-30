@@ -10,7 +10,7 @@ from conftest import ROOT
 
 FILES = sorted(glob.glob(os.path.join(ROOT, "compat", "*.yaml")))
 KNOWN = {"enable", "expect", "values", "values_files", "setup", "debug", "forbid_log", "no_pods", "namespaces",
-         "installer"}
+         "installer", "installer_args", "check"}
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda p: os.path.basename(p))

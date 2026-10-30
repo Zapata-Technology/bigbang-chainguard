@@ -1,0 +1,13 @@
+# The installer's default TLS: cert-manager makes a self-signed CA and the *.<domain>
+# certificate Big Bang's public gateway serves. An HTTPS request through the gateway
+# must verify against that CA, in standard and FIPS (cert-manager-fips, ECDSA P-256).
+images: {}
+test:
+  installer: true
+  enable: [istioCRDs, istiod, istioGateway, certManager]
+  namespaces: [istio-system, istio-gateway, cert-manager]
+  expect: [cert-manager, istio-proxy]
+  check:
+    - sh compat/support/https-check.sh tls.bigbang.test
+  debug:
+    - kubectl get certificate,certificaterequest,clusterissuer -A

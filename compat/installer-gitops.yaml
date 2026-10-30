@@ -1,0 +1,15 @@
+# `bb-install.py install --gitops DIR`: Big Bang deployed by a Flux HelmRelease (chart from
+# repo1's git, values from the ConfigMaps in DIR, credentials from a cluster Secret)
+# instead of helm. The `bigbang` HelmRelease itself must become Ready, then Tempo on it.
+images: {}
+test:
+  installer: true
+  installer_args: [--gitops, work/compat-gitops]
+  enable: [tempo]
+  namespaces: [tempo, seaweedfs]
+  expect: [tempo]
+  check:
+    - kubectl -n bigbang wait helmrelease/bigbang --for=condition=Ready --timeout=60s
+    - test -f work/compat-gitops/kustomization.yaml && ! grep -rq registryCredentials work/compat-gitops
+  debug:
+    - kubectl -n bigbang get helmrelease,gitrepository,configmap
