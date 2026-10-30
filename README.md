@@ -144,6 +144,20 @@ Big Bang doesn't create on its own. The installer picks one way and remembers it
 changes. Install from a release rather than `main` to know exactly what you run; `install`
 prints the release it deploys.
 
+**Image signatures.** `--verify-signatures audit|enforce` adds a Kyverno policy that checks
+Chainguard's keyless signature on every `cgr.dev/<org>` image a Pod runs, with the same
+signer rules CI's `bb-signatures.py` uses. Audit records failures in Kyverno's policy
+reports; enforce refuses the Pod. Add `--org-id <id>` (`chainctl iam organizations list`)
+to require signatures under your org. The cluster needs to reach rekor.sigstore.dev and
+Sigstore's TUF mirror. Images this repo builds and Iron Bank leftovers aren't covered.
+
+**Installer image.** Instead of installing kubectl, helm and Python, run the installer from
+its image (Chainguard's kubectl -dev image plus the tools; Big Bang's chart is inside):
+
+```bash
+docker run --rm -it --network host -v ~/.kube:/home/nonroot/.kube:ro -v "$PWD:/site"   -e CGR_USERNAME -e CGR_PASSWORD ghcr.io/<owner>/bigbang-installer:<bigbang>-kubectl<version>   install --site /site/my-site.yaml        # bigbang-installer-fips for a FIPS workstation
+```
+
 **Upgrades.** `install --plan` (same flags) shows what a run would change and stops: the
 Big Bang version, standard to FIPS or back, packages turned on or off, and each image tag
 that moves. `rollback` returns the release to the previous revision (or `--to N`) and waits;

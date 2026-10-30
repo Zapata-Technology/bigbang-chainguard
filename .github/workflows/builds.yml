@@ -22,6 +22,9 @@ on:
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
+      - scripts/bb-installer.py
+      - scripts/bb-install.py
+      - .dockerignore
       - scripts/bbbuild.py
       - .github/workflows/builds.yml
   push:
@@ -32,6 +35,9 @@ on:
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
+      - scripts/bb-installer.py
+      - scripts/bb-install.py
+      - .dockerignore
       - scripts/bbbuild.py
       - .github/workflows/builds.yml
   workflow_dispatch:
@@ -50,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault]
+        name: [grafana-plugins, base, devops-tester, vault, installer]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}

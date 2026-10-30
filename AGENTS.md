@@ -131,6 +131,12 @@ must run), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug
 (commands that must exit 0), `installer: true` with `installer_args`. Unknown keys fail
 `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
+### Add a cluster-side setting to the installer
+Settings applied after Big Bang (TLS, the signature policy) follow one pattern: a
+`*_choice` that reads the flag or the remembered value from `Credentials`, a manifest
+function, `apply_when_ready(docs, crd, namespace, check, wait)` (waits for the package's
+CRD and namespace and its admission webhook) and a `*_problem` that `status` reports.
+
 ### Change an image this repo builds
 Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with
 `scripts/bb-<name>.py`; the smoke test in that script must cover the change. `builds.yml`

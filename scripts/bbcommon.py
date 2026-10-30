@@ -1,6 +1,7 @@
 """Shared helpers: repo settings, chart default values (with subcharts), deep merge, image nodes."""
 import io
 import os
+import re
 import tarfile
 
 import yaml
@@ -170,6 +171,17 @@ def running_image_problems(images, org, registry, mapping, fips=False):
         elif not ref.startswith(CLUSTER_IMAGES):
             problems.append(f"{ref}: not from cgr.dev/{org}, {registry or 'a build registry'} or Iron Bank")
     return problems
+
+
+# Chainguard's signers. Org images are signed by Chainguard's issuer, under the org's ID;
+# Chainguard's public images from GitHub Actions in its chainguard-images organization.
+# bb-signatures.py (CI) and bb-install.py's Kyverno policy (the cluster) both use these.
+SIGNATURE_ISSUERS = r"^https://(issuer\.enforce\.dev|token\.actions\.githubusercontent\.com)$"
+
+
+def signature_identity(org_id):
+    org = re.escape(org_id) if org_id else r"[0-9a-f]+"
+    return rf"^(https://issuer\.enforce\.dev/{org}/|https://github\.com/chainguard-images/)"
 
 
 def deep_merge(a, b):
