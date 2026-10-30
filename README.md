@@ -150,6 +150,13 @@ applies it. Commit `DIR` to your own git repository and point a Flux Kustomizati
 (`DIR/README.md` has the YAML); the credentials stay in the cluster Secret
 `bigbang/bb-install-values`, out of git.
 
+### Vulnerabilities
+
+`cve-report.yml` runs weekly (and on demand): `scripts/bb-cve.py` scans each Iron Bank image
+Big Bang deploys and the Chainguard image that replaces it with grype, and writes totals and
+per-image counts by severity to the run summary and an artifact. Iron Bank's side needs the
+`REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets (an Iron Bank account).
+
 ### Doing it by hand
 
 What the installer does, as commands:
