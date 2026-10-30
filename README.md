@@ -144,6 +144,19 @@ Big Bang doesn't create on its own. The installer picks one way and remembers it
 changes. Install from a release rather than `main` to know exactly what you run; `install`
 prints the release it deploys.
 
+**Upgrades.** `install --plan` (same flags) shows what a run would change and stops: the
+Big Bang version, standard to FIPS or back, packages turned on or off, and each image tag
+that moves. `rollback` returns the release to the previous revision (or `--to N`) and waits;
+Flux then downgrades the packages, which a package whose data has moved forward (a
+database migration) may not accept, so check `--plan` before upgrading.
+
+**When repo1 doesn't answer.** Flux fetches every package's chart from repo1.dso.mil git
+while it installs and upgrades. The installer names any source that can't fetch, asks Flux
+to retry it every two minutes while it waits, and ends a timeout with the host that failed.
+`--git-mirror https://git.example.com/bigbang` takes Big Bang's chart and every package from
+a git server you run with repo1's paths under that URL (kept in sync with repo1, for
+example by a scheduled `git fetch` of each package repository); the mirror is remembered.
+
 **GitOps.** `install --gitops DIR` does everything except the `helm` step: it writes `DIR`
 (Big Bang's HelmRelease, its chart from repo1, and the values files as ConfigMaps) and
 applies it. Commit `DIR` to your own git repository and point a Flux Kustomization at it

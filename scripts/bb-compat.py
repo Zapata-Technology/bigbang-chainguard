@@ -237,7 +237,7 @@ def main():
     for cmd in test.get("check", []):
         print(f"\n== check: {cmd}", flush=True)
         p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
-                           env=dict(os.environ, COMPAT_OUT=out))
+                           env=dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else ""))
         print((p.stdout + p.stderr)[-2000:])
         if p.returncode:
             ok = False

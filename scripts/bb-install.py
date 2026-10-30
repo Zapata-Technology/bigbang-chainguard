@@ -9,6 +9,10 @@
   bb-install.py status
                      HelmReleases, pods that aren't healthy (with their last log lines),
                      and running images that aren't the conversion's
+  bb-install.py install ... --plan
+                     what an install would change (version, FIPS, packages, image tags)
+  bb-install.py rollback [--to N] [--yes]
+                     the bigbang release back to an earlier revision, then wait and report
   bb-install.py uninstall [--delete-data] [--keep-flux] [--yes]
                      Big Bang, SeaweedFS (its volume and S3 keys stay unless
                      --delete-data), Flux
@@ -123,11 +127,48 @@ class Checkout:
         return bool(self.s3) and self.s3["endpoint"] == objstore.DEFAULT_ENDPOINT
 
 
+REPO1 = "https://repo1.dso.mil/"
+
+
 def chart_ref(a):
-    """(chart, extra helm args): --chart as given, else Big Bang's chart from repo1."""
+    """(chart, extra helm args): --chart as given, else Big Bang's chart from the git
+    mirror (--git-mirror) or repo1."""
     if a.chart and a.chart.startswith("oci://"):
         return a.chart, ["--version", a.version]
-    return a.chart or fetch_chart(a.version), []
+    mirror = getattr(a, "git_mirror", None)
+    return a.chart or (clone_chart(a.version, mirror) if mirror else fetch_chart(a.version)), []
+
+
+def mirrored(url, mirror):
+    """A repo1 URL on the mirror: same path under the mirror's prefix."""
+    return mirror.rstrip("/") + "/" + url[len(REPO1):] if mirror and url.startswith(REPO1) else url
+
+
+def git_mirror_values(defaults, mirror):
+    """Every package's git.repo moved from repo1 to the mirror (Big Bang's packages come
+    from repo1 git at runtime; a mirror the site controls keeps them coming when repo1
+    doesn't answer, and is how a disconnected site gets them at all)."""
+    out = {}
+    for key, v in defaults.items():
+        if isinstance(v, dict) and str((v.get("git") or {}).get("repo", "")).startswith(REPO1):
+            out[key] = {"git": {"repo": mirrored(v["git"]["repo"], mirror)}}
+    for key, v in (defaults.get("addons") or {}).items():
+        if isinstance(v, dict) and str((v.get("git") or {}).get("repo", "")).startswith(REPO1):
+            out.setdefault("addons", {})[key] = {"git": {"repo": mirrored(v["git"]["repo"], mirror)}}
+    return out
+
+
+def clone_chart(version, mirror, cache=CHART_CACHE):
+    """Big Bang's chart at <version> from the git mirror (git clone of the tag)."""
+    dest = os.path.join(cache, f"bigbang-{version}-mirror")
+    chart = os.path.join(dest, "chart")
+    if os.path.exists(os.path.join(chart, "Chart.yaml")):
+        return chart
+    shutil.rmtree(dest, ignore_errors=True)
+    url = mirrored(BIGBANG_GIT, mirror)
+    if subprocess.run(["git", "clone", "--quiet", "--depth", "1", "--branch", version, url, dest]).returncode:
+        raise SystemExit(f"could not clone Big Bang {version} from {url}")
+    return chart
 
 
 def fetch_chart(version, cache=CHART_CACHE):
@@ -422,6 +463,8 @@ def install(a):
     co = Checkout(a.overlays)
     a.version = a.version or co.version
     site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
+    if a.git_mirror is None:   # remembered from an earlier run
+        a.git_mirror = (read_secret(NAMESPACE, STATE_SECRET) or {}).get("git-mirror") or None
     step("preflight")
     defaults = chart_defaults(a)
     enabled, problems, notes = preflight(a, co, site, defaults)
@@ -433,6 +476,8 @@ def install(a):
         say(f"note: {n}")
     if problems:
         raise SystemExit("\nnot installing:\n  " + "\n  ".join(problems))
+    if a.plan:
+        return plan(a, co, site, defaults, enabled)
     interactive = sys.stdin.isatty() and not a.yes
     context = (kubectl("config", "current-context", check=False) or "").strip() or "(no context)"
     say(f"cluster: kubectl context {context}")
@@ -442,6 +487,11 @@ def install(a):
 
     step("credentials")
     creds = Credentials(site, interactive=interactive)
+    if a.git_mirror is not None:
+        creds.values["git-mirror"] = a.git_mirror      # "" turns the mirror off
+    a.git_mirror = a.git_mirror or None
+    if a.git_mirror:
+        say(f"package git repositories from {a.git_mirror} instead of repo1")
     if a.new_pull_token:
         creds.forget("cgr")
     cgr = creds.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD",
@@ -502,6 +552,8 @@ def install(a):
             deep_merge(secret_values, {"addons": {"keycloak": {"values": {
                 "upstream": {"database": {"password": keycloak_db_password}},
                 "postgresql": {"global": {"postgresql": {"auth": {"password": keycloak_db_password}}}}}}}})
+        if a.git_mirror:
+            deep_merge(secret_values, git_mirror_values(defaults, a.git_mirror))
         if tls == "own":
             deep_merge(secret_values, {"istioGateway": {"values": {"gateways": {"public": {"gatewayCerts": [
                 {"name": GATEWAY_CERT, "tls": {"cert": creds.values["tls-cert"], "key": creds.values["tls-key"]}}]}}}}})
@@ -511,7 +563,7 @@ def install(a):
         if a.gitops:
             # Credentials in a Secret the HelmRelease reads; everything else in files to commit.
             apply_secret(NAMESPACE, GITOPS_SECRET, "generic", f"--from-file=values.yaml={sv}")
-            write_gitops(a.gitops, co, a.fips, a.site)
+            write_gitops(a.gitops, co, a.fips, a.site, a.git_mirror)
             sh("kubectl", "apply", "-k", a.gitops, capture=True)
             say(f"wrote {a.gitops} and applied it; commit it and let a Flux Kustomization keep it in sync "
                 f"({a.gitops}/README.md)")
@@ -569,6 +621,79 @@ def _site_sets_keycloak_password(site):
     return bool((env.get("stringData") or {}).get("KEYCLOAK_ADMIN_PASSWORD"))
 
 
+# ---------------------------------------------------------------- plan and rollback
+
+def deployed():
+    """(chart version, user-supplied values) of the bigbang release, or (None, {})."""
+    out = sh("helm", "list", "-n", NAMESPACE, "-o", "json", check=False, capture=True) or "[]"
+    rel = next((r for r in json.loads(out) if r.get("name") == "bigbang"), None)
+    if not rel:
+        return None, {}
+    values = sh("helm", "get", "values", "bigbang", "-n", NAMESPACE, "-o", "json", check=False, capture=True)
+    return rel.get("chart", "").rsplit("-", 1)[-1], json.loads(values or "{}") or {}
+
+
+def plan_lines(old_version, old_values, new_version, new_values, defaults, old_state, new_mode):
+    """What an install would change, without values that could be secret: the version,
+    FIPS, packages turned on or off, and image repository/tag changes."""
+    from release import image_changes   # noqa: E402 (same scripts directory)
+    if old_version is None:
+        return [f"fresh install of Big Bang {new_version} ({new_mode}): "
+                + ", ".join(enabled_packages(deep_merge(json.loads(json.dumps(defaults)), new_values)))]
+    lines = []
+    if old_version != new_version:
+        lines.append(f"Big Bang {old_version} -> {new_version}")
+    if old_state.get("mode") and old_state["mode"] != new_mode:
+        lines.append(f"images {old_state['mode']} -> {new_mode}")
+    before = set(enabled_packages(deep_merge(json.loads(json.dumps(defaults)), old_values)))
+    after = set(enabled_packages(deep_merge(json.loads(json.dumps(defaults)), new_values)))
+    lines += [f"turn on {p}" for p in sorted(after - before)] + [f"turn off {p}" for p in sorted(before - after)]
+    lines += [f"image {c[2:]}" for c in image_changes(yaml.safe_dump(old_values), yaml.safe_dump(new_values))
+              if "removed" not in c and "new at" not in c]
+    return lines
+
+
+def plan(a, co, site, defaults, enabled):
+    step("plan (nothing is changed)")
+    version, values = deployed()
+    new_values = {}
+    for f in co.overlays(a.fips) + [a.site]:
+        deep_merge(new_values, yaml.safe_load(open(f, encoding="utf-8")) or {})
+    state = read_secret(NAMESPACE, STATE_SECRET) or {}
+    lines = plan_lines(version, values, a.version, new_values, defaults, state, "fips" if a.fips else "standard")
+    for line in lines or ["nothing changes"]:
+        say(f"  {line}")
+    say("\nrun the same command without --plan to apply it")
+    return 0
+
+
+def rollback(a):
+    """helm rollback of the bigbang release, then wait and report. Big Bang's HelmReleases
+    go back to the earlier chart versions and Flux downgrades the packages; a package whose
+    data moved forward (database migrations) may not run on the older version."""
+    co = Checkout(a.overlays)
+    if kubectl("-n", NAMESPACE, "get", "helmrelease", "bigbang", check=False):
+        raise SystemExit("installed with --gitops: revert the commit in your git repository instead")
+    history = json.loads(sh("helm", "history", "bigbang", "-n", NAMESPACE, "-o", "json", check=False,
+                            capture=True) or "[]")
+    if len(history) < 2:
+        raise SystemExit("no earlier revision of the bigbang release to roll back to")
+    for h in history[-6:]:
+        say(f"  revision {h['revision']:>3}  {h.get('updated', '')[:19]}  {h.get('chart', '')}  {h.get('status', '')}")
+    current = history[-1]["revision"]
+    target = a.to or next(h["revision"] for h in reversed(history) if h["revision"] < current
+                          and h.get("status") in ("superseded", "deployed"))
+    say(f"roll back revision {current} -> {target}")
+    if not a.yes and not (sys.stdin.isatty() and confirm("Roll back?", default=False)):
+        raise SystemExit("not confirmed; nothing changed (--yes skips this question)")
+    sh("helm", "rollback", "bigbang", str(target), "-n", NAMESPACE, "--wait", "--timeout", "15m", capture=True)
+    step("waiting for the packages")
+    time.sleep(10)
+    state = read_secret(NAMESPACE, STATE_SECRET) or {}
+    ok, problems = wait_ready(hr_namespaces(), a.timeout)
+    return status_report(co, state.get("mode") == "fips", problems, failed=not ok)
+
+
 # ---------------------------------------------------------------- GitOps
 
 GITOPS_SECRET = "bb-install-values"    # bigbang/<this>: the credential values (never in git)
@@ -602,12 +727,12 @@ spec: {{interval: 10m, prune: true, path: ./{path}, sourceRef: {{kind: GitReposi
 """
 
 
-def gitops_manifests(version, value_maps):
-    """Big Bang's GitRepository (repo1, the tag) and HelmRelease reading `value_maps`
-    (ConfigMaps, in order) and then the credentials Secret."""
+def gitops_manifests(version, value_maps, mirror=None):
+    """Big Bang's GitRepository (repo1 or the mirror, the tag) and HelmRelease reading
+    `value_maps` (ConfigMaps, in order) and then the credentials Secret."""
     repo = {"apiVersion": "source.toolkit.fluxcd.io/v1", "kind": "GitRepository",
             "metadata": {"name": "bigbang", "namespace": NAMESPACE},
-            "spec": {"interval": "10m", "url": BIGBANG_GIT, "ref": {"tag": version}}}
+            "spec": {"interval": "10m", "url": mirrored(BIGBANG_GIT, mirror), "ref": {"tag": version}}}
     release = {"apiVersion": "helm.toolkit.fluxcd.io/v2", "kind": "HelmRelease",
                "metadata": {"name": "bigbang", "namespace": NAMESPACE},
                "spec": {"interval": "10m", "timeout": "15m",
@@ -620,7 +745,7 @@ def gitops_manifests(version, value_maps):
     return [repo, release]
 
 
-def write_gitops(out, co, fips, site_path):
+def write_gitops(out, co, fips, site_path, mirror=None):
     """A kustomization directory: the values files as ConfigMaps (layered in the same order
     as the helm path), Big Bang's GitRepository and HelmRelease, and a README."""
     os.makedirs(os.path.join(out, "values"), exist_ok=True)
@@ -638,7 +763,8 @@ def write_gitops(out, co, fips, site_path):
     with open(os.path.join(out, "kustomization.yaml"), "w", encoding="utf-8", newline="\n") as f:
         yaml.safe_dump(kust, f, sort_keys=False)
     with open(os.path.join(out, "bigbang.yaml"), "w", encoding="utf-8", newline="\n") as f:
-        yaml.safe_dump_all(gitops_manifests(co.version, [g["name"] for g in generators]), f, sort_keys=False)
+        yaml.safe_dump_all(gitops_manifests(co.version, [g["name"] for g in generators], mirror), f,
+                           sort_keys=False)
     with open(os.path.join(out, "README.md"), "w", encoding="utf-8", newline="\n") as f:
         f.write(GITOPS_README.format(version=co.version, secret=GITOPS_SECRET,
                                      release=f" {co.release}" if co.release else "",
@@ -983,15 +1109,25 @@ def main():
     p.add_argument("--gitops", metavar="DIR",
                    help="instead of helm: write DIR (Big Bang's HelmRelease and the values) to commit to your "
                         "git repo, and apply it; credentials stay in a cluster Secret")
+    p.add_argument("--plan", action="store_true",
+                   help="show what would change (version, FIPS, packages, image tags) and stop")
+    p.add_argument("--git-mirror", metavar="URL",
+                   help="a git server mirroring repo1 (same paths under URL) for Big Bang's chart and "
+                        "packages; remembered, \"\" turns it off")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
     sub.add_parser("status", help="what's running and what isn't")
+    p = sub.add_parser("rollback", help="return the bigbang release to an earlier revision")
+    p.add_argument("--to", type=int, help="revision (default: the one before the current)")
+    p.add_argument("--timeout", type=int, default=2700)
+    p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     p = sub.add_parser("uninstall", help="remove Big Bang, SeaweedFS and Flux")
     p.add_argument("--delete-data", action="store_true", help="also SeaweedFS's volume and the stored keys")
     p.add_argument("--keep-flux", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     a = ap.parse_args()
-    return {"init": init, "install": install, "status": status, "uninstall": uninstall}[a.cmd](a)
+    return {"init": init, "install": install, "status": status, "rollback": rollback,
+            "uninstall": uninstall}[a.cmd](a)
 
 
 if __name__ == "__main__":

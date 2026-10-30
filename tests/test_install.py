@@ -371,3 +371,56 @@ def test_gitops_directory_layers_values_like_the_helm_path(tmp_path):
     assert release["spec"]["valuesFrom"][-1] == {"kind": "Secret", "name": "bb-install-values"}  # credentials last
     text = "".join(p.read_text() for p in out.rglob("*") if p.is_file())
     assert "registryCredentials" not in text                       # nothing secret in what gets committed
+
+
+def test_git_mirror_moves_every_repo1_package():
+    defaults = {"istiod": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/istiod.git"}},
+                "kiali": {"git": {"repo": "https://other.example.com/kiali.git"}},
+                "addons": {"keycloak": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/keycloak.git"}}}}
+    vals = install.git_mirror_values(defaults, "https://git.example.com/bb/")
+    assert vals == {"istiod": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/istiod.git"}},
+                    "addons": {"keycloak": {"git": {"repo":
+                                                    "https://git.example.com/bb/big-bang/product/packages/keycloak.git"}}}}
+    assert install.mirrored("https://repo1.dso.mil/big-bang/bigbang.git", None) == "https://repo1.dso.mil/big-bang/bigbang.git"
+
+
+def test_gitops_uses_the_mirror_for_big_bang():
+    repo, _ = install.gitops_manifests("3.0.0", ["v0"], "https://git.example.com")
+    assert repo["spec"]["url"] == "https://git.example.com/big-bang/bigbang.git"
+
+
+def test_plan_lists_changes_without_secrets():
+    defaults = {"tempo": {"enabled": False}, "addons": {"velero": {"enabled": False}}}
+    old = {"tempo": {"enabled": True}, "registryCredentials": [{"password": "s3cret"}],
+           "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.0"}}}
+    new = {"addons": {"velero": {"enabled": True}}, "registryCredentials": [{"password": "other"}],
+           "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.1"}}}
+    lines = install.plan_lines("3.0.0", old, "3.1.0", new, defaults, {"mode": "standard"}, "fips")
+    assert lines == ["Big Bang 3.0.0 -> 3.1.0", "images standard -> fips", "turn on addons.velero", "turn off tempo",
+                     "image `cgr.dev/o/tempo`: 2.8.0 → 2.8.1"]
+    assert not any("s3cret" in ln or "other" in ln for ln in lines)
+    assert install.plan_lines("3.0.0", old, "3.0.0", old, defaults, {"mode": "fips"}, "fips") == []
+    assert install.plan_lines(None, {}, "3.0.0", {"tempo": {"enabled": True}}, defaults, {}, "standard") == \
+        ["fresh install of Big Bang 3.0.0 (standard): tempo"]
+
+
+def test_rollback_refuses_a_gitops_install(monkeypatch):
+    monkeypatch.setattr(install, "kubectl", lambda *a, **k: "helmrelease.helm.toolkit.fluxcd.io/bigbang")
+    with pytest.raises(SystemExit, match="git repository"):
+        install.rollback(install.argparse.Namespace(overlays=ROOT, to=None, yes=True, timeout=1))
+
+
+def test_sources_that_cant_fetch_are_named_and_retried(monkeypatch):
+    import json as _json
+    bbcluster = load_script("bbcluster")
+    src = {"items": [
+        {"kind": "GitRepository", "metadata": {"namespace": "bigbang", "name": "tempo"},
+         "spec": {"url": "https://repo1.dso.mil/big-bang/product/packages/tempo.git"},
+         "status": {"conditions": [{"type": "Ready", "status": "False", "message": "connection refused"}]}},
+        {"kind": "GitRepository", "metadata": {"namespace": "bigbang", "name": "ok"}, "spec": {"url": "https://x/y"},
+         "status": {"conditions": [{"type": "Ready", "status": "True"}]}}]}
+    calls = []
+    monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: calls.append(a) or _json.dumps(src))
+    [line] = bbcluster.source_problems(nudge=True)
+    assert line.startswith("repo1.dso.mil: bigbang/tempo") and "connection refused" in line
+    assert any(a[:4] == ("-n", "bigbang", "annotate", "--overwrite") for a in calls)
