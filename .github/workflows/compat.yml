@@ -32,7 +32,7 @@ jobs:
       matrix: ${{ steps.m.outputs.matrix }}
       bigbang-key: ${{ steps.bb.outputs.key }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - id: m
         env:
           TESTS: ${{ inputs.tests }}
@@ -95,19 +95,19 @@ jobs:
       # from whichever registries that test touches; a blocked pull would look like the
       # image failure these tests exist to find. ci/builds/update run in block mode.
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Set up Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2  # v5.0.0
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
         with:
           version: v3.18.3
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: '3.12'
 
@@ -134,7 +134,7 @@ jobs:
           ignore_failed_clean: true
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978  # v0.4.0
+        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
