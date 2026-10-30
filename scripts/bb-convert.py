@@ -457,8 +457,10 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
         if f:
             set_path(fips, key + root, _merge(_get(fips, key + root), f))
         # Org images pinned to today's digests (Converter.digest_pins); after values, so
-        # the images the values just set are covered.
-        for tree, variant in ((std, "standard"), (fips, "fips")):
+        # the images the values just set are covered. Not for a package whose Big Bang
+        # template can't take post-renderers (mapping no_post_renderers).
+        for tree, variant in (() if info["key"] in mapping.get("no_post_renderers", {})
+                              else ((std, "standard"), (fips, "fips"))):
             pins = c.digest_pins(release, variant)
             if pins:
                 pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]

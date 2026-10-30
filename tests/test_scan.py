@@ -42,3 +42,11 @@ def test_empty_default_written_with_toyaml():
 def test_empty_default_not_written_is_ignored():
     values = "tempo:\n  receivers:\n    opencensus:\n"
     assert bbscan.null_findings("tempo", values, ["{{ .Values.tempo.receivers.otlp }}"]) == []
+
+
+def test_helmrelease_writing_post_renderers_without_the_key_is_flagged():
+    broken = "  {{- if .Values.addons.keycloak.postRenderers }}\n    {{ toYaml .Values.addons.keycloak.postRenderers }}\n"
+    [hit] = bbscan.renderer_findings("bigbang/templates/keycloak/helmrelease.yaml", broken)
+    assert "no_post_renderers" in hit
+    good = "  postRenderers:\n  {{ toYaml .Values.tempo.postRenderers | nindent 2 }}\n"
+    assert bbscan.renderer_findings("bigbang/templates/tempo/helmrelease.yaml", good) == []

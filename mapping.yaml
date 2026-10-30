@@ -383,9 +383,15 @@ ignore:
   - {release: kyverno-policies, path: celPoliciesBeta}
   - {release: twistlock, path: console.trustedImages}    # Prisma trusted-registry rules
 
+# Big Bang keys whose HelmRelease template can't take post-renderers (bb-scan.py finds
+# them): bb-convert gives them none, so their images stay on tags (no digest pin).
+no_post_renderers:
+  addons.keycloak: Big Bang 3.35.1's keycloak/helmrelease.yaml writes postRenderers without the key
+
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.
 scan_reviewed:
+  bigbang/templates/keycloak/helmrelease.yaml: no_post_renderers (Keycloak's images stay on tags)
   kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
   alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
   addons.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)

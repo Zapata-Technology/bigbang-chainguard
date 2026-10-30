@@ -472,6 +472,8 @@ can't express, `mapping.yaml` has these escape hatches:
   post-renderer runs those scripts with bash (Kyverno policies' wait job).
 - `bash_commands`: containers whose `/bin/sh -c` script is really bash; a post-renderer
   makes the command `/bin/bash` (Fortify's keystore job).
+- `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
+  (Keycloak in 3.35.1); their images stay on tags instead of digests.
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
 
