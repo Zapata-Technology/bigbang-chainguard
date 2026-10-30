@@ -165,6 +165,11 @@ builds on the PR and pushes on merge.
   nudges Flux to retry; `--git-mirror` moves every package `git.repo` to a site mirror.
 - **registry1's OCI copy of the Big Bang chart needs an Iron Bank login**; repo1's git
   archive of the same tag doesn't. `bb-install.py` downloads the archive (`fetch_chart`).
+- **Big Bang charts pin Iron Bank's uid** (Keycloak: 1000). Chainguard images run as their
+  own user (65532) and may keep files unreadable to others: Keycloak 26.8.1's
+  `quarkus-application.dat` is 0770 65532/65532, so `overrides.keycloak` unsets runAsUser.
+  A crash on the first file read after a Chainguard rebuild is this.
+- **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
 - **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database
@@ -178,8 +183,12 @@ builds on the PR and pushes on merge.
   repo1.dso.mil intermittently refuses GitHub runners: the scripts retry; re-run if not.
 - On Windows: git checks out with CRLF (render charts from a Linux checkout if line endings
   matter), `docker-credential-cgr` may be blocked (no local cgr.dev pulls; debug in CI),
-  and shell heredocs turn `\n` in Python strings into real newlines (write the script
-  to a file instead).
+  shell heredocs turn `\n` in Python strings into real newlines (write the script
+  to a file instead), and paths past 260 characters fail (Big Bang's chart has deep test
+  paths: build bundles under a short directory). Offline `bb-convert.py` drops images
+  without `work/`; the update workflow can't log into Chainguard from a branch (the
+  identity trusts main and pull requests), so a mapping change lands first and
+  `update.yml` on main regenerates the overlays.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
 
