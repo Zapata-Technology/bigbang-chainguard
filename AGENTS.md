@@ -138,7 +138,7 @@ builds on the PR and pushes on merge.
 - **Kyverno policies render `preconditions.all: null`** unless some container is excluded.
 - **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
   `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
-  monitoring or Thanos on, keep `prometheusOperatorCRDs` on (the installer checks).
+  monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
 - **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database

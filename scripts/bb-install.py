@@ -241,9 +241,11 @@ def preflight(a, co, site, defaults):
     files = co.overlays(a.fips) + [a.site]
     enabled = enabled_packages(merged_values(defaults, files))
     on = set(enabled)
-    if on & {"monitoring", "addons.thanos"} and "prometheusOperatorCRDs" not in on:
-        problems.append("monitoring/Thanos need prometheusOperatorCRDs (it installs the CRDs and creates the "
-                        "monitoring namespace): leave it on in the site file")
+    for needs in ("prometheusOperatorCRDs", "certManager"):
+        # prometheusOperatorCRDs installs the CRDs and creates the monitoring namespace;
+        # monitoring's certificates need cert-manager. Both are on by default.
+        if on & {"monitoring", "addons.thanos"} and needs not in on:
+            problems.append(f"monitoring/Thanos need {needs}: leave it on in the site file")
     if co.in_cluster_seaweedfs() and server:
         scs = json.loads(kubectl("get", "storageclass", "-o", "json", check=False) or '{"items": []}')["items"]
         if not any(s["metadata"].get("annotations", {}).get("storageclass.kubernetes.io/is-default-class") == "true"
