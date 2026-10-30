@@ -11,6 +11,8 @@ on:
       - compat/**
       - .github/kind-compat.yaml
       - scripts/bb-compat.py
+      - scripts/bb-install.py
+      - scripts/bbcluster.py
       - .github/workflows/compat.yml
   workflow_dispatch:
     inputs:
