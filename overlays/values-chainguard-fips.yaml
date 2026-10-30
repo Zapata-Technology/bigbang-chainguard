@@ -114,11 +114,11 @@ addons:
         certificates:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-certificates-fips
-            tag: 19.4.3
+            tag: 19.4.5
         gitlabBase:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-base-fips
-            tag: 19.4.3
+            tag: 19.4.5
         kubectl:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-kubectl-fips
@@ -135,27 +135,27 @@ addons:
           geo-logcursor:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
           gitaly:
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly-fips
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-exporter:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-pages:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-pages-fips
-              tag: 19.4.3
+              tag: 19.4.5
           gitlab-shell:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-shell-fips
-              tag: 19.4.3
+              tag: 19.4.5
           kas:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-kas-fips
-              tag: 19.4.3
+              tag: 19.4.5
           mailroom:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-mailroom-fips
@@ -163,26 +163,26 @@ addons:
           migrations:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
           praefect:
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly-fips
-              tag: 19.4.3
+              tag: 19.4.5
           sidekiq:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
           toolbox:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
           webservice:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
             workhorse:
               image: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee-fips
-              tag: 19.4.3
+              tag: 19.4.5
         gitlab-zoekt:
           gateway:
             image:
@@ -191,7 +191,7 @@ addons:
         registry:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-container-registry-fips
-            tag: 19.4.3
+            tag: 19.4.5
         shared-secrets:
           selfsign:
             image:
@@ -203,12 +203,12 @@ addons:
         image:
           image: gitlab-runner-fips
           registry: cgr.dev/zapatatechnology.com
-          tag: 19.5.1
+          tag: 19.5.2
         runners:
           helper:
             registry: cgr.dev/zapatatechnology.com
             repository: gitlab-runner-helper-fips
-            tag: 19.5.1
+            tag: 19.5.2
   harbor:
     values:
       bbtests:
@@ -288,6 +288,12 @@ addons:
         image:
           repository: cgr.dev/zapatatechnology.com/keycloak-fips
           tag: 26.8.1
+        podSecurityContext:
+          runAsGroup: null
+          runAsUser: null
+        securityContext:
+          runAsGroup: null
+          runAsUser: null
   mattermost:
     values:
       database:
@@ -318,7 +324,7 @@ addons:
       upstream:
         image:
           repository: cgr.dev/zapatatechnology.com/metrics-server-fips
-          tag: 0.9.0
+          tag: 0.9.1
   mimir:
     values:
       upgradeJob:
@@ -971,7 +977,7 @@ renovate:
       image:
         registry: cgr.dev/zapatatechnology.com
         repository: renovate-fips
-        tag: 44.192.2
+        tag: 44.196.1
 tempo:
   values:
     bbtests:

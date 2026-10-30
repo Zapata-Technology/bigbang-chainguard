@@ -4,25 +4,25 @@
 ironbank:
   image: ironbank/big-bang/devops-tester:1.4
   source: https://repo1.dso.mil/dsop/big-bang/devops-tester
-  commit: 3879bca29a3d58f2fda9e16a408ea551e51e675e
+  commit: 4f7981eef9d4538d50c5bdbb9e799226dc455bd3
   versions:
     velero: 1.18.4
-    kyverno: 1.19.1
-    kubectl: 1.37.1
+    kyverno: 1.19.2
+    kubectl: 1.37.2
     chainsaw: 0.2.15
 image:
   standard:
     name: bigbang-devops-tester
-    tag: 1.4-kubectl1.37.1
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.1-dev@sha256:a0bdee8bbb99b5a2a694ce77fc941e23668be68f369093cfab46a07005b50e28
-    velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:3717559d7fb6aa3f53d4c3040b46470bab11db23c5e22e745326f830ffeab3c3
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:7dc2b24e38909349c4225ec7d9eb0fdf325df5e408cedb79052722f9d45a9efc
+    tag: 1.4-kubectl1.37.2
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev@sha256:cabe7d401028fa1a5c1b46f7707d16cb9d6ab882c04c02b8ad4a89cc6d100c17
+    velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:0f82d76b528e3686763646791619fcdb3c5140aa149cf6c1445a0ac921642516
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:af2697c770ae0acad733b6e26d8e4238b4c2b3f951da2b8c553f14bfbc03a2d3
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:612349c7c5b49272b7cc5dde569c44b8e21200aca420aa5792cb05d453c1247d
-    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:ea3ccdd3c80e33a2f56358dee4199ce9bda0c6d6bc170d63656005b56d86a271
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:9fde622e914d236926248edfadf3605722a5aa680dd6c4bc5f884bdfd5df0ad6
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
+    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:da8ab35c2899b7d4ece1faa947ea4cfc68bc7d28c13dd4ce8b139162727dc402
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:f4db2a7da434887b25d662f2fb6b5d51799ad91b4402dc49cdd3e8ce96518309
 chainsaw: ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
 packages:
 - bash
