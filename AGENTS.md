@@ -148,6 +148,9 @@ builds on the PR and pushes on merge.
 - **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
   `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
   monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).
+- **Flux fetches package charts from repo1 git at runtime**, so a repo1 outage shows up as
+  a HelmRelease "chart is not ready". `bbcluster.source_problems` names the host and
+  nudges Flux to retry; `--git-mirror` moves every package `git.repo` to a site mirror.
 - **registry1's OCI copy of the Big Bang chart needs an Iron Bank login**; repo1's git
   archive of the same tag doesn't. `bb-install.py` downloads the archive (`fetch_chart`).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3

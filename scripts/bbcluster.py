@@ -67,11 +67,39 @@ def flux_ready():
                               for d in deps)
 
 
+SOURCE_KINDS = "gitrepositories.source.toolkit.fluxcd.io,helmrepositories.source.toolkit.fluxcd.io," \
+               "ocirepositories.source.toolkit.fluxcd.io"
+
+
+def source_problems(nudge=False):
+    """Flux sources (package git repos, chart repos) that can't fetch, as lines naming the
+    host: repo1.dso.mil refuses connections now and then, and a HelmRelease only says its
+    chart "is not ready". With nudge, ask Flux to retry them now instead of at their interval."""
+    out = kubectl("get", SOURCE_KINDS, "-A", "-o", "json", check=False)
+    lines = []
+    for s in json.loads(out)["items"] if out else []:
+        ready = {c["type"]: c for c in s.get("status", {}).get("conditions", [])}.get("Ready", {})
+        if ready.get("status") != "False":
+            continue
+        url = s["spec"].get("url", "")
+        host = url.split("://", 1)[-1].split("/", 1)[0]
+        ns, name = s["metadata"]["namespace"], s["metadata"]["name"]
+        lines.append(f"{host or s['kind']}: {ns}/{name} can't fetch ({ready.get('message', '')[:160]})")
+        if nudge:
+            kubectl("-n", ns, "annotate", "--overwrite", s["kind"].lower(), name,
+                    f"reconcile.fluxcd.io/requestedAt={time.time():.0f}", check=False)
+    return lines
+
+
 def wait_ready(namespaces, timeout):
     """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines)."""
     end = time.time() + timeout
-    last = ""
+    last, polls = "", 0
     while time.time() < end:
+        polls += 1
+        if polls % 6 == 0:   # every ~2 minutes: name sources that can't fetch, retry them
+            for line in source_problems(nudge=True):
+                print(f"{time.strftime('%H:%M:%S')} source: {line}; retrying", flush=True)
         out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
         if not out:   # API server busy on a loaded runner: try again
             time.sleep(20)
@@ -95,7 +123,8 @@ def wait_ready(namespaces, timeout):
             break
         time.sleep(20)
     else:
-        return False, [f"timed out; HelmReleases: {last}"]
+        return False, [f"timed out; HelmReleases: {last}"] + [
+            f"{line} (Flux keeps retrying; re-run status later, or use --git-mirror)" for line in source_problems()]
     # Give slow starters time (NeuVector's enforcers restart until they join the
     # controllers): poll until every pod that isn't a finished Job pod is Ready with no
     # new restarts for three polls in a row (a crash-looping pod is Ready between

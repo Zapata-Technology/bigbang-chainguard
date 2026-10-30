@@ -9,5 +9,8 @@ test:
   namespaces: [tempo, keycloak, seaweedfs]
   expect: [tempo, keycloak, seaweedfs]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  check:
+    # Re-running with the same files changes nothing, and --plan says so.
+    - python3 scripts/bb-install.py --overlays "$COMPAT_OUT" install --site "$COMPAT_OUT/site.yaml" --yes --plan ${COMPAT_FIPS:+--fips} | tee /dev/stderr | grep -q "nothing changes"
   debug:
     - "kubectl -n bigbang get secret bb-install -o jsonpath='{.data}' | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'"
