@@ -81,6 +81,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
 | installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
 | installer-tls (new) | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
+| installer-signatures (new) | `--verify-signatures enforce`: Kyverno policy for Chainguard signatures | Policy Ready, a signed org image admitted, an unverifiable one refused |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
 | gitlab (new, large) | GitLab with bundled PostgreSQL and Redis, objects on SeaweedFS | Weekly and on demand (`large: true`): too big for a pull request's runner |

@@ -424,3 +424,33 @@ def test_sources_that_cant_fetch_are_named_and_retried(monkeypatch):
     [line] = bbcluster.source_problems(nudge=True)
     assert line.startswith("repo1.dso.mil: bigbang/tempo") and "connection refused" in line
     assert any(a[:4] == ("-n", "bigbang", "annotate", "--overwrite") for a in calls)
+
+
+def _sig_args(**kw):
+    return install.argparse.Namespace(**{"verify_signatures": None, "org_id": None, **kw})
+
+
+def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
+    _Env(monkeypatch)
+    monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
+    c = install.Credentials({}, False)
+    assert install.signature_choice(_sig_args(), c, ["kyverno"]) == ("off", None)
+    assert install.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["kyverno"]) == \
+        ("enforce", "abc")
+    _Env(monkeypatch, {"signatures": "audit"})
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"])[0] == "audit"
+    with pytest.raises(SystemExit, match="Kyverno"):
+        install.signature_choice(_sig_args(), install.Credentials({}, False), ["istiod"])
+
+
+def test_signature_policy_matches_what_ci_checks():
+    bbcommon = load_script("bbcommon")
+    pol = install.signature_policy("example.com", "0123abc", "enforce")
+    [rule] = pol["spec"]["rules"]
+    [verify] = rule["verifyImages"]
+    assert verify["imageReferences"] == ["cgr.dev/example.com/*"] and verify["failureAction"] == "Enforce"
+    keyless = verify["attestors"][0]["entries"][0]["keyless"]
+    assert keyless["issuerRegExp"] == bbcommon.SIGNATURE_ISSUERS
+    assert keyless["subjectRegExp"] == bbcommon.signature_identity("0123abc")
+    assert install.signature_policy("example.com", None, "audit")["spec"]["rules"][0]["verifyImages"][0][
+        "failureAction"] == "Audit"

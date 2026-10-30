@@ -1,0 +1,11 @@
+# Build context for builds/installer (the repository root): what the installer needs only.
+.git
+.github
+work
+dist
+tests
+**/__pycache__
+.pytest_cache
+.tags.json
+*.local.yaml
+my-site.yaml
