@@ -106,6 +106,9 @@ def main():
 
     spec = yaml.safe_load(open(a.compat))
     test = spec.get("test", {})
+    # `timeout`: seconds to wait for a slow package (GitLab); `large`: compat.yml runs
+    # the test weekly and on demand, not on pull requests.
+    a.timeout = test.get("timeout", a.timeout)
     out = tempfile.mkdtemp(prefix="bb-compat-")
     print(f"== {os.path.basename(a.compat)}: trial mapping {json.dumps(spec.get('images', {}))}", flush=True)
 

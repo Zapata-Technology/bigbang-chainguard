@@ -1,0 +1,15 @@
+# GitLab Runner registered with the GitLab Big Bang deploys alongside it. Large (see gitlab.yaml).
+images: {}
+test:
+  large: true
+  timeout: 3300
+  enable: [addons.gitlab, addons.gitlabRunner]
+  namespaces: [gitlab, gitlab-runner]
+  setup:
+    - python3 compat/support/seaweedfs.py gitlab
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+  expect: [gitlab-runner, gitlab-webservice]
+  debug:
+    - "kubectl -n gitlab-runner logs deploy/gitlab-runner --tail=40"

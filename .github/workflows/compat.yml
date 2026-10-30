@@ -14,6 +14,8 @@ on:
       - scripts/bb-install.py
       - scripts/bbcluster.py
       - .github/workflows/compat.yml
+  schedule:
+    - cron: "0 6 * * 0"   # weekly: every test, the large ones too
   workflow_dispatch:
     inputs:
       tests:
@@ -39,13 +41,19 @@ jobs:
         env:
           TESTS: ${{ inputs.tests }}
           FIPS: ${{ github.event_name != 'workflow_dispatch' || inputs.fips }}
+          EVENT: ${{ github.event_name }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import glob, json, os
-          names = [t.strip() for t in os.environ["TESTS"].split(",") if t.strip()] or \
-                  sorted(os.path.basename(p)[:-5] for p in glob.glob("compat/*.yaml"))
+          import glob, json, os, re
+          named = [t.strip() for t in os.environ["TESTS"].split(",") if t.strip()]
+          names = named or sorted(os.path.basename(p)[:-5] for p in glob.glob("compat/*.yaml"))
+          def large(n):   # `large: true` under test: (no PyYAML in this job)
+              return bool(re.search(r"^  large: true", open(f"compat/{n}.yaml").read(), re.M))
+          if not named and os.environ["EVENT"] == "pull_request":
+              names = [n for n in names if not large(n)]   # large tests: weekly and on demand
           modes = ["standard", "fips"] if os.environ["FIPS"] == "true" else ["standard"]
-          print("matrix=" + json.dumps({"include": [{"test": n, "mode": m} for n in names for m in modes]}))
+          print("matrix=" + json.dumps({"include": [{"test": n, "mode": m, "minutes": 90 if large(n) else 45}
+                                                    for n in names for m in modes]}))
           EOF
 
       # Clone Big Bang once per version and share it through the Actions cache: ~50 test
@@ -77,7 +85,7 @@ jobs:
   test:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.minutes }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}

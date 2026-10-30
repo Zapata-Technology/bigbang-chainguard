@@ -82,6 +82,9 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
 | installer-tls (new) | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
+| istio-egress-gateway (new) | Istio egress gateway beside istiod | |
+| gitlab (new, large) | GitLab with bundled PostgreSQL and Redis, objects on SeaweedFS | Weekly and on demand (`large: true`): too big for a pull request's runner |
+| gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
 
 ## What the runtime tests found
 
@@ -122,3 +125,11 @@ These are kind-on-GitHub-Actions limits, not image problems:
   the disk.
 - **Rate limits.** Lookups of Flux releases on `api.github.com` use the job's token, since
   parallel jobs share the anonymous rate limit.
+
+### Large tests
+
+A compat file with `large: true` runs in the weekly `compat.yml` schedule (Sunday 06:00 UTC)
+and when named in a manual run, not on pull requests: GitLab's dozen pods need more memory
+and time (`timeout:` in seconds; the job gets 90 minutes) than a pull request should wait
+for. Mattermost, MinIO and the MinIO operator have no kind test: their operator or server
+images stay on Iron Bank, which CI has no credentials for.
