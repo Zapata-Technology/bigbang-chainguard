@@ -1,0 +1,8 @@
+# Istio's egress gateway (Big Bang istioEgressGateway) beside istiod: the gateway's proxy
+# and its wait job on the org's images.
+images: {}
+test:
+  enable: [istioCRDs, istiod, istioEgressGateway]
+  expect: [istio-proxy]
+  debug:
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image"

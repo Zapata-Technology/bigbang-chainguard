@@ -1,0 +1,18 @@
+# GitLab (webservice, sidekiq, gitaly, shell, registry, kas, toolbox) with its bundled
+# PostgreSQL and Redis, objects on SeaweedFS. Large: weekly and on demand only (compat.yml),
+# it needs more memory than a pull request's runner reliably has.
+images: {}
+test:
+  large: true
+  timeout: 3300
+  enable: [addons.gitlab]
+  namespaces: [gitlab]
+  setup:
+    - python3 compat/support/seaweedfs.py gitlab
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+  expect: [gitlab-webservice, gitlab-sidekiq, gitaly, gitlab-shell, gitlab-container-registry, postgres, redis]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  debug:
+    - "kubectl -n gitlab get pods -o wide"
