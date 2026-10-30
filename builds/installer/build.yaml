@@ -14,7 +14,7 @@ packages:
 - bash
 - curl
 - git
-- helm
+- helm-3
 - python-3.13
 - py3.13-pyyaml
 context: ..
