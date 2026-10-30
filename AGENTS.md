@@ -62,8 +62,8 @@ python scripts/bb-install.py status                              # health of a d
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
 `compat/` or the installer), `update.yml` (nightly bot PR), `release.yml` (tags
-`<bigbang>-cg.<n>` on main when deployable files change), `codeql.yml` / `scorecard.yml`
-(public repo only).
+`<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
+vs Chainguard grype counts), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Playbooks
 
