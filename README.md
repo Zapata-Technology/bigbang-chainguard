@@ -86,31 +86,42 @@ which org). Regenerate them for yours with `bb-run.py` before deploying.
 ### The installer (recommended)
 
 ```bash
+chainctl auth login                                    # once; the installer makes the pull token with it
 python scripts/bb-install.py init                      # asks for your domain and packages, writes my-site.yaml
-export CGR_USERNAME=... CGR_PASSWORD=...               # a pull token: chainctl auth pull-token create \
-                                                       #   --repository=oci --parent=<org> --ttl=8760h
 python scripts/bb-install.py install --site my-site.yaml          # add --fips for FIPS images
-python scripts/bb-install.py status                    # any time: what's healthy and what isn't
+python scripts/bb-install.py status                    # any time: what's healthy, and the app URLs
 ```
+
+You need kubectl, helm, Python 3 with PyYAML, and a kubectl context for the cluster. No
+Iron Bank account is needed unless a package you enable keeps an Iron Bank image. Without
+chainctl, give the installer a pull token in `CGR_USERNAME` and `CGR_PASSWORD` instead
+(`chainctl auth pull-token create --repository=oci --parent=<org> --ttl=8760h` on another
+machine).
 
 `install` does every step below for you, in order, and is safe to re-run:
 
-1. **Preflight:** kubectl and helm, Kubernetes 1.34+, a default StorageClass for SeaweedFS,
-   the site file's domain, and which of your packages still need Iron Bank credentials.
-2. **Credentials:** the pull token from the environment (or a hidden prompt; leave them out of
-   the site file), kept in the cluster's `bigbang/bb-install` Secret so later runs don't ask.
-   They are never printed or put on a command line.
-3. **Flux**, with its pull secret.
-4. **SeaweedFS**, with random S3 keys generated once and reused, its two Secrets, and the
+1. **Chart:** Big Bang's chart at the overlays' version, from repo1's public git archive
+   (registry1's OCI copy needs an Iron Bank login). `--chart` takes a local chart or an
+   `oci://` ref instead.
+2. **Preflight:** kubectl and helm, Kubernetes 1.34+, a default StorageClass for SeaweedFS,
+   the site file's domain, and which of your packages still need Iron Bank credentials. On a
+   first install it shows the kubectl context and asks before touching it.
+3. **Credentials:** the pull token from the environment, the site file, or the cluster (a
+   previous run); failing those, a new one-year token made with your chainctl login (it asks
+   first; `--yes` doesn't). Kept in the cluster's `bigbang/bb-install` Secret so later runs
+   don't ask, never printed or put on a command line. `status` warns 30 days before a token
+   it made expires; `install --new-pull-token` replaces it.
+4. **Flux**, with its pull secret.
+5. **SeaweedFS**, with random S3 keys generated once and reused, its two Secrets, and the
    bucket Job (skipped with `OBJECT_STORAGE=minio`).
-5. **Big Bang**, with the overlays in the right order. Object-storage credentials go only to
+6. **Big Bang**, with the overlays in the right order. Object-storage credentials go only to
    the packages you enabled. Keycloak gets random admin and database passwords long
    enough for FIPS (Big Bang's defaults are too short), unless your site file sets them;
    the database one only on a fresh Keycloak, since PostgreSQL keeps the password it
    started with. Read the admin one with
    `kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}' | base64 -d`.
-6. **Wait and report:** every HelmRelease and pod, and any running image that isn't the
-   conversion's.
+7. **Wait and report:** every HelmRelease and pod, any running image that isn't the
+   conversion's, the gateway addresses to point DNS at, and each app's URL.
 
 Re-run `install` to upgrade after pulling new overlays, to switch to FIPS (`--fips`) or back,
 or to apply a changed site file. `uninstall` removes Big Bang, SeaweedFS and Flux; SeaweedFS's
@@ -143,6 +154,11 @@ helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" 
 
 With `OBJECT_STORAGE=minio`, skip `seaweedfs/` and `values-object-storage.yaml`: Big Bang
 deploys MinIO itself.
+
+The `oci://registry1.dso.mil` chart needs `helm registry login registry1.dso.mil` first.
+Without an Iron Bank account, use the chart from repo1's git archive
+(`https://repo1.dso.mil/big-bang/bigbang/-/archive/$BB/bigbang-$BB.tar.gz?path=chart`,
+unpacked; pass its `chart/` directory instead of the `oci://` ref and drop `--version`).
 
 The site file supplies pull credentials. Big Bang turns them into the `private-registry`
 secret in every package namespace. Never commit them:

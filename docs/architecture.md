@@ -111,11 +111,12 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs] --> CR[Credentials<br/>env or hidden prompt,<br/>kept in bigbang/bb-install]
+    CH[Chart<br/>repo1 git archive,<br/>no Iron Bank login] --> PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
+    PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>kept in bigbang/bb-install]
     CR --> FX[Flux<br/>pull secret + flux/]
     FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
     SW --> BB[Big Bang<br/>helm upgrade -i with<br/>the overlays below]
-    BB --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy]
+    BB --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
 ```
 
 The layering it uses:

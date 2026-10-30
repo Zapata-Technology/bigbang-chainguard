@@ -168,3 +168,123 @@ def test_keycloak_database_password_only_on_a_fresh_keycloak(monkeypatch):
     external = {"addons": {"keycloak": {"database": {"host": "db.example.com"}}}}
     monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
     assert install.keycloak_database_password(install.Credentials({}, False), external, on) is None
+
+
+def _chart_archive(version):
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as t:
+        for name, text in ((f"bigbang-{version}-chart/chart/Chart.yaml", f"name: bigbang\nversion: {version}\n"),
+                           (f"bigbang-{version}-chart/chart/values.yaml", "domain: x\n"),
+                           (f"bigbang-{version}-chart/../evil", "no")):
+            data = text.encode()
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            t.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+class _Response:
+    def __init__(self, data):
+        self.data = data
+
+    def read(self):
+        return self.data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_chart_comes_from_repo1_without_a_login_and_is_cached(tmp_path, monkeypatch):
+    calls = []
+
+    def urlopen(url, timeout):
+        calls.append(url)
+        return _Response(_chart_archive("9.8.7"))
+    monkeypatch.setattr(install.urllib.request, "urlopen", urlopen)
+    chart = install.fetch_chart("9.8.7", cache=str(tmp_path))
+    assert os.path.exists(os.path.join(chart, "values.yaml"))
+    assert calls == ["https://repo1.dso.mil/big-bang/bigbang/-/archive/9.8.7/bigbang-9.8.7.tar.gz?path=chart"]
+    assert not (tmp_path / "evil").exists()                      # paths that climb out are skipped
+    assert install.fetch_chart("9.8.7", cache=str(tmp_path)) == chart and len(calls) == 1
+
+
+def test_chart_with_the_wrong_version_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(install.urllib.request, "urlopen", lambda url, timeout: _Response(_chart_archive("1.0.0")))
+    with pytest.raises(SystemExit, match="holds chart version 1.0.0"):
+        install.fetch_chart("9.8.7", cache=str(tmp_path))
+
+
+def test_chart_ref_passes_oci_and_local_charts_through():
+    ns = install.argparse.Namespace
+    assert install.chart_ref(ns(chart="oci://r/bigbang", version="3.0.0")) == ("oci://r/bigbang", ["--version", "3.0.0"])
+    assert install.chart_ref(ns(chart="work/bigbang/chart", version="3.0.0")) == ("work/bigbang/chart", [])
+
+
+def test_pull_token_is_made_when_none_is_given(monkeypatch):
+    _Env(monkeypatch)
+    c = install.Credentials({}, False)
+    assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x", make=lambda: ("id", "tok")) == ("id", "tok")
+    assert c.values["cgr-created"]                                # so status can warn before it expires
+    _Env(monkeypatch, {"cgr-username": "u", "cgr-password": "p", "cgr-created": "2026-01-01"},
+         {"CGR_USERNAME": "env-u", "CGR_PASSWORD": "env-p"})
+    c = install.Credentials({}, False)
+    made = []
+    assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x",
+                      make=lambda: made.append(1)) == ("env-u", "env-p")
+    assert not made and "cgr-created" not in c.values             # someone else's token: no expiry warning
+
+
+def test_new_pull_token_replaces_the_stored_one(monkeypatch):
+    _Env(monkeypatch, {"cgr-username": "old", "cgr-password": "old", "cgr-created": "2026-01-01"})
+    c = install.Credentials({}, False)
+    c.forget("cgr")
+    assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x", make=lambda: ("new", "new")) == ("new", "new")
+
+
+def test_pull_token_output_is_parsed_not_printed(monkeypatch, capsys):
+    class P:
+        returncode = 0
+        stdout = '{"identity_id":"abc/123","token":"secret-token"}'
+    seen = []
+    monkeypatch.setattr(install.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or P())
+    assert install.chainctl_pull_token("example.com") == ("abc/123", "secret-token")
+    assert "--parent=example.com" in seen[0] and "--ttl=8760h" in seen[0]
+    assert "secret-token" not in capsys.readouterr().out
+
+
+def test_pull_token_maker_asks_unless_told_not_to(monkeypatch):
+    monkeypatch.setattr(install, "chainctl_logged_in", lambda: True)
+    monkeypatch.setattr(install, "chainctl_pull_token", lambda org: ("id", "tok"))
+    assert install.pull_token_maker("o", interactive=False, ask=True)() is None   # can't ask: don't create
+    assert install.pull_token_maker("o", interactive=False, ask=False)() == ("id", "tok")
+    monkeypatch.setattr("builtins.input", lambda q: "n")
+    assert install.pull_token_maker("o", interactive=True, ask=True)() is None
+    monkeypatch.setattr(install, "chainctl_logged_in", lambda: False)
+    assert install.pull_token_maker("o", interactive=False, ask=False)() is None
+
+
+def test_pull_token_expiry_note():
+    day = 86400
+    start = install.time.mktime(install.time.strptime("2026-01-01", "%Y-%m-%d"))
+    state = {"cgr-created": "2026-01-01"}
+    assert install.pull_token_note(state, today=start + 100 * day) == ""
+    assert "expires in 15 days" in install.pull_token_note(state, today=start + 350 * day)
+    assert "expired" in install.pull_token_note(state, today=start + 400 * day)
+    assert install.pull_token_note({}) == ""
+
+
+def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
+    import json as _json
+    vs = {"items": [{"spec": {"hosts": ["grafana.example.com", "*.example.com"]}}]}
+    svc = {"items": [{"metadata": {"name": "public-ingressgateway"}, "spec": {"type": "LoadBalancer"},
+                      "status": {"loadBalancer": {"ingress": [{"ip": "203.0.113.5"}]}}}]}
+    monkeypatch.setattr(install, "kubectl", lambda *a, **k: _json.dumps(vs if "virtualservice" in a else svc))
+    install.access_report({"keycloak-admin-password": "never-shown"})
+    out = capsys.readouterr().out
+    assert "https://grafana.example.com" in out and "203.0.113.5" in out and "*.example.com" not in out
+    assert "never-shown" not in out and "keycloak-admin-password" in out

@@ -70,7 +70,8 @@ def credentials():
 
 def run_installer(a, test, out):
     """Install with bb-install.py from the regenerated overlays in `out`: a site file
-    from the test's packages and values, credentials only through the environment."""
+    from the test's packages and values, credentials only through the environment, and
+    the chart the way a user gets it (no --chart: downloaded from repo1)."""
     chart = os.path.join(a.bigbang, "chart")
     values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
     deep_merge(values, test.get("values", {}) or {})
@@ -83,7 +84,7 @@ def run_installer(a, test, out):
         env.update(BUILD_REGISTRY_USERNAME=os.environ.get("GHCR_USER", "x"),
                    BUILD_REGISTRY_PASSWORD=os.environ["GHCR_TOKEN"])
     base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
-    install = base + ["install", "--site", site, "--chart", chart, "--small-cluster", "--yes",
+    install = base + ["install", "--site", site, "--small-cluster", "--yes",
                       "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
     print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
     rc = subprocess.run(install, env=env, cwd=ROOT).returncode

@@ -119,7 +119,8 @@ The user-facing path is `scripts/bb-install.py`; keep it and the README's "Doing
 commands in step. Cluster helpers it shares with the kind harness live in
 `scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
 kind; `tests/test_install.py` covers its decisions without a cluster. A new credential or
-generated value goes in the `bigbang/bb-install` Secret through `Credentials`, never on a
+generated value goes in the `bigbang/bb-install` Secret through `Credentials` (a pull token it
+makes with chainctl too: `chainctl_pull_token` captures the output), never on a
 command line or in output.
 
 ### Change an image this repo builds
@@ -139,6 +140,8 @@ builds on the PR and pushes on merge.
 - **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
   `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
   monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).
+- **registry1's OCI copy of the Big Bang chart needs an Iron Bank login**; repo1's git
+  archive of the same tag doesn't. `bb-install.py` downloads the archive (`fetch_chart`).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
 - **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database
