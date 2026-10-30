@@ -69,6 +69,10 @@ packages:
           provider: aws
           bucket: "{bucket:velero}"
           config: {region: "{region}", s3ForcePathStyle: "true", s3Url: "{endpoint}"}
+      # The chart's placeholder snapshot location has an empty credential; Flux keeps the
+      # nulls and Velero's CRD rejects them (compat/velero.yaml). S3 holds backups only:
+      # no volume snapshot locations.
+      addons.velero.values.upstream.configuration.volumeSnapshotLocation: []
     credentials: [addons.velero.values.upstream.credentials.secretContents.cloud]
     buckets: [velero]
 

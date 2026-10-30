@@ -49,6 +49,7 @@ addons:
               s3Url: http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333
             name: default
             provider: aws
+          volumeSnapshotLocation: []
 tempo:
   objectStorage:
     bucket: bigbang-tempo

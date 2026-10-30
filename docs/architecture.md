@@ -26,15 +26,21 @@ flowchart LR
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
-    DJ --> C[bb-convert.py<br/>map + pick org tags]
+    F --> SC[bb-scan.py<br/>sh scripts that need bash,<br/>empty config defaults]
+    MAP -- scan_reviewed --> SC
+
+    DJ --> C[bb-convert.py<br/>map + pick org tags,<br/>overrides, post-renderers]
     MAP --> C
     ORG --> C
     BY --> C
+    OS[OBJECT_STORAGE<br/>seaweedfs or minio] --> C
     C --> OV[overlays/values-chainguard.yaml<br/>overlays/values-chainguard-fips.yaml]
+    C --> OSO[overlays/values-object-storage.yaml<br/>seaweedfs/ + seaweedfs-fips/]
     C --> FX[flux/ + flux-fips/]
     C --> DOC[docs/images.md<br/>docs/required-images.md]
 
     OV --> V[bb-verify.py<br/>render again: every image<br/>is the org's, a build,<br/>or documented Iron Bank]
+    OSO --> V
     FX --> V
 ```
 
@@ -46,7 +52,11 @@ flowchart LR
   Iron Bank pins. It writes overrides at those same value paths, so the chart's own templates
   produce the Chainguard reference.
 - **Verification** renders everything again with the overlays, and fails on any image that
-  isn't converted, built here, or documented as staying on Iron Bank.
+  isn't converted, built here, or documented as staying on Iron Bank. With SeaweedFS it
+  also fails if any MinIO is still deployed.
+- **The scan** reads every package chart for things a new image name can't fix: shell
+  code run by `sh` that needs bash, and empty defaults written into an app's config.
+  Each finding must be reviewed in `mapping.yaml` (section 8).
 
 ## 2. Picking a tag
 
@@ -133,8 +143,9 @@ sequenceDiagram
     N->>N: newest Big Bang tag? fetch, discover
     N->>N: re-read Iron Bank recipes, re-pin org digests
     N->>N: bb-convert + bb-verify (standard, FIPS)
-    N->>PR: open bot/bigbang-update
-    PR->>CI: unit tests, discovery, verify; build + smoke-test images
+    N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
+    N->>PR: open bot/bigbang-update, report in the body
+    PR->>CI: unit tests, discovery, scan, verify, signatures;<br/>build + smoke-test images
     CI-->>PR: checks
     PR->>M: merge (you)
     M->>B: push to main
@@ -145,23 +156,40 @@ sequenceDiagram
 deploys single packages on kind to prove they **run**, not just render, and checks
 every running image against the image policy. See [testing.md](testing.md).
 
+`bb-leftovers.py` checks each `{stays: ..., until: <name>}` image against Chainguard's
+catalog and your org. When Chainguard publishes one, the nightly report says so; add the
+repository to your org, and the next run converts it.
+
 ## 6. Object storage (SeaweedFS by default)
 
 ```mermaid
 flowchart LR
-    S3[(SeaweedFS S3<br/>or any S3 service)]
+    SET{"OBJECT_STORAGE<br/>flag, env or repo var, file"} -->|"seaweedfs (default)"| GEN[bb-convert.py writes<br/>values-object-storage.yaml<br/>seaweedfs/ + seaweedfs-fips/]
+    SET -->|"minio"| MIN["no files: Big Bang<br/>MinIO stays"]
+    subgraph site[Site, before Big Bang]
+        SEC["Secrets: private-registry,<br/>seaweedfs-s3 with s3.json identities"] --> KZ[kubectl apply -k seaweedfs/]
+        KZ --> SW[(SeaweedFS server on a PVC<br/>S3 on port 8333)]
+        KZ --> JOB[bucket Job<br/>bigbang-tempo, bigbang-thanos, ...]
+        JOB --> SW
+    end
+    GEN --> KZ
     subgraph bb[Big Bang packages]
         T[Tempo] & TH[Thanos] & MI[Mimir] & MM[Mattermost] & GL[GitLab] & VE[Velero]
         L[Loki<br/>with --with loki]
     end
-    T & TH & MI & MM & GL & VE & L --> S3
+    T & TH & MI & MM & GL & VE & L --> SW
     X[minio, minio-operator,<br/>bundled MinIO] -. turned off .- bb
 ```
 
-With `OBJECT_STORAGE=seaweedfs` (the default), `bb-convert.py` writes this overlay from
+With `OBJECT_STORAGE=seaweedfs` (the default), `bb-convert.py` writes the overlay from
 `object-storage.yaml`, plus `seaweedfs/` (SeaweedFS from your org's image, S3 auth from a
-Secret, a bucket Job). `OBJECT_STORAGE=minio` keeps Big Bang's own MinIO instead. Credentials
-stay in the site file, and `bb-verify.py` fails if any MinIO is still deployed.
+Secret, a bucket Job). `OBJECT_STORAGE=minio` keeps Big Bang's own MinIO and deletes those
+files. Credentials stay in the site file, and `bb-verify.py` fails if any MinIO is still
+deployed.
+
+Set credentials only for the packages you enable. Big Bang creates Mimir's credential
+Secret whenever its keys are set, even with Mimir off, and the install then fails on the
+missing `mimir` namespace.
 
 ## 7. Trust boundaries
 
@@ -185,5 +213,32 @@ flowchart LR
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
   digest, and each base image by digest.
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's
-  `main` branch and pull requests. GitHub Actions are pinned to commit SHAs, and runners are
-  hardened. See [SECURITY.md](../SECURITY.md).
+  `main` branch and pull requests. GitHub Actions are pinned to commit SHAs.
+- The CI, build and nightly runners block every outbound call they don't list
+  (harden-runner); the kind tests audit instead. CodeQL and Scorecard start once the repo
+  is public. See [SECURITY.md](../SECURITY.md).
+
+## 8. Where Iron Bank's and Chainguard's images behave differently
+
+Iron Bank builds most images on Red Hat UBI, where `/bin/sh` is bash. A Chainguard `-dev`
+image's `/bin/sh` is busybox. Big Bang's scripts sometimes say `sh` and use bash (arrays,
+here-strings), and those die on their first bash line. Separately, Flux renders some chart
+defaults differently from Helm 3. Neither shows up when rendering. `bb-scan.py` finds them
+in the charts; the kind tests found the first ones.
+
+```mermaid
+flowchart TD
+    SC[bb-scan.py over every package chart] --> Q{finding}
+    Q -->|"sh script needs bash, on an image we build"| B1["bigbang-base links sh to bash,<br/>as UBI does; smoke test checks it.<br/>Alloy upgrade job"]
+    Q -->|"wait script is #35;!/bin/sh with arrays"| B2[bash_wait_jobs: a Flux post-renderer<br/>runs each script with bash.<br/>Kyverno policies]
+    Q -->|"/bin/sh -c bash script on a Chainguard image"| B3["bash_commands: a post-renderer<br/>makes the command /bin/bash.<br/>Fortify keystore job"]
+    Q -->|"empty default written into the app config"| B4["overrides: the chart config<br/>template without it.<br/>Tempo opencensus receiver"]
+    B1 & B2 & B3 & B4 --> R["mapping.yaml scan_reviewed:<br/>each finding and how it is handled"]
+    R --> CI{CI: any finding<br/>not reviewed?}
+    CI -- yes --> FAIL[fail: review it]
+    CI -- no --> OK[pass]
+```
+
+A new Big Bang release that adds one of these fails CI on the nightly pull request, before
+any cluster runs it. The Tempo entry names the chart version its config template was copied
+from, so a new Tempo chart forces a fresh look at that copy.

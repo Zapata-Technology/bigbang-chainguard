@@ -1,0 +1,13 @@
+# Thanos with Prometheus, storing blocks in SeaweedFS through the object-storage overlay.
+images: {}
+test:
+  enable: [certManager, prometheusOperatorCRDs, monitoring, addons.thanos]   # as compat/monitoring.yaml
+  setup:
+    - python3 compat/support/seaweedfs.py thanos
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+  expect: [thanos]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
+  debug:
+    - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"

@@ -1,0 +1,5 @@
+# Fluent Bit shipping to Loki (its Big Bang destination when Elasticsearch is off).
+images: {}
+test:
+  enable: [loki, fluentbit]
+  expect: [fluent-bit]

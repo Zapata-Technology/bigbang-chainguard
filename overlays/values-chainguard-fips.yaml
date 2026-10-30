@@ -857,7 +857,7 @@ monitoring:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-alertmanager-fips
-            tag: 0.34.1
+            tag: 0.34.2
       crds:
         upgradeJob:
           image:

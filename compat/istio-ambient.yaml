@@ -1,0 +1,5 @@
+# Istio ambient data plane: the CNI node agent and ztunnel, from the org.
+images: {}
+test:
+  enable: [istioCRDs, istiod, istioCNI, ztunnel]
+  expect: [istio-install-cni, ztunnel]

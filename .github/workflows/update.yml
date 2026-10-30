@@ -35,10 +35,37 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - name: Harden the runner (Audit all outbound calls)
+      # Block every outbound call not listed (GitHub, PyPI, Chainguard, repo1/registry1,
+      # and what this workflow's tools download). A blocked call fails the step and
+      # shows up in the job's annotations: add the host here if it is expected.
+      - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            *.cgr.dev:443
+            *.r2.cloudflarestorage.com:443
+            api.github.com:443
+            cgr.dev:443
+            codeload.github.com:443
+            console-api.enforce.dev:443
+            dl.enforce.dev:443
+            files.pythonhosted.org:443
+            get.helm.sh:443
+            ghcr.io:443
+            github.com:443
+            issuer.enforce.dev:443
+            objects.githubusercontent.com:443
+            pipelines.actions.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            registry1.dso.mil:443
+            release-assets.githubusercontent.com:443
+            repo1.dso.mil:443
+            results-receiver.actions.githubusercontent.com:443
+            token.actions.githubusercontent.com:443
 
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
@@ -53,7 +80,7 @@ jobs:
           python-version: '3.12'
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
+        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978  # v0.4.0
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
@@ -97,6 +124,10 @@ jobs:
             python3 scripts/bb-convert.py 2>&1 || true
             python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs 2>&1 || true
             python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips 2>&1 || true
+            # A new Big Bang release can add bash-in-sh scripts or empty config defaults.
+            python3 scripts/bb-scan.py --pkgs work/pkgs --bigbang work/bigbang 2>&1 || true
+            # Iron Bank leftovers Chainguard now publishes (add them to the org).
+            python3 scripts/bb-leftovers.py 2>&1 || true
             echo '```'
           } > "${RUNNER_TEMP}/report.md"
           cat "${RUNNER_TEMP}/report.md" >> "$GITHUB_STEP_SUMMARY"

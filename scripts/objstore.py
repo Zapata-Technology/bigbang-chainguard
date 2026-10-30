@@ -97,6 +97,19 @@ def build(spec, t, extra):
     return overlay, creds, buckets, chosen
 
 
+def package_of(path):
+    """The Big Bang package a value path belongs to: addons.<pkg>.* or <pkg>.*."""
+    parts = path.split(".")
+    return parts[1] if parts[0] == "addons" else parts[0]
+
+
+def credentials_for(paths, packages):
+    """Only the credential paths of `packages`. Big Bang creates some packages' credential
+    Secrets whenever the keys are set (Mimir's, even with Mimir off), and the install then
+    fails on the missing namespace."""
+    return [p for p in paths if package_of(p) in packages]
+
+
 def credentials_template(paths, access="<access key>", secret="<secret key>"):
     """The credential values a site file sets; Velero's takes an AWS credentials file."""
     tree = {}

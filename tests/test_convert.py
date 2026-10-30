@@ -186,3 +186,64 @@ def test_group_members_share_one_patch():
     c = convert.Converter(m, FakeTags(tags), ib_tags={"gitlab/web": "v19.4.2-ubi", "gitlab/shell": "v14.57.3-ubi"})
     assert c.target("gitlab/web", "v19.4.2-ubi", "gitlab") == ("cgr.dev/example.com/web:19.4.3",
                                                                "cgr.dev/example.com/web-fips:19.4.3")
+
+
+def _generate(mapping, key="kyvernoPolicies"):
+    """generate() for one package with no images, so only the mapping's sections show."""
+    discovered = {"packages": {"pkg": {"key": key, "rendered": [], "values": []}}}
+    files, _ = convert.generate(discovered, {"images": {}, **mapping}, FakeTags({}), "3.35.1")
+    import yaml
+    return (yaml.safe_load(files["overlays/values-chainguard.yaml"]),
+            yaml.safe_load(files["overlays/values-chainguard-fips.yaml"]))
+
+
+def _patches(tree, *key):
+    for k in key:
+        tree = tree[k]
+    return [p for r in tree["postRenderers"] for p in r["kustomize"].get("patches", [])]
+
+
+def test_bash_wait_jobs_run_their_scripts_with_bash():
+    import json
+    for tree in _generate({"bash_wait_jobs": {"kyvernoPolicies": ["kp-wait-job"]}}):
+        [p] = _patches(tree, "kyvernoPolicies")
+        assert p["target"] == {"kind": "Job", "name": "kp-wait-job"}
+        [op] = json.loads(p["patch"])
+        assert op["op"] == "replace" and op["path"] == "/spec/template/spec/containers/0/command"
+        shell, flag, script = op["value"]
+        assert (shell, flag) == ("/bin/bash", "-c")
+        assert 'bash "./$script" || exit 1' in script and '[ -f "$script" ] || continue' in script
+
+
+def test_bash_commands_swap_sh_for_bash():
+    import json
+    ref = {"kind": "Job", "name": ".*-keystore-job", "container": "initContainers/1"}
+    for tree in _generate({"bash_commands": {"addons.fortify": [ref]}}, key="addons.fortify"):
+        [p] = _patches(tree, "addons", "fortify")
+        assert p["target"] == {"kind": "Job", "name": ".*-keystore-job"}
+        assert json.loads(p["patch"]) == [{"op": "replace", "value": "/bin/bash",
+                                           "path": "/spec/template/spec/initContainers/1/command/0"}]
+
+
+def test_plain_override_values_reach_both_overlays():
+    spec = {"upstream": {"config": "receivers: {{ omit .Values.r \"opencensus\" }}", "x": None}}
+    for tree in _generate({"overrides": {"pkg": spec}}, key="tempo"):
+        assert tree["tempo"]["values"]["upstream"] == spec["upstream"]
+
+
+def test_bash_wait_script_runs_sh_scripts_with_bash(tmp_path):
+    import shutil
+    import subprocess
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("no bash")
+    ok = tmp_path / "ok"
+    ok.mkdir()
+    (ok / "wait.sh").write_text('#!/bin/sh\nA=(x y)\necho "got ${A[1]}"\n', newline="\n")
+    p = subprocess.run([bash, "-c", convert.BASH_WAIT], cwd=ok, capture_output=True, text=True)
+    assert p.returncode == 0 and "got y" in p.stdout
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert subprocess.run([bash, "-c", convert.BASH_WAIT], cwd=empty).returncode == 0
+    (ok / "z.sh").write_text("exit 3\n", newline="\n")
+    assert subprocess.run([bash, "-c", convert.BASH_WAIT], cwd=ok, capture_output=True).returncode == 1

@@ -1,0 +1,18 @@
+# metrics-server (Big Bang's "auto": on only where the cluster has none; kind has none).
+images: {}
+test:
+  enable: [addons.metricsServer]
+  values:
+    addons:
+      metricsServer:
+        values:
+          upstream:
+            # kind's kubelets serve self-signed certificates; a real cluster's are signed
+            # by its CA. Test clusters only.
+            args: [--kubelet-insecure-tls]
+  expect: [metrics-server]
+  setup:
+    - sh compat/support/watch.sh metrics "kubectl -n kube-system logs deploy/metrics-server --tail=30"
+  debug:
+    - "kubectl top nodes"
+    - "cat $COMPAT_OUT/watch-metrics.log"

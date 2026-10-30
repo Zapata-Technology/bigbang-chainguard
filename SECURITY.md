@@ -48,8 +48,13 @@ boundaries.
   attestation.
 
 **The pipeline**
-- Workflow actions are pinned to commit SHAs. Dependabot proposes updates, and runners
-  are hardened with step-security/harden-runner.
+- Workflow actions are pinned to commit SHAs. Dependabot proposes updates.
+- step-security/harden-runner blocks every outbound call the CI, build and nightly
+  update workflows don't list (GitHub, PyPI, Chainguard, repo1/registry1, Sigstore, the
+  scanners' databases). The kind tests run it in audit mode: their cluster pulls images
+  from whichever registries a test needs.
+- `scripts/bb-scan.py` fails CI on shell code run by `sh` that needs bash, and on empty
+  chart defaults written into an app's config, until each is reviewed in `mapping.yaml`.
 - The Chainguard pull identity CI uses can only pull, and is trusted only for this repo's
   `main` branch and pull requests.
 - Pull credentials are never committed: sites supply them through `registryCredentials`.
@@ -59,5 +64,6 @@ boundaries.
 **Recommended repository settings** (an admin sets these)
 - Protect `main`: require the `verify` and `build` checks, and pull requests.
 - Turn on private vulnerability reporting and secret scanning push protection.
-- Once the repository is public: OpenSSF Scorecard and CodeQL, which on a private repository
-  need GitHub Advanced Security.
+- `codeql.yml` and `scorecard.yml` are in place and skip themselves while the repository is
+  private (CodeQL results need GitHub code security there; Scorecard scores public
+  repositories only). They start on their own once it is public.

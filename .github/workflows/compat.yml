@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
+      bigbang-key: ${{ steps.bb.outputs.key }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       - id: m
@@ -44,6 +45,32 @@ jobs:
           modes = ["standard", "fips"] if os.environ["FIPS"] == "true" else ["standard"]
           print("matrix=" + json.dumps({"include": [{"test": n, "mode": m} for n in names for m in modes]}))
           EOF
+
+      # Clone Big Bang once per version and share it through the Actions cache: ~50 test
+      # jobs cloning repo1.dso.mil at the same moment fail together when it has a bad
+      # minute (HTTP 503), and repo1 then sees one clone per Big Bang release, not ~50 a run.
+      - id: bb
+        run: echo "key=bigbang-chart-$(cat BIGBANG_VERSION)" >> "$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ steps.bb.outputs.key }}
+          lookup-only: true
+      - name: Fetch Big Bang (cache miss only)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          tag=$(cat BIGBANG_VERSION)
+          for i in 1 2 3 4 5 6; do   # repo1.dso.mil intermittently refuses GitHub runners
+            git clone -q --depth 1 --branch "$tag" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
+            rm -rf work/bigbang; sleep $((30 * i))
+          done
+          test -d work/bigbang/chart
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ steps.bb.outputs.key }}
 
   test:
     needs: plan
@@ -64,6 +91,9 @@ jobs:
       id-token: write
       packages: read
     steps:
+      # Audit only: the kind nodes pull every image a test needs through Docker's network,
+      # from whichever registries that test touches; a blocked pull would look like the
+      # image failure these tests exist to find. ci/builds/update run in block mode.
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a  # v2.13.1
         with:
@@ -104,18 +134,20 @@ jobs:
           ignore_failed_clean: true
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978
+        uses: chainguard-dev/setup-chainctl@be0acd273acf04bfdf91f51198327e719f6af978  # v0.4.0
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
-      - name: Fetch Big Bang
+      - name: Big Bang (from the plan job's cache)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ needs.plan.outputs.bigbang-key }}
+          fail-on-cache-miss: true
+
+      - name: Python packages
         run: |
           python3 -m pip install --quiet pyyaml
-          tag=$(cat BIGBANG_VERSION)
-          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
-            git clone -q --depth 1 --branch "$tag" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
-            rm -rf work/bigbang; sleep $((30 * i))
-          done
           test -d work/bigbang/chart
 
       - name: Deploy and check

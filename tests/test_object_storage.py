@@ -91,3 +91,20 @@ def test_minio_removes_the_seaweedfs_files():
     out = convert.object_storage_files("minio", "http://x:1", c, FakeTags({}), "3.35.1", files)
     assert out and all(v is None for v in out.values())
     assert "OBJECT_STORAGE=minio" in files["docs/images.md"]
+
+
+def test_credentials_only_for_enabled_packages():
+    import objstore
+    spec = objstore.load_spec()
+    _, paths, _, _ = objstore.build(spec, objstore.tokens(objstore.DEFAULT_ENDPOINT, "us-east-1", "bigbang"), set())
+    assert {objstore.package_of(p) for p in paths} >= {"tempo", "mimir", "velero"}
+    only = objstore.credentials_for(paths, ["tempo", "velero"])
+    assert only and {objstore.package_of(p) for p in only} == {"tempo", "velero"}
+    # Mimir's Secret is created whenever its keys are set, so they must not leak in.
+    assert not any(".mimir." in p for p in only)
+
+
+def test_package_of():
+    import objstore
+    assert objstore.package_of("addons.mimir.s3ObjectStorage.accessKey") == "mimir"
+    assert objstore.package_of("tempo.objectStorage.accessSecret") == "tempo"

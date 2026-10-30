@@ -181,7 +181,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | monitoring | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.94.0 | prometheus-config-reloader:0.94.2 | prometheus-config-reloader-fips:0.94.2 | prometheus-config-reloader: Iron Bank v0.94.0 -> newest 0.94 patch; prometheus-config-reloader-fips: Iron Bank v0.94.0 -> newest 0.94 patch |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-operator:v0.94.0 | prometheus-operator:0.94.2 | prometheus-operator-fips:0.94.2 | prometheus-operator: Iron Bank v0.94.0 -> newest 0.94 patch; prometheus-operator-fips: Iron Bank v0.94.0 -> newest 0.94 patch |
-| monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.1 | prometheus-alertmanager:0.34.1 | prometheus-alertmanager-fips:0.34.1 |  |
+| monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.1 | prometheus-alertmanager:0.34.1 | prometheus-alertmanager-fips:0.34.2 | prometheus-alertmanager-fips: Iron Bank v0.34.1 -> newest 0.34 patch |
 | monitoring | ironbank/opensource/prometheus/blackbox_exporter:v0.28.0 | prometheus-blackbox-exporter:0.29.1 | prometheus-blackbox-exporter-fips:0.29.1 | prometheus-blackbox-exporter: MINOR AHEAD: org has no 0.28.x; using 0.29.1 (Iron Bank v0.28.0); prometheus-blackbox-exporter-fips: MINOR AHEAD: org has no 0.28.x; using 0.29.1 (Iron Bank v0.28.0) |
 | monitoring | ironbank/opensource/prometheus/node-exporter:v1.12.1 | prometheus-node-exporter:1.12.1 | prometheus-node-exporter-fips:1.12.1 |  |
 | monitoring | ironbank/opensource/prometheus/prometheus:v3.14.0 | prometheus:3.14.0 | prometheus-fips:3.14.0 |  |

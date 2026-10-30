@@ -286,7 +286,8 @@ and verification accepts them.
 ## How the conversion works
 
 [docs/architecture.md](docs/architecture.md) has diagrams of the pipeline, the builds,
-how the overlays layer at deploy time, the nightly update, and the trust boundaries.
+how the overlays layer at deploy time, the nightly update, object storage, the trust
+boundaries, and where Iron Bank's and Chainguard's images behave differently.
 
 ```
 scripts/bb-fetch.py     clone Big Bang at BIGBANG_VERSION + every package at its pinned tag
@@ -298,7 +299,11 @@ scripts/bb-convert.py   map each Iron Bank image (mapping.yaml + orgs/<org>.yaml
                                                            -> overlays/, flux*/, docs/
 scripts/bb-verify.py    render again with the overlays: every image must be an org image
                         (a -fips one with --fips) or a documented Iron Bank image
+scripts/bb-scan.py      read every package chart for sh scripts that need bash and empty
+                        defaults written into an app's config; each must be in mapping.yaml
+                        scan_reviewed
 scripts/bb-run.py       all of the above, in order
+scripts/bb-leftovers.py which `stays ... until` images Chainguard now publishes (nightly report)
 ```
 
 Value paths are found automatically from each chart's computed values:

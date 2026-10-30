@@ -25,6 +25,47 @@ def setting(name, arg=None):
     return lines[0] if lines else ""
 
 
+# mapping.yaml's sections and image-entry options. A key not listed here is a typo (or a
+# new feature that needs adding here, in bb-convert.py and in the README); load_mapping
+# refuses it instead of silently ignoring it.
+MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
+                    "bash_wait_jobs", "bash_commands", "post_renderers", "ignore", "scan_reviewed"}
+IMAGE_OPTIONS = {
+    "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
+    "stays": str, "until": str, "build": str, "ref": str, "tag": str, "note": str,
+    "fallback": str, "strict": bool, "group": str, "same_patch": str, "version_from": str,
+}
+# One of these says where the image goes; the rest only adjust it.
+IMAGE_TARGETS = {"cg", "stays", "build", "ref"}
+
+
+def validate_mapping(mapping, source="mapping.yaml"):
+    """Raise ValueError listing every unknown section, unknown option, wrong type, or image
+    entry with no target (cg, stays, build or ref)."""
+    problems = [f"unknown section {k!r}" for k in mapping if k not in MAPPING_SECTIONS]
+    for ib, m in (mapping.get("images") or {}).items():
+        if isinstance(m, str):
+            continue
+        if not isinstance(m, dict):
+            problems.append(f"images.{ib}: expected a Chainguard name or a mapping, got {m!r}")
+            continue
+        for k, v in m.items():
+            if k not in IMAGE_OPTIONS:
+                problems.append(f"images.{ib}: unknown option {k!r}")
+            elif not isinstance(v, IMAGE_OPTIONS[k]):
+                problems.append(f"images.{ib}.{k}: {v!r} has the wrong type")
+        if not IMAGE_TARGETS & set(m):
+            problems.append(f"images.{ib}: needs one of {', '.join(sorted(IMAGE_TARGETS))}")
+        if m.get("fallback") not in (None, "ironbank"):
+            problems.append(f"images.{ib}.fallback: only 'ironbank' is supported")
+    for job in (mapping.get("bash_commands") or {}).values():
+        for ref in job:
+            if set(ref) != {"kind", "name", "container"}:
+                problems.append(f"bash_commands entry {ref!r}: needs exactly kind, name, container")
+    if problems:
+        raise ValueError(f"{source}:\n  " + "\n  ".join(problems))
+
+
 def load_mapping(org, path=None, overlays=()):
     """mapping.yaml with orgs/<org>.yaml (that org's own choices) and then each of
     `overlays` (e.g. compat/<test>.yaml) applied over it.
@@ -33,11 +74,14 @@ def load_mapping(org, path=None, overlays=()):
     image; its other sections are merged in (a compat file's `test` section is not
     part of the mapping and is dropped).
     """
-    mapping = yaml.safe_load(open(path or os.path.join(ROOT, "mapping.yaml")))
+    path = path or os.path.join(ROOT, "mapping.yaml")
+    mapping = yaml.safe_load(open(path, encoding="utf-8"))
+    validate_mapping(mapping, path)
     org_file = os.path.join(ROOT, "orgs", f"{org}.yaml")
     for p in ([org_file] if org and os.path.exists(org_file) else []) + list(overlays):
-        local = yaml.safe_load(open(p)) or {}
+        local = yaml.safe_load(open(p, encoding="utf-8")) or {}
         local.pop("test", None)
+        validate_mapping(local, p)
         mapping["images"].update(local.pop("images", {}) or {})
         deep_merge(mapping, local)
     return mapping
