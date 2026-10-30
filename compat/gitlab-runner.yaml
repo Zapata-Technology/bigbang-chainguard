@@ -4,12 +4,15 @@ test:
   large: true
   timeout: 3300
   enable: [addons.gitlab, addons.gitlabRunner]
-  namespaces: [gitlab, gitlab-runner]
+  namespaces: [gitlab, gitlab-runner, gitlab-deps]
   setup:
     - python3 compat/support/seaweedfs.py gitlab
+    # GitLab's chart needs an external PostgreSQL and Redis since v10.
+    - python3 compat/support/gitlab-deps.py
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
+    - $COMPAT_OUT/site-gitlab.yaml
   expect: [gitlab-runner, gitlab-webservice]
   debug:
     - "kubectl -n gitlab-runner logs deploy/gitlab-runner --tail=40"

@@ -84,7 +84,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | installer-signatures (new) | `--verify-signatures enforce`: Kyverno policy for Chainguard signatures | Policy Ready, a signed org image admitted, an unverifiable one refused |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
-| gitlab (new, large) | GitLab with bundled PostgreSQL and Redis, objects on SeaweedFS | Weekly and on demand (`large: true`): too big for a pull request's runner |
+| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`): too big for a pull request's runner |
 | gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
 
 ## What the runtime tests found
