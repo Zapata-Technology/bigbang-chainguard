@@ -79,7 +79,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | thanos (new) | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
 | velero (new) | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
 | istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
-| installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak | Generated S3 keys and Keycloak password |
+| installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
 
 ## What the runtime tests found
 

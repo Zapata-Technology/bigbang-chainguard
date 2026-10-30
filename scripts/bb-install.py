@@ -14,7 +14,8 @@
                      --delete-data), Flux
 
 `install` is safe to re-run: it is also how you upgrade, switch to FIPS (--fips) or
-back, and apply a changed site file. It deploys what this checkout's overlays were
+back, and apply a changed site file. Big Bang's chart comes from repo1's public git archive
+(no Iron Bank login); --chart takes a local chart or an oci:// ref instead. It deploys what this checkout's overlays were
 generated for (the org and object storage are read from their headers), so regenerate
 them first (bb-run.py) if you changed mapping.yaml or the org.
 
@@ -22,9 +23,9 @@ Credentials never go in the site file or on a command line, and are never printe
 is taken from the first of: the environment, the site file's registryCredentials, the
 cluster (a previous run keeps them in the bigbang/bb-install Secret), or a hidden prompt.
 
-  CGR_USERNAME, CGR_PASSWORD     cgr.dev pull token. Create one (valid up to a year) with
-                                 chainctl auth pull-token create --repository=oci
-                                   --parent=<org> --ttl=8760h
+  CGR_USERNAME, CGR_PASSWORD     cgr.dev pull token. Without one, and logged in to chainctl,
+                                 `install` makes a one-year token itself (asks first unless
+                                 --yes); --new-pull-token replaces the stored one
   BUILD_REGISTRY_USERNAME, BUILD_REGISTRY_PASSWORD
                                  only if the images this repo builds are private
   REGISTRY1_USERNAME, REGISTRY1_PASSWORD
@@ -34,6 +35,7 @@ cluster (a previous run keeps them in the bigbang/bb-install Secret), or a hidde
 """
 import argparse
 import getpass
+import io
 import json
 import os
 import re
@@ -41,10 +43,15 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
+import urllib.request
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    sys.exit("PyYAML is missing: pip install pyyaml")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -55,8 +62,11 @@ from bbcommon import ROOT, deep_merge, load_mapping, running_image_problems, spl
 
 NAMESPACE = "bigbang"
 STATE_SECRET = "bb-install"            # credentials and install mode, kept in the cluster
-CHART = "oci://registry1.dso.mil/bigbang/bigbang"
+# registry1's OCI copy of the chart needs an Iron Bank login; repo1's git archive doesn't.
+CHART_ARCHIVE = "https://repo1.dso.mil/big-bang/bigbang/-/archive/{v}/bigbang-{v}.tar.gz?path=chart"
+CHART_CACHE = os.path.join(ROOT, "work", "charts")
 MIN_KUBERNETES = (1, 34)               # Big Bang's chart requires it
+PULL_TOKEN_DAYS = 365                  # chainctl's longest pull token (8760h)
 
 
 def say(msg):
@@ -65,6 +75,11 @@ def say(msg):
 
 def step(title):
     say(f"\n== {title}")
+
+
+def confirm(question, default):
+    answer = input(f"{question} [{'Y/n' if default else 'y/N'}] ").strip().lower()
+    return default if not answer else answer.startswith("y")
 
 
 # ---------------------------------------------------------------- what to deploy
@@ -107,8 +122,48 @@ class Checkout:
 
 
 def chart_ref(a):
-    return (a.chart, []) if a.chart and not a.chart.startswith("oci://") else \
-        (a.chart or CHART, ["--version", a.version])
+    """(chart, extra helm args): --chart as given, else Big Bang's chart from repo1."""
+    if a.chart and a.chart.startswith("oci://"):
+        return a.chart, ["--version", a.version]
+    return a.chart or fetch_chart(a.version), []
+
+
+def fetch_chart(version, cache=CHART_CACHE):
+    """Big Bang's chart at <version> from repo1's public git archive, kept in work/charts."""
+    dest = os.path.join(cache, f"bigbang-{version}")
+    chart = os.path.join(dest, "chart")
+    if os.path.exists(os.path.join(chart, "Chart.yaml")):
+        return chart
+    say(f"downloading Big Bang {version}'s chart from repo1.dso.mil")
+    error = None
+    for attempt in range(3):   # repo1 intermittently refuses connections
+        try:
+            with urllib.request.urlopen(CHART_ARCHIVE.format(v=version), timeout=120) as r:
+                data = r.read()
+            break
+        except OSError as e:
+            error = e
+            time.sleep(5 * (attempt + 1))
+    else:
+        raise SystemExit(f"could not download Big Bang {version}'s chart from repo1.dso.mil ({error}); "
+                         "pass --chart <path to bigbang/chart> or --chart oci://registry1.dso.mil/bigbang/bigbang")
+    part = dest + ".part"
+    shutil.rmtree(part, ignore_errors=True)
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as t:
+        for m in t.getmembers():
+            rel = m.name.split("/")[1:]   # drop the archive's top directory
+            if not m.isfile() or not rel or ".." in rel or m.name.startswith("/"):
+                continue
+            out = os.path.join(part, *rel)
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            with open(out, "wb") as fh:
+                fh.write(t.extractfile(m).read())
+    got = (yaml.safe_load(open(os.path.join(part, "chart", "Chart.yaml"), encoding="utf-8")) or {}).get("version")
+    if str(got) != version:
+        raise SystemExit(f"repo1's archive for {version} holds chart version {got}")
+    shutil.rmtree(dest, ignore_errors=True)
+    os.replace(part, dest)
+    return chart
 
 
 def chart_defaults(a):
@@ -164,13 +219,20 @@ class Credentials:
         self.interactive = interactive
         self.values = dict(self.stored)
 
-    def registry(self, key, registry, env_user, env_pass, why, required=True):
-        """(username, password) for a registry, or None when it's optional and not given."""
+    def registry(self, key, registry, env_user, env_pass, why, required=True, make=None):
+        """(username, password) for a registry, or None when it's optional and not given.
+        `make` creates credentials when none are found (a chainctl pull token)."""
         user, pw = os.environ.get(env_user), os.environ.get(env_pass)
         if not (user and pw) and registry in self.site:
             user, pw = self.site[registry].get("username"), self.site[registry].get("password")
-        if not (user and pw):
+        if user and pw:
+            self.values.pop(f"{key}-created", None)   # not a token this installer made
+        else:
             user, pw = self.stored.get(f"{key}-username"), self.stored.get(f"{key}-password")
+        if not (user and pw) and make:
+            user, pw = make() or (None, None)
+            if user and pw:
+                self.values[f"{key}-created"] = time.strftime("%Y-%m-%d")
         if not (user and pw) and self.interactive:
             say(f"{registry}: {why}")
             user = input(f"  {registry} username{'' if required else ' (Enter to skip)'}: ").strip()
@@ -197,6 +259,12 @@ class Credentials:
         self.values["s3-access-key"], self.values["s3-secret-key"] = access, secret
         return access, secret
 
+    def forget(self, key):
+        """Drop stored credentials for `key` (to replace them)."""
+        for k in [k for k in self.stored if k.startswith(f"{key}-")]:
+            self.stored.pop(k)
+            self.values.pop(k, None)
+
     def generated(self, key, make):
         """A value generated once and kept (e.g. Keycloak's admin password)."""
         if not self.values.get(key):
@@ -213,6 +281,62 @@ class Credentials:
                     fh.write(v)
                 args.append(f"--from-file={k}={f}")
             apply_secret(NAMESPACE, STATE_SECRET, "generic", *args)
+
+
+def chainctl_logged_in():
+    if not shutil.which("chainctl"):
+        return False
+    p = subprocess.run(["chainctl", "auth", "status", "-o", "json"], capture_output=True, text=True)
+    try:
+        return p.returncode == 0 and json.loads(p.stdout).get("valid") is True
+    except ValueError:
+        return False
+
+
+def chainctl_pull_token(org):
+    """(username, password) of a new one-year cgr.dev pull token for <org>, made with the
+    user's chainctl login. The output is captured, never printed."""
+    p = subprocess.run(["chainctl", "auth", "pull-token", "create", "--repository=oci", f"--parent={org}",
+                        f"--ttl={PULL_TOKEN_DAYS * 24}h", f"--name=bb-install-{time.strftime('%Y%m%d-%H%M%S')}",
+                        "--description=Big Bang image pulls (bigbang-chainguard bb-install.py)", "-o", "json"],
+                       capture_output=True, text=True)
+    if p.returncode:
+        raise SystemExit(f"chainctl couldn't create a pull token for {org} (exit {p.returncode})")
+    try:
+        d = json.loads(p.stdout)
+        return d["identity_id"], d["token"]
+    except (ValueError, KeyError):
+        raise SystemExit("chainctl's pull-token output wasn't the expected JSON; set CGR_USERNAME and CGR_PASSWORD")
+
+
+def pull_token_maker(org, interactive, ask):
+    """make= for Credentials.registry: a chainctl pull token, if chainctl is logged in and
+    (when `ask`) the user agrees."""
+    def make():
+        if not chainctl_logged_in():
+            return None
+        if ask and not (interactive and confirm(f"No cgr.dev pull token given. Create a one-year token for {org} "
+                                                "with your chainctl login?", default=True)):
+            return None
+        say("creating a cgr.dev pull token with chainctl (kept in the cluster, not printed)")
+        return chainctl_pull_token(org)
+    return make
+
+
+def pull_token_note(state, today=None):
+    """A line when the pull token this installer made expires within 30 days."""
+    created = state.get("cgr-created")
+    if not created:
+        return ""
+    try:
+        start = time.mktime(time.strptime(created, "%Y-%m-%d"))
+    except ValueError:
+        return ""
+    left = int((start + PULL_TOKEN_DAYS * 86400 - (today or time.time())) // 86400)
+    if left > 30:
+        return ""
+    return (f"the cgr.dev pull token made on {created} {'expired' if left < 0 else f'expires in {left} days'}: "
+            "re-run bb-install.py install --new-pull-token")
 
 
 # ---------------------------------------------------------------- preflight
@@ -306,12 +430,21 @@ def install(a):
         say(f"note: {n}")
     if problems:
         raise SystemExit("\nnot installing:\n  " + "\n  ".join(problems))
+    interactive = sys.stdin.isatty() and not a.yes
+    context = (kubectl("config", "current-context", check=False) or "").strip() or "(no context)"
+    say(f"cluster: kubectl context {context}")
+    if interactive and read_secret(NAMESPACE, STATE_SECRET) is None and \
+            not confirm(f"Install Big Bang on {context}?", default=False):
+        raise SystemExit("not installing (--yes skips this question)")
 
     step("credentials")
-    creds = Credentials(site, interactive=sys.stdin.isatty() and not a.yes)
+    creds = Credentials(site, interactive=interactive)
+    if a.new_pull_token:
+        creds.forget("cgr")
     cgr = creds.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD",
                          "a Chainguard pull token (chainctl auth pull-token create --repository=oci "
-                         f"--parent={co.org} --ttl=8760h)")
+                         f"--parent={co.org} --ttl=8760h)",
+                         make=pull_token_maker(co.org, interactive, ask=not (a.yes or a.new_pull_token)))
     registries = [("cgr.dev", *cgr)]
     build = _build_registry_host(co)
     if build:
@@ -457,12 +590,38 @@ def status_report(co, fips, problems=(), failed=False):
         say(f"  {p}")
     for p in problems:
         say(f"PROBLEM: {p}")
-    behind = deployed_version_note(co)
-    if behind:
-        say(behind)
+    state = read_secret(NAMESPACE, STATE_SECRET) or {}
+    for note in (deployed_version_note(co), pull_token_note(state)):
+        if note:
+            say(note)
+    access_report(state)
     healthy = not (failed or bad or unhealthy or policy)
     say(f"\n{'HEALTHY' if healthy else 'NOT HEALTHY'}: {len(hrs) - bad}/{len(hrs)} HelmReleases ready")
     return 0 if healthy else 1
+
+
+def access_report(state):
+    """Where the apps are: the gateways' external addresses (DNS for the domain points
+    there) and each VirtualService host."""
+    out = kubectl("get", "virtualservice", "-A", "-o", "json", check=False)
+    hosts = sorted({h for v in (json.loads(out)["items"] if out else []) for h in v["spec"].get("hosts", [])
+                    if "." in h and "*" not in h})
+    out = kubectl("get", "service", "-n", "istio-gateway", "-o", "json", check=False)
+    gateways = []
+    for s in json.loads(out)["items"] if out else []:
+        addrs = [i.get("ip") or i.get("hostname") for i in s.get("status", {}).get("loadBalancer", {}).get("ingress", [])]
+        if s["spec"].get("type") == "LoadBalancer":
+            gateways.append(f"{s['metadata']['name']}: {', '.join(a for a in addrs if a) or 'no external address yet'}")
+    if not (hosts or gateways):
+        return
+    step("where to find it")
+    for g in gateways:
+        say(f"  gateway {g} (point the domain's DNS here)")
+    for h in hosts:
+        say(f"  https://{h}")
+    if state.get("keycloak-admin-password"):
+        say(f"  Keycloak admin password: kubectl -n {NAMESPACE} get secret {STATE_SECRET} "
+            "-o jsonpath='{.data.keycloak-admin-password}' | base64 -d")
 
 
 def deployed_version_note(co):
@@ -586,13 +745,17 @@ def main():
     p = sub.add_parser("install", help="install or upgrade")
     p.add_argument("--site", required=True)
     p.add_argument("--fips", action="store_true", help="FIPS images (re-run without it to switch back)")
-    p.add_argument("--chart", help=f"Big Bang chart: a local path, or an OCI ref (default {CHART})")
+    p.add_argument("--chart", help="Big Bang chart: a local path or an oci:// ref (default: downloaded from "
+                                   "repo1's git archive, no Iron Bank login needed)")
     p.add_argument("--version", help="Big Bang chart version (default: the overlays')")
     p.add_argument("--timeout", type=int, default=2700, help="seconds to wait for the packages (default 2700)")
     p.add_argument("--no-wait", action="store_true")
     p.add_argument("--small-cluster", action="store_true",
                    help="lower Flux's CPU/memory requests (kind or another small test cluster)")
-    p.add_argument("--yes", action="store_true", help="never prompt (credentials must be in the environment)")
+    p.add_argument("--yes", action="store_true", help="never prompt (credentials from the environment, the "
+                                                      "cluster, or a pull token made with your chainctl login)")
+    p.add_argument("--new-pull-token", action="store_true",
+                   help="replace the stored cgr.dev pull token with a new one from chainctl")
     sub.add_parser("status", help="what's running and what isn't")
     p = sub.add_parser("uninstall", help="remove Big Bang, SeaweedFS and Flux")
     p.add_argument("--delete-data", action="store_true", help="also SeaweedFS's volume and the stored keys")
