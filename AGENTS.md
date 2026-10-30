@@ -131,6 +131,12 @@ must run), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug
 (commands that must exit 0), `installer: true` with `installer_args`. Unknown keys fail
 `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
+### Disconnected sites
+`scripts/bb-airgap.py` writes the bundle (chart, rendered Flux, bare git clones, images.txt);
+`bb-install.py --git-mirror/--registry-mirror` installs from the site's copies
+(`mirrored_checkout` rewrites `cgr.dev/<org>` and the build registry, keeping headers). The
+tooling never copies or pushes images: that is the site's step (repo rule 2).
+
 ### Add a cluster-side setting to the installer
 Settings applied after Big Bang (TLS, the signature policy) follow one pattern: a
 `*_choice` that reads the flag or the remembered value from `Credentials`, a manifest

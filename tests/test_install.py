@@ -454,3 +454,17 @@ def test_signature_policy_matches_what_ci_checks():
     assert keyless["subjectRegExp"] == bbcommon.signature_identity("0123abc")
     assert install.signature_policy("example.com", None, "audit")["spec"]["rules"][0]["verifyImages"][0][
         "failureAction"] == "Audit"
+
+
+def test_registry_mirror_rewrites_images_not_headers(tmp_path):
+    co = install.Checkout(ROOT)
+    m = install.mirrored_checkout(co, "registry.site.example/bb/")
+    text = open(m.overlays(False)[0], encoding="utf-8").read()
+    assert f"cgr.dev/{co.org}/" not in text and "registry.site.example/bb/" in text
+    assert m.org == co.org and m.version == co.version                       # header kept
+    assert "- registry.site.example/bb\n" in text                             # Kyverno allow list
+    build = install._build_registry(co)
+    if build:
+        assert build + "/" not in text
+    flux = open(os.path.join(m.root, "flux", "kustomization.yaml"), encoding="utf-8").read()
+    assert "newName: registry.site.example/bb/flux-" in flux
