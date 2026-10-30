@@ -62,7 +62,9 @@ sys.path.insert(0, HERE)
 import objstore  # noqa: E402
 from bbcluster import (apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret,  # noqa: E402
                        report, sh, wait_ready)
-from bbcommon import ROOT, deep_merge, load_mapping, running_image_problems, split_ref  # noqa: E402
+from bbcommon import (ROOT, SIGNATURE_ISSUERS, deep_merge, load_mapping, running_image_problems,  # noqa: E402
+                       signature_identity, split_ref)
+from orgtags import REGISTRY  # noqa: E402
 
 NAMESPACE = "bigbang"
 STATE_SECRET = "bb-install"            # credentials and install mode, kept in the cluster
@@ -207,6 +209,11 @@ def fetch_chart(version, cache=CHART_CACHE):
     shutil.rmtree(dest, ignore_errors=True)
     os.replace(part, dest)
     return chart
+
+
+def chart(a):
+    say(fetch_chart(a.version or Checkout(a.overlays).version))
+    return 0
 
 
 def chart_defaults(a):
@@ -516,6 +523,7 @@ def install(a):
     keycloak_password = creds.generated("keycloak-admin-password", lambda: secrets.token_urlsafe(24))
     keycloak_db_password = keycloak_database_password(creds, site, enabled)
     tls = tls_choice(a, creds, site, enabled)
+    signatures, org_id = signature_choice(a, creds, enabled)
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
@@ -577,6 +585,9 @@ def install(a):
     if tls:
         step(f"TLS for *.{site['domain']}")
         gateway_tls(site["domain"], tls, creds.values.get("tls-issuer"), wait=900)
+    if signatures != "off" or (creds.stored.get("signatures") or "off") != "off":
+        step("image signatures")
+        cluster_signatures(co.org, org_id, signatures, wait=900)
 
     if a.no_wait:
         return 0
@@ -845,23 +856,94 @@ def gateway_tls(domain, mode, issuer, wait):
         kubectl("-n", "istio-gateway", "delete", "certificate", GATEWAY_CERT, "--ignore-not-found", check=False)
         say(f"the public gateway serves {'your certificate' if mode == 'own' else 'the site file certificate'}")
         return True
-    manifest = yaml.safe_dump_all(tls_manifests(domain, mode, issuer))
-    end = time.time() + wait
-    while True:
-        ready = kubectl("get", "crd", "certificates.cert-manager.io", check=False) and \
-            kubectl("get", "namespace", "istio-gateway", check=False)
-        # cert-manager's webhook refuses objects until it is up: keep trying.
-        if ready:
-            sh("kubectl", "apply", "-f", "-", stdin=manifest, check=False, capture=True)
-            if kubectl("-n", "istio-gateway", "get", "certificate", GATEWAY_CERT, check=False):
-                break
-        if time.time() > end:
-            say("warning: cert-manager wasn't ready to issue the gateway certificate; re-run install")
-            return False
-        time.sleep(15)
+    if not apply_when_ready(tls_manifests(domain, mode, issuer), "certificates.cert-manager.io", "istio-gateway",
+                            ("-n", "istio-gateway", "get", "certificate", GATEWAY_CERT), wait):
+        say("warning: cert-manager wasn't ready to issue the gateway certificate; re-run install")
+        return False
     say(f"cert-manager issues *.{domain} from {'a self-signed CA' if mode == 'self-signed' else issuer} "
         f"into istio-gateway/{GATEWAY_CERT}")
     return True
+
+
+def apply_when_ready(docs, crd, namespace, check, wait):
+    """Apply `docs` once Big Bang has installed `crd` and made `namespace` (never pre-create
+    it: Helm won't adopt it), retrying while the package's admission webhook comes up,
+    until `kubectl <check>` finds the result or `wait` seconds pass."""
+    manifest = yaml.safe_dump_all(docs)
+    end = time.time() + wait
+    while True:
+        if kubectl("get", "crd", crd, check=False) and kubectl("get", "namespace", namespace, check=False):
+            sh("kubectl", "apply", "-f", "-", stdin=manifest, check=False, capture=True)
+            if kubectl(*check, check=False):
+                return True
+        if time.time() > end:
+            return False
+        time.sleep(15)
+
+
+# ---------------------------------------------------------------- signatures
+
+SIGNATURE_POLICY = "bb-install-chainguard-signatures"
+
+
+def signature_choice(a, creds, enabled):
+    """off, audit or enforce (remembered), and the org ID signatures must be under."""
+    if a.verify_signatures:
+        creds.values["signatures"] = a.verify_signatures
+    if a.org_id:
+        creds.values["org-id"] = a.org_id
+    mode = creds.values.get("signatures", "off")
+    if mode != "off" and "kyverno" not in enabled:
+        raise SystemExit(f"--verify-signatures {mode} uses Kyverno: leave kyverno on, or pass --verify-signatures off")
+    return mode, creds.values.get("org-id") or os.environ.get("CHAINGUARD_ORG_ID")
+
+
+def signature_policy(org, org_id, mode):
+    """A Kyverno ClusterPolicy: every Pod image from cgr.dev/<org> needs Chainguard's
+    keyless signature (the same signers bb-signatures.py accepts in CI). Audit records
+    failures in policy reports; Enforce refuses the Pod."""
+    return {"apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy",
+            "metadata": {"name": SIGNATURE_POLICY, "annotations": {
+                "policies.kyverno.io/title": "Chainguard image signatures",
+                "policies.kyverno.io/description": f"Images from cgr.dev/{org} must carry Chainguard's signature"
+                                                   + (f" under org {org_id}" if org_id else "") + "."}},
+            "spec": {"background": False, "webhookTimeoutSeconds": 30, "rules": [{
+                "name": "chainguard-signature",
+                "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+                "verifyImages": [{
+                    "imageReferences": [f"{REGISTRY}/{org}/*"],
+                    "failureAction": "Enforce" if mode == "enforce" else "Audit",
+                    "mutateDigest": False, "verifyDigest": False, "required": True,
+                    # Big Bang puts its pull secret in every package namespace, Kyverno's too.
+                    "imageRegistryCredentials": {"secrets": ["private-registry"]},
+                    "attestors": [{"entries": [{"keyless": {
+                        "issuerRegExp": SIGNATURE_ISSUERS, "subjectRegExp": signature_identity(org_id),
+                        "rekor": {"url": "https://rekor.sigstore.dev"}}}]}]}]}]}}
+
+
+def cluster_signatures(org, org_id, mode, wait):
+    if mode == "off":
+        kubectl("delete", "clusterpolicy", SIGNATURE_POLICY, "--ignore-not-found", check=False)
+        return True
+    if not apply_when_ready([signature_policy(org, org_id, mode)], "clusterpolicies.kyverno.io", "kyverno",
+                            ("get", "clusterpolicy", SIGNATURE_POLICY), wait):
+        say("warning: Kyverno wasn't ready for the signature policy; re-run install")
+        return False
+    say(f"Kyverno checks Chainguard's signature on cgr.dev/{org} images ({mode}"
+        + (f", org ID {org_id}" if org_id else ", any Chainguard signer: pass --org-id to require your org") + ")")
+    return True
+
+
+def signature_problem(state):
+    """Why the signature policy isn't working, or ''."""
+    if state.get("signatures", "off") == "off":
+        return ""
+    out = kubectl("get", "clusterpolicy", SIGNATURE_POLICY, "-o", "json", check=False)
+    if not out:
+        return f"no ClusterPolicy {SIGNATURE_POLICY}: re-run install"
+    ready = {c["type"]: c for c in json.loads(out).get("status", {}).get("conditions", [])}.get("Ready", {})
+    return "" if ready.get("status") == "True" else \
+        f"signature policy not ready: {ready.get('message', 'no status')[:200]}"
 
 
 def tls_problem(state):
@@ -922,10 +1004,12 @@ def status_report(co, fips, problems=(), failed=False):
         if note:
             say(note)
     tls = tls_problem(state)
-    if tls:
-        say(f"PROBLEM: {tls}")
+    signature = signature_problem(state)
+    for p in (tls, signature):
+        if p:
+            say(f"PROBLEM: {p}")
     access_report(state)
-    healthy = not (failed or bad or unhealthy or policy or tls)
+    healthy = not (failed or bad or unhealthy or policy or tls or signature)
     say(f"\n{'HEALTHY' if healthy else 'NOT HEALTHY'}: {len(hrs) - bad}/{len(hrs)} HelmReleases ready")
     return 0 if healthy else 1
 
@@ -1109,6 +1193,11 @@ def main():
     p.add_argument("--gitops", metavar="DIR",
                    help="instead of helm: write DIR (Big Bang's HelmRelease and the values) to commit to your "
                         "git repo, and apply it; credentials stay in a cluster Secret")
+    p.add_argument("--verify-signatures", choices=["off", "audit", "enforce"],
+                   help="a Kyverno policy requiring Chainguard's signature on cgr.dev/<org> images "
+                        "(remembered; default off)")
+    p.add_argument("--org-id", help="Chainguard org ID signatures must be under (chainctl iam organizations "
+                                    "list; default $CHAINGUARD_ORG_ID, else any Chainguard signer)")
     p.add_argument("--plan", action="store_true",
                    help="show what would change (version, FIPS, packages, image tags) and stop")
     p.add_argument("--git-mirror", metavar="URL",
@@ -1116,6 +1205,8 @@ def main():
                         "packages; remembered, \"\" turns it off")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
+    p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
+    p.add_argument("--version", help="Big Bang version (default: the overlays')")
     sub.add_parser("status", help="what's running and what isn't")
     p = sub.add_parser("rollback", help="return the bigbang release to an earlier revision")
     p.add_argument("--to", type=int, help="revision (default: the one before the current)")
@@ -1126,7 +1217,7 @@ def main():
     p.add_argument("--keep-flux", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     a = ap.parse_args()
-    return {"init": init, "install": install, "status": status, "rollback": rollback,
+    return {"init": init, "install": install, "chart": chart, "status": status, "rollback": rollback,
             "uninstall": uninstall}[a.cmd](a)
 
 

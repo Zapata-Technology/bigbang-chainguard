@@ -18,21 +18,14 @@ exact image a cluster would pull.
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from orgtags import REGISTRY, org_name  # noqa: E402
 
-# Org images are signed by Chainguard's issuer, under the org's ID; Chainguard's public
-# images are signed from GitHub Actions in its chainguard-images organization.
-ISSUERS = r"^https://(issuer\.enforce\.dev|token\.actions\.githubusercontent\.com)$"
-
-
-def identity(org_id):
-    org = re.escape(org_id) if org_id else r"[0-9a-f]+"
-    return rf"^(https://issuer\.enforce\.dev/{org}/|https://github\.com/chainguard-images/)"
+from bbcommon import SIGNATURE_ISSUERS as ISSUERS  # noqa: E402
+from bbcommon import signature_identity as identity  # noqa: E402
 
 
 def images(paths, prefix):

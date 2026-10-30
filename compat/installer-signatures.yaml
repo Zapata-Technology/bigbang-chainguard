@@ -1,0 +1,16 @@
+# `bb-install.py install --verify-signatures enforce`: a Kyverno ClusterPolicy requiring
+# Chainguard's keyless signature on every cgr.dev/<org> image. The policy must be Ready,
+# a Pod with a signed org image must be admitted, and one whose tag doesn't exist (so has
+# no signature to verify) must be refused.
+images: {}
+test:
+  installer: true
+  installer_args: [--verify-signatures, enforce]
+  enable: [kyverno]
+  namespaces: [kyverno]
+  expect: [kyverno]
+  check:
+    - kubectl wait clusterpolicy/bb-install-chainguard-signatures --for=condition=Ready --timeout=300s
+    - sh compat/support/signature-check.sh
+  debug:
+    - kubectl get clusterpolicy bb-install-chainguard-signatures -o yaml | tail -40

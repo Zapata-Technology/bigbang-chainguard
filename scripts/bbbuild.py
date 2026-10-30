@@ -91,7 +91,7 @@ def write_spec(name, spec, header):
 
 def run_checks(image, script, checks):
     """Run a bash script in the image and require each regex in `checks` ({label: regex}) to match."""
-    p = subprocess.run(["docker", "run", "--rm", image, "bash", "-c", "set -e; " + script],
+    p = subprocess.run(["docker", "run", "--rm", "--entrypoint", "bash", image, "-c", "set -e; " + script],
                        capture_output=True, text=True)
     out = p.stdout + p.stderr
     print("  " + out.strip().replace("\n", "\n  "))
@@ -131,7 +131,10 @@ def main(name, doc, generate, build_args, smoke_test):
 
     building = a.build or a.test or a.push
     org = org_name(a.org)
-    if building and not a.force and not any(isinstance(v, dict) and v.get("build") == name
+    spec_file = os.path.join(ROOT, "builds", name, "build.yaml")
+    standalone = os.path.exists(spec_file) and (yaml.safe_load(open(spec_file)) or {}).get("standalone")
+    # A standalone image (the installer) isn't a Big Bang image the mapping names.
+    if building and not a.force and not standalone and not any(isinstance(v, dict) and v.get("build") == name
                                             for v in load_mapping(org)["images"].values()):
         print(f"skipped: the mapping for {org} doesn't use builds/{name} (mapping.yaml or orgs/{org}.yaml)")
         return 0
@@ -147,7 +150,7 @@ def main(name, doc, generate, build_args, smoke_test):
         print(f"== {ref}", flush=True)
         args = {f"{k.upper()}_IMAGE": img[k] for k in ("base", "dev") if k in img}
         args.update(build_args(spec, variant))
-        cmd = ["docker", "build", "--pull", "-t", ref]
+        cmd = ["docker", "build", "--pull", "-t", ref, "-f", os.path.join(ROOT, "builds", name, "Dockerfile")]
         for k, v in args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         subprocess.run(cmd + [os.path.join(ROOT, "builds", spec.get("context", name))], check=True)

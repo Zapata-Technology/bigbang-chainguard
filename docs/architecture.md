@@ -104,6 +104,7 @@ flowchart LR
 | `bigbang-grafana-plugins` | `big-bang/grafana/grafana-plugins` | `grafana(-fips)` |
 | `bigbang-devops-tester` | `big-bang/devops-tester` | `kubectl(-fips)-dev` |
 | `bigbang-vault` | `hashicorp/vault` (adds curl) | `vault(-fips)-dev` |
+| `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 ## 4. Deploying: how the overlays layer
 
