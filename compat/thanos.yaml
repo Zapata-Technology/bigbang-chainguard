@@ -1,7 +1,7 @@
 # Thanos with Prometheus, storing blocks in SeaweedFS through the object-storage overlay.
 images: {}
 test:
-  enable: [monitoring, addons.thanos]
+  enable: [prometheusOperatorCRDs, monitoring, addons.thanos]   # monitoring needs the CRDs package
   setup:
     # Big Bang creates monitoring-objstore-secret in `monitoring` as part of its own
     # release, before Flux creates that namespace for the monitoring HelmRelease: a fresh

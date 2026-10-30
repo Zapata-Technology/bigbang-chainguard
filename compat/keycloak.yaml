@@ -15,5 +15,7 @@ test:
                   # bb-install.py generates a random one for real installs.
                   KEYCLOAK_ADMIN_PASSWORD: compat-keycloak-admin-not-a-secret
   expect: [keycloak, postgres]
+  setup:
+    - sh compat/support/watch.sh keycloak "kubectl -n keycloak logs keycloak-keycloak-0 --previous --tail=60 || kubectl -n keycloak logs keycloak-keycloak-0 --tail=60"
   debug:
-    - "kubectl -n keycloak logs statefulset/keycloak-keycloak --tail=40"
+    - "cat $COMPAT_OUT/watch-keycloak.log"

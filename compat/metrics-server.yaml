@@ -2,11 +2,17 @@
 images: {}
 test:
   enable: [addons.metricsServer]
+  values:
+    addons:
+      metricsServer:
+        values:
+          upstream:
+            # kind's kubelets serve self-signed certificates; a real cluster's are signed
+            # by its CA. Test clusters only.
+            args: [--kubelet-insecure-tls]
   expect: [metrics-server]
   setup:
-    - sh compat/support/watch.sh pullsecret "kubectl -n kube-system get secret private-registry -o name; kubectl -n kube-system get events --field-selector reason=FailedToRetrieveImagePullSecret -o name"
+    - sh compat/support/watch.sh metrics "kubectl -n kube-system logs deploy/metrics-server --tail=30"
   debug:
     - "kubectl top nodes"
-    - "cat $COMPAT_OUT/watch-pullsecret.log"
-    - "helm get manifest bigbang -n bigbang | grep -B2 -A8 'name: private-registry' | grep -A3 'namespace: kube-system'"
-    - "kubectl -n kube-system get secret private-registry -o jsonpath='{.metadata.labels}'"
+    - "cat $COMPAT_OUT/watch-metrics.log"
