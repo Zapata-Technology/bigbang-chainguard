@@ -35,6 +35,36 @@ boundaries.
 - The overlays set Big Bang's Kyverno `restrict-image-registries` allow list to exactly your
   org, your build registry and registry1.
 - Every image that stays on Iron Bank is documented with its reason in `docs/images.md`.
+- **Org images are pinned by digest.** Chainguard rebuilds images under the same tag; the
+  overlays pin each to the digest it had when they were generated (a Flux post-renderer),
+  so a rebuild reaches a cluster only through the nightly pull request, after the kind
+  tests run it. Images set inside custom resources (Kiali's CR, Istio's injected proxy)
+  and a repository a package uses at two tags stay on their tags.
+- **A pull request can't add an image with a fixable Critical CVE**: `ci.yml` scans every
+  image a change introduces (`bb-cve.py --changed-from`). `cve-report.yml` compares the
+  whole set against Iron Bank weekly.
+- **In the cluster**, `bb-install.py` adds a Kyverno policy checking Chainguard's signature
+  on every org image (audit by default when Kyverno is on; `--verify-signatures enforce`
+  refuses unsigned ones; `--org-id` requires your org). It needs Sigstore's public
+  services, so it's off for disconnected sites.
+
+**What you install**
+- Each release archive comes with its sha256 and a Sigstore bundle signed keylessly by
+  `release.yml`; the release notes show how to verify it with `cosign verify-blob`. The
+  signature is recorded in Sigstore's public transparency log.
+- The installer image is built FROM the org's images like the others, scanned, and (with
+  `SIGN_IMAGES=keyless`) signed with an SBOM.
+- The installer serves a self-signed certificate until you choose one, and `status` warns
+  about it: use `--tls-issuer` or `--tls-cert/--tls-key` in production.
+
+**Credentials in the cluster**
+- `bb-install.py` keeps the pull token, S3 keys and generated passwords (Keycloak admin and
+  database) in the Secret `bigbang/bb-install`, so re-runs don't ask again. Big Bang itself
+  copies the pull credentials into a `private-registry` Secret in every package namespace.
+- Limit who can read Secrets in `bigbang` (and the package namespaces) with RBAC, and turn
+  on encryption at rest for Secrets in your cluster's API server.
+- A pull token the installer made expires after a year (`status` warns 30 days ahead;
+  `install --new-pull-token` replaces it), and `uninstall --delete-data` deletes it.
 
 **What this repo builds**
 - Each build starts FROM your org's images, pinned by digest. Iron Bank's recipe is pinned
@@ -61,8 +91,10 @@ boundaries.
   The compat tests pass tokens through the environment, mask them, and delete the
   temporary files they write.
 
-**Recommended repository settings** (an admin sets these)
-- Protect `main`: require the `verify` and `build` checks, and pull requests.
+**Repository settings**
+- `main` is protected: pull requests and the `verify` check are required, force pushes and
+  deletion are refused (when the GitHub plan allows branch protection).
+- `SIGN_IMAGES=keyless` is set: pushed images are signed and carry an SBOM attestation.
 - Turn on private vulnerability reporting and secret scanning push protection.
 - `codeql.yml` and `scorecard.yml` are in place and skip themselves while the repository is
   private (CodeQL results need GitHub code security there; Scorecard scores public

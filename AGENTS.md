@@ -30,8 +30,9 @@ org-neutral.
 
 1. **Images come from the Chainguard org**, from `BUILD_REGISTRY` (images built here FROM
    the org), or stay on Iron Bank with a reason in `mapping.yaml`. Nothing else.
-2. **Exact tags**, never `latest`. No `global.imageRegistry` pointing at cgr.dev. Never
-   push to cgr.dev or mirror Chainguard images elsewhere.
+2. **Exact tags**, never `latest`, and org images pinned by digest (`Converter.digest_pins`:
+   a Flux post-renderer, so values keep the tag). No `global.imageRegistry` pointing at
+   cgr.dev. Never push to cgr.dev or mirror Chainguard images elsewhere.
 3. **Never hand-edit generated files** (`tests/test_repo_rules.py` checks their headers).
 4. **mapping.yaml is validated** (`bbcommon.validate_mapping`): an unknown section or
    option fails. A new option or section means adding it to `MAPPING_SECTIONS` /
@@ -169,6 +170,11 @@ builds on the PR and pushes on merge.
   own user (65532) and may keep files unreadable to others: Keycloak 26.8.1's
   `quarkus-application.dat` is 0770 65532/65532, so `overrides.keycloak` unsets runAsUser.
   A crash on the first file read after a Chainguard rebuild is this.
+- **Go refuses removed GODEBUG settings**: GitLab's chart sets `tlskyber=0`, which the Go
+  Chainguard builds with removed, so Gitaly, Shell and the registry died at start;
+  `overrides.gitlab` sets `GODEBUG=tlsmlkem=0`. Expect this for any chart that pins Go knobs.
+- **Nightly digest changes are normal**: Chainguard rebuilds images daily; the bot's pull
+  request then changes only digests, and the kind tests decide whether it merges.
 - **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.

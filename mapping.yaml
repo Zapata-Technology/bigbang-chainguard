@@ -267,6 +267,15 @@ overrides:
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+  gitlab:
+    # GitLab's chart sets GODEBUG=tlsmlkem=0,tlskyber=0 on every container unless the site
+    # sets GODEBUG. Chainguard builds Gitaly, GitLab Shell and the registry with a Go that
+    # removed tlskyber, and Go refuses to start with a removed setting ("fatal error:
+    # removed GODEBUG \"tlskyber\" set to old value", compat/gitlab.yaml). Keep the chart's
+    # intent (no ML-KEM key exchange) with the setting current Go has.
+    global:
+      extraEnv:
+        GODEBUG: tlsmlkem=0
   keycloak:
     # Big Bang's Keycloak chart runs as uid/gid 1000 (Iron Bank's keycloak user). Chainguard's
     # image has its own user, and its Keycloak files aren't readable by uid 1000 (since

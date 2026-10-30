@@ -1,7 +1,8 @@
 # Cuts a versioned release (<Big Bang version>-cg.<n>) when main changes what users
 # deploy: the overlays, Flux, SeaweedFS, the installer and the files it reads. The
-# release holds the archive to install from and notes with the image changes since the
-# previous release (scripts/release.py).
+# release holds the archive to install from, its sha256 and a keyless Sigstore signature
+# (verifiable against this workflow), and notes with the image changes since the previous
+# release (scripts/release.py). The signature is recorded in Sigstore's public log.
 name: Release
 
 on:
@@ -33,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # the tag and the release
+      id-token: write   # cosign keyless: the archive's signature names this workflow
     steps:
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
@@ -41,8 +43,13 @@ jobs:
           allowed-endpoints: >
             api.github.com:443
             files.pythonhosted.org:443
+            fulcio.sigstore.dev:443
             github.com:443
+            objects.githubusercontent.com:443
             pypi.org:443
+            rekor.sigstore.dev:443
+            release-assets.githubusercontent.com:443
+            tuf-repo-cdn.sigstore.dev:443
             uploads.github.com:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -54,6 +61,9 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
       - name: Release
         env:

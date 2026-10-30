@@ -924,12 +924,16 @@ SIGNATURE_POLICY = "bb-install-chainguard-signatures"
 
 
 def signature_choice(a, creds, enabled):
-    """off, audit or enforce (remembered), and the org ID signatures must be under."""
+    """off, audit or enforce (remembered), and the org ID signatures must be under. With
+    Kyverno on and nothing chosen, audit: an image Chainguard didn't sign shows up in
+    Kyverno's policy reports without stopping anything. Off by default when Kyverno is off
+    or the site is disconnected (--registry-mirror: no Sigstore to check against)."""
     if a.verify_signatures:
         creds.values["signatures"] = a.verify_signatures
     if a.org_id:
         creds.values["org-id"] = a.org_id
-    mode = creds.values.get("signatures", "off")
+    default = "audit" if "kyverno" in enabled and not getattr(a, "registry_mirror", None) else "off"
+    mode = creds.values.setdefault("signatures", default)
     if mode != "off" and "kyverno" not in enabled:
         raise SystemExit(f"--verify-signatures {mode} uses Kyverno: leave kyverno on, or pass --verify-signatures off")
     return mode, creds.values.get("org-id") or os.environ.get("CHAINGUARD_ORG_ID")
@@ -1077,7 +1081,9 @@ def access_report(state):
     for h in hosts:
         say(f"  https://{h}")
     if state.get("tls-mode") == "self-signed":
-        say(f"  TLS: self-signed; trust its CA: kubectl -n cert-manager get secret {SELF_SIGNED_CA} "
+        say("  WARNING: TLS is self-signed (the default, for test sites). For production, re-run install "
+            "with --tls-issuer <ClusterIssuer> or --tls-cert/--tls-key.")
+        say(f"  Until then, trust its CA: kubectl -n cert-manager get secret {SELF_SIGNED_CA} "
             "-o jsonpath='{.data.ca\\.crt}' | base64 -d > bigbang-ca.crt")
     if state.get("keycloak-admin-password"):
         say(f"  Keycloak admin password: kubectl -n {NAMESPACE} get secret {STATE_SECRET} "
@@ -1238,7 +1244,7 @@ def main():
                         "git repo, and apply it; credentials stay in a cluster Secret")
     p.add_argument("--verify-signatures", choices=["off", "audit", "enforce"],
                    help="a Kyverno policy requiring Chainguard's signature on cgr.dev/<org> images "
-                        "(remembered; default off)")
+                        "(remembered; default audit when Kyverno is on, off when disconnected)")
     p.add_argument("--org-id", help="Chainguard org ID signatures must be under (chainctl iam organizations "
                                     "list; default $CHAINGUARD_ORG_ID, else any Chainguard signer)")
     p.add_argument("--plan", action="store_true",

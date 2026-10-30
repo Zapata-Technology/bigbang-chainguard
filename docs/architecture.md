@@ -151,26 +151,35 @@ sequenceDiagram
     autonumber
     participant N as update.yml (nightly 03:00 UTC)
     participant PR as Pull request
-    participant CI as ci.yml + builds.yml
+    participant CI as ci.yml + builds.yml + compat.yml
     participant M as main
-    participant B as builds.yml (push)
-    participant G as BUILD_REGISTRY
+    participant B as builds.yml + release.yml (push)
+    participant G as BUILD_REGISTRY + GitHub release
 
     N->>N: newest Big Bang tag? fetch, discover
     N->>N: re-read Iron Bank recipes, re-pin org digests
-    N->>N: bb-convert + bb-verify (standard, FIPS)
+    N->>N: bb-convert (tags and today's digests) + bb-verify (standard, FIPS)
     N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
     N->>PR: open bot/bigbang-update, report in the body
-    PR->>CI: unit tests, discovery, scan, verify, signatures;<br/>build + smoke-test images
+    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images;<br/>build + smoke-test images; every package on kind
     CI-->>PR: checks
     PR->>M: merge (you)
     M->>B: push to main
-    B->>G: build, test, push (+ sign)
+    B->>G: build, scan, push (+ sign); tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```
 
-`compat.yml` is separate. It runs on pull requests that change `compat/`, or by hand, and
-deploys single packages on kind to prove they **run**, not just render, and checks
+Every org image is pinned to the digest its tag had when the overlays were generated
+(a Flux post-renderer swaps each pod image to `repo@sha256:...`; values keep the tag,
+which charts reuse in labels). Chainguard rebuilds images under the same tag, so without
+the pin a rebuild would reach clusters on the next pod restart, untested. With it, a
+rebuild arrives only as a new digest in the nightly pull request, which `compat.yml`
+deploys on kind before it merges.
+
+`compat.yml` runs on pull requests that change what clusters run (`overlays/`, `flux*/`,
+`mapping.yaml`, `orgs/`, `compat/`, the installer) and weekly with the large tests
+(GitLab), and deploys packages on kind to prove they **run**, not just render, checking
 every running image against the image policy. See [testing.md](testing.md).
+`cve-report.yml` compares Iron Bank's and Chainguard's images with grype every week.
 
 `bb-leftovers.py` checks each `{stays: ..., until: <name>}` image against Chainguard's
 catalog and your org. When Chainguard publishes one, the nightly report says so; add the
@@ -212,20 +221,36 @@ missing `mimir` namespace.
 ```mermaid
 flowchart LR
     subgraph trusted[What a cluster pulls]
-        CG[(cgr.dev/&lt;org&gt;<br/>Chainguard, signed)]
-        BR[(BUILD_REGISTRY<br/>built here, smoke-tested,<br/>optionally signed)]
+        CG[(cgr.dev/&lt;org&gt;<br/>Chainguard, signed,<br/>pinned by digest)]
+        BR[(BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed)]
         IBR[(registry1.dso.mil<br/>documented leftovers)]
+        SR[(site registry<br/>disconnected sites:<br/>copies of the above)]
     end
     K[Kyverno restrict-image-registries<br/>allow list = exactly these] --> trusted
+    S[Kyverno signature policy<br/>Chainguard's signature on<br/>cgr.dev/&lt;org&gt; images<br/>audit by default] --> CG
     subgraph build[What a build reads]
         IBRec[Iron Bank recipes<br/>pinned commit]
         Z[plugin zips / binaries<br/>sha256 or digest from<br/>Iron Bank's manifest]
         CGd[org -dev images<br/>pinned by digest]
     end
     build --> BR
+    subgraph user[What a user installs]
+        REL[release archive<br/>sha256 + Sigstore bundle<br/>naming release.yml]
+        INS[bigbang-installer image<br/>built FROM the org's images]
+    end
+    subgraph state[What the installer keeps]
+        SEC[Secret bigbang/bb-install<br/>pull token, S3 keys,<br/>generated passwords]
+    end
 ```
 
 - A cluster only pulls from the three registries Kyverno allows. The overlay sets that list.
+  With `bb-install.py --verify-signatures` (audit by default when Kyverno is on), Kyverno
+  also checks Chainguard's signature on every `cgr.dev/<org>` image a Pod runs.
+- Org images are pinned by digest (section 5), so what runs is what CI tested.
+- Releases are signed keylessly by `release.yml`; the release notes show the `cosign
+  verify-blob` command.
+- The installer keeps credentials in one Secret, `bigbang/bb-install`. Anyone who can read
+  Secrets in the `bigbang` namespace can read them (SECURITY.md, "Credentials in the cluster").
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
   digest, and each base image by digest.
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's

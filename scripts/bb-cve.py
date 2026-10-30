@@ -3,6 +3,7 @@
 Chainguard image that replaces it.
 
   bb-cve.py [--fips] [--ironbank] [--jobs 2] [--limit N] [-o report.md]
+  bb-cve.py --changed-from origin/main      (a pull request's gate)
 
 Reads docs/images.md (bb-convert.py's image map), scans every distinct image pair with
 grype, and writes a Markdown report: totals by severity, then one row per image with
@@ -10,6 +11,11 @@ both sides' counts. Iron Bank images need registry1 credentials in the Docker co
 without --ironbank (or without credentials) only the Chainguard side is scanned and the
 Iron Bank columns say so. Images that stay on Iron Bank and the images this repo builds
 are listed under their own headings. cve-report.yml runs this weekly.
+
+--changed-from <git ref>: only the Chainguard images (standard and FIPS) that docs/images.md
+names now and didn't at <ref>, scanned for fixable Critical CVEs; exit 1 if any has one.
+ci.yml runs it on pull requests, so the nightly update can't move to an image with a
+known, already-fixed critical vulnerability without someone deciding to.
 """
 import argparse
 import json
@@ -44,6 +50,32 @@ def image_pairs(text, fips=False):
         elif new:
             pairs.setdefault(f"{IRON_BANK}/{ib}", new if "/" in new.split(":")[0] else f"{prefix}/{new}")
     return sorted(pairs.items())
+
+
+def new_refs(old_text, new_text):
+    """Chainguard refs (standard and FIPS) in new_text's image map that old_text lacks."""
+    def refs(text):
+        out = set()
+        for fips in (False, True):
+            out |= {new for _, new in image_pairs(text, fips) if new}
+        return out
+    return sorted(refs(new_text) - refs(old_text))
+
+
+def gate(base):
+    """Fixable Critical CVEs in the images new since `base`: (lines, failed)."""
+    old = subprocess.run(["git", "show", f"{base}:docs/images.md"], cwd=ROOT, capture_output=True, text=True).stdout
+    refs = new_refs(old, open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read())
+    lines, failed = [f"{len(refs)} image(s) new since {base}"], False
+    for ref in refs:
+        p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "--fail-on", "critical", "-o", "table",
+                            "--quiet"], capture_output=True, text=True)
+        bad = p.returncode != 0
+        failed |= bad
+        lines.append(f"{'FIXABLE CRITICAL' if bad else 'ok'}  {ref}")
+        if bad:
+            lines += ["    " + ln for ln in (p.stdout or p.stderr).strip().splitlines()[:15]]
+    return lines, failed
 
 
 def counts(grype_json):
@@ -113,7 +145,12 @@ def main():
     ap.add_argument("--jobs", type=int, default=2, help="scans at once (each unpacks an image)")
     ap.add_argument("--limit", type=int, help="only the first N pairs (a quick try)")
     ap.add_argument("-o", "--out", help="write the report here (default: stdout)")
+    ap.add_argument("--changed-from", metavar="REF", help="gate: fixable Critical CVEs in images new since REF")
     a = ap.parse_args()
+    if a.changed_from:
+        lines, failed = gate(a.changed_from)
+        print("\n".join(lines))
+        return 1 if failed else 0
     pairs = image_pairs(open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read(), a.fips)
     if a.limit:
         pairs = pairs[:a.limit]

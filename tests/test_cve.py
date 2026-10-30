@@ -39,3 +39,9 @@ def test_report_totals_and_rows():
     assert "| ironbank/x/tempo:2.8.0 | 1 / 5 / 9 / 2 | cgr.dev/example.com/tempo:2.8.1 | 0 / 0 / 1 / 0 |" in text
     assert "error: unauthorized" in text and "## Still on Iron Bank" in text and "anchore/enterprise" in text
     assert "| Iron Bank | not scanned |" in cve.report(pairs, results, False, False)
+
+
+def test_new_refs_are_only_the_images_a_change_adds():
+    newer = MAP.replace("tempo:2.8.1 | tempo-fips:2.8.1", "tempo:2.8.2 | tempo-fips:2.8.2")
+    assert cve.new_refs(MAP, newer) == ["cgr.dev/example.com/tempo-fips:2.8.2", "cgr.dev/example.com/tempo:2.8.2"]
+    assert cve.new_refs(MAP, MAP) == []
