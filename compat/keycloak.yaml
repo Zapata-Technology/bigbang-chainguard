@@ -14,6 +14,16 @@ test:
                   # Keycloak's FIPS mode (BC-FIPS needs 14+ characters). Test-only value;
                   # bb-install.py generates a random one for real installs.
                   KEYCLOAK_ADMIN_PASSWORD: compat-keycloak-admin-not-a-secret
+            # FIPS also rejects the database password ("keycloak"): the PostgreSQL
+            # driver's SCRAM hashing needs 112+ bits. Keycloak's side and the bundled
+            # PostgreSQL's (which Big Bang hardcodes) must match.
+            database:
+              password: compat-keycloak-db-not-a-secret
+          postgresql:
+            global:
+              postgresql:
+                auth:
+                  password: compat-keycloak-db-not-a-secret
   expect: [keycloak, postgres]
   setup:
     - sh compat/support/watch.sh keycloak "kubectl -n keycloak logs keycloak-keycloak-0 --previous --tail=60 || kubectl -n keycloak logs keycloak-keycloak-0 --tail=60"
