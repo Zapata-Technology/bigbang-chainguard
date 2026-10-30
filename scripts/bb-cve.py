@@ -2,7 +2,7 @@
 """Compare known vulnerabilities: each Iron Bank image Big Bang deploys against the
 Chainguard image that replaces it.
 
-  bb-cve.py [--fips] [--ironbank] [--jobs 4] [--limit N] [-o report.md]
+  bb-cve.py [--fips] [--ironbank] [--jobs 2] [--limit N] [-o report.md]
 
 Reads docs/images.md (bb-convert.py's image map), scans every distinct image pair with
 grype, and writes a Markdown report: totals by severity, then one row per image with
@@ -63,8 +63,11 @@ def counts(grype_json):
 
 def scan(ref):
     """{severity: n}, or an error string."""
-    p = subprocess.run(["grype", f"registry:{ref}", "-o", "json", "--quiet"], capture_output=True, text=True,
-                       timeout=1800)
+    try:
+        p = subprocess.run(["grype", f"registry:{ref}", "-o", "json", "--quiet"], capture_output=True, text=True,
+                           timeout=1800)
+    except subprocess.TimeoutExpired:
+        return "timed out"
     if p.returncode:
         return (p.stderr.strip().splitlines() or ["grype failed"])[-1][:120]
     return counts(json.loads(p.stdout))
@@ -107,7 +110,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--fips", action="store_true", help="compare against the FIPS images")
     ap.add_argument("--ironbank", action="store_true", help="also scan the Iron Bank images (registry1 login)")
-    ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--jobs", type=int, default=2, help="scans at once (each unpacks an image)")
     ap.add_argument("--limit", type=int, help="only the first N pairs (a quick try)")
     ap.add_argument("-o", "--out", help="write the report here (default: stdout)")
     a = ap.parse_args()
@@ -116,8 +119,11 @@ def main():
         pairs = pairs[:a.limit]
     refs = sorted({new for _, new in pairs if new} | ({ib for ib, new in pairs if new} if a.ironbank else set()))
     print(f"scanning {len(refs)} images with {a.jobs} jobs", file=sys.stderr, flush=True)
+    results = {}
     with ThreadPoolExecutor(a.jobs) as pool:
-        results = dict(zip(refs, pool.map(scan, refs)))
+        for i, (ref, r) in enumerate(zip(refs, pool.map(scan, refs)), 1):
+            results[ref] = r
+            print(f"[{i}/{len(refs)}] {ref}: {cell(r)}", file=sys.stderr, flush=True)
     text = report(pairs, results, a.fips, a.ironbank)
     if a.out:
         open(a.out, "w", encoding="utf-8").write(text)
