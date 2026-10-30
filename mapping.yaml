@@ -267,6 +267,15 @@ overrides:
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+  keycloak:
+    # Big Bang's Keycloak chart runs as uid/gid 1000 (Iron Bank's keycloak user). Chainguard's
+    # image has its own user, and its Keycloak files aren't readable by uid 1000 (since
+    # the 2026-10-30 rebuild of 26.8.1: "AccessDeniedException ... quarkus-application.dat",
+    # compat/keycloak.yaml). Unset both so the container runs as the image's user;
+    # runAsNonRoot stays, and fsGroup keeps volumes writable.
+    upstream:
+      podSecurityContext: {runAsUser: null, runAsGroup: null}
+      securityContext: {runAsUser: null, runAsGroup: null}
   tempo:
     # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
     # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo

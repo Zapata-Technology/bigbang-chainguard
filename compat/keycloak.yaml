@@ -29,3 +29,7 @@ test:
     - sh compat/support/watch.sh keycloak "kubectl -n keycloak logs keycloak-keycloak-0 --previous --tail=60 || kubectl -n keycloak logs keycloak-keycloak-0 --tail=60"
   debug:
     - "cat $COMPAT_OUT/watch-keycloak.log"
+    # Who owns Keycloak's files in the image, and which user it runs as (the uid 1000
+    # vs image-user question in mapping.yaml overrides.keycloak).
+    - "kubectl -n keycloak get pod keycloak-keycloak-0 -o jsonpath='{.spec.securityContext} {.spec.containers[0].securityContext}{\"\n\"}'"
+    - "i=$(kubectl -n keycloak get sts keycloak-keycloak -o jsonpath='{.spec.template.spec.containers[0].image}'); docker create --name kc-files \"$i\" >/dev/null && docker export kc-files | tar -tvf - | grep -E 'lib/quarkus/quarkus-application.dat|etc/passwd$'; docker inspect -f 'image user: {{.Config.User}}' \"$i\"; docker rm kc-files >/dev/null"
