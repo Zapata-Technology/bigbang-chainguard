@@ -12,6 +12,10 @@ test:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
     - python3 compat/support/gitlab-deps.py
+    # Crash-looping pods restart before the report reads them: keep their last output.
+    - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
+    - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"
+    - sh compat/support/watch.sh registry "kubectl -n gitlab logs -l app=registry --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=registry --all-containers --tail=60"
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
@@ -19,4 +23,7 @@ test:
   expect: [gitlab-webservice, gitlab-sidekiq, gitaly, gitlab-shell, gitlab-container-registry, postgres, redis]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
   debug:
+    - "cat $COMPAT_OUT/watch-gitaly.log"
+    - "cat $COMPAT_OUT/watch-shell.log"
+    - "cat $COMPAT_OUT/watch-registry.log"
     - "kubectl -n gitlab get pods -o wide"
