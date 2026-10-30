@@ -1,7 +1,7 @@
 # Thanos with Prometheus, storing blocks in SeaweedFS through the object-storage overlay.
 images: {}
 test:
-  enable: [prometheusOperatorCRDs, monitoring, addons.thanos]   # monitoring needs the CRDs package
+  enable: [certManager, prometheusOperatorCRDs, monitoring, addons.thanos]   # as compat/monitoring.yaml
   setup:
     - python3 compat/support/seaweedfs.py thanos
   values_files:
