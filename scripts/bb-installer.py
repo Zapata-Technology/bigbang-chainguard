@@ -29,7 +29,7 @@ from bbcommon import ROOT  # noqa: E402
 
 NAME = "installer"
 IMAGE = "bigbang-installer"
-PACKAGES = ["bash", "curl", "git", "helm", "python-3.13", "py3.13-pyyaml"]
+PACKAGES = ["bash", "curl", "git", "helm-3", "python-3.13", "py3.13-pyyaml"]   # helm-3: what CI tests (Wolfi's helm is 4)
 
 
 def generate(a):
