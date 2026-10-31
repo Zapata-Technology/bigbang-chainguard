@@ -10,7 +10,7 @@
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
 # manual run with push=true does the same. With the SIGN_IMAGES variable set to
 # "keyless", each pushed image is signed with cosign keyless (GitHub OIDC) and gets
-# an SPDX SBOM attestation. Keyless signing records the image name and digest in
+# SPDX SBOM and SLSA provenance attestations. Keyless signing records the image name and digest in
 # the public Sigstore transparency log (Rekor); leave it unset to skip signing.
 name: Build - Big Bang images
 
@@ -138,7 +138,21 @@ jobs:
           # main builds only what the mapping uses, unless a manual run sets force (to publish
           # an image before the mapping switches to it, so its kind tests can pull it).
           [ "${{ github.event_name }}" = pull_request ] || [ "${{ inputs.force }}" = true ] && args+=(--force)
-          python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}"
+          # Chainguard's package repository sometimes refuses one fetch ("Permission denied",
+          # a network error): one more try then. Any other failure is real and fails now.
+          for try in 1 2; do
+            : > "${RUNNER_TEMP}/built.txt"
+            set +e
+            python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/build.log"
+            rc=${PIPESTATUS[0]}
+            set -e
+            [ "$rc" = 0 ] && break
+            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)" \
+                "${RUNNER_TEMP}/build.log"; then
+              exit "$rc"
+            fi
+            echo "::warning::transient package fetch failure; building once more"
+          done
           [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
 
       - name: Install grype
@@ -168,7 +182,14 @@ jobs:
         run: |
           while read -r image; do
             [ -n "$image" ] || continue
-            docker push "$image"
+            # GHCR refuses the first push to a new package now and then ("denied"), and
+            # takes it a little later.
+            for try in 1 2 3; do
+              docker push "$image" && break
+              [ "$try" = 3 ] && exit 1
+              echo "::warning::push of $image refused; trying again in 30s"
+              sleep 30
+            done
             docker inspect --format '{{index .RepoDigests 0}}' "$image" >> "${RUNNER_TEMP}/pushed.txt"
           done < "${RUNNER_TEMP}/built.txt"
           [ -s "${RUNNER_TEMP}/pushed.txt" ] && echo "pushed=true" >> "$GITHUB_OUTPUT" || true
@@ -182,7 +203,11 @@ jobs:
         id: syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
 
-      - name: Sign and attest an SBOM (cosign keyless)
+      # Each image gets a signature in both of cosign's formats: the Sigstore bundle cosign
+      # 3 writes by default, and the classic .sig tag that Kyverno's verifyImages (the
+      # installer's signature policy) and older cosign read. Then an SBOM and SLSA
+      # provenance (scripts/bb-provenance.py: run, commit and every pinned input).
+      - name: Sign, and attest an SBOM and provenance (cosign keyless)
         if: vars.SIGN_IMAGES == 'keyless' && steps.push.outputs.pushed == 'true'
         env:
           SYFT: ${{ steps.syft.outputs.cmd }}
@@ -190,7 +215,10 @@ jobs:
           while read -r image; do
             [ -n "$image" ] || continue
             "$SYFT" "$image" -o spdx-json="${RUNNER_TEMP}/sbom.spdx.json"
+            python3 scripts/bb-provenance.py "${{ matrix.name }}" "$image" -o "${RUNNER_TEMP}/provenance.json"
             cosign sign --yes "$image"
+            cosign sign --yes --new-bundle-format=false --use-signing-config=false "$image"
             cosign attest --yes --type spdxjson --predicate "${RUNNER_TEMP}/sbom.spdx.json" "$image"
-            echo "signed $image" >> "$GITHUB_STEP_SUMMARY"
+            cosign attest --yes --type slsaprovenance1 --predicate "${RUNNER_TEMP}/provenance.json" "$image"
+            echo "signed $image (SBOM, provenance)" >> "$GITHUB_STEP_SUMMARY"
           done < "${RUNNER_TEMP}/pushed.txt"

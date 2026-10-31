@@ -76,7 +76,9 @@ already build. `orgs/zapatatechnology.com.yaml` is an example.
   check then requires Chainguard's signature under your org.
 - `RELEASE_PAT` secret (optional): lets CI run on the nightly bot's pull requests.
 - `SIGN_IMAGES=keyless` repository variable (optional): signs the images this repo pushes
-  with cosign keyless and attaches an SBOM. The signatures go to the public Sigstore log.
+  with cosign keyless (in both cosign's bundle format and the classic `.sig` one Kyverno
+  reads) and attaches an SPDX SBOM and SLSA provenance (`scripts/bb-provenance.py`: the run,
+  the commit and every pinned input). The signatures go to the public Sigstore log.
 
 ## Deploy
 

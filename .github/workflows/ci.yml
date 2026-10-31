@@ -132,6 +132,15 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
+      # builds.yml signs only on main; check here, on the same cosign, that it takes every
+      # flag and predicate type builds.yml uses, so a cosign change can't break main's build.
+      - name: cosign takes builds.yml's signing flags
+        run: |
+          cosign sign --help | grep -q -- "--new-bundle-format"
+          cosign sign --help | grep -q -- "--use-signing-config"
+          cosign attest --help | grep -q "slsaprovenance1"
+          cosign version | head -3
+
       - name: Chainguard signatures on every org image
         env:
           CHAINGUARD_ORG_ID: ${{ vars.CHAINGUARD_ORG_ID }}
