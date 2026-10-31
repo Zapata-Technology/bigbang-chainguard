@@ -868,6 +868,9 @@ grafana:
         registry: ghcr.io/zapata-technology
         repository: bigbang-base
         tag: 2.1.0-kubectl1.36.6
+      grafana.ini:
+        plugins:
+          allow_loading_unsigned_plugins: redis-datasource
       image:
         registry: ghcr.io/zapata-technology
         repository: grafana-plugins
