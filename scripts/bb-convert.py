@@ -338,7 +338,7 @@ class Converter:
                         set_path(fips_vals, d["path"].split("."), t[1])
                     covered.add(ib_repo)
 
-    def overrides(self, release, spec, fips):
+    def overrides(self, release, spec, fips, tag=None):
         """Expand a mapping.yaml `overrides` block. Tokens:
           @repo:<name>            <name>, or <name>-fips in the FIPS overlay
           @tag:<name>:<version>   org tag of <name>(-fips) for <version> (same rules as images);
@@ -347,9 +347,13 @@ class Converter:
           @registry               cgr.dev/<org>
         """
         if isinstance(spec, dict):
-            return {k: self.overrides(release, v, fips) for k, v in spec.items()}
+            # A chart-wide tag (NeuVector's) belongs to every @repo below it: carry it down
+            # so those images are recorded for digest_pins() too.
+            if isinstance(spec.get("tag"), str) and spec["tag"].startswith("@tag:"):
+                tag = self.overrides(release, spec["tag"], fips)
+            return {k: self.overrides(release, v, fips, tag) for k, v in spec.items()}
         if isinstance(spec, list):
-            return [self.overrides(release, v, fips) for v in spec]
+            return [self.overrides(release, v, fips, tag) for v in spec]
         if not (isinstance(spec, str) and spec.startswith("@")):
             return spec
         if spec == "@registry":
@@ -364,6 +368,9 @@ class Converter:
                               f"no {name} tags in the org; FIPS overlay keeps the standard image"))
             name = base
         if kind == "repo":
+            if tag and not tag.startswith("@") and tag in (self.tags.tags(name) or []):
+                self.used.setdefault(release, {"standard": set(), "fips": set()})[
+                    "fips" if fips else "standard"].add(f"{self.cg}/{name}:{tag}")
             return name
         tags = self.tags.tags(name)
         if tags is None:
