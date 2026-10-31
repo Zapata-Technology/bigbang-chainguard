@@ -11,8 +11,3 @@ images:
   # The org's neuvector-manager-fips repo has no tags, so the FIPS overlay keeps the
   # standard manager (found by the signature check: manifest unknown).
   ironbank/neuvector/neuvector/manager: {cg: neuvector-manager, fips: null}
-  # Grafana comes from the signed build in Zapata-Technology/grafana-plugins (Key
-  # Vault signature, SBOM, SLSA provenance) instead of builds/grafana-plugins.
-  # Bump `tag` when that repo publishes a new Grafana; keep its build-specs.yaml
-  # digests equal to builds/grafana-plugins/build.yaml.
-  ironbank/big-bang/grafana/grafana-plugins: {ref: ghcr.io/zapata-technology/grafana-plugins, fips: ghcr.io/zapata-technology/grafana-plugins-fips, tag: "13.2.5", note: "signed build from Zapata-Technology/grafana-plugins"}
