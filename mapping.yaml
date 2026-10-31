@@ -14,6 +14,8 @@
 #     group: <name>        images that move together: all convert, or all stay on Iron Bank
 #     version_from: <ironbank path>  match the Iron Bank tag of another image (e.g. its release)
 #     same_patch: <name>   group members with the same name use one patch: the newest all have
+#     min_version: <M.m>   an Iron Bank tag on an older line takes the newest release instead
+#                          (end-of-life lines the org stops rebuilding)
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release)
@@ -165,7 +167,10 @@ images:
   # --- Shared building blocks ---
   # Big Bang's jobs run kubectl scripts with /bin/bash; Chainguard's kubectl has no
   # shell, its -dev variant has (compat/headlamp.yaml: wait job failed, then passed).
-  ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev}
+  # Vault pins kubectl 1.30, end of life: the org's 1.30 FIPS image had 19 Critical CVEs
+  # (cve-report 2026-10-30), and kubectl must be within one minor of the cluster
+  # (Kubernetes 1.34+). Below 1.34, use the newest release.
+  ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev, min_version: "1.34"}
   ironbank/opensource/postgres/postgresql: postgres
   ironbank/opensource/redis/redis8-slim: redis
   ironbank/opensource/nginx/nginx: nginx

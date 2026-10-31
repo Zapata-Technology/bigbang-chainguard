@@ -38,6 +38,7 @@ replacement must start the same way with the chart's values.
 | Big Bang's own build (base image plus files) | a builder; see `scripts/bb-base.py` |
 | Your org may not have it yet | add `fallback: ironbank`: it stays on Iron Bank until the org has a usable tag |
 | Must match Iron Bank's MAJOR.MINOR exactly | add `strict: true` |
+| Big Bang pins an end-of-life line (kubectl 1.30) | add `min_version: "1.34"`: older lines take the newest release |
 | Several images that must move together (GitLab) | the same `group: <name>` on each: all convert or all stay |
 
 Keep entries org-neutral. An exception that only applies to your org goes in

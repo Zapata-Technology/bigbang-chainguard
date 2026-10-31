@@ -99,3 +99,32 @@ boundaries.
 - `codeql.yml` and `scorecard.yml` are in place and skip themselves while the repository is
   private (CodeQL results need GitHub code security there; Scorecard scores public
   repositories only). They start on their own once it is public.
+
+## Known vulnerabilities
+
+From the weekly `cve-report.yml` run of 2026-10-30 (grype, unique CVE and package). Totals
+for 118 converted images: standard 29 Critical / 265 High, FIPS 48 Critical / 383 High.
+The Criticals come from a few images:
+
+| Image | Critical (std / FIPS) | Notes |
+|---|---|---|
+| `grafana-plugins` (built here) | 8 / 8 | Built FROM the org's Grafana with the plugin versions Iron Bank's manifest pins; newer plugin versions are the likely fix |
+| `commercial-gitlab-*-ee` (sidekiq, toolbox, webservice, geo-logcursor) | 3 each | Chainguard's image of GitLab's 19.4 release; the nightly run takes its rebuilds |
+| `bigbang-devops-tester` (built here) | 2 / 2 | Tools in Iron Bank's recipe; used only by Big Bang's test hooks |
+| `renovate` | 1 / 1 | The nightly run takes Chainguard's rebuilds |
+| `kubectl-fips:1.30.14-dev` (Vault's job) | - / 19 | Kubernetes 1.30 is end of life and the org stopped rebuilding it. Fixed: `min_version: "1.34"` moves Vault's kubectl to the newest release |
+
+The pull request gate (`bb-cve.py --changed-from`) fails only on a *fixable* Critical in an
+image the change adds, so these images were already in place or have no fix yet. Check the
+latest run's summary for current numbers.
+
+## Residual risks
+
+- **Sigstore's public log** records each release and image signature, with this
+  repository's name and image names, even while the repository is private.
+- **Tag-only images** (Keycloak in Big Bang 3.35.1, custom resources) pick up a Chainguard
+  rebuild without the nightly tests; the README's "Known gaps" lists them.
+- **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
+  patch schedule, not Chainguard's.
+- **Signature checks run in audit mode by default**: an unsigned image is reported, not
+  refused, until you choose `--verify-signatures enforce`.

@@ -49,7 +49,7 @@ Each test then:
 4. reports each expected image as `EXERCISED` or `NOT EXERCISED`, so a pass never counts an
    image that didn't run.
 
-## Results (Big Bang 3.35.1, 2026-10-29)
+## Results (Big Bang 3.35.1, 2026-10-30)
 
 Every test in this table passes in standard and FIPS mode, except the ones marked new.
 
@@ -84,7 +84,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | installer-signatures (new) | `--verify-signatures enforce`: Kyverno policy for Chainguard signatures | Policy Ready, a signed org image admitted, an unverifiable one refused |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
-| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`): too big for a pull request's runner |
+| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** no crashes since the GODEBUG fix, but it times out on the private repo's 2-CPU, 7 GB runner (see the README's Known gaps) |
 | gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
 
 ## What the runtime tests found
@@ -109,6 +109,11 @@ None of these showed up when rendering. All are fixed in the overlays:
 | thanos | Monitoring depends on the `prometheusOperatorCRDs` package, which also creates the `monitoring` namespace | Keep it on (the installer's preflight checks) |
 | keycloak (FIPS) | Big Bang's default admin (`password`) and database (`keycloak`) passwords are too short for FIPS ("password must be at least 112 bits") | Test passwords; the installer generates both on a fresh Keycloak |
 | every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
+| keycloak | A Chainguard rebuild of 26.8.1 made `quarkus-application.dat` 0770 65532/65532; Big Bang's uid 1000 couldn't read it | `overrides.keycloak` runs as the image's user; digest pins stop a rebuild arriving untested |
+| gitlab | Its chart sets `GODEBUG=tlskyber=0`, which newer Go refuses: Gitaly, Shell and the registry died at start | `overrides.gitlab` sets `tlsmlkem=0` |
+| gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/gitlab-deps.py` deploys them from the org's images |
+| mattermost (signatures) | Digest pins rendered as `name:@sha256` for an image with no tag | `kustomize_image` renders `name@digest` |
+| cve-report | Vault's kubectl 1.30 pin resolved to the org's unmaintained 1.30 FIPS image (19 Critical) | `min_version: "1.34"` on kubectl |
 
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
 job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's keystore job
