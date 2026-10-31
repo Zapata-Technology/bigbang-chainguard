@@ -186,6 +186,30 @@ def signature_identity(org_id):
     return rf"^(https://issuer\.enforce\.dev/{org}/|https://github\.com/chainguard-images/)"
 
 
+# The images this repo builds: builds.yml signs them keyless from GitHub Actions, on main.
+BUILD_SIGNATURE_ISSUER = r"^https://token\.actions\.githubusercontent\.com$"
+
+
+def build_signer(arg=None):
+    """owner/repo whose builds.yml signs the images this repo builds: the BUILD_SIGNER
+    setting, else $GITHUB_REPOSITORY (CI), else '' (then derived from the registry)."""
+    return setting("BUILD_SIGNER", arg) or os.environ.get("GITHUB_REPOSITORY", "")
+
+
+def build_signature_identity(registry, signer=""):
+    """Subject regexp of builds.yml's keyless signature on main for images in `registry`
+    (<host>/<path>): `signer`'s workflow exactly, else, on ghcr.io/<owner>, that of any repo
+    of the owner (ghcr.io names are lowercase, GitHub's aren't: matched without case).
+    None when neither is known: those images then go unchecked."""
+    if signer:
+        repo = re.escape(signer)
+    elif registry.startswith("ghcr.io/") and registry.count("/") >= 1:
+        repo = f"(?i:{re.escape(registry.split('/')[1])})/[^/]+"
+    else:
+        return None
+    return rf"^https://github\.com/{repo}/\.github/workflows/builds\.yml@refs/heads/main$"
+
+
 def deep_merge(a, b):
     for k, v in b.items():
         if isinstance(v, dict) and isinstance(a.get(k), dict):

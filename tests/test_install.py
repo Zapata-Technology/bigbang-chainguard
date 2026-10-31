@@ -433,7 +433,7 @@ def _sig_args(**kw):
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"]) == ("audit", None)
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"]) == ("enforce", None)
     assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["istiod"])[0] == "off"
     assert install.signature_choice(_sig_args(registry_mirror="r.site/bb"), install.Credentials({}, False),
                                     ["kyverno"])[0] == "off"            # disconnected: no Sigstore
@@ -631,3 +631,44 @@ def test_public_images_need_no_login_and_private_ones_do(monkeypatch):
     with pytest.raises(SystemExit, match="without a login can't pull"):
         install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
                                                 check=lambda login: None if login else "needs a login")
+
+
+def test_signature_policy_checks_the_images_built_here():
+    bbcommon = load_script("bbcommon")
+    subject = bbcommon.build_signature_identity("ghcr.io/o", "O/r")
+    pol = install.signature_policy("example.com", None, "enforce", ("ghcr.io/o/bigbang-*", subject))
+    org, built = pol["spec"]["rules"]
+    [verify] = built["verifyImages"]
+    assert verify["imageReferences"] == ["ghcr.io/o/bigbang-*"] and verify["failureAction"] == "Enforce"
+    keyless = verify["attestors"][0]["entries"][0]["keyless"]
+    assert keyless == {"issuerRegExp": bbcommon.BUILD_SIGNATURE_ISSUER, "subjectRegExp": subject,
+                       "rekor": {"url": "https://rekor.sigstore.dev"}}
+    assert verify["imageRegistryCredentials"] == {"secrets": ["private-registry"]}
+
+
+def test_build_signer_identity():
+    import re
+    b = load_script("bbcommon")
+    exact = b.build_signature_identity("ghcr.io/zapata-technology", "Zapata-Technology/bigbang-chainguard")
+    url = "https://github.com/Zapata-Technology/bigbang-chainguard/.github/workflows/builds.yml@refs/heads/main"
+    assert re.match(exact, url)
+    assert not re.match(exact, url.replace("bigbang-chainguard", "other"))
+    assert not re.match(exact, url.replace("refs/heads/main", "refs/heads/feature"))   # main only
+    owner = b.build_signature_identity("ghcr.io/zapata-technology")             # no signer: any repo of the owner
+    assert re.match(owner, url) and re.match(owner, url.replace("bigbang-chainguard", "other"))
+    assert not re.match(owner, url.replace("Zapata-Technology", "someone-else"))
+    assert b.build_signature_identity("registry.example/o") is None
+
+
+def test_built_signer_is_remembered(monkeypatch):
+    _Env(monkeypatch)
+    monkeypatch.delenv("BUILD_SIGNER", raising=False)
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    co = install.Checkout(ROOT)
+    if not install._build_registry(co):
+        pytest.skip("these overlays use no images built here")
+    c = install.Credentials({}, False)
+    pattern, subject = install.built_signer(_sig_args(build_signer="O/r"), c, co)
+    assert pattern == install._build_registry(co) + "/bigbang-*" and "O/r" in subject
+    assert c.values["build-signer"] == "O/r"
+    assert "O/r" in install.built_signer(_sig_args(build_signer=None), c, co)[1]

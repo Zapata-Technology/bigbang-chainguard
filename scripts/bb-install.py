@@ -67,8 +67,9 @@ sys.path.insert(0, HERE)
 import objstore  # noqa: E402
 from bbcluster import (apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret,  # noqa: E402
                        report, sh, wait_ready)
-from bbcommon import (ROOT, SIGNATURE_ISSUERS, deep_merge, load_mapping, running_image_problems,  # noqa: E402
-                       signature_identity, split_ref)
+from bbcommon import (BUILD_SIGNATURE_ISSUER, ROOT, SIGNATURE_ISSUERS, build_signature_identity,  # noqa: E402
+                       build_signer, deep_merge, load_mapping, running_image_problems, signature_identity,
+                       split_ref)
 from orgtags import REGISTRY  # noqa: E402
 
 NAMESPACE = "bigbang"
@@ -629,6 +630,7 @@ def install(a):
     keycloak_db_password = keycloak_database_password(creds, site, enabled)
     tls = tls_choice(a, creds, site, enabled)
     signatures, org_id = signature_choice(a, creds, enabled)
+    built = None if a.registry_mirror or signatures == "off" else built_signer(a, creds, co)
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
@@ -692,7 +694,7 @@ def install(a):
         gateway_tls(site["domain"], tls, creds.values.get("tls-issuer"), wait=900)
     if signatures != "off" or (creds.stored.get("signatures") or "off") != "off":
         step("image signatures")
-        cluster_signatures(co.org, org_id, signatures, wait=900)
+        cluster_signatures(co.org, org_id, signatures, wait=900, built=built)
 
     if a.no_wait:
         return 0
@@ -993,53 +995,76 @@ SIGNATURE_POLICY = "bb-install-chainguard-signatures"
 
 def signature_choice(a, creds, enabled):
     """off, audit or enforce (remembered), and the org ID signatures must be under. With
-    Kyverno on and nothing chosen, audit: an image Chainguard didn't sign shows up in
-    Kyverno's policy reports without stopping anything. Off by default when Kyverno is off
-    or the site is disconnected (--registry-mirror: no Sigstore to check against)."""
+    Kyverno on and nothing chosen, enforce: a Pod whose org image Chainguard didn't sign (or
+    whose image built here builds.yml didn't) is refused; audit only reports it in Kyverno's
+    policy reports. Off by default when Kyverno is off or the site is disconnected
+    (--registry-mirror: no Sigstore to check against). A cluster keeps the mode it was
+    installed with."""
     if a.verify_signatures:
         creds.values["signatures"] = a.verify_signatures
     if a.org_id:
         creds.values["org-id"] = a.org_id
-    default = "audit" if "kyverno" in enabled and not getattr(a, "registry_mirror", None) else "off"
+    default = "enforce" if "kyverno" in enabled and not getattr(a, "registry_mirror", None) else "off"
     mode = creds.values.setdefault("signatures", default)
     if mode != "off" and "kyverno" not in enabled:
         raise SystemExit(f"--verify-signatures {mode} uses Kyverno: leave kyverno on, or pass --verify-signatures off")
     return mode, creds.values.get("org-id") or os.environ.get("CHAINGUARD_ORG_ID")
 
 
-def signature_policy(org, org_id, mode):
+def built_signer(a, creds, co):
+    """(images, subject regexp) for the images this repo builds: <build registry>/bigbang-*
+    and builds.yml's signature on main from --build-signer (remembered), $BUILD_SIGNER, or
+    any repo of the ghcr.io owner. None when the overlays use none or no signer is known."""
+    if a.build_signer is not None:
+        creds.values["build-signer"] = a.build_signer
+    registry = _build_registry(co)
+    subject = registry and build_signature_identity(registry, creds.values.get("build-signer") or build_signer())
+    if registry and not subject:
+        say(f"note: the images built here ({registry}) aren't signature-checked: pass --build-signer <owner/repo>")
+    return (f"{registry}/bigbang-*", subject) if subject else None
+
+
+def signature_policy(org, org_id, mode, built=None):
     """A Kyverno ClusterPolicy: every Pod image from cgr.dev/<org> needs Chainguard's
-    keyless signature (the same signers bb-signatures.py accepts in CI). Audit records
-    failures in policy reports; Enforce refuses the Pod."""
+    keyless signature, and each image built here (`built`: (pattern, subject)) builds.yml's,
+    the same signers bb-signatures.py accepts in CI. Audit records failures in policy
+    reports; Enforce refuses the Pod."""
+    action = "Enforce" if mode == "enforce" else "Audit"
+    rules = [_verify_rule("chainguard-signature", f"{REGISTRY}/{org}/*", action, SIGNATURE_ISSUERS,
+                          signature_identity(org_id))]
+    if built:
+        rules.append(_verify_rule("built-here-signature", built[0], action, BUILD_SIGNATURE_ISSUER, built[1]))
     return {"apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy",
             "metadata": {"name": SIGNATURE_POLICY, "annotations": {
                 "policies.kyverno.io/title": "Chainguard image signatures",
                 "policies.kyverno.io/description": f"Images from cgr.dev/{org} must carry Chainguard's signature"
                                                    + (f" under org {org_id}" if org_id else "") + "."}},
-            "spec": {"background": False, "webhookTimeoutSeconds": 30, "rules": [{
-                "name": "chainguard-signature",
-                "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
-                "verifyImages": [{
-                    "imageReferences": [f"{REGISTRY}/{org}/*"],
-                    "failureAction": "Enforce" if mode == "enforce" else "Audit",
-                    "mutateDigest": False, "verifyDigest": False, "required": True,
-                    # Big Bang puts its pull secret in every package namespace, Kyverno's too.
-                    "imageRegistryCredentials": {"secrets": ["private-registry"]},
-                    "attestors": [{"entries": [{"keyless": {
-                        "issuerRegExp": SIGNATURE_ISSUERS, "subjectRegExp": signature_identity(org_id),
-                        "rekor": {"url": "https://rekor.sigstore.dev"}}}]}]}]}]}}
+            "spec": {"background": False, "webhookTimeoutSeconds": 30, "rules": rules}}
 
 
-def cluster_signatures(org, org_id, mode, wait):
+def _verify_rule(name, pattern, action, issuer, subject):
+    return {"name": name, "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+            "verifyImages": [{
+                "imageReferences": [pattern], "failureAction": action,
+                "mutateDigest": False, "verifyDigest": False, "required": True,
+                # Big Bang puts its pull secret in every package namespace, Kyverno's too.
+                "imageRegistryCredentials": {"secrets": ["private-registry"]},
+                "attestors": [{"entries": [{"keyless": {
+                    "issuerRegExp": issuer, "subjectRegExp": subject,
+                    "rekor": {"url": "https://rekor.sigstore.dev"}}}]}]}]}
+
+
+def cluster_signatures(org, org_id, mode, wait, built=None):
     if mode == "off":
         kubectl("delete", "clusterpolicy", SIGNATURE_POLICY, "--ignore-not-found", check=False)
         return True
-    if not apply_when_ready([signature_policy(org, org_id, mode)], "clusterpolicies.kyverno.io", "kyverno",
+    if not apply_when_ready([signature_policy(org, org_id, mode, built)], "clusterpolicies.kyverno.io", "kyverno",
                             ("get", "clusterpolicy", SIGNATURE_POLICY), wait):
         say("warning: Kyverno wasn't ready for the signature policy; re-run install")
         return False
     say(f"Kyverno checks Chainguard's signature on cgr.dev/{org} images ({mode}"
-        + (f", org ID {org_id}" if org_id else ", any Chainguard signer: pass --org-id to require your org") + ")")
+        + (f", org ID {org_id}" if org_id else ", any Chainguard signer: pass --org-id to require your org") + ")"
+        + (f", and builds.yml's on {built[0]}" if built else ""))
     return True
 
 
@@ -1393,8 +1418,12 @@ def main():
                    help="instead of helm: write DIR (Big Bang's HelmRelease and the values) to commit to your "
                         "git repo, and apply it; credentials stay in a cluster Secret")
     p.add_argument("--verify-signatures", choices=["off", "audit", "enforce"],
-                   help="a Kyverno policy requiring Chainguard's signature on cgr.dev/<org> images "
-                        "(remembered; default audit when Kyverno is on, off when disconnected)")
+                   help="a Kyverno policy requiring Chainguard's signature on cgr.dev/<org> images and "
+                        "builds.yml's on the images built here (remembered; default enforce when Kyverno "
+                        "is on, off when disconnected)")
+    p.add_argument("--build-signer", metavar="OWNER/REPO",
+                   help="the repo whose builds.yml signs the images built here (remembered; default "
+                        "$BUILD_SIGNER, else any repo of the ghcr.io owner)")
     p.add_argument("--org-id", help="Chainguard org ID signatures must be under (chainctl iam organizations "
                                     "list; default $CHAINGUARD_ORG_ID, else any Chainguard signer)")
     p.add_argument("--plan", action="store_true",

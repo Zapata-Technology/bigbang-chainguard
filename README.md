@@ -161,13 +161,21 @@ overlays were generated, so a cluster runs exactly what CI tested even though Ch
 rebuilds images under the same tag. New digests arrive in the nightly pull request, which
 deploys them on kind before it merges.
 
-**Image signatures.** With Kyverno on, the installer adds a Kyverno policy (audit mode
-unless you pass `--verify-signatures enforce` or `off`) that checks
-Chainguard's keyless signature on every `cgr.dev/<org>` image a Pod runs, with the same
-signer rules CI's `bb-signatures.py` uses. Audit records failures in Kyverno's policy
-reports; enforce refuses the Pod. Add `--org-id <id>` (`chainctl iam organizations list`)
-to require signatures under your org. The cluster needs to reach rekor.sigstore.dev and
-Sigstore's TUF mirror. Images this repo builds and Iron Bank leftovers aren't covered.
+**Image signatures.** With Kyverno on, the installer adds a Kyverno policy, in enforce mode
+unless you pass `--verify-signatures audit` or `off`, with the same signer rules CI's
+`bb-signatures.py` uses:
+
+- every `cgr.dev/<org>` image a Pod runs needs Chainguard's keyless signature (add
+  `--org-id <id>`, from `chainctl iam organizations list`, to require your org's);
+- every image this repo builds (`<build registry>/bigbang-*`) needs the keyless signature
+  `builds.yml` makes on `main` (with `SIGN_IMAGES=keyless`): from the repository
+  `--build-signer <owner/repo>` names (remembered; or `$BUILD_SIGNER`), else from any
+  repository of the `ghcr.io/<owner>` account.
+
+Enforce refuses a Pod whose image fails; audit only records it in Kyverno's policy reports.
+A cluster keeps the mode it was first installed with until you pass the flag. If your
+copy doesn't sign its builds, pass `--verify-signatures audit`. The cluster needs to reach
+rekor.sigstore.dev and Sigstore's TUF mirror. Iron Bank leftovers aren't covered.
 
 **Credentials in the cluster.** The installer keeps the pull token, S3 keys and generated
 passwords in the Secret `bigbang/bb-install`: restrict who can read Secrets there with RBAC
