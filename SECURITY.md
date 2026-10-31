@@ -63,6 +63,9 @@ boundaries.
   copies the pull credentials into a `private-registry` Secret in every package namespace.
 - Limit who can read Secrets in `bigbang` (and the package namespaces) with RBAC, and turn
   on encryption at rest for Secrets in your cluster's API server.
+- Give each registry login the least it needs: a read-only bot account's token for the build
+  registry, a cgr.dev pull token (README, "Registry logins"). Enter them at the installer's
+  hidden prompt, not in an `export` line that lands in shell history.
 - A pull token the installer made expires after a year (`status` warns 30 days ahead;
   `install --new-pull-token` replaces it), and `uninstall --delete-data` deletes it.
 
