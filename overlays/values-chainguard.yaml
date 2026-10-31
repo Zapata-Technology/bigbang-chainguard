@@ -9,7 +9,7 @@ addons:
         images:
         - digest: sha256:26c925c1a6bef13a6a83842639915147dad2ce8ce19a18e791a7945fa3781154
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:966db52010d216df350859ad1749efc02a0095d27c55fd128191cbb45d392a7f
+        - digest: sha256:115948f67892975e53a6ce942f99d54c3b78e03598be4a056393bb8d4d08cb1c
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:e8ef8c4def4e91ebdd46c5e47ee8241c0c7aae02addf5f31341ea1bf81725283
           name: cgr.dev/zapatatechnology.com/redis
@@ -39,7 +39,7 @@ addons:
           name: cgr.dev/zapatatechnology.com/argocd
         - digest: sha256:579d107b17bcb7a959ec9f874948ab11267cbc5377861e8e20857ee915a3e9d3
           name: cgr.dev/zapatatechnology.com/dex
-        - digest: sha256:966db52010d216df350859ad1749efc02a0095d27c55fd128191cbb45d392a7f
+        - digest: sha256:115948f67892975e53a6ce942f99d54c3b78e03598be4a056393bb8d4d08cb1c
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:e8ef8c4def4e91ebdd46c5e47ee8241c0c7aae02addf5f31341ea1bf81725283
           name: cgr.dev/zapatatechnology.com/redis
@@ -79,7 +79,7 @@ addons:
         images:
         - digest: sha256:9e16bd1f391175c4e6a988f0aaa193442f799494b58d89f0d70418b90b10eb78
           name: cgr.dev/zapatatechnology.com/authservice
-        - digest: sha256:966db52010d216df350859ad1749efc02a0095d27c55fd128191cbb45d392a7f
+        - digest: sha256:115948f67892975e53a6ce942f99d54c3b78e03598be4a056393bb8d4d08cb1c
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:e8ef8c4def4e91ebdd46c5e47ee8241c0c7aae02addf5f31341ea1bf81725283
           name: cgr.dev/zapatatechnology.com/redis
@@ -301,17 +301,17 @@ addons:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:9863adfb3c842b763dfedaa87988d007ea974e3464cf69a5c8680529780fa972
+        - digest: sha256:7c2787db1fa3c0198c431cf9e6d2590c3f3514aa4977e71a24c75f47833ea9cc
           name: cgr.dev/zapatatechnology.com/harbor-core
         - digest: sha256:ef382426fd9099f5455931d9fd9ab06aa161f445d7fa967cfa2bb4b245ae6f85
           name: cgr.dev/zapatatechnology.com/harbor-exporter
-        - digest: sha256:3a7043fb33f842379f3ed2225b8fb0ca7c9d795b1049a8c9cf1c823d2c35f64d
+        - digest: sha256:d28e85d4400c65fb88707db7ed265219de00b25655af479e3d4f0bda0ca762ac
           name: cgr.dev/zapatatechnology.com/harbor-jobservice
         - digest: sha256:329d92ad76c1318afc137cc19ecd89588eb44ccb4ff002624ea7f96c3191b65c
           name: cgr.dev/zapatatechnology.com/harbor-portal
         - digest: sha256:d664a7350014c1563e15e885723123b5b69d4e9602ebbd3c5eedea6a7cfd02b8
           name: cgr.dev/zapatatechnology.com/harbor-registry
-        - digest: sha256:655f7d0cd02c9f0f3a75d2248882fd90ee57aa3b36f9c0fc1aa7730f75f10705
+        - digest: sha256:38a6630d79f5ff982972165830ecbf4c1364c64494da28b92247605338e1ca6e
           name: cgr.dev/zapatatechnology.com/harbor-registryctl
         - digest: sha256:d0033539f44cb1921b0c6a682a4f0ccdd4608e6421fe2ba2e77a535e586b4bca
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter
@@ -319,7 +319,7 @@ addons:
           name: cgr.dev/zapatatechnology.com/nginx
         - digest: sha256:009e2a60a904597c36c580291fa04256324873b954d6754e91601332fc7e8a51
           name: cgr.dev/zapatatechnology.com/postgres
-        - digest: sha256:966db52010d216df350859ad1749efc02a0095d27c55fd128191cbb45d392a7f
+        - digest: sha256:115948f67892975e53a6ce942f99d54c3b78e03598be4a056393bb8d4d08cb1c
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:e8ef8c4def4e91ebdd46c5e47ee8241c0c7aae02addf5f31341ea1bf81725283
           name: cgr.dev/zapatatechnology.com/redis
@@ -588,7 +588,7 @@ addons:
       minio:
         waitJob:
           scripts:
-            image: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev
+            image: cgr.dev/zapatatechnology.com/kubectl:v1.37.2-dev
       upstream:
         csi:
           agent:
@@ -751,7 +751,7 @@ elasticsearchKibana:
       images:
       - digest: sha256:1fc2d2c89b0d94a74312efaae44d7d5d3641432735474c24b988f984df4cdc17
         name: cgr.dev/zapatatechnology.com/elasticsearch
-      - digest: sha256:f3cb419fb993210bb6aa29dc949653960cbd64bb0c92b9b1abb305569c348d6a
+      - digest: sha256:2a290a9ea1b21d5690d3b697aaf0d453552fd4a12be2c12dc75d83a1d8963bad
         name: cgr.dev/zapatatechnology.com/kibana
       - digest: sha256:cabe7d401028fa1a5c1b46f7707d16cb9d6ab882c04c02b8ad4a89cc6d100c17
         name: cgr.dev/zapatatechnology.com/kubectl
@@ -786,7 +786,7 @@ fluentbit:
       images:
       - digest: sha256:f9f78ddf6a23734cdbb95219d7a00ab8255b3c9884a62bdf25ae09c76e885127
         name: cgr.dev/zapatatechnology.com/configmap-reload
-      - digest: sha256:9b2a6dbc505c9fc98a8453074f3aa6f07efe6536f703464d0d4b0775c3beb233
+      - digest: sha256:c7b8b35e8013a2affdb413da239598060a52c1a51e0c45bee8b5fc0ee00c9cf9
         name: cgr.dev/zapatatechnology.com/fluent-bit
   values:
     bbtests:
@@ -944,7 +944,7 @@ kiali:
       images:
       - digest: sha256:baa28140238e82f61a7ed6de7d83c6ed6f9e202552a3251ccf0fecb6030b680d
         name: cgr.dev/zapatatechnology.com/kiali
-      - digest: sha256:e5deb50764d62fec416b3f04026f0a3979cc8ffaba583e04f197528119eafce6
+      - digest: sha256:5088243687b25137af1611c5b06d8ab93487897795182bb24b27e9d9acb69702
         name: cgr.dev/zapatatechnology.com/kiali-operator
       - digest: sha256:cabe7d401028fa1a5c1b46f7707d16cb9d6ab882c04c02b8ad4a89cc6d100c17
         name: cgr.dev/zapatatechnology.com/kubectl
@@ -1334,7 +1334,7 @@ renovate:
       images:
       - digest: sha256:26c925c1a6bef13a6a83842639915147dad2ce8ce19a18e791a7945fa3781154
         name: cgr.dev/zapatatechnology.com/kubectl
-      - digest: sha256:55ae011f4e00277179a14398ff612a7f4d2e6be42e490eb573b43793631eef13
+      - digest: sha256:f6e9a907d55886b97b9518eb7ab6e0fca323001ba45459817eee06eebc50049b
         name: cgr.dev/zapatatechnology.com/renovate
   values:
     bbtests:
@@ -1346,7 +1346,7 @@ renovate:
       image:
         registry: cgr.dev/zapatatechnology.com
         repository: renovate
-        tag: 44.196.1
+        tag: 44.198.2
 tempo:
   postRenderers:
   - kustomize:
