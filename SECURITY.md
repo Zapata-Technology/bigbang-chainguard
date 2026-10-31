@@ -80,7 +80,9 @@ boundaries.
 - Each image is scanned with grype before it's pushed. A fixable critical CVE fails the
   build.
 - With `SIGN_IMAGES=keyless`, pushed images get a cosign keyless signature (both cosign
-  formats) and SPDX SBOM and SLSA provenance attestations. Provenance names the workflow run,
+  formats), signed before the release tag moves to them (a `<tag>-staging` push first), so
+  the enforcing signature policy never sees an unsigned tag; then SPDX SBOM and SLSA
+  provenance attestations. Provenance names the workflow run,
   the commit, and every pinned input (base images by digest, downloads by sha256).
 
 **The pipeline**
