@@ -136,9 +136,8 @@ def main():
     full = load_mapping(org)
     unpinned = digest_gaps(found["packages"], f"{REGISTRY}/{org}/", set(full.get("no_post_renderers", {})),
                            full.get("unpinned", {}))
-    # Warn until the overlays are regenerated with the override and rename pins; then fail.
-    for rel, img in unpinned:
-        print(f"  WARN {rel}: {img} is not pinned by digest")
+    problems += [f"{rel}: {img} is not pinned by digest (pin it, or list it in mapping.yaml `unpinned`)"
+                 for rel, img in unpinned]
 
     mode = "FIPS" if a.fips else "standard"
     print(f"{mode}: {counts['ours']} images converted, {counts['ironbank']} documented Iron Bank images")
