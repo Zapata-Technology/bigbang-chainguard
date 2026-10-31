@@ -46,6 +46,10 @@ on:
         description: Push the images to BUILD_REGISTRY (ghcr.io/<owner> uses this repo's token)
         type: boolean
         default: false
+      force:
+        description: Build every image, even one this org's mapping doesn't use yet (publish before switching to it)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -130,9 +134,10 @@ jobs:
         run: |
           python3 -m pip install --quiet pyyaml
           args=(--no-generate --build --test --built-file "${RUNNER_TEMP}/built.txt")
-          # A pull request tests every builder, including one this org's mapping doesn't use
-          # (Zapata takes Grafana from another repo); main builds only what the mapping uses.
-          [ "${{ github.event_name }}" = pull_request ] && args+=(--force)
+          # A pull request tests every builder, including one this org's mapping doesn't use;
+          # main builds only what the mapping uses, unless a manual run sets force (to publish
+          # an image before the mapping switches to it, so its kind tests can pull it).
+          [ "${{ github.event_name }}" = pull_request ] || [ "${{ inputs.force }}" = true ] && args+=(--force)
           python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}"
           [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
 
