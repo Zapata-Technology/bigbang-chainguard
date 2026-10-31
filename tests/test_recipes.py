@@ -241,9 +241,9 @@ def test_mattermost_operator_is_built_from_source(monkeypatch):
     assert src["commit"] == "07a736bbb8d6c1e8cf76bdc935d1f08c47307a69" and src["build_time"] == "20260819.115314"
     assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
     spec = {"operator": src, "ironbank": {"binary": "/mattermost-operator"}, "user": "65532:65532",
-            "image": {"standard": {"go_package": ""}, "fips": {"go_package": "go-fips-"}}}
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
     std, fips = operator.build_args(spec, "standard"), operator.build_args(spec, "fips")
-    assert std["FIPS"] == "" and fips["FIPS"] == "1" and fips["GO_PACKAGE"] == "go-fips-"
+    assert std["FIPS"] == "" and fips["FIPS"] == "native" and fips["GO_PACKAGE"] == "go"
     assert std["OPERATOR_GO_GET"] == "golang.org/x/net@v0.62.0" and std["RUN_USER"] == "65532:65532"
     monkeypatch.setattr(operator.bbbuild, "fetch", lambda url: operator_tarball("go 1.26.6\n", commit=""))
     with pytest.raises(SystemExit):   # no commit id: the version ldflags would be empty
@@ -266,5 +266,11 @@ def test_mattermost_operator_build_info():
            b"build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=systemcrypto\n\x00"
     info = operator.build_info(blob)
     assert "dep\tgolang.org/x/net\tv0.62.0\th1:x=" in info
-    assert operator.re.search(operator.FIPS_GO, "\n".join(info))
-    assert not operator.re.search(operator.FIPS_GO, "build\tGOEXPERIMENT=greenteagc")
+
+    def fips_build(mode, settings):
+        return all(operator.re.search(rx, settings, operator.re.M) for rx in operator.FIPS_BUILDS[mode])
+    assert fips_build("toolchain", "\n".join(info))
+    assert not fips_build("toolchain", "build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=greenteagc")
+    native = "build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0\nbuild\tDefaultGODEBUG=fips140=on,tracebacklabels=0"
+    assert fips_build("native", native)
+    assert not fips_build("native", native.replace("fips140=on,", ""))   # module linked but not enabled

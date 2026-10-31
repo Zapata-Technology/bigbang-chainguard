@@ -20,10 +20,14 @@ same upstream tag instead:
      which carries a Critical CVE (GO-2026-6612)
   6. write builds/mattermost-operator/build.yaml
 
-The standard binary is static (CGO_ENABLED=0), like upstream's. The FIPS binary is
-built the way upstream's Dockerfile.fips builds it (CGO_ENABLED=1, -tags=requirefips)
-with the FIPS Go toolchain of the org's -fips build image, so its crypto goes through
-the runtime image's FIPS OpenSSL.
+The standard binary is static (CGO_ENABLED=0), like upstream's. The FIPS binary:
+
+  toolchain  the org has go-fips: built the way upstream's Dockerfile.fips builds it
+             (CGO_ENABLED=1, -tags=requirefips) with Chainguard's FIPS Go, so its crypto
+             goes through the runtime image's FIPS OpenSSL
+  native     it doesn't (kubectl-fips -dev offers no FIPS Go package, only go-1.N): built
+             with Wolfi's Go against Go's own FIPS 140-3 module (GOFIPS140), which also
+             makes GODEBUG fips140=on the binary's default
 
   bb-mattermost-operator.py [--org <org>] [--ref master]       regenerate build.yaml
   bb-mattermost-operator.py --build [--test] [--push]          also build both images
@@ -31,8 +35,9 @@ the runtime image's FIPS OpenSSL.
 --test runs each image: --help lists the operator's flags; started with no cluster it
 logs its Go version and stops at the missing kubeconfig (so it initialised, and for
 -fips its FIPS crypto loaded); it runs as 65532; the binary's build info shows the
-raised modules and, for -fips, a cgo build with a FIPS crypto backend; and for -fips
-that OpenSSL defaults to fips=yes.
+raised modules and, for -fips, the FIPS build (toolchain: cgo with a FIPS crypto
+GOEXPERIMENT; native: GOFIPS140 with fips140=on by default); and for -fips that OpenSSL
+defaults to fips=yes.
 """
 import hashlib
 import io
@@ -64,11 +69,14 @@ GO_PROXY = "https://proxy.golang.org"
 BUILD_IMAGES = [{"standard": "go", "fips": "go-fips"}, {"standard": "kubectl", "fips": "kubectl-fips"}]
 RUNTIME_IMAGES = [{"standard": "glibc-openssl", "fips": "glibc-openssl-fips"},
                   {"standard": "kubectl", "fips": "kubectl-fips"}]
-# Packages for a build image without Go. Chainguard's FIPS Go is versioned only
-# (go-fips-1.27): a trailing "-" makes the Dockerfile take the newest of the family.
-GO_PACKAGES = {"standard": "go", "fips": "go-fips-"}
-# A FIPS Go build records one of these in its GOEXPERIMENT (or GOFIPS140) build setting.
-FIPS_GO = r"GOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)|GOFIPS140=v"
+# Wolfi's Go, for a build image without it (the FIPS build then uses Go's own FIPS module).
+GO_PACKAGE = "go"
+# What each FIPS build records in the binary's build info.
+FIPS_BUILDS = {
+    "toolchain": [r"^build\tCGO_ENABLED=1$",
+                  r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],
+    "native": [r"^build\tCGO_ENABLED=0$", r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"],
+}
 
 
 def recipe(manifest, dockerfile):
@@ -144,18 +152,20 @@ def generate(a):
                      "commit": commit, **ib},
         "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": bb_tag,
                       "dev": build[v]["dev"], "base": run[v]["base"],
-                      "go_package": "" if has_go else GO_PACKAGES[v]}
+                      "go_package": "" if has_go else GO_PACKAGE,
+                      **({"fips": "toolchain" if has_go else "native"} if v == "fips" else {})}
                   for v in ("standard", "fips")},
         "operator": src,
         "user": "65532:65532",   # distroless's nonroot:nonroot, numeric so runAsNonRoot can check it
         "notes": [f"built from {UPSTREAM} {bb_tag}'s source (Chainguard has no mattermost-operator image) "
                   f"with `operator.go_get` raised; Iron Bank copies the binary out of upstream's image",
-                  "the FIPS binary is built like upstream's Dockerfile.fips (cgo, -tags=requirefips) with the "
-                  "-fips build image's Go, and runs on the FIPS OpenSSL of the -fips runtime image"],
+                  "image.fips.fips: toolchain = built like upstream's Dockerfile.fips (cgo, -tags=requirefips) "
+                  "with the org's go-fips; native = the org has no go-fips image, so Wolfi's Go builds it against "
+                  "Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)"],
     }
     bbbuild.write_spec(NAME, spec, f"# Big Bang's mattermost-operator built from {UPSTREAM}'s source FROM the\n"
                                    "# Chainguard org's images, following Iron Bank's recipe at `ironbank.commit`.\n")
-    print(f"mattermost-operator {bb_tag}: build in {'/'.join(build_repos.values())} -dev, run on "
+    print(f"mattermost-operator {bb_tag} (FIPS: {spec['image']['fips']['fips']}): build in {'/'.join(build_repos.values())} -dev, run on "
           f"{'/'.join(run_repos.values())}, go.mod Go {src['go']}, raised {' '.join(src['go_get'])}")
     return spec
 
@@ -164,7 +174,7 @@ def build_args(spec, variant):
     o = spec["operator"]
     return {"OPERATOR_SOURCE": o["source"], "OPERATOR_SHA256": o["sha256"], "OPERATOR_COMMIT": o["commit"],
             "OPERATOR_BUILD_TIME": o["build_time"], "OPERATOR_GO_GET": " ".join(o["go_get"]),
-            "GO_PACKAGE": spec["image"][variant].get("go_package", ""), "FIPS": "1" if variant == "fips" else "",
+            "GO_PACKAGE": spec["image"][variant].get("go_package", ""), "FIPS": spec["image"][variant].get("fips", ""),
             "BINARY": spec["ironbank"]["binary"], "RUN_USER": spec["user"]}
 
 
@@ -220,8 +230,10 @@ def smoke_test(image, variant, spec):
             failed.append(f"{name} is not {version}")
     settings = "\n".join(info)
     if variant == "fips":
-        if "build\tCGO_ENABLED=1" not in settings or not re.search(FIPS_GO, settings):
-            failed.append("FIPS Go build (CGO_ENABLED=1 and a FIPS crypto GOEXPERIMENT)")
+        mode = spec["image"]["fips"]["fips"]
+        missing = [rx for rx in FIPS_BUILDS[mode] if not re.search(rx, settings, re.M)]
+        if missing:
+            failed.append(f"FIPS Go build ({mode}): no {', '.join(missing)}")
         cnf = file_from(image, "/etc/ssl/openssl.cnf").decode(errors="replace")
         if not re.search(r"^\s*(default_)?properties\s*=\s*fips=yes", cnf, re.M):
             failed.append("openssl fips=yes")

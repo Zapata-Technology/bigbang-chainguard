@@ -511,9 +511,12 @@ Differences from Iron Bank:
   AuthService, GitLab) use it. Its backend is not FIPS-built.
 - **mattermost-operator** is built from upstream's source at the tag Iron Bank ships
   (Iron Bank copies upstream's binary onto distroless static), with `golang.org/x/net`
-  raised past upstream's v0.58.0 (a Critical CVE). The standard binary is static; the
-  FIPS one is built like upstream's `Dockerfile.fips` (cgo, `-tags=requirefips`) with the
-  `-fips` build image's Go, on a `-fips` runtime with OpenSSL's FIPS provider. It runs as
+  raised past upstream's v0.58.0 (a Critical CVE). The standard binary is static. With a
+  `go-fips` image in the org, the FIPS one is built like upstream's `Dockerfile.fips` (cgo,
+  `-tags=requirefips`) with Chainguard's FIPS Go, on OpenSSL's FIPS provider. Without
+  one (kubectl-fips -dev has no FIPS Go package), it is built with Wolfi's Go against
+  Go's own FIPS 140-3 module (`GOFIPS140`, `GODEBUG=fips140=on` by default); add
+  `go`/`go-fips` to the org to switch. `build.yaml` records which (`image.fips.fips`). It runs as
   65532 with Iron Bank's entrypoint `/mattermost-operator`, tagged with Iron Bank's tag.
   The builder takes the first image pair the org has: `go`/`go-fips` and
   `glibc-openssl`/`glibc-openssl-fips` when you add them, else `kubectl`/`kubectl-fips`.
