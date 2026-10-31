@@ -471,3 +471,99 @@ def test_registry_mirror_rewrites_images_not_headers(tmp_path):
         assert build + "/" not in text
     flux = open(os.path.join(m.root, "flux", "kustomization.yaml"), encoding="utf-8").read()
     assert "newName: registry.site.example/bb/flux-" in flux
+
+
+def test_install_writes_the_site_file_first(tmp_path, monkeypatch):
+    site = tmp_path / "my-site.yaml"
+    args = install.argparse.Namespace(overlays=ROOT, version=None, site=str(site), domain="bb.example.com",
+                                      enable="keycloak", yes=True)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
+
+    class Stop(Exception):
+        pass
+
+    def stop(*a, **kw):
+        raise Stop
+    monkeypatch.setattr(install, "read_secret", stop)    # the first cluster call: the site file is written by then
+    with pytest.raises(Stop):
+        install.install(args)
+    doc = yaml.safe_load(site.read_text())
+    assert doc["domain"] == "bb.example.com" and doc["addons"]["keycloak"]["enabled"]
+
+
+def test_build_images_are_the_deployed_refs():
+    co = install.Checkout(ROOT)
+    prefix = install._build_registry(co)
+    if not prefix:
+        pytest.skip("these overlays use no images built here")
+    std, fips = install.build_images(co, False), install.build_images(co, True)
+    assert std and all(r.startswith(prefix + "/bigbang-") and ":" in r.rsplit("/", 1)[1] for r in std)
+    assert all("-fips:" in r for r in fips)          # FIPS replaces the standard refs
+
+
+class _Reply:
+    def close(self):
+        pass
+
+    def read(self, *a):
+        return b'{"token": "t"}'
+
+
+def _registry(monkeypatch, token_code=200, manifest_code=200):
+    """A fake registry: 401 with a Bearer challenge, a token endpoint, then the manifest."""
+    seen = []
+
+    def urlopen(req, timeout=None):
+        seen.append(req)
+        auth = req.headers.get("Authorization", "")
+        if "/token?" in req.full_url:
+            if token_code != 200:
+                raise install.urllib.error.HTTPError(req.full_url, token_code, "no", {}, None)
+            return _Reply()
+        if auth.startswith("Bearer ") and manifest_code == 200:
+            return _Reply()
+        code = manifest_code if auth else 401
+        hdrs = {"WWW-Authenticate": 'Bearer realm="https://r.example/token",service="r.example"'}
+        raise install.urllib.error.HTTPError(req.full_url, code, "no", hdrs, None)
+    monkeypatch.setattr(install.urllib.request, "urlopen", urlopen)
+    return seen
+
+
+def test_pull_problem_follows_the_token_flow(monkeypatch):
+    seen = _registry(monkeypatch)
+    assert install.pull_problem("r.example/o/bigbang-base:1", ("u", "p")) is None
+    token = [r for r in seen if "/token?" in r.full_url][0]
+    assert "scope=repository%3Ao%2Fbigbang-base%3Apull" in token.full_url
+    assert token.headers["Authorization"].startswith("Basic ")
+
+
+def test_pull_problem_says_what_is_wrong(monkeypatch):
+    _registry(monkeypatch, token_code=401)
+    assert "needs a login" in install.pull_problem("r.example/o/bigbang-base:1")
+    assert "refused this login" in install.pull_problem("r.example/o/bigbang-base:1", ("u", "bad"))
+    _registry(monkeypatch, manifest_code=404)
+    assert "not found" in install.pull_problem("r.example/o/bigbang-base:1", ("u", "p"))
+
+
+def test_pull_problem_ignores_an_unreachable_registry(monkeypatch):
+    def down(*a, **kw):
+        raise install.urllib.error.URLError("no route")
+    monkeypatch.setattr(install.urllib.request, "urlopen", down)
+    assert install.pull_problem("r.example/o/bigbang-base:1") is None
+
+
+@pytest.mark.skipif(os.name == "nt" or not install.shutil.which("bash"), reason="needs a POSIX bash")
+def test_docker_wrapper_runs_this_checkouts_installer_image(tmp_path):
+    import subprocess
+    shim = tmp_path / "docker"
+    shim.write_text('#!/usr/bin/env bash\nprintf "%s\n" "$@"\n', newline="\n")
+    shim.chmod(0o755)
+    spec = yaml.safe_load(open(os.path.join(ROOT, "builds", "installer", "build.yaml"), encoding="utf-8"))
+    env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}", "CGR_PASSWORD": "secret-value",
+           "BUILD_REGISTRY": "registry.example/o"}
+    out = subprocess.run(["bash", os.path.join(ROOT, "scripts", "bb-docker.sh"), "status"], env=env,
+                         capture_output=True, text=True, check=True).stdout.split("\n")
+    assert f"registry.example/o/bigbang-installer:{spec['image']['standard']['tag']}" in out
+    assert out[out.index("registry.example/o/bigbang-installer:" + spec["image"]["standard"]["tag"]) + 1] == "status"
+    assert "CGR_PASSWORD" in out and "secret-value" not in "\n".join(out)   # names only, never values
+    assert "/site" in out and "KUBECONFIG=/kube/config" in out

@@ -3,9 +3,11 @@
 
   bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
                      write a starter site file (no credentials in it)
-  bb-install.py install --site my-site.yaml [--fips]
-                     preflight checks, pull secrets, Flux, SeaweedFS (random S3 keys),
-                     Big Bang with the overlays in the right order, then wait and report
+  bb-install.py install [--site my-site.yaml] [--fips]
+                     preflight checks (including a pull of each image built here), pull
+                     secrets, Flux, SeaweedFS (random S3 keys), Big Bang with the overlays in
+                     the right order, then wait and report; writes the site file first (as
+                     init does) when it doesn't exist
   bb-install.py status
                      HelmReleases, pods that aren't healthy (with their last log lines),
                      and running images that aren't the conversion's
@@ -51,6 +53,8 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 
 try:
@@ -489,6 +493,11 @@ def object_storage_values(co, enabled, s3):
 def install(a):
     co = Checkout(a.overlays)
     a.version = a.version or co.version
+    if not os.path.exists(a.site):
+        # A first install needs no separate `init`: ask for (or take --domain/--enable) and
+        # write the site file, then carry on.
+        say(f"{a.site} doesn't exist: writing it first (bb-install.py init)")
+        init(argparse.Namespace(cmd="install", site=a.site, domain=a.domain, enable=a.enable, force=False, yes=a.yes))
     site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
     stored = read_secret(NAMESPACE, STATE_SECRET) or {}
     if a.git_mirror is None:   # remembered from an earlier run
@@ -549,6 +558,14 @@ def install(a):
                              "images this repo builds; skip if they are public", required=False)
         if got:
             registries.append((build, *got))
+        # Checked now: an image the cluster can't pull otherwise shows up as ImagePullBackOff
+        # only when the wait times out.
+        denied = [p for ref in build_images(co, a.fips) if (p := pull_problem(ref, got))]
+        if denied:
+            raise SystemExit("\nnot installing: the cluster couldn't pull the images this repo builds:\n  "
+                             + "\n  ".join(denied) + "\nSet BUILD_REGISTRY_USERNAME and BUILD_REGISTRY_PASSWORD "
+                             f"to a {build} login that can read them (on ghcr.io: a GitHub token with "
+                             "read:packages); they're kept in the cluster after that.")
     if any("Iron Bank" in n for n in notes):
         got = creds.registry("registry1", "registry1.dso.mil", "REGISTRY1_USERNAME", "REGISTRY1_PASSWORD",
                              "Iron Bank images some enabled packages keep", required=False)
@@ -1103,6 +1120,74 @@ def deployed_version_note(co):
     return ""
 
 
+def build_images(co, fips):
+    """Every image reference of this repo's builds (<build registry>/bigbang-*) the overlays deploy."""
+    prefix = _build_registry(co)
+    refs = set()
+
+    def walk(node):
+        if isinstance(node, dict):
+            repo, tag = node.get("repository"), node.get("tag")
+            if isinstance(repo, str) and tag is not None:
+                full = f"{node['registry']}/{repo}" if isinstance(node.get("registry"), str) else repo
+                if prefix and full.startswith(prefix + "/bigbang-"):
+                    refs.add(f"{full}:{tag}")
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+        elif isinstance(node, str) and prefix and re.fullmatch(re.escape(prefix) + r"/bigbang-[\w.-]+:[\w.-]+", node):
+            refs.add(node)
+    walk(merged_values({}, co.overlays(fips)))   # what deploys: FIPS replaces the standard refs
+    return sorted(refs)
+
+
+def pull_problem(ref, login=None):
+    """None if `ref` (host/repo:tag) can be pulled with `login` ((user, password) or None),
+    else why not. The registry's v2 token flow, read-only; an unreachable registry isn't a
+    problem here (a proxy may allow the cluster what it denies this machine)."""
+    host, rest = ref.split("/", 1)
+    repo, tag = rest.rsplit(":", 1)
+    url = f"https://{host}/v2/{repo}/manifests/{tag}"
+    accept = ", ".join(["application/vnd.oci.image.index.v1+json", "application/vnd.oci.image.manifest.v1+json",
+                        "application/vnd.docker.distribution.manifest.list.v2+json",
+                        "application/vnd.docker.distribution.manifest.v2+json"])
+    basic = None
+    if login:
+        import base64
+        basic = "Basic " + base64.b64encode(f"{login[0]}:{login[1]}".encode()).decode()
+
+    def head(headers):
+        req = urllib.request.Request(url, method="HEAD", headers={"Accept": accept, **headers})
+        try:
+            urllib.request.urlopen(req, timeout=20).close()
+            return 200, None
+        except urllib.error.HTTPError as e:
+            return e.code, e.headers.get("WWW-Authenticate", "")
+    try:
+        code, challenge = head({})
+        if code == 401 and challenge.lower().startswith("bearer "):
+            params = dict(re.findall(r'(\w+)="([^"]*)"', challenge))
+            q = urllib.parse.urlencode({"service": params.get("service", host),
+                                        "scope": f"repository:{repo}:pull"})
+            req = urllib.request.Request(f"{params['realm']}?{q}", headers={"Authorization": basic} if basic else {})
+            try:
+                body = json.load(urllib.request.urlopen(req, timeout=20))
+            except urllib.error.HTTPError as e:
+                return f"{ref}: {'the registry refused this login' if login else 'needs a login'} (HTTP {e.code})"
+            code, _ = head({"Authorization": "Bearer " + (body.get("token") or body.get("access_token", ""))})
+        elif code == 401 and basic:
+            code, _ = head({"Authorization": basic})
+    except (urllib.error.URLError, OSError, ValueError, KeyError):
+        return None
+    if code == 200:
+        return None
+    if code == 404:
+        return f"{ref}: not found (not pushed yet, or {'this login' if login else 'no login'} can't see it)"
+    return f"{ref}: {'denied with this login' if login else 'needs a login'} (HTTP {code})"
+
+
 def _build_registry(co):
     text = open(co.path("overlays", "values-chainguard.yaml"), encoding="utf-8").read()
     m = re.search(r"\b([a-z0-9.-]+\.[a-z]{2,}/[\w.-]+)/bigbang-[\w-]+", text)
@@ -1205,7 +1290,8 @@ def init(a):
                 "# reads them from the environment or asks, and keeps them in the cluster.\n"
                 "# Add your own Big Bang values below (TLS for the Istio gateway, SSO, sizes...).\n")
         yaml.safe_dump(values, f, sort_keys=False)
-    say(f"wrote {a.site}. Next: python scripts/bb-install.py install --site {a.site} [--fips]")
+    say(f"wrote {a.site}. Next: python scripts/bb-install.py install --site {a.site} [--fips]"
+        if getattr(a, "cmd", "init") == "init" else f"wrote {a.site}")
     return 0
 
 
@@ -1223,7 +1309,10 @@ def main():
     p.add_argument("--force", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask anything")
     p = sub.add_parser("install", help="install or upgrade")
-    p.add_argument("--site", required=True)
+    p.add_argument("--site", default="my-site.yaml",
+                   help="the site file (default my-site.yaml; written first, as by init, if it doesn't exist)")
+    p.add_argument("--domain", help="for a new site file: the domain the packages are served under")
+    p.add_argument("--enable", help="for a new site file: comma-separated packages to turn on")
     p.add_argument("--fips", action="store_true", help="FIPS images (re-run without it to switch back)")
     p.add_argument("--chart", help="Big Bang chart: a local path or an oci:// ref (default: downloaded from "
                                    "repo1's git archive, no Iron Bank login needed)")
