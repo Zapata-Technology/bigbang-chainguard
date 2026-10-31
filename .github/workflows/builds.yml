@@ -123,22 +123,29 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
 
+      # Outputs, not hashFiles(): hashFiles only sees the workspace, never RUNNER_TEMP, so
+      # the scan and signing steps were always skipped.
       - name: Build and smoke-test (standard and FIPS)
+        id: build
         run: |
           python3 -m pip install --quiet pyyaml
           args=(--no-generate --build --test --built-file "${RUNNER_TEMP}/built.txt")
-          [ "$PUSH" = true ] && args+=(--push --pushed-file "${RUNNER_TEMP}/pushed.txt")
+          # A pull request tests every builder, including one this org's mapping doesn't use
+          # (Zapata takes Grafana from another repo); main builds only what the mapping uses.
+          [ "${{ github.event_name }}" = pull_request ] && args+=(--force)
           python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}"
+          [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
 
       - name: Install grype
-        if: ${{ hashFiles(format('{0}/built.txt', runner.temp)) != '' }}
+        if: steps.build.outputs.built == 'true'
         id: grype
         uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
 
       # Chainguard bases are kept at zero known CVEs; what a build adds (packages,
-      # plugin zips, upstream binaries) must not bring a fixable critical one.
+      # plugin zips, upstream binaries) must not bring a fixable critical one. It runs
+      # before the push, so an image that fails it is never published.
       - name: Scan the built images (fail on fixable critical CVEs)
-        if: ${{ hashFiles(format('{0}/built.txt', runner.temp)) != '' }}
+        if: steps.build.outputs.built == 'true'
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
@@ -150,17 +157,28 @@ jobs:
           done < "${RUNNER_TEMP}/built.txt"
           exit $rc
 
+      - name: Push to BUILD_REGISTRY
+        if: env.PUSH == 'true' && steps.build.outputs.built == 'true'
+        id: push
+        run: |
+          while read -r image; do
+            [ -n "$image" ] || continue
+            docker push "$image"
+            docker inspect --format '{{index .RepoDigests 0}}' "$image" >> "${RUNNER_TEMP}/pushed.txt"
+          done < "${RUNNER_TEMP}/built.txt"
+          [ -s "${RUNNER_TEMP}/pushed.txt" ] && echo "pushed=true" >> "$GITHUB_OUTPUT" || true
+
       - name: Install cosign
-        if: ${{ env.PUSH == 'true' && vars.SIGN_IMAGES == 'keyless' && hashFiles(format('{0}/pushed.txt', runner.temp)) != '' }}
+        if: vars.SIGN_IMAGES == 'keyless' && steps.push.outputs.pushed == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
       - name: Install syft
-        if: ${{ env.PUSH == 'true' && vars.SIGN_IMAGES == 'keyless' && hashFiles(format('{0}/pushed.txt', runner.temp)) != '' }}
+        if: vars.SIGN_IMAGES == 'keyless' && steps.push.outputs.pushed == 'true'
         id: syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
 
       - name: Sign and attest an SBOM (cosign keyless)
-        if: ${{ env.PUSH == 'true' && vars.SIGN_IMAGES == 'keyless' && hashFiles(format('{0}/pushed.txt', runner.temp)) != '' }}
+        if: vars.SIGN_IMAGES == 'keyless' && steps.push.outputs.pushed == 'true'
         env:
           SYFT: ${{ steps.syft.outputs.cmd }}
         run: |

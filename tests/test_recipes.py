@@ -4,6 +4,7 @@ If Iron Bank reshapes a Dockerfile, the builder fails loudly instead of building
 something different; these tests pin the shapes the parsers accept.
 """
 import hashlib
+import json
 
 import pytest
 import yaml
@@ -78,3 +79,30 @@ def test_chainsaw_is_built_from_source(monkeypatch):
     args = tester.build_args(spec, "standard")
     assert args["CHAINSAW_SOURCE"].endswith("/v0.2.15") and args["CHAINSAW_VERSION"] == "0.2.15"
     assert args["CHAINSAW_GO_GET"] == "golang.org/x/net@v0.62.0" and "CHAINSAW_IMAGE" not in args
+
+
+def test_redis_datasource_backend_is_rebuilt(monkeypatch):
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return json.dumps({"Version": "v9.9.9"}).encode()
+        assert url == "https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v2.2.1"
+        return b"source"
+    monkeypatch.setattr(grafana.bbbuild, "fetch", fetch)
+    info = {"id": "redis-datasource", "backend": True, "executable": "redis-datasource", "info": {"version": "2.2.1"}}
+    r = grafana.rebuild(grafana.REBUILD["redis-datasource"], info)
+    assert r["sha256"] == hashlib.sha256(b"source").hexdigest() and r["executable"] == "redis-datasource"
+    assert "golang.org/x/net@v9.9.9" in r["go_get"]
+    spec = {"plugins": [{"id": "a", "url": "u1", "sha256": "s1", "dir": "/d1"},
+                        {"id": "redis-datasource", "url": "u2", "sha256": "s2", "dir": "/d2", "rebuild": r}],
+            "empty_dirs": []}
+    rebuilds = grafana.build_args(spec, "standard")["REBUILDS"].split(";")
+    assert len(rebuilds) == 1 and rebuilds[0].startswith(f"/d2 {r['source']} {r['sha256']} redis-datasource patches/")
+    with pytest.raises(SystemExit):   # REBUILD lists a frontend-only plugin
+        grafana.rebuild(grafana.REBUILD["redis-datasource"], {"id": "x", "info": {"version": "1"}})
+
+
+def test_rebuild_patches_exist():
+    import os
+    from conftest import ROOT
+    for how in grafana.REBUILD.values():
+        assert os.path.exists(os.path.join(ROOT, "builds", "grafana-plugins", how["patch"]))

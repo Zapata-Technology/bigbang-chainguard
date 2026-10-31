@@ -398,7 +398,8 @@ python scripts/bb-base.py --build --test --push     # and push to BUILD_REGISTRY
 
 The smoke tests:
 
-- **grafana-plugins:** Grafana loads every plugin with a valid signature.
+- **grafana-plugins:** Grafana loads every plugin with a valid signature, except a
+  rebuilt one, which loads as an allowed unsigned plugin; no plugin reports an error.
 - **base and devops-tester:** the uid, and each tool at Iron Bank's version line.
 - **Every `-fips` image:** OpenSSL defaults to `fips=yes`.
 
@@ -416,6 +417,14 @@ Differences from Iron Bank:
   source at Iron Bank's version, using Wolfi's Go with `golang.org/x/net` raised to its
   newest release. Iron Bank copies upstream's image, whose old Go and x/net carry a
   fixable Critical CVE. The FIPS image's chainsaw is not FIPS-built.
+- **The Redis datasource's Go backend** (grafana-plugins) is rebuilt from its release's
+  source. Its latest release (2.2.1) ships binaries built with Go 1.19 and old grpc,
+  x/net and plugin SDK modules, with 8 fixable Critical CVEs. The build raises those
+  modules, patches the plugin for the newer SDK (`builds/grafana-plugins/patches/`) and
+  keeps one linux binary. It no longer matches the plugin's signed `MANIFEST.txt`, so the
+  build drops the file, and `overrides.grafana` in `mapping.yaml` lets Grafana load
+  `redis-datasource` unsigned. Big Bang's provisioned Redis datasources (Argo CD,
+  AuthService, GitLab) use it. Its backend is not FIPS-built.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,
