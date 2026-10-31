@@ -15,7 +15,7 @@
 # config view --minify --flatten`), since the container has neither.
 #
 # Credentials pass through from the environment when set (never on the command line):
-# CGR_*, BUILD_REGISTRY_*, REGISTRY1_*, MIRROR_*, S3_*, CHAINGUARD_ORG_ID. Without
+# CGR_*, BUILD_REGISTRY_* (or _TOKEN), REGISTRY1_*, MIRROR_* (or _TOKEN), S3_*, CHAINGUARD_ORG_ID. Without
 # chainctl in the image, a first install needs CGR_USERNAME and CGR_PASSWORD (a pull
 # token); later runs read it from the cluster. Pulling the image itself needs
 # `docker login <build registry>` when the image is private.
@@ -37,8 +37,8 @@ if [ -z "$tag" ] || [ -z "$registry" ]; then
 fi
 
 envs=()
-for v in CGR_USERNAME CGR_PASSWORD BUILD_REGISTRY_USERNAME BUILD_REGISTRY_PASSWORD \
-         REGISTRY1_USERNAME REGISTRY1_PASSWORD MIRROR_USERNAME MIRROR_PASSWORD \
+for v in CGR_USERNAME CGR_PASSWORD BUILD_REGISTRY_USERNAME BUILD_REGISTRY_PASSWORD BUILD_REGISTRY_TOKEN \
+         REGISTRY1_USERNAME REGISTRY1_PASSWORD MIRROR_USERNAME MIRROR_PASSWORD MIRROR_TOKEN \
          S3_ACCESS_KEY S3_SECRET_KEY CHAINGUARD_ORG_ID; do
   if [ -n "${!v:-}" ]; then envs+=(-e "$v"); fi       # the name only: docker reads the value
 done

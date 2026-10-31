@@ -191,14 +191,22 @@ self-contained context instead (`kubectl config view --minify --flatten`).
 #### Registry logins
 
 The installer asks for each registry login it needs, with the password hidden, and stores
-it in the cluster, so you type it once per cluster. Prefer that prompt to environment
+it in the cluster, so you type it once per cluster. It tests every login with a pull of an
+image the overlays deploy (each image it builds, one from cgr.dev) before changing the
+cluster: a login typed at the prompt that can't pull is asked for again, up to three times,
+and one from the environment, the site file or an earlier run that can't stops the install
+with the reason. Images that pull without a login aren't asked about. For the build
+registry, a token alone is enough: give it as the password and press Enter at the username
+(or set `BUILD_REGISTRY_TOKEN`). `--no-pull-check` skips the tests (below).
+
+Prefer that prompt to environment
 variables: an `export NAME=<token>` line lands in your shell history and every program you
-start from that shell inherits it. Use the variables (`CGR_*`, `BUILD_REGISTRY_*`,
+start from that shell inherits it. Use the variables (`CGR_*`, `BUILD_REGISTRY_*` or `BUILD_REGISTRY_TOKEN`,
 `REGISTRY1_*`) when nothing can answer a prompt, as in a pipeline, and fill them from your
 secret store or `read -rs`, not a literal on the command line:
 
 ```bash
-read -rs BUILD_REGISTRY_PASSWORD && export BUILD_REGISTRY_PASSWORD BUILD_REGISTRY_USERNAME=<bot account>
+read -rs BUILD_REGISTRY_TOKEN && export BUILD_REGISTRY_TOKEN
 ```
 
 A variable replaces a login stored by an earlier run (that's how you rotate one).

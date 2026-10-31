@@ -32,7 +32,7 @@ cluster (a previous run keeps them in the bigbang/bb-install Secret), or a hidde
   CGR_USERNAME, CGR_PASSWORD     cgr.dev pull token. Without one, and logged in to chainctl,
                                  `install` makes a one-year token itself (asks first unless
                                  --yes); --new-pull-token replaces the stored one
-  BUILD_REGISTRY_USERNAME, BUILD_REGISTRY_PASSWORD
+  BUILD_REGISTRY_USERNAME, BUILD_REGISTRY_PASSWORD (or BUILD_REGISTRY_TOKEN alone)
                                  only if the images this repo builds are private
   REGISTRY1_USERNAME, REGISTRY1_PASSWORD
                                  only if an enabled package keeps an Iron Bank image
@@ -73,6 +73,8 @@ from orgtags import REGISTRY  # noqa: E402
 
 NAMESPACE = "bigbang"
 STATE_SECRET = "bb-install"            # credentials and install mode, kept in the cluster
+TOKEN_USER = "token"                    # sent with a token alone; the pull test shows if the registry takes it
+TRIES = 3                               # logins typed at the prompt, each tested by a pull
 # registry1's OCI copy of the chart needs an Iron Bank login; repo1's git archive doesn't.
 CHART_ARCHIVE = "https://repo1.dso.mil/big-bang/bigbang/-/archive/{v}/bigbang-{v}.tar.gz?path=chart"
 CHART_CACHE = os.path.join(ROOT, "work", "charts")
@@ -293,30 +295,79 @@ class Credentials:
         self.interactive = interactive
         self.values = dict(self.stored)
 
-    def registry(self, key, registry, env_user, env_pass, why, required=True, make=None):
+    def registry(self, key, registry, env_user, env_pass, why, required=True, make=None, check=None,
+                 env_token=None):
         """(username, password) for a registry, or None when it's optional and not given.
-        `make` creates credentials when none are found (a chainctl pull token)."""
-        user, pw = os.environ.get(env_user), os.environ.get(env_pass)
+        `make` creates credentials when none are found (a chainctl pull token).
+
+        `check(login)` says why a login (or None: no login) can't pull, else None. A login
+        from the environment, the site file or the cluster that fails it stops the install,
+        unless a prompt can take another; a typed one is asked for again, TRIES times.
+
+        `env_token` names a variable holding a token alone (a registry such as ghcr.io that
+        needs no particular username); at the prompt, Enter for the username does the same."""
+        user, pw, source = os.environ.get(env_user), os.environ.get(env_pass), "environment"
+        if env_token and not pw and os.environ.get(env_token):
+            user, pw = user or TOKEN_USER, os.environ[env_token]
         if not (user and pw) and registry in self.site:
-            user, pw = self.site[registry].get("username"), self.site[registry].get("password")
+            user, pw, source = self.site[registry].get("username"), self.site[registry].get("password"), "site file"
         if user and pw:
             self.values.pop(f"{key}-created", None)   # not a token this installer made
         else:
             user, pw = self.stored.get(f"{key}-username"), self.stored.get(f"{key}-password")
+            source = "stored (an earlier run)"
         if not (user and pw) and make:
             user, pw = make() or (None, None)
+            source = "new pull token"
             if user and pw:
                 self.values[f"{key}-created"] = time.strftime("%Y-%m-%d")
-        if not (user and pw) and self.interactive:
-            say(f"{registry}: {why}")
-            user = input(f"  {registry} username{'' if required else ' (Enter to skip)'}: ").strip()
-            pw = getpass.getpass(f"  {registry} password: ").strip() if user else ""
-        if not (user and pw):
+        login = (user, pw) if user and pw else None
+        problem = check(login) if check and (login or not required) else None
+        if problem:
+            replace = f"set {env_user} and {env_pass}" + (f" (or {env_token})" if env_token else "")
+            if not self.interactive:
+                raise SystemExit(f"{registry}: {'the ' + source + ' login' if login else 'without a login'} "
+                                 f"can't pull: {problem}\n{replace} to one that can ({why})")
+            say(f"{registry}: {'the ' + source + ' login' if login else 'without a login'} can't pull: {problem}")
+            login = None
+        # Asked unless an optional registry was just shown to work without a login.
+        if not login and self.interactive and (problem or required or not check):
+            login = self._ask(registry, why, required, check, token_ok=bool(env_token))
+        if not login:
             if required:
                 raise SystemExit(f"no {registry} credentials: set {env_user} and {env_pass} ({why})")
             return None
-        self.values[f"{key}-username"], self.values[f"{key}-password"] = user, pw
-        return user, pw
+        self.values[f"{key}-username"], self.values[f"{key}-password"] = login
+        return login
+
+    def _ask(self, registry, why, required, check, token_ok):
+        """A login typed at a hidden prompt and, with `check`, tested; asked again if it fails."""
+        say(f"{registry}: {why}")
+        for left in range(TRIES - 1, -1, -1):
+            pw = getpass.getpass(f"  {registry} {'token or ' if token_ok else ''}password"
+                                 f"{'' if required else ' (Enter to skip)'}: ").strip()
+            if not pw:
+                if required:
+                    say("  a password is needed")
+                    continue
+                problem = check(None) if check else None
+                if not problem:
+                    return None
+                say(f"  without a login: {problem}")
+            else:
+                user = input(f"  {registry} username{' (Enter for the token alone)' if token_ok else ''}: ").strip()
+                user = user or (TOKEN_USER if token_ok else "")
+                if not user:
+                    say("  a username is needed")
+                    continue
+                problem = check((user, pw)) if check else None
+                if not problem:
+                    say("  login works")
+                    return user, pw
+                say(f"  that login can't pull: {problem}")
+            if left:
+                say(f"  try again ({left} {'try' if left == 1 else 'tries'} left)")
+        raise SystemExit(f"{registry}: no login that can pull after {TRIES} tries")
 
     def s3(self, generate):
         access = os.environ.get("S3_ACCESS_KEY") or self.stored.get("s3-access-key")
@@ -528,6 +579,9 @@ def install(a):
 
     step("credentials")
     creds = Credentials(site, interactive=interactive)
+    # Each login is tested with a pull now: one the cluster can't use otherwise shows up as
+    # ImagePullBackOff only when the wait times out.
+    checks = not a.no_pull_check
     if a.git_mirror is not None:
         creds.values["git-mirror"] = a.git_mirror      # "" turns the mirror off
     a.git_mirror = a.git_mirror or None
@@ -543,29 +597,26 @@ def install(a):
         say(f"images from {a.registry_mirror} instead of cgr.dev and the build registry")
         got = creds.registry("mirror", host, "MIRROR_USERNAME", "MIRROR_PASSWORD",
                              "the site registry holding the images; skip if it allows anonymous pulls",
-                             required=False)
+                             required=False, env_token="MIRROR_TOKEN",
+                             check=checks and pull_check(deployed_images(co, a.fips, a.registry_mirror)[:1]))
         registries = [(host, *got)] if got else []
         build = None
     else:
         cgr = creds.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD",
                              "a Chainguard pull token (chainctl auth pull-token create --repository=oci "
                              f"--parent={co.org} --ttl=8760h)",
-                             make=pull_token_maker(co.org, interactive, ask=not (a.yes or a.new_pull_token)))
+                             make=pull_token_maker(co.org, interactive, ask=not (a.yes or a.new_pull_token)),
+                             check=checks and pull_check(deployed_images(co, a.fips, co.registry)[:1]))
         registries = [("cgr.dev", *cgr)]
         build = _build_registry_host(co)
     if build:
+        # Every image: on ghcr.io each package has its own access list.
         got = creds.registry("build", build, "BUILD_REGISTRY_USERNAME", "BUILD_REGISTRY_PASSWORD",
-                             "images this repo builds; skip if they are public", required=False)
+                             "images this repo builds (on ghcr.io: a read-only bot account's read:packages "
+                             "token); skip if they are public", required=False, env_token="BUILD_REGISTRY_TOKEN",
+                             check=checks and pull_check(build_images(co, a.fips)))
         if got:
             registries.append((build, *got))
-        # Checked now: an image the cluster can't pull otherwise shows up as ImagePullBackOff
-        # only when the wait times out.
-        denied = [] if a.no_pull_check else [p for ref in build_images(co, a.fips) if (p := pull_problem(ref, got))]
-        if denied:
-            raise SystemExit("\nnot installing: the cluster couldn't pull the images this repo builds:\n  "
-                             + "\n  ".join(denied) + f"\nRe-run and give a {build} login that can read them "
-                             "at the prompt (on ghcr.io: a read-only bot account's read:packages token), or set "
-                             "BUILD_REGISTRY_USERNAME and BUILD_REGISTRY_PASSWORD, which replace a stored login.")
     if any("Iron Bank" in n for n in notes):
         got = creds.registry("registry1", "registry1.dso.mil", "REGISTRY1_USERNAME", "REGISTRY1_PASSWORD",
                              "Iron Bank images some enabled packages keep", required=False)
@@ -1123,6 +1174,16 @@ def deployed_version_note(co):
 def build_images(co, fips):
     """Every image reference of this repo's builds (<build registry>/bigbang-*) the overlays deploy."""
     prefix = _build_registry(co)
+    return [r for r in deployed_images(co, fips, prefix) if r.startswith(prefix + "/bigbang-")] if prefix else []
+
+
+def pull_check(refs):
+    """A Credentials.registry check: the first of `refs` a login can't pull, and why."""
+    return lambda login: next((p for r in refs if (p := pull_problem(r, login))), None)
+
+
+def deployed_images(co, fips, prefix):
+    """Every image reference under `prefix` (host[/path]) the merged overlays deploy."""
     refs = set()
 
     def walk(node):
@@ -1130,14 +1191,14 @@ def build_images(co, fips):
             repo, tag = node.get("repository"), node.get("tag")
             if isinstance(repo, str) and tag is not None:
                 full = f"{node['registry']}/{repo}" if isinstance(node.get("registry"), str) else repo
-                if prefix and full.startswith(prefix + "/bigbang-"):
+                if prefix and full.startswith(prefix + "/"):
                     refs.add(f"{full}:{tag}")
             for v in node.values():
                 walk(v)
         elif isinstance(node, list):
             for v in node:
                 walk(v)
-        elif isinstance(node, str) and prefix and re.fullmatch(re.escape(prefix) + r"/bigbang-[\w.-]+:[\w.-]+", node):
+        elif isinstance(node, str) and prefix and re.fullmatch(re.escape(prefix) + r"/[\w./-]+:[\w.-]+", node):
             refs.add(node)
     walk(merged_values({}, co.overlays(fips)))   # what deploys: FIPS replaces the standard refs
     return sorted(refs)
@@ -1345,8 +1406,8 @@ def main():
                    help="a git server mirroring repo1 (same paths under URL) for Big Bang's chart and "
                         "packages; remembered, \"\" turns it off")
     p.add_argument("--no-pull-check", action="store_true",
-                   help="skip the preflight pull of the images built here (the nodes reach the build "
-                        "registry with their own identity, e.g. ECR, ACR or Artifact Registry)")
+                   help="don't test each registry login with a pull (when only the nodes can reach a "
+                        "registry, with their own identity: ECR, ACR, Artifact Registry)")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")

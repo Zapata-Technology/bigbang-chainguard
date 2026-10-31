@@ -567,3 +567,67 @@ def test_docker_wrapper_runs_this_checkouts_installer_image(tmp_path):
     assert out[out.index("registry.example/o/bigbang-installer:" + spec["image"]["standard"]["tag"]) + 1] == "status"
     assert "CGR_PASSWORD" in out and "secret-value" not in "\n".join(out)   # names only, never values
     assert "/site" in out and "KUBECONFIG=/kube/config" in out
+
+
+def _prompts(monkeypatch, answers):
+    """Feed the hidden prompt and the username prompt from one list, in order."""
+    it = iter(answers)
+    monkeypatch.setattr(install.getpass, "getpass", lambda q: next(it))
+    monkeypatch.setattr("builtins.input", lambda q: next(it))
+
+
+def test_a_typed_login_is_tested_and_asked_again(monkeypatch, capsys):
+    _Env(monkeypatch)
+    _prompts(monkeypatch, ["bad", "u", "good", "u"])            # password, then username, per try
+    check = lambda login: None if login == ("u", "good") else "denied"
+    c = install.Credentials({}, True)
+    assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check) == ("u", "good")
+    out = capsys.readouterr().out
+    assert "can't pull: denied" in out and "2 tries left" in out and "login works" in out
+    assert "good" not in out                                      # never printed
+
+
+def test_a_typed_login_gives_up_after_the_tries(monkeypatch):
+    _Env(monkeypatch)
+    _prompts(monkeypatch, ["p", "u"] * install.TRIES)
+    with pytest.raises(SystemExit, match="after 3 tries"):
+        install.Credentials({}, True).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why",
+                                               check=lambda login: "denied")
+
+
+def test_a_token_alone_gets_the_token_username(monkeypatch):
+    _Env(monkeypatch)
+    monkeypatch.delenv("B_U", raising=False)
+    monkeypatch.setenv("B_T", "tok")
+    seen = []
+    got = install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                  env_token="B_T", check=lambda login: seen.append(login))
+    assert got == (install.TOKEN_USER, "tok") and seen == [got]
+    monkeypatch.delenv("B_T")
+    _prompts(monkeypatch, ["tok2", ""])                           # Enter for the username: the token alone
+    assert install.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                  env_token="B_T") == (install.TOKEN_USER, "tok2")
+
+
+def test_a_stored_login_that_fails_stops_or_asks(monkeypatch):
+    stored = {"cgr-username": "old", "cgr-password": "expired"}
+    check = lambda login: "denied" if login == ("old", "expired") else None
+    _Env(monkeypatch, stored)
+    with pytest.raises(SystemExit, match="stored .*can't pull: denied\n.*CGR_USERNAME"):
+        install.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check)
+    _prompts(monkeypatch, ["new", "u"])
+    c = install.Credentials({}, True)
+    assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check) == ("u", "new")
+    assert c.values["cgr-password"] == "new"
+
+
+def test_public_images_need_no_login_and_private_ones_do(monkeypatch):
+    _Env(monkeypatch)
+    asked = []
+    monkeypatch.setattr(install.getpass, "getpass", lambda q: asked.append(q) or "")
+    assert install.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                  check=lambda login: None) is None
+    assert asked == []                                            # anonymous pull works: no prompt
+    with pytest.raises(SystemExit, match="without a login can't pull"):
+        install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                check=lambda login: None if login else "needs a login")
