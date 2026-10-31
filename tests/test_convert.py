@@ -276,3 +276,13 @@ def test_render_emulates_kustomize_digest_pins():
     assert images.kustomize_image("r1/x", "1", {"newName": "cgr.dev/o/x", "newTag": "2"}) == "cgr.dev/o/x:2"
     assert images.kustomize_image("cgr.dev/o/x", "", {"newName": "cgr.dev/o/y"}) == "cgr.dev/o/y"
     assert images.kustomize_image("cgr.dev/o/x", "1", None) is None
+
+
+def test_min_version_raises_an_end_of_life_line_to_the_newest_release():
+    m = {"images": {"k/kubectl": {"cg": "kubectl", "suffix": "dev", "min_version": "1.34"}}}
+    tags = {"kubectl": ["1.30.14-dev", "1.37.2-dev"], "kubectl-fips": ["1.30.14-dev", "1.37.2-dev"]}
+    c = convert.Converter(m, FakeTags(tags))
+    std, fips = c.target("k/kubectl", "v1.30.11", "vault")
+    assert std.endswith("kubectl:1.37.2-dev") and fips.endswith("kubectl-fips:1.37.2-dev")
+    assert "below min_version" in c.rows[-1][4]
+    assert not convert.below_floor("v1.35", "1.34") and convert.below_floor("v1.30.11", "1.34")

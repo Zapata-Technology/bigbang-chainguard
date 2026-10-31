@@ -124,6 +124,12 @@ class Converter:
                     notes.append(f"org has no {name}")
                     continue
                 want = self.version(m, ib_tag)
+                if below_floor(want, m.get("min_version")):
+                    # An end-of-life line (vault's kubectl 1.30): the org stops rebuilding it,
+                    # so its CVEs pile up, and it is outside kubectl's skew for the clusters
+                    # Big Bang supports. Take the newest release instead.
+                    notes.append(f"{name}: Iron Bank {ib_tag} is below min_version {m['min_version']}; newest release")
+                    want = "*"
                 ahead = not (self.strict or m.get("strict"))
                 pinned = self.group_patch(m)
                 if pinned:
@@ -585,6 +591,15 @@ BASH_WAIT = ('if [ -d /src ]; then cp /src/* /wait/ 2>/dev/null || true; fi\n'
              '  echo "---"; echo "Running $script..."; echo "---"\n'
              '  bash "./$script" || exit 1\n'
              'done\n')
+
+
+def below_floor(version, floor):
+    """True when `version` (an Iron Bank tag or mapping version) is on a MAJOR.MINOR line
+    older than `floor` ("1.34")."""
+    if not floor or str(version) == "*":
+        return False
+    want, low = parse(re.sub(r"-ubi.*$", "", str(version))), parse(str(floor))
+    return bool(want and low) and want[0][:2] < low[0][:2]
 
 
 def exact_tag(tags, nums, suffix=None):

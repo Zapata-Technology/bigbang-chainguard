@@ -474,6 +474,8 @@ can't express, `mapping.yaml` has these escape hatches:
   makes the command `/bin/bash` (Fortify's keystore job).
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
   (Keycloak in 3.35.1); their images stay on tags instead of digests.
+- `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
+  (kubectl `1.34`: Vault pins the end-of-life 1.30).
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
 
@@ -494,6 +496,20 @@ repo has tags, so you know when to switch it over.
 
 `discovery/render-inputs.yaml` holds render-only placeholders (fake database and Redis
 endpoints) so that GitLab and Anchore render during discovery. Never deploy with it.
+
+## Known gaps
+
+What this repo doesn't do yet, and what each needs. `docs/images.md` has the per-image detail.
+
+| Gap | Why | What closes it |
+|---|---|---|
+| 28 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
+| GitLab's kind test doesn't finish | GitLab, its PostgreSQL and Redis need more than the 2 CPUs and 7 GB of a private repository's runner; it times out with nothing crashing | A public repository (4 CPUs, 16 GB runners) or a larger runner group. Render and signature checks cover GitLab meanwhile |
+| Keycloak's images stay on tags, not digests | Big Bang 3.35.1's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
+| Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
+| Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
+| Iron Bank's side of the weekly CVE report is empty | It needs an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |
+| Some images have open Critical CVEs | See [SECURITY.md](SECURITY.md#known-vulnerabilities) | Chainguard rebuilds, or a rebuild of the images built here |
 
 ## Contributing and support
 

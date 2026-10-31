@@ -62,7 +62,9 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[Iron Bank tag, e.g. v1.20.3] --> B{Org has a 1.20.x patch?}
+    A[Iron Bank tag, e.g. v1.20.3] --> M{Below min_version?}
+    M -- yes --> N[Newest release<br/>noted in docs/images.md]
+    M -- no --> B{Org has a 1.20.x patch?}
     B -- yes --> C[Newest 1.20 patch]
     B -- no --> D{strict, or --strict-versions?}
     D -- yes --> E{fallback: ironbank?}
@@ -79,6 +81,9 @@ Two more options change this per image:
   stay on one GitLab release.
 - `version_from:` matches another image's Iron Bank tag. GitLab's registry, shell and
   exporter use this, because Chainguard tags them with the GitLab release.
+- `min_version:` raises an end-of-life line to the newest release. kubectl uses `1.34`, the
+  oldest Kubernetes Big Bang supports, so Vault's kubectl 1.30 pin doesn't pull an
+  unmaintained image.
 
 ## 3. Images this repo builds
 

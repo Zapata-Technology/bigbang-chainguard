@@ -36,6 +36,7 @@ IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
     "stays": str, "until": str, "build": str, "ref": str, "tag": str, "note": str,
     "fallback": str, "strict": bool, "group": str, "same_patch": str, "version_from": str,
+    "min_version": str,
 }
 # One of these says where the image goes; the rest only adjust it.
 IMAGE_TARGETS = {"cg", "stays", "build", "ref"}
