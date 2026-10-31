@@ -31,6 +31,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      packages: read     # pull the images this repo builds (BUILD_REGISTRY on ghcr.io) to scan them
     steps:
       # Block every outbound call not listed (GitHub, PyPI, Chainguard, repo1/registry1,
       # and what this workflow's tools download). A blocked call fails the step and
@@ -140,6 +141,13 @@ jobs:
         if: github.event_name == 'pull_request'
         id: grype
         uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+
+      - name: Log into GHCR (the images this repo builds)
+        if: github.event_name == 'pull_request' && startsWith(vars.BUILD_REGISTRY, 'ghcr.io/')
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
 
       # A pull request may not move to an image with a fixable Critical CVE (the nightly
       # update included): scripts/bb-cve.py --changed-from.
