@@ -7,7 +7,8 @@ with plugins baked in), so this converts Iron Bank's own recipe instead:
   1. read the Iron Bank tag Big Bang deploys (discovery/images.json)
   2. read Iron Bank's hardening_manifest.yaml (plugin zips + sha256) and Dockerfile
      (where each zip is unpacked) from repo1.dso.mil, pinned to a commit
-  3. download each zip, check its sha256, and read the plugin id
+  3. download each zip, check its sha256, and read the plugin id and version
+     (a plugin in REBUILD also gets its Go backend rebuilt from source: see below)
   4. pin cgr.dev/<org>/grafana and grafana-fips (and their -dev twins) for Big
      Bang's Grafana version by digest
   5. write builds/grafana-plugins/build.yaml
@@ -17,9 +18,17 @@ with plugins baked in), so this converts Iron Bank's own recipe instead:
 
 --build    docker build <BUILD_REGISTRY>/bigbang-grafana-plugins:<tag> and -fips:<tag>
            (bb-local/... when BUILD_REGISTRY is empty)
---test     start each image and check Grafana loads every plugin with a valid
-           signature (and, for -fips, that OpenSSL defaults to fips=yes)
+--test     start each image and check Grafana loads every plugin, each with a valid
+           signature (rebuilt ones: unsigned, and allowed), and, for -fips, that
+           OpenSSL defaults to fips=yes
 --push     docker push both images to BUILD_REGISTRY (never cgr.dev)
+
+REBUILD: the Redis datasource's newest release (2.2.1) ships Go backends built with Go
+1.19 and old grpc, x/net and plugin SDK modules (8 fixable Critical CVEs). Its backend
+is rebuilt from the same release's source with Wolfi's Go and those modules raised
+(patches/ adapts it to the newer SDK). The rebuilt files no longer match the signed
+MANIFEST.txt, which the build removes: Grafana then loads it as unsigned, so
+mapping.yaml `overrides.grafana` allows that one plugin id.
 
 Then run scripts/bb-convert.py: with BUILD_REGISTRY set, the overlays use the
 built images; with it empty, Grafana stays on Iron Bank's image.
@@ -43,6 +52,15 @@ NAME = "grafana-plugins"
 IMAGE = "bigbang-grafana-plugins"   # not grafana-plugins: avoids clashing with an existing package of that name
 IB_IMAGE = "ironbank/big-bang/grafana/grafana-plugins"
 IB_PROJECT = "big-bang/grafana/grafana-plugins"
+GO_PROXY = "https://proxy.golang.org"
+# Plugins whose Go backend is rebuilt from source: {id: source tarball, modules to raise, patch}.
+REBUILD = {
+    "redis-datasource": {
+        "source": "https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v{version}",
+        "go_bumps": ["github.com/grafana/grafana-plugin-sdk-go", "google.golang.org/grpc", "golang.org/x/net"],
+        "patch": "patches/redis-datasource.patch",   # the SDK's instance factory now takes a context
+    },
+}
 
 
 def plugin_layout(dockerfile):
@@ -66,8 +84,27 @@ def plugin(resource, directory):
         meta = sorted((n for n in z.namelist() if n.endswith("plugin.json")), key=lambda n: n.count("/"))
         if not meta:
             raise SystemExit(f"{resource['url']}: no plugin.json in the zip")
-        pid = json.loads(z.read(meta[0]))["id"]
-    return {"id": pid, "url": resource["url"], "sha256": want, "dir": directory}
+        info = json.loads(z.read(meta[0]))
+    out = {"id": info["id"], "url": resource["url"], "sha256": want, "dir": directory}
+    if info["id"] in REBUILD:
+        out["rebuild"] = rebuild(REBUILD[info["id"]], info)
+    return out
+
+
+def go_latest(module):
+    """`module@<newest release>` from the Go module proxy."""
+    return f"{module}@{json.loads(bbbuild.fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
+
+
+def rebuild(how, info):
+    """How to rebuild a plugin's Go backend: its release's source (by sha256), the
+    executable name Grafana runs, the modules to raise and the patch to apply."""
+    if not info.get("backend") or not info.get("executable"):
+        raise SystemExit(f"{info['id']}: REBUILD lists it, but its plugin.json has no Go backend")
+    url = how["source"].format(version=info["info"]["version"])
+    return {"source": url, "sha256": hashlib.sha256(bbbuild.fetch(url)).hexdigest(),
+            "executable": info["executable"], "patch": how["patch"],
+            "go_get": [go_latest(m) for m in how["go_bumps"]]}
 
 
 def generate(a):
@@ -97,14 +134,22 @@ def generate(a):
 
 
 def build_args(spec, variant):
+    rebuilds = [p for p in spec["plugins"] if p.get("rebuild")]
     return {"PLUGINS": ";".join(f"{p['url']} {p['sha256']} {p['dir']}" for p in spec["plugins"]),
-            "EMPTY_DIRS": " ".join(spec["empty_dirs"])}
+            "EMPTY_DIRS": " ".join(spec["empty_dirs"]),
+            # "<dir> <source> <sha256> <executable> <patch> <module@version>..." per plugin
+            "REBUILDS": ";".join(" ".join([p["dir"], r["source"], r["sha256"], r["executable"], r["patch"],
+                                          *r["go_get"]]) for p in rebuilds for r in [p["rebuild"]])}
 
 
 def smoke_test(image, variant, spec, port=3300):
     name = f"bb-smoke-{os.getpid()}"
+    # The rebuilt plugins allowed the way mapping.yaml's overrides.grafana allows them.
+    unsigned = ",".join(p["id"] for p in spec["plugins"] if p.get("rebuild"))
     subprocess.run(["docker", "run", "-d", "--name", name, "-p", f"127.0.0.1:{port}:3000",
-                    "-e", "GF_PATHS_PLUGINS=/var/lib/bb-plugins", image], check=True, capture_output=True)
+                    "-e", "GF_PATHS_PLUGINS=/var/lib/bb-plugins",
+                    "-e", f"GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS={unsigned}", image],
+                   check=True, capture_output=True)
     try:
         base = f"http://127.0.0.1:{port}"
         for _ in range(60):
@@ -119,9 +164,14 @@ def smoke_test(image, variant, spec, port=3300):
                                      headers={"Authorization": "Basic YWRtaW46YWRtaW4="})  # admin:admin, fresh container
         loaded = {p["id"]: p.get("signature") for p in json.load(urllib.request.urlopen(req, timeout=10))}
         for p in spec["plugins"]:
+            want = "unsigned" if p.get("rebuild") else "valid"
             print(f"  {p['id']}: {loaded.get(p['id'], 'missing')}")
-            if loaded.get(p["id"]) != "valid":
-                raise SystemExit(f"{image}: plugin {p['id']} did not load with a valid signature\n" + bbbuild.logs(name))
+            if loaded.get(p["id"]) != want:
+                raise SystemExit(f"{image}: plugin {p['id']} did not load ({want} signature)\n" + bbbuild.logs(name))
+        errors = json.load(urllib.request.urlopen(urllib.request.Request(
+            f"{base}/api/plugins/errors", headers=req.headers), timeout=10))
+        if errors:
+            raise SystemExit(f"{image}: plugin errors {errors}\n" + bbbuild.logs(name))
         if variant == "fips":
             # The runtime image has no shell: copy the file out (docker cp - writes a tar stream).
             cnf = subprocess.run(["docker", "cp", "-L", f"{name}:/etc/ssl/openssl.cnf", "-"],

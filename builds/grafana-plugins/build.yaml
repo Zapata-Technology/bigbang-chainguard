@@ -28,5 +28,14 @@ plugins:
   url: https://github.com/RedisGrafana/grafana-redis-datasource/releases/download/v2.2.1/redis-datasource-2.2.1.zip
   sha256: d27eabad1d5ec954ec58d95d27c14a2f727e997a4f8f19793dccaa0c86aec43e
   dir: /var/lib/bb-plugins/redis-datasource
+  rebuild:
+    source: https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v2.2.1
+    sha256: ab84fbafffc158e50acb3d07e35e338d21da49c5f362ff3c95ce79f42fd3f5ab
+    executable: redis-datasource
+    patch: patches/redis-datasource.patch
+    go_get:
+    - github.com/grafana/grafana-plugin-sdk-go@v0.298.0
+    - google.golang.org/grpc@v1.85.0
+    - golang.org/x/net@v0.62.0
 empty_dirs:
 - /var/lib/bb-plugins/piechart-panel

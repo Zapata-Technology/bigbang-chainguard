@@ -108,7 +108,7 @@ The Criticals come from a few images:
 
 | Image | Critical (std / FIPS) | Notes |
 |---|---|---|
-| `grafana-plugins` (built here) | 8 / 8 | Built FROM the org's Grafana with the plugin versions Iron Bank's manifest pins; newer plugin versions are the likely fix |
+| `grafana-plugins` (built here) | 8 / 8 | All in the Redis datasource's Go 1.19 backend (no newer release). Fixed: the backend is rebuilt from source, and loads as an allowed unsigned plugin |
 | `commercial-gitlab-*-ee` (sidekiq, toolbox, webservice, geo-logcursor) | 3 each | Chainguard's image of GitLab's 19.4 release; the nightly run takes its rebuilds |
 | `bigbang-devops-tester` (built here) | 2 / 2 | All from upstream's chainsaw image (Go 1.26.0, x/net v0.52.0). Fixed: chainsaw is now built from source with a current Go and x/net |
 | `renovate` | 1 / 1 | The nightly run takes Chainguard's rebuilds |
@@ -128,3 +128,6 @@ latest run's summary for current numbers.
   patch schedule, not Chainguard's.
 - **Signature checks run in audit mode by default**: an unsigned image is reported, not
   refused, until you choose `--verify-signatures enforce`.
+- **The Redis datasource plugin loads unsigned**: its backend is built here (to drop Go
+  1.19), so Grafana can't check it against the publisher's signature. The image build
+  pins its source by sha256, and the image itself is signed when `SIGN_IMAGES` is set.

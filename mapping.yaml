@@ -281,6 +281,16 @@ overrides:
     global:
       extraEnv:
         GODEBUG: tlsmlkem=0
+  grafana:
+    # builds/grafana-plugins rebuilds the Redis datasource's Go backend from source (its
+    # release ships Go 1.19 binaries with 8 fixable Critical CVEs) and drops the signed
+    # MANIFEST.txt the new binary no longer matches. Grafana loads an unsigned plugin only
+    # when allowed by id; this allows that one. Big Bang provisions Redis datasources
+    # itself (Argo CD, AuthService, GitLab). With Iron Bank's signed image it changes nothing.
+    upstream:
+      grafana.ini:
+        plugins:
+          allow_loading_unsigned_plugins: redis-datasource
   keycloak:
     # Big Bang's Keycloak chart runs as uid/gid 1000 (Iron Bank's keycloak user). Chainguard's
     # image has its own user, and its Keycloak files aren't readable by uid 1000 (since
