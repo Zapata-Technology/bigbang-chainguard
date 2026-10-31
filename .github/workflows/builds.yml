@@ -137,9 +137,11 @@ jobs:
         run: |
           python3 -m pip install --quiet pyyaml
           args=(--build --test --built-file "${RUNNER_TEMP}/built.txt")
-          # A new builder's first build.yaml may not be committed yet (generating it needs a
-          # Chainguard login, which some laptops can't get): generate it here and upload it,
-          # to be committed. Otherwise build exactly what is committed.
+          # A new builder has no build.yaml until update.yml on main writes it together with
+          # the overlays that use it (committed alone, bb-verify fails: the mapping says
+          # `build:` but the overlays still name Iron Bank). Until then generate it here and
+          # upload it for review; on main this publishes the image before the overlays
+          # switch to it. Otherwise build exactly what is committed.
           if [ -f "builds/${{ matrix.name }}/build.yaml" ]; then
             args+=(--no-generate)
           else
@@ -152,7 +154,7 @@ jobs:
           python3 "scripts/bb-${{ matrix.name }}.py" "${args[@]}"
           [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
 
-      - name: Upload the generated build.yaml (commit it to the pull request)
+      - name: Upload the generated build.yaml (for review)
         if: steps.build.outputs.generated == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
