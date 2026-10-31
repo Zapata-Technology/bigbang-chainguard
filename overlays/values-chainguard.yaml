@@ -118,7 +118,8 @@ addons:
     postRenderers:
     - kustomize:
         images:
-        - name: registry1.dso.mil/ironbank/opensource/kubernetes/kubectl
+        - digest: sha256:26c925c1a6bef13a6a83842639915147dad2ce8ce19a18e791a7945fa3781154
+          name: registry1.dso.mil/ironbank/opensource/kubernetes/kubectl
           newName: cgr.dev/zapatatechnology.com/kubectl
           newTag: 1.35-dev
         - digest: sha256:26c925c1a6bef13a6a83842639915147dad2ce8ce19a18e791a7945fa3781154
@@ -1292,8 +1293,12 @@ neuvector:
   postRenderers:
   - kustomize:
       images:
+      - digest: sha256:c694ce1a310b82997dd7c6b08fc73c93281b80b5f411fde04146a64da2f9866c
+        name: cgr.dev/zapatatechnology.com/neuvector-controller
       - digest: sha256:072efec3b7eb651f73a5cbba1f0f3ca990972df193eb4888970752c445be2b22
         name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
+      - digest: sha256:e9fe479c86e46f72c35f7758bb4a356c25132a9d67cb4f573669004f45ac23fa
+        name: cgr.dev/zapatatechnology.com/neuvector-scanner
   values:
     bbtests:
       scripts:
