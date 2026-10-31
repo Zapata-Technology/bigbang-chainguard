@@ -1,4 +1,6 @@
 """bb-cve.py: pairs from the image map, severity counts and the report."""
+import json
+
 from conftest import load_script
 
 cve = load_script("bb-cve")
@@ -56,3 +58,11 @@ def test_new_refs_are_only_the_images_a_change_adds():
     newer = MAP.replace("tempo:2.8.1 | tempo-fips:2.8.1", "tempo:2.8.2 | tempo-fips:2.8.2")
     assert cve.new_refs(MAP, newer) == ["cgr.dev/example.com/tempo-fips:2.8.2", "cgr.dev/example.com/tempo:2.8.2"]
     assert cve.new_refs(MAP, MAP) == []
+
+
+def test_gate_tells_a_failed_scan_from_a_finding():
+    crit = {"matches": [{"vulnerability": {"id": "CVE-1", "severity": "Critical", "fix": {"versions": ["1.2"]}},
+                         "artifact": {"name": "x", "version": "1.1"}}]}
+    assert cve.gate_result(0, json.dumps({"matches": []}), "") == ("ok", [])
+    assert cve.gate_result(0, json.dumps(crit), "") == ("FIXABLE CRITICAL", ["CVE-1 x 1.1 (fixed in 1.2)"])
+    assert cve.gate_result(1, "", "failed to pull: UNAUTHORIZED")[0] == "SCAN FAILED"

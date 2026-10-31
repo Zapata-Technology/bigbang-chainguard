@@ -13,7 +13,7 @@ Iron Bank columns say so. Images that stay on Iron Bank and the images this repo
 are listed under their own headings. cve-report.yml runs this weekly.
 
 --changed-from <git ref>: only the Chainguard images (standard and FIPS) that docs/images.md
-names now and didn't at <ref>, scanned for fixable Critical CVEs; exit 1 if any has one.
+names now and didn't at <ref>, scanned for fixable Critical CVEs; exit 1 if any has one or can't be scanned.
 ci.yml runs it on pull requests, so the nightly update can't move to an image with a
 known, already-fixed critical vulnerability without someone deciding to.
 """
@@ -68,14 +68,26 @@ def gate(base):
     refs = new_refs(old, open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read())
     lines, failed = [f"{len(refs)} image(s) new since {base}"], False
     for ref in refs:
-        p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "--fail-on", "critical", "-o", "table",
-                            "--quiet"], capture_output=True, text=True)
-        bad = p.returncode != 0
-        failed |= bad
-        lines.append(f"{'FIXABLE CRITICAL' if bad else 'ok'}  {ref}")
-        if bad:
-            lines += ["    " + ln for ln in (p.stdout or p.stderr).strip().splitlines()[:15]]
+        p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "-o", "json"], capture_output=True, text=True)
+        status, detail = gate_result(p.returncode, p.stdout, p.stderr)
+        failed |= status != "ok"
+        lines.append(f"{status}  {ref}")
+        lines += ["    " + ln for ln in detail[:15]]
     return lines, failed
+
+
+def gate_result(returncode, stdout, stderr):
+    """(status, detail lines) of one --only-fixed scan. A scan that fails (say, a private
+    image without a registry login) is SCAN FAILED, not a finding."""
+    try:
+        found = criticals(json.loads(stdout)) if returncode == 0 else None
+    except ValueError:
+        found = None
+    if found is None:
+        return "SCAN FAILED", (stderr.strip().splitlines() or ["grype failed"])[-5:]
+    if found:
+        return "FIXABLE CRITICAL", [f"{i} {pkg} {ver} (fixed in {fixed})" for i, pkg, ver, fixed in found]
+    return "ok", []
 
 
 def counts(grype_json):
