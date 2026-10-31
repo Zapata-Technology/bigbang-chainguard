@@ -190,7 +190,13 @@ def kustomize_image(name, tag, entry):
 
 def flux_images(bigbang):
     k = yaml.safe_load(open(os.path.join(bigbang, "base", "flux", "kustomization.yaml")))
-    return sorted(f'{i["newName"]}:{i["newTag"]}' for i in k.get("images", []))
+    return kustomization_images(k)
+
+
+def kustomization_images(k):
+    """What a kustomization's images entries deploy: newName with its digest (bb-convert's
+    pins), else its newTag."""
+    return sorted(kustomize_image(i["name"], None, i) for i in k.get("images", []))
 
 
 def main():
@@ -212,7 +218,7 @@ def main():
     result = {"packages": {}, "errors": {}}
     if a.flux_kustomization:
         k = yaml.safe_load(open(a.flux_kustomization))
-        flux = sorted(f'{i["newName"]}:{i["newTag"]}' for i in k.get("images", []))
+        flux = kustomization_images(k)
     else:
         flux = flux_images(a.bigbang)
     result["packages"]["flux"] = {"key": "flux", "rendered": flux, "values": []}

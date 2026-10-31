@@ -29,6 +29,17 @@ def test_counts_unique_vulnerabilities_by_severity():
     assert out == {"Critical": 1, "High": 2, "Medium": 0, "Low": 0}
 
 
+def test_criticals_list_what_to_fix():
+    m = {"vulnerability": {"id": "CVE-9", "severity": "Critical", "fix": {"versions": ["1.2.4"]}},
+         "artifact": {"name": "golang.org/x/net", "version": "1.2.3"}}
+    found = {"matches": [m, m, {"vulnerability": {"id": "CVE-8", "severity": "High"}, "artifact": {}}]}
+    assert cve.criticals(found) == [("CVE-9", "golang.org/x/net", "1.2.3", "1.2.4")]
+    pairs = cve.image_pairs(MAP)
+    text = cve.report(pairs, {"cgr.dev/example.com/tempo:2.8.1": {**cve.counts(found), "critical": cve.criticals(found)}},
+                      False, False)
+    assert "| cgr.dev/example.com/tempo:2.8.1 | CVE-9 | golang.org/x/net | 1.2.3 | 1.2.4 |" in text
+
+
 def test_report_totals_and_rows():
     pairs = cve.image_pairs(MAP)
     results = {"registry1.dso.mil/ironbank/x/tempo:2.8.0": {"Critical": 1, "High": 5, "Medium": 9, "Low": 2},

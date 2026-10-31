@@ -55,6 +55,14 @@ def _open(req, timeout, attempts=4):
         time.sleep(5 * (i + 1))
 
 
+class _KeepRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args):
+        return None  # surface the 3xx as an HTTPError, Location and all
+
+
+_NO_REDIRECT = urllib.request.build_opener(_KeepRedirect)
+
+
 class OrgTags:
     def __init__(self, org, cache=None, offline=False):
         self.org = org
@@ -93,6 +101,33 @@ class OrgTags:
                                      headers={"Authorization": f"Bearer {self._token(repo)}", "Accept": accept})
         with _open(req, 30) as r:
             return r.headers["Docker-Content-Digest"]
+
+    def created(self, repo, tag):
+        """Build time (the config's `created`, ISO 8601) of <org>/<repo>:<tag>, linux/amd64."""
+        token = self._token(repo)
+
+        def get(path, accept):
+            req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/{path}",
+                                         headers={"Authorization": f"Bearer {token}", "Accept": accept})
+            with _open(req, 60) as r:
+                return json.load(r)
+        doc = get(f"manifests/{tag}", ", ".join(["application/vnd.oci.image.index.v1+json",
+                                                 "application/vnd.oci.image.manifest.v1+json"]))
+        if "manifests" in doc:
+            amd = next(m for m in doc["manifests"] if m.get("platform", {}).get("architecture") == "amd64")
+            doc = get(f"manifests/{amd['digest']}", "application/vnd.oci.image.manifest.v1+json")
+        # Blobs redirect to presigned storage URLs (Cloudflare R2), which refuse a second
+        # Authorization header: follow the redirect without it.
+        req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/blobs/{doc['config']['digest']}",
+                                     headers={"Authorization": f"Bearer {token}"})
+        try:
+            with _NO_REDIRECT.open(req, timeout=60) as r:
+                return json.load(r).get("created")
+        except urllib.error.HTTPError as e:
+            if e.code not in (301, 302, 303, 307, 308):
+                raise
+            with _open(urllib.request.Request(e.headers["Location"]), 60) as r:
+                return json.load(r).get("created")
 
     def tags(self, repo):
         """Every tag of <org>/<repo>, or None if the org has no such repository."""

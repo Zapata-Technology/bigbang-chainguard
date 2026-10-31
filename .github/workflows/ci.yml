@@ -123,6 +123,11 @@ jobs:
       - name: Verify FIPS images
         run: python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips -o "${RUNNER_TEMP}/rendered-fips.json"
 
+      # An org image not rebuilt in 30 days is on a line Chainguard stopped maintaining
+      # (Vault's kubectl 1.30): scripts/bb-age.py.
+      - name: Every org image was rebuilt recently
+        run: python3 scripts/bb-age.py --max-days 30
+
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 

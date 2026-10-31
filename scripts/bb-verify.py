@@ -8,6 +8,8 @@ Standard: every image is in cgr.dev/<org>, BUILD_REGISTRY, or the registry of a
           `stays` (or a `build:` image when BUILD_REGISTRY is empty).
 FIPS:     the same, and every converted image is a -fips image unless mapping.yaml
           says the image has no FIPS variant.
+Both:     every org image is pinned by digest (bb-convert's post-renderer pins), except in
+          `no_post_renderers` packages and where a release uses one repository at two tags.
 """
 import argparse
 import json
@@ -24,6 +26,24 @@ sys.path.insert(0, HERE)
 from bbcommon import IRONBANK_HOSTS, build_registry, build_target, load_mapping, split_ref  # noqa: E402
 import objstore  # noqa: E402
 from orgtags import REGISTRY, org_name  # noqa: E402
+
+
+def digest_gaps(packages, prefix, tag_only):
+    """(release, image) for org images left on a tag. A release whose package can't take a
+    post-renderer (`tag_only` package keys) is exempt, and so is a repository the release
+    deploys at two tags: kustomize matches images by name, so bb-convert can't pin either."""
+    gaps = []
+    for rel, info in sorted(packages.items()):
+        if info.get("key") in tag_only:
+            continue
+        mine = [i for i in info["rendered"] if i.startswith(prefix)]
+        tags = {}
+        for img in mine:
+            repo = img.split("@")[0].rsplit(":", 1)[0]
+            tags.setdefault(repo, set()).add(img)
+        gaps += [(rel, img) for img in mine if "@sha256:" not in img
+                 and len(tags[img.rsplit(":", 1)[0]]) == 1]
+    return gaps
 
 
 def main():
@@ -107,6 +127,10 @@ def main():
                 counts["ironbank"] += 1
                 continue
             problems.append(f"{rel}: {img} is not converted and not marked `stays`")
+
+    unpinned = digest_gaps(found["packages"], f"{REGISTRY}/{org}/",
+                           {k.rsplit(".", 1)[-1] for k in load_mapping(org).get("no_post_renderers", {})})
+    problems += [f"{rel}: {img} is not pinned by digest" for rel, img in unpinned]
 
     mode = "FIPS" if a.fips else "standard"
     print(f"{mode}: {counts['ours']} images converted, {counts['ironbank']} documented Iron Bank images")
