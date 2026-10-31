@@ -291,6 +291,10 @@ def test_min_version_raises_an_end_of_life_line_to_the_newest_release():
 def test_override_images_are_pinned_unless_listed_unpinned(conv):
     conv.overrides("nv", {"registry": "@registry", "repository": "@repo:app", "tag": "@tag:app:1.2"}, False)
     assert [p["name"] for p in conv.digest_pins("nv", "standard")] == ["cgr.dev/example.com/app"]
+    # A chart-wide tag reaches the @repo images under it (NeuVector's enforcer, manager).
+    conv.overrides("nv2", {"tag": "@tag:app:1.2", "enforcer": {"image": {"repository": "@repo:old"}},
+                           "manager": {"image": {"repository": "@repo:app"}}}, False)
+    assert [p["name"] for p in conv.digest_pins("nv2", "standard")] == ["cgr.dev/example.com/app"]
     c = convert.Converter({**MAPPING, "unpinned": {"nv": {"app": "injected from a ConfigMap"}}}, FakeTags(ORG_TAGS))
     c.overrides("nv", {"image": "@ref:app:1.2"}, False)
     c.overrides("nv", {"image": "@ref:app:1.2"}, True)
