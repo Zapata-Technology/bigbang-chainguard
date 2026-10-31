@@ -84,8 +84,10 @@ images:
   ironbank/opensource/prometheus/snmp_exporter: {cg: prometheus-snmp-exporter, fips: null}
   ironbank/opensource/prometheus/memcached-exporter: memcached-exporter
   # SonarQube's JMX init container runs sh -c "curl file:///opt/jmx_exporter/jmx_prometheus_javaagent-<v>.jar";
-  # Chainguard's jmx-exporter-iamguarded has the Bitnami layout and no sh or curl.
-  ironbank/opensource/prometheus/jmx-exporter: {stays: "SonarQube's init container needs Iron Bank's /opt/jmx_exporter jar, sh and curl; Chainguard's jmx-exporter-iamguarded is the Bitnami layout"}
+  # Chainguard's jmx-exporter-iamguarded has the Bitnami layout and no sh or curl, so
+  # scripts/bb-jmx-exporter.py rebuilds Iron Bank's recipe (that jar, by sha256, at that
+  # path) FROM the org's busybox -dev images with curl; with BUILD_REGISTRY empty it stays.
+  ironbank/opensource/prometheus/jmx-exporter: {build: jmx-exporter}
   ironbank/opensource/prometheus-operator/prometheus-operator: prometheus-operator
   ironbank/opensource/prometheus-operator/prometheus-config-reloader: prometheus-config-reloader
   ironbank/opensource/kubernetes/kube-state-metrics: kube-state-metrics
