@@ -96,10 +96,10 @@ The first `install` asks for your domain and packages and writes `my-site.yaml` 
 another file.
 
 **The images this repo builds are private** when the build registry is (GHCR packages are
-by default): set `BUILD_REGISTRY_USERNAME` and `BUILD_REGISTRY_PASSWORD` to a login that
-can read them (on ghcr.io, a GitHub token with `read:packages`) on the first install. The
-installer checks that it can pull every one of them before changing the cluster, and keeps
-the login in the cluster for later runs.
+by default), so the first install asks for a login that can read them, with the password
+hidden. The installer checks that it can pull every one of them before changing the
+cluster, and keeps the login in the cluster for later runs. See
+[Registry logins](#registry-logins) for what kind of login to give it.
 
 You need kubectl, helm, Python 3 with PyYAML, and a kubectl context for the cluster. No
 Iron Bank account is needed unless a package you enable keeps an Iron Bank image. Without
@@ -178,12 +178,48 @@ command in it, with your kubeconfig and the current directory (for `my-site.yaml
 
 ```bash
 docker login ghcr.io                          # if the installer image is private
-export CGR_USERNAME=... CGR_PASSWORD=...      # a pull token: the image has no chainctl
 scripts/bb-docker.sh install                  # BB_INSTALLER_FIPS=1 for the -fips image
 ```
 
+The image has no chainctl, so the first install asks for a cgr.dev pull token
+(`chainctl auth pull-token create --repository=oci --parent=<org> --ttl=8760h` on a
+machine that has it) as well as the build registry login.
+
 A kubeconfig that logs in through a plugin (aws, az, gke-gcloud-auth-plugin) needs a
 self-contained context instead (`kubectl config view --minify --flatten`).
+
+#### Registry logins
+
+The installer asks for each registry login it needs, with the password hidden, and stores
+it in the cluster, so you type it once per cluster. Prefer that prompt to environment
+variables: an `export NAME=<token>` line lands in your shell history and every program you
+start from that shell inherits it. Use the variables (`CGR_*`, `BUILD_REGISTRY_*`,
+`REGISTRY1_*`) when nothing can answer a prompt, as in a pipeline, and fill them from your
+secret store or `read -rs`, not a literal on the command line:
+
+```bash
+read -rs BUILD_REGISTRY_PASSWORD && export BUILD_REGISTRY_PASSWORD BUILD_REGISTRY_USERNAME=<bot account>
+```
+
+A variable replaces a login stored by an earlier run (that's how you rotate one).
+
+Every login ends up in the cluster for as long as Big Bang runs: in the `bigbang/bb-install`
+Secret, and in a `private-registry` Secret in each package namespace. So give it the least
+it needs:
+
+- **Build registry on ghcr.io:** a token for a dedicated bot account that only has read
+  access to the `bigbang-*` packages, not your own token. GHCR pulls need a classic token,
+  which reaches every package its account can see; give it only `read:packages` and an
+  expiry date.
+- **cgr.dev:** a pull token (what the installer makes with your chainctl login), which can
+  only pull, and expires after a year.
+- **No long-lived token at all:** push the images this repo builds to a registry the nodes
+  reach with their own cloud identity (ECR, ACR, Artifact Registry) by setting
+  `BUILD_REGISTRY` to it (skip the login at the prompt, and add `--no-pull-check`: the
+  workstation can't pull what only the nodes may), or copy every image into a site registry and install with
+  `--registry-mirror` (**Disconnected sites** below).
+
+Then restrict who can read Secrets ([SECURITY.md](SECURITY.md), "Credentials in the cluster").
 
 **Upgrades.** `install --plan` (same flags) shows what a run would change and stops: the
 Big Bang version, standard to FIPS or back, packages turned on or off, and each image tag
@@ -270,8 +306,8 @@ registryCredentials:
     username: <Chainguard pull token id>
     password: <Chainguard pull token secret>
   - registry: ghcr.io                 # your BUILD_REGISTRY, if it is private
-    username: <GitHub user>
-    password: <read:packages token>
+    username: <read-only bot account>
+    password: <its read:packages token>
   - registry: registry1.dso.mil       # only if a package in docs/images.md "Stays on Iron Bank" is enabled
     username: <Iron Bank user>
     password: <Iron Bank CLI secret>

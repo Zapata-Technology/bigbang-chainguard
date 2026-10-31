@@ -560,12 +560,12 @@ def install(a):
             registries.append((build, *got))
         # Checked now: an image the cluster can't pull otherwise shows up as ImagePullBackOff
         # only when the wait times out.
-        denied = [p for ref in build_images(co, a.fips) if (p := pull_problem(ref, got))]
+        denied = [] if a.no_pull_check else [p for ref in build_images(co, a.fips) if (p := pull_problem(ref, got))]
         if denied:
             raise SystemExit("\nnot installing: the cluster couldn't pull the images this repo builds:\n  "
-                             + "\n  ".join(denied) + "\nSet BUILD_REGISTRY_USERNAME and BUILD_REGISTRY_PASSWORD "
-                             f"to a {build} login that can read them (on ghcr.io: a GitHub token with "
-                             "read:packages); they're kept in the cluster after that.")
+                             + "\n  ".join(denied) + f"\nRe-run and give a {build} login that can read them "
+                             "at the prompt (on ghcr.io: a read-only bot account's read:packages token), or set "
+                             "BUILD_REGISTRY_USERNAME and BUILD_REGISTRY_PASSWORD, which replace a stored login.")
     if any("Iron Bank" in n for n in notes):
         got = creds.registry("registry1", "registry1.dso.mil", "REGISTRY1_USERNAME", "REGISTRY1_PASSWORD",
                              "Iron Bank images some enabled packages keep", required=False)
@@ -1344,6 +1344,9 @@ def main():
     p.add_argument("--git-mirror", metavar="URL",
                    help="a git server mirroring repo1 (same paths under URL) for Big Bang's chart and "
                         "packages; remembered, \"\" turns it off")
+    p.add_argument("--no-pull-check", action="store_true",
+                   help="skip the preflight pull of the images built here (the nodes reach the build "
+                        "registry with their own identity, e.g. ECR, ACR or Artifact Registry)")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
