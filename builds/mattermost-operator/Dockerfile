@@ -31,10 +31,11 @@ USER root
 # FIPS=toolchain: the build image's Go is Chainguard's FIPS Go (go-fips): build like
 #   upstream's Dockerfile.fips (cgo, -tags=requirefips), crypto through OpenSSL's FIPS provider.
 # FIPS=native: no FIPS toolchain in the org (kubectl-fips -dev offers only go-1.N): build
-#   against Go's own FIPS 140-3 module (GOFIPS140=v1.0.0-<hash>, the frozen module, which the
-#   Go command checks against its lib/fips140/fips140.sum; Wolfi's Go ships the sum but
-#   not the zip, so it comes from the module proxy), which also makes fips140=on the
-#   binary's default GODEBUG.
+#   against Go's own FIPS 140-3 module: GOFIPS140=v1.0.0-<hash>, the frozen module Go's
+#   lib/fips140/certified.txt names, which also makes fips140=on the binary's default
+#   GODEBUG. Wolfi's Go keeps lib/fips140/fips140.sum but drops the module zips, so the
+#   zip comes from the Go repository at the toolchain's own release tag and must match
+#   the sha256 in Wolfi's fips140.sum (the Go command checks its h1: hash as well).
 RUN set -e; \
     command -v go >/dev/null || apk add --no-cache ${GO_PACKAGE}; \
     command -v curl >/dev/null || apk add --no-cache curl; \
@@ -48,10 +49,14 @@ RUN set -e; \
     tags=""; \
     case "${FIPS}" in \
       toolchain) export CGO_ENABLED=1; tags="-tags=requirefips";; \
-      native) sums="$(go env GOROOT)/lib/fips140/fips140.sum"; grep -v '^#' "$sums" || true; \
-        v=$(sed -n 's/^\(v1\.0\.0\(-[0-9a-f]*\)\?\)\.zip .*/\1/p' "$sums" | tail -1); \
-        [ -n "$v" ] || { echo "this Go lists no frozen FIPS 140-3 module v1.0.0 in $sums"; exit 1; }; \
-        export GOFIPS140="$v";; \
+      native) dir="$(go env GOROOT)/lib/fips140"; \
+        line=$(grep -E '^v1\.0\.0-[0-9a-f]+\.zip ' "$dir/fips140.sum" | tail -1); \
+        [ -n "$line" ] || { echo "this Go lists no frozen FIPS 140-3 module v1.0.0 in $dir/fips140.sum"; exit 1; }; \
+        zip=${line%% *}; sum=$(echo "$line" | cut -d' ' -f2); \
+        [ -f "$dir/$zip" ] || curl -fsSL -o "$dir/$zip" \
+          "https://raw.githubusercontent.com/golang/go/$(go env GOVERSION)/lib/fips140/$zip"; \
+        echo "$sum  $dir/$zip" | sha256sum -c -; \
+        export GOFIPS140="${zip%.zip}";; \
       "") ;; \
       *) echo "FIPS=${FIPS}: want toolchain, native or empty"; exit 1;; \
     esac; \
