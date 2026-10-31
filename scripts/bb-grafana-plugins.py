@@ -168,8 +168,10 @@ def smoke_test(image, variant, spec, port=3300):
             print(f"  {p['id']}: {loaded.get(p['id'], 'missing')}")
             if loaded.get(p["id"]) != want:
                 raise SystemExit(f"{image}: plugin {p['id']} did not load ({want} signature)\n" + bbbuild.logs(name))
-        errors = json.load(urllib.request.urlopen(urllib.request.Request(
-            f"{base}/api/plugins/errors", headers=req.headers), timeout=10))
+        # Only ours: Chainguard's Grafana reports its own bundled plugins as signatureMissing.
+        ours = {p["id"] for p in spec["plugins"]}
+        errors = [e for e in json.load(urllib.request.urlopen(urllib.request.Request(
+            f"{base}/api/plugins/errors", headers=req.headers), timeout=10)) if e.get("pluginId") in ours]
         if errors:
             raise SystemExit(f"{image}: plugin errors {errors}\n" + bbbuild.logs(name))
         if variant == "fips":
