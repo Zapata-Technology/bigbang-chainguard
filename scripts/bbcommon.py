@@ -30,7 +30,7 @@ def setting(name, arg=None):
 # new feature that needs adding here, in bb-convert.py and in the README); load_mapping
 # refuses it instead of silently ignoring it.
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
-                    "bash_wait_jobs", "bash_commands", "post_renderers", "no_post_renderers", "ignore",
+                    "bash_wait_jobs", "bash_commands", "post_renderers", "no_post_renderers", "unpinned", "ignore",
                     "scan_reviewed"}
 IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,

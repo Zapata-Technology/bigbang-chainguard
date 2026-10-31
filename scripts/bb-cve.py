@@ -93,6 +93,17 @@ def counts(grype_json):
     return out
 
 
+def criticals(grype_json):
+    """Sorted unique (id, package, version, fixed-in or "") of the Critical matches."""
+    out = set()
+    for m in grype_json.get("matches", []):
+        v, a = m.get("vulnerability", {}), m.get("artifact", {})
+        if v.get("severity") == "Critical":
+            fixed = ", ".join(v.get("fix", {}).get("versions") or [])
+            out.add((v.get("id", "?"), a.get("name", "?"), a.get("version", "?"), fixed))
+    return sorted(out)
+
+
 def scan(ref):
     """{severity: n}, or an error string."""
     try:
@@ -102,7 +113,8 @@ def scan(ref):
         return "timed out"
     if p.returncode:
         return (p.stderr.strip().splitlines() or ["grype failed"])[-1][:120]
-    return counts(json.loads(p.stdout))
+    found = json.loads(p.stdout)
+    return {**counts(found), "critical": criticals(found)}
 
 
 def cell(result):
@@ -133,6 +145,13 @@ def report(pairs, results, fips, ironbank):
              "## Per image", "", "| Iron Bank image | Iron Bank | Chainguard image | Chainguard |", "|---|---|---|---|"]
     for ib, new in converted:
         lines.append(f"| {ib.removeprefix(IRON_BANK + '/')} | {cell(results.get(ib))} | {new} | {cell(results.get(new))} |")
+    crit = [(new, c) for _, new in converted if isinstance(results.get(new), dict)
+            for c in results[new].get("critical", [])]
+    if crit:
+        # What to fix: a fixed-in version means a rebuild or a newer tag clears it.
+        lines += ["", "## Critical in the Chainguard images", "",
+                  "| Image | CVE | Package | Installed | Fixed in |", "|---|---|---|---|---|"]
+        lines += [f"| {ref} | {i} | {pkg} | {ver} | {fixed or 'no fix yet'} |" for ref, (i, pkg, ver, fixed) in crit]
     if kept:
         lines += ["", "## Still on Iron Bank", ""] + [f"- {ib.removeprefix(IRON_BANK + '/')}" for ib in kept]
     return "\n".join(lines) + "\n"

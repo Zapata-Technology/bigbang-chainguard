@@ -64,7 +64,7 @@ python scripts/bb-install.py status                              # health of a d
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
 `compat/` or the installer), `update.yml` (nightly bot PR), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
-vs Chainguard grype counts), `codeql.yml` / `scorecard.yml` (public repo only).
+vs Chainguard grype counts, with each Critical and its fix), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Playbooks
 
@@ -195,6 +195,8 @@ builds on the PR and pushes on merge.
   without `work/`; the update workflow can't log into Chainguard from a branch (the
   identity trusts main and pull requests), so a mapping change lands first and
   `update.yml` on main regenerates the overlays.
+- **An org image stops being rebuilt** when Chainguard drops its line (Vault's kubectl 1.30):
+  `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
 

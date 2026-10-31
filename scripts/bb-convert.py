@@ -63,6 +63,7 @@ class Converter:
         self.hubs = mapping.get("hubs", {})
         self.defaults = mapping.get("template_defaults", [])
         self.ignore = mapping.get("ignore", [])
+        self.unpinned = mapping.get("unpinned", {})   # release -> {org repo: why it stays on its tag}
         self.tags = tags
         self.rows = []          # (release, ironbank ref, standard, fips, note)
         self.missing = set()    # org repos needed but absent
@@ -179,8 +180,10 @@ class Converter:
             repo, tag = ref.rsplit(":", 1)
             by_repo.setdefault(repo, set()).add(tag)
         pins = []
+        skip = {f"{self.cg}/{r}" for r in self.unpinned.get(release, {})}
+        skip |= {f"{r}-fips" for r in skip}
         for repo, tags in sorted(by_repo.items()):
-            if len(tags) != 1:
+            if len(tags) != 1 or repo in skip:
                 continue
             digest = self.tags.pinned(repo[len(self.cg) + 1:], next(iter(tags)))
             if digest:
@@ -373,6 +376,9 @@ class Converter:
         if not tag:
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"{name}: {note}"))
             return spec
+        # The image an override names is deployed like any other: digest_pins() pins it.
+        used = self.used.setdefault(release, {"standard": set(), "fips": set()})
+        used["fips" if fips else "standard"].add(f"{self.cg}/{name}:{tag}")
         return tag if kind == "tag" else f"{self.cg}/{name}:{tag}"
 
     def flux(self, info):
@@ -417,9 +423,14 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     continue
                 for tree, tgt in ((std, t[0]), (fips, t[1])):
                     pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {"images": []}}]
-                    pr[0]["kustomize"]["images"].append({"name": f"registry1.dso.mil/{ib_repo}",
-                                                         "newName": tgt.rsplit(":", 1)[0],
-                                                         "newTag": tgt.rsplit(":", 1)[1]})
+                    name, tag = tgt.rsplit(":", 1)
+                    entry = {"name": f"registry1.dso.mil/{ib_repo}", "newName": name, "newTag": tag}
+                    # kustomize applies one entry per image name, so the digest pin for the
+                    # new name never reaches a renamed image: the rename carries it.
+                    digest = c.tags.pinned(name[len(c.cg) + 1:], tag) if name.startswith(c.cg + "/") else None
+                    if digest:
+                        entry["digest"] = digest
+                    pr[0]["kustomize"]["images"].append(entry)
                     set_path(tree, key + ["postRenderers"], pr)
         # Version labels that must name the image actually deployed (a newer patch than
         # the chart's appVersion): Flux post-renderer JSON patch on the workload.

@@ -9,6 +9,7 @@ flowchart LR
     U[Unit tests<br/>pytest tests/] --> SC[Chart scan<br/>bb-scan.py<br/>sh needs bash, empty defaults]
     SC --> V[Render verify<br/>bb-verify.py<br/>standard + FIPS]
     V --> S[Signatures<br/>bb-signatures.py<br/>cosign, every org image]
+    V --> AG[Image age<br/>bb-age.py<br/>rebuilt in 30 days]
     V --> B[Image builds<br/>builds.yml<br/>smoke test + grype]
     S --> C[Run on kind<br/>compat.yml<br/>one package per job]
     B --> C
@@ -18,8 +19,10 @@ flowchart LR
 |---|---|---|
 | **Unit** (`tests/`) | every PR (`ci.yml`) | Tag selection, settings and org files, conversion rules and post-renderer patches, value-path discovery, Iron Bank recipe parsing, the image policy, object-storage credentials, the chart scan's rules, the leftovers report, and every `compat/*.yaml` being well formed |
 | **Chart scan** (`bb-scan.py`) | every PR | Shell code run by `sh` that needs bash (Chainguard `-dev` images' `sh` is busybox; UBI's is bash), and empty chart defaults written into an app config. Each finding must be listed in `mapping.yaml` `scan_reviewed` with its fix. |
-| **Render verify** (`bb-verify.py`) | every PR, standard and FIPS | An image the overlays don't convert; a non-FIPS image in the FIPS overlay |
+| **Render verify** (`bb-verify.py`) | every PR, standard and FIPS | An image the overlays don't convert; a non-FIPS image in the FIPS overlay; an org image left on a tag instead of its digest pin |
 | **Signatures** (`bb-signatures.py`) | every PR | An org image Chainguard didn't sign for your org, or a tag that doesn't exist. This found `neuvector-manager-fips:5.6`, which had no tags. |
+| **Image age** (`bb-age.py`) | every PR | An org image not rebuilt in 30 days: a release line Chainguard stopped maintaining. Vault's kubectl 1.30 (19 Critical CVEs in FIPS) was one. |
+| **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE |
 | **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime |
 

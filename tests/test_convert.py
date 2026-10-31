@@ -286,3 +286,24 @@ def test_min_version_raises_an_end_of_life_line_to_the_newest_release():
     assert std.endswith("kubectl:1.37.2-dev") and fips.endswith("kubectl-fips:1.37.2-dev")
     assert "below min_version" in c.rows[-1][4]
     assert not convert.below_floor("v1.35", "1.34") and convert.below_floor("v1.30.11", "1.34")
+
+
+def test_override_images_are_pinned_unless_listed_unpinned(conv):
+    conv.overrides("nv", {"registry": "@registry", "repository": "@repo:app", "tag": "@tag:app:1.2"}, False)
+    assert [p["name"] for p in conv.digest_pins("nv", "standard")] == ["cgr.dev/example.com/app"]
+    c = convert.Converter({**MAPPING, "unpinned": {"nv": {"app": "injected from a ConfigMap"}}}, FakeTags(ORG_TAGS))
+    c.overrides("nv", {"image": "@ref:app:1.2"}, False)
+    c.overrides("nv", {"image": "@ref:app:1.2"}, True)
+    assert c.digest_pins("nv", "standard") == [] and c.digest_pins("nv", "fips") == []
+
+
+def test_post_renderer_rename_carries_the_digest():
+    discovered = {"packages": {"fortify": {"key": "addons.fortify", "values": [],
+                                           "rendered": ["registry1.dso.mil/ironbank/app:1.2.3"]}}}
+    mapping = {"images": {"ironbank/app": "app"}, "post_renderers": {"addons.fortify": ["ironbank/app"]}}
+    files, c = convert.generate(discovered, mapping, FakeTags(ORG_TAGS), "3.35.1")
+    import yaml
+    images = yaml.safe_load(files["overlays/values-chainguard.yaml"])["addons"]["fortify"]["postRenderers"][0][
+        "kustomize"]["images"]
+    rename = next(i for i in images if i["name"] == "registry1.dso.mil/ironbank/app")
+    assert rename["newName"] == "cgr.dev/example.com/app" and rename["digest"] == c.tags.pinned("app", "1.2.5")

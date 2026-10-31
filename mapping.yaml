@@ -393,6 +393,14 @@ ignore:
 no_post_renderers:
   addons.keycloak: Big Bang 3.35.1's keycloak/helmrelease.yaml writes postRenderers without the key
 
+# Org images that stay on their exact tag instead of a digest pin (release: {org repo: why}).
+# bb-verify.py fails on any other org image without a digest.
+unpinned:
+  istiod:
+    istio-proxy: injected into pods from istiod's ConfigMap, which a post-renderer can't reach
+  mattermost:
+    kubectl: its two wait jobs run two kubectl lines (1.36, 1.37); kustomize pins one digest per name
+
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.
 scan_reviewed:

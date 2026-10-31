@@ -472,6 +472,8 @@ can't express, `mapping.yaml` has these escape hatches:
   post-renderer runs those scripts with bash (Kyverno policies' wait job).
 - `bash_commands`: containers whose `/bin/sh -c` script is really bash; a post-renderer
   makes the command `/bin/bash` (Fortify's keystore job).
+- `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
+  a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
   (Keycloak in 3.35.1); their images stay on tags instead of digests.
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
