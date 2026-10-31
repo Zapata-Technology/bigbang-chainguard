@@ -41,6 +41,9 @@ def test_digest_gaps_find_org_images_left_on_tags():
         "grafana": {"key": "grafana", "rendered": ["ghcr.io/o/grafana-plugins:13.2.5", "registry1.dso.mil/x:1"]},
     }
     assert verify.digest_gaps(packages, P, {"keycloak"}) == [("loki", P + "nginx:1.31.8")]
+    assert verify.digest_gaps(packages, P, {"keycloak"}, {"loki": {"nginx": "why"}}) == []
+    fips = {"loki": {"key": "loki", "rendered": [P + "nginx-fips:1.31.8"]}}
+    assert verify.digest_gaps(fips, P, set(), {"loki": {"nginx": "why"}}) == []
 
 
 def test_flux_images_show_their_digest_pins():

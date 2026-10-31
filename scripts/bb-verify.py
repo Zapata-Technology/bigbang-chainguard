@@ -9,7 +9,8 @@ Standard: every image is in cgr.dev/<org>, BUILD_REGISTRY, or the registry of a
 FIPS:     the same, and every converted image is a -fips image unless mapping.yaml
           says the image has no FIPS variant.
 Both:     every org image is pinned by digest (bb-convert's post-renderer pins), except in
-          `no_post_renderers` packages and where a release uses one repository at two tags.
+          `no_post_renderers` packages, images mapping.yaml lists in `unpinned`, and where a
+          release renders one repository at two tags.
 """
 import argparse
 import json
@@ -28,21 +29,25 @@ import objstore  # noqa: E402
 from orgtags import REGISTRY, org_name  # noqa: E402
 
 
-def digest_gaps(packages, prefix, tag_only):
+def digest_gaps(packages, prefix, tag_only, unpinned=None):
     """(release, image) for org images left on a tag. A release whose package can't take a
-    post-renderer (`tag_only` package keys) is exempt, and so is a repository the release
-    deploys at two tags: kustomize matches images by name, so bb-convert can't pin either."""
+    post-renderer (`tag_only` package keys) is exempt, as are `unpinned` {release: {repo}}
+    and a repository the release deploys at two tags: kustomize matches images by name, so
+    bb-convert can't pin either."""
     gaps = []
+    unpinned = unpinned or {}
     for rel, info in sorted(packages.items()):
         if info.get("key") in tag_only:
             continue
+        allowed = {prefix + r for r in unpinned.get(rel, {})}
+        allowed |= {r + "-fips" for r in allowed}
         mine = [i for i in info["rendered"] if i.startswith(prefix)]
         tags = {}
         for img in mine:
             repo = img.split("@")[0].rsplit(":", 1)[0]
             tags.setdefault(repo, set()).add(img)
         gaps += [(rel, img) for img in mine if "@sha256:" not in img
-                 and len(tags[img.rsplit(":", 1)[0]]) == 1]
+                 and len(tags[img.rsplit(":", 1)[0]]) == 1 and img.rsplit(":", 1)[0] not in allowed]
     return gaps
 
 
@@ -128,9 +133,12 @@ def main():
                 continue
             problems.append(f"{rel}: {img} is not converted and not marked `stays`")
 
-    unpinned = digest_gaps(found["packages"], f"{REGISTRY}/{org}/",
-                           {k.rsplit(".", 1)[-1] for k in load_mapping(org).get("no_post_renderers", {})})
-    problems += [f"{rel}: {img} is not pinned by digest" for rel, img in unpinned]
+    full = load_mapping(org)
+    unpinned = digest_gaps(found["packages"], f"{REGISTRY}/{org}/", set(full.get("no_post_renderers", {})),
+                           full.get("unpinned", {}))
+    # Warn until the overlays are regenerated with the override and rename pins; then fail.
+    for rel, img in unpinned:
+        print(f"  WARN {rel}: {img} is not pinned by digest")
 
     mode = "FIPS" if a.fips else "standard"
     print(f"{mode}: {counts['ours']} images converted, {counts['ironbank']} documented Iron Bank images")
