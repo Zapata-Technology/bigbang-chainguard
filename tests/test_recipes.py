@@ -241,9 +241,9 @@ def test_mattermost_operator_is_built_from_source(monkeypatch):
     assert src["commit"] == "07a736bbb8d6c1e8cf76bdc935d1f08c47307a69" and src["build_time"] == "20260819.115314"
     assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
     spec = {"operator": src, "ironbank": {"binary": "/mattermost-operator"}, "user": "65532:65532",
-            "image": {"standard": {"go_package": ""}, "fips": {"go_package": "go-fips"}}}
+            "image": {"standard": {"go_package": ""}, "fips": {"go_package": "go-fips-"}}}
     std, fips = operator.build_args(spec, "standard"), operator.build_args(spec, "fips")
-    assert std["FIPS"] == "" and fips["FIPS"] == "1" and fips["GO_PACKAGE"] == "go-fips"
+    assert std["FIPS"] == "" and fips["FIPS"] == "1" and fips["GO_PACKAGE"] == "go-fips-"
     assert std["OPERATOR_GO_GET"] == "golang.org/x/net@v0.62.0" and std["RUN_USER"] == "65532:65532"
     monkeypatch.setattr(operator.bbbuild, "fetch", lambda url: operator_tarball("go 1.26.6\n", commit=""))
     with pytest.raises(SystemExit):   # no commit id: the version ldflags would be empty

@@ -28,8 +28,15 @@ USER root
 # Upstream's Makefile build (main.go, its version ldflags), with the image's Go and
 # OPERATOR_GO_GET's modules raised. The standard binary is static; the FIPS one uses cgo
 # so its crypto goes through OpenSSL's FIPS provider (the toolchain's FIPS backend).
+# GO_PACKAGE ending in "-" names a versioned family (go-fips-1.27, ...): take its newest.
 RUN set -e; \
-    command -v go >/dev/null || apk add --no-cache ${GO_PACKAGE}; \
+    if ! command -v go >/dev/null; then \
+      pkg="${GO_PACKAGE}"; \
+      case "$pkg" in *-) apk update -q; echo "Go packages: $(apk search -q 'go*fips*' 'go-1.*' | sort -V | tr '\n' ' ')"; \
+        pkg=$(apk search -q "${pkg}*" | grep -E "^${pkg}[0-9]+\.[0-9]+$" | sort -V | tail -1); \
+        [ -n "$pkg" ] || { echo "no ${GO_PACKAGE}<version> package in this image's repositories"; exit 1; };; esac; \
+      apk add --no-cache "$pkg"; \
+    fi; \
     command -v curl >/dev/null || apk add --no-cache curl; \
     if [ -n "${FIPS}" ]; then command -v gcc >/dev/null || apk add --no-cache gcc glibc-dev; fi; \
     curl -fsSL -o /tmp/src.tgz "${OPERATOR_SOURCE}"; \

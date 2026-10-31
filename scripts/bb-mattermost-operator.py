@@ -64,8 +64,9 @@ GO_PROXY = "https://proxy.golang.org"
 BUILD_IMAGES = [{"standard": "go", "fips": "go-fips"}, {"standard": "kubectl", "fips": "kubectl-fips"}]
 RUNTIME_IMAGES = [{"standard": "glibc-openssl", "fips": "glibc-openssl-fips"},
                   {"standard": "kubectl", "fips": "kubectl-fips"}]
-# Wolfi packages for a build image without Go.
-GO_PACKAGES = {"standard": "go", "fips": "go-fips"}
+# Packages for a build image without Go. Chainguard's FIPS Go is versioned only
+# (go-fips-1.27): a trailing "-" makes the Dockerfile take the newest of the family.
+GO_PACKAGES = {"standard": "go", "fips": "go-fips-"}
 # A FIPS Go build records one of these in its GOEXPERIMENT (or GOFIPS140) build setting.
 FIPS_GO = r"GOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)|GOFIPS140=v"
 
