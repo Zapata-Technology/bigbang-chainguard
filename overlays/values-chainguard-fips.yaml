@@ -873,7 +873,7 @@ grafana:
           allow_loading_unsigned_plugins: redis-datasource
       image:
         registry: ghcr.io/zapata-technology
-        repository: grafana-plugins-fips
+        repository: bigbang-grafana-plugins-fips
         tag: 13.2.5
       imageRenderer:
         image:
@@ -1231,7 +1231,7 @@ monitoring:
           tag: 2.1.0-kubectl1.36.6
         image:
           registry: ghcr.io/zapata-technology
-          repository: grafana-plugins-fips
+          repository: bigbang-grafana-plugins-fips
           tag: 13.2.5
         sidecar:
           image:
