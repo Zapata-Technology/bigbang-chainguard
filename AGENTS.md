@@ -58,6 +58,7 @@ python scripts/bb-run.py             # fetch, discover, scan, convert, verify: t
 python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml
 python scripts/bb-compat.py compat/<test>.yaml [--fips]   # one package on a kind cluster
 python scripts/bb-install.py install --site my-site.yaml [--fips]   # what a user runs to deploy
+scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
 ```
 

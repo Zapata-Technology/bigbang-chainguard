@@ -86,11 +86,20 @@ which org). Regenerate them for yours with `bb-run.py` before deploying.
 ### The installer (recommended)
 
 ```bash
-chainctl auth login                                    # once; the installer makes the pull token with it
-python scripts/bb-install.py init                      # asks for your domain and packages, writes my-site.yaml
-python scripts/bb-install.py install --site my-site.yaml          # add --fips for FIPS images
-python scripts/bb-install.py status                    # any time: what's healthy, and the app URLs
+chainctl auth login                          # once; the installer makes the pull token with it
+python scripts/bb-install.py install         # add --fips for FIPS images
+python scripts/bb-install.py status          # any time: what's healthy, and the app URLs
 ```
+
+The first `install` asks for your domain and packages and writes `my-site.yaml` (or pass
+`--domain` and `--enable`; `init` does only that step). Later runs read it; `--site` names
+another file.
+
+**The images this repo builds are private** when the build registry is (GHCR packages are
+by default): set `BUILD_REGISTRY_USERNAME` and `BUILD_REGISTRY_PASSWORD` to a login that
+can read them (on ghcr.io, a GitHub token with `read:packages`) on the first install. The
+installer checks that it can pull every one of them before changing the cluster, and keeps
+the login in the cluster for later runs.
 
 You need kubectl, helm, Python 3 with PyYAML, and a kubectl context for the cluster. No
 Iron Bank account is needed unless a package you enable keeps an Iron Bank image. Without
@@ -163,11 +172,18 @@ passwords in the Secret `bigbang/bb-install`: restrict who can read Secrets ther
 and turn on encryption at rest for Secrets (SECURITY.md).
 
 **Installer image.** Instead of installing kubectl, helm and Python, run the installer from
-its image (Chainguard's kubectl -dev image plus the tools; Big Bang's chart is inside):
+its image (Chainguard's kubectl -dev image plus the tools; Big Bang's chart is inside).
+`scripts/bb-docker.sh` picks the image this checkout built and runs any `bb-install.py`
+command in it, with your kubeconfig and the current directory (for `my-site.yaml`):
 
 ```bash
-docker run --rm -it --network host -v ~/.kube:/home/nonroot/.kube:ro -v "$PWD:/site"   -e CGR_USERNAME -e CGR_PASSWORD ghcr.io/<owner>/bigbang-installer:<bigbang>-kubectl<version>   install --site /site/my-site.yaml        # bigbang-installer-fips for a FIPS workstation
+docker login ghcr.io                          # if the installer image is private
+export CGR_USERNAME=... CGR_PASSWORD=...      # a pull token: the image has no chainctl
+scripts/bb-docker.sh install                  # BB_INSTALLER_FIPS=1 for the -fips image
 ```
+
+A kubeconfig that logs in through a plugin (aws, az, gke-gcloud-auth-plugin) needs a
+self-contained context instead (`kubectl config view --minify --flatten`).
 
 **Upgrades.** `install --plan` (same flags) shows what a run would change and stops: the
 Big Bang version, standard to FIPS or back, packages turned on or off, and each image tag
