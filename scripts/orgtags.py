@@ -8,6 +8,7 @@ Tags are cached in a JSON file so one run asks the registry once per repo.
 The org is, in order: --org, $CHAINGUARD_ORG, the CHAINGUARD_ORG file at the repo root.
 """
 import base64
+import http.client
 import json
 import os
 import re
@@ -53,6 +54,19 @@ def _open(req, timeout, attempts=4):
             if i == attempts - 1:
                 raise
         time.sleep(5 * (i + 1))
+
+
+def _read_json(req, timeout, attempts=4):
+    """(JSON body, headers) of a request, retrying a body cut off mid-read as _open retries
+    a failed request (cgr.dev drops chunked tag lists now and then)."""
+    for i in range(attempts):
+        try:
+            with _open(req, timeout) as r:
+                return json.load(r), r.headers
+        except (http.client.IncompleteRead, ConnectionError, TimeoutError):
+            if i == attempts - 1:
+                raise
+            time.sleep(5 * (i + 1))
 
 
 class _KeepRedirect(urllib.request.HTTPRedirectHandler):
@@ -109,8 +123,7 @@ class OrgTags:
         def get(path, accept):
             req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/{path}",
                                          headers={"Authorization": f"Bearer {token}", "Accept": accept})
-            with _open(req, 60) as r:
-                return json.load(r)
+            return _read_json(req, 60)[0]
         doc = get(f"manifests/{tag}", ", ".join(["application/vnd.oci.image.index.v1+json",
                                                  "application/vnd.oci.image.manifest.v1+json"]))
         if "manifests" in doc:
@@ -126,8 +139,7 @@ class OrgTags:
         except urllib.error.HTTPError as e:
             if e.code not in (301, 302, 303, 307, 308):
                 raise
-            with _open(urllib.request.Request(e.headers["Location"]), 60) as r:
-                return json.load(r).get("created")
+            return _read_json(urllib.request.Request(e.headers["Location"]), 60)[0].get("created")
 
     def tags(self, repo):
         """Every tag of <org>/<repo>, or None if the org has no such repository."""
@@ -141,9 +153,9 @@ class OrgTags:
             url = f"https://{REGISTRY}/v2/{self.org}/{repo}/tags/list?n=1000"
             while url:
                 req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-                with _open(req, 60) as r:
-                    tags += json.load(r).get("tags") or []
-                    link = r.headers.get("Link", "")
+                body, headers = _read_json(req, 60)
+                tags += body.get("tags") or []
+                link = headers.get("Link", "")
                 m = re.search(r"<([^>]+)>", link)
                 url = (f"https://{REGISTRY}{m.group(1)}" if m.group(1).startswith("/") else m.group(1)) if m else None
         except urllib.error.HTTPError as e:
