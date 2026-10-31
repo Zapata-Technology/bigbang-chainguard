@@ -31,7 +31,8 @@ boundaries.
 - **CI checks Chainguard's signature on every one of them** (`scripts/bb-signatures.py`:
   cosign, keyless). Org images must be signed by Chainguard's issuer (`issuer.enforce.dev`),
   under your org's ID (the `CHAINGUARD_ORG_ID` variable). An image Chainguard didn't sign
-  for your org fails the pull request.
+  for your org fails the pull request. Images built here must carry `builds.yml`'s keyless
+  signature from this repository's `main` (`BUILD_SIGNER`, default the repository itself).
 - The overlays set Big Bang's Kyverno `restrict-image-registries` allow list to exactly your
   org, your build registry and registry1.
 - Every image that stays on Iron Bank is documented with its reason in `docs/images.md`.
@@ -44,9 +45,10 @@ boundaries.
   image a change introduces (`bb-cve.py --changed-from`). `cve-report.yml` compares the
   whole set against Iron Bank weekly.
 - **In the cluster**, `bb-install.py` adds a Kyverno policy checking Chainguard's signature
-  on every org image (audit by default when Kyverno is on; `--verify-signatures enforce`
-  refuses unsigned ones; `--org-id` requires your org). It needs Sigstore's public
-  services, so it's off for disconnected sites.
+  on every org image and `builds.yml`'s on every image built here (enforce by default when
+  Kyverno is on: an unsigned image's Pod is refused; `--verify-signatures audit` only
+  reports; `--org-id` requires your org). It needs Sigstore's public services, so it's off
+  for disconnected sites.
 
 **What you install**
 - Each release archive comes with its sha256 and a Sigstore bundle signed keylessly by
@@ -130,8 +132,8 @@ latest run's summary for current numbers.
   rebuild without the nightly tests; the README's "Known gaps" lists them.
 - **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
   patch schedule, not Chainguard's.
-- **Signature checks run in audit mode by default**: an unsigned image is reported, not
-  refused, until you choose `--verify-signatures enforce`.
+- **A cluster installed before enforce became the default keeps audit mode** (it remembers its
+  mode): re-run `install --verify-signatures enforce` on it.
 - **The Redis datasource plugin loads unsigned**: its backend is built here (to drop Go
   1.19), so Grafana can't check it against the publisher's signature. The image build
   pins its source by sha256, and the image itself is signed when `SIGN_IMAGES` is set.

@@ -129,6 +129,14 @@ jobs:
       - name: Every org image was rebuilt recently
         run: python3 scripts/bb-age.py --max-days 30
 
+      # The signature check and the CVE gate below read the images this repo builds.
+      - name: Log into GHCR (the images this repo builds)
+        if: startsWith(vars.BUILD_REGISTRY, 'ghcr.io/')
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
@@ -141,22 +149,17 @@ jobs:
           cosign attest --help | grep -q "slsaprovenance1"
           cosign version | head -3
 
-      - name: Chainguard signatures on every org image
+      # Org images: Chainguard's signature. Images built here: builds.yml's, on this repo's main.
+      - name: Signatures on every org image and every image built here
         env:
           CHAINGUARD_ORG_ID: ${{ vars.CHAINGUARD_ORG_ID }}
+          BUILD_SIGNER: ${{ vars.BUILD_SIGNER || github.repository }}
         run: python3 scripts/bb-signatures.py "${RUNNER_TEMP}/rendered.json" "${RUNNER_TEMP}/rendered-fips.json"
 
       - name: Install grype
         if: github.event_name == 'pull_request'
         id: grype
         uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
-
-      - name: Log into GHCR (the images this repo builds)
-        if: github.event_name == 'pull_request' && startsWith(vars.BUILD_REGISTRY, 'ghcr.io/')
-        env:
-          TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
 
       # A pull request may not move to an image with a fixable Critical CVE (the nightly
       # update included): scripts/bb-cve.py --changed-from.
