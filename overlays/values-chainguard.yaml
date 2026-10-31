@@ -1295,6 +1295,10 @@ neuvector:
       images:
       - digest: sha256:c694ce1a310b82997dd7c6b08fc73c93281b80b5f411fde04146a64da2f9866c
         name: cgr.dev/zapatatechnology.com/neuvector-controller
+      - digest: sha256:662b34273bae7edfb3837fc9b592c25bf078f7853941fa4db8ece1ef4c13a5db
+        name: cgr.dev/zapatatechnology.com/neuvector-enforcer
+      - digest: sha256:ea77dc9b33576f5671de8906fe3e2fbf00b0e2ef36b8cf34a38e8bc6793975b6
+        name: cgr.dev/zapatatechnology.com/neuvector-manager
       - digest: sha256:072efec3b7eb651f73a5cbba1f0f3ca990972df193eb4888970752c445be2b22
         name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
       - digest: sha256:e9fe479c86e46f72c35f7758bb4a356c25132a9d67cb4f573669004f45ac23fa
