@@ -14,7 +14,7 @@ lists the ones your org doesn't have yet.
 | `argocd` | `argocd-fips` | argocd |
 | `authservice` | `authservice-fips` | authservice |
 | `bats` | `bats-fips` | grafana, monitoring |
-| `busybox` | `busybox-fips` | gitlab |
+| `busybox` | `busybox-fips` | gitlab, sonarqube (builds/jmx-exporter) |
 | `cert-manager-acmesolver` | `cert-manager-acmesolver-fips` | cert-manager |
 | `cert-manager-cainjector` | `cert-manager-cainjector-fips` | cert-manager |
 | `cert-manager-controller` | `cert-manager-controller-fips` | cert-manager |
@@ -73,7 +73,7 @@ lists the ones your org doesn't have yet.
 | `kiali-operator` | `kiali-operator-fips` | kiali |
 | `kibana` | `kibana-fips` | ek |
 | `kube-state-metrics` | `kube-state-metrics-fips` | monitoring |
-| `kubectl` | `kubectl-fips` | alloy, alloy (builds/base), anchore-enterprise, anchore-enterprise (builds/base), argocd (builds/base), argocd (builds/devops-tester), authservice (builds/base), cert-manager, eck-operator (builds/base), ek, ek (builds/base), external-secrets (builds/base), fluentbit (builds/base), fortify, gatekeeper, gatekeeper (builds/base), gitlab (builds/devops-tester), grafana (builds/base), harbor (builds/base), harbor (builds/devops-tester), headlamp, istio-egress-gateway, keycloak (builds/base), kiali, kyverno, kyverno-policies, kyverno-policies (builds/devops-tester), logging-loki, logging-loki (builds/base), logging-loki (builds/devops-tester), mattermost, mattermost (builds/base), mattermost (builds/devops-tester), mimir (builds/base), minio, minio (builds/base), minio (builds/devops-tester), minio-operator (builds/base), monitoring, monitoring (builds/base), neuvector (builds/base), passthrough-ingressgateway, public-ingressgateway, renovate, renovate (builds/devops-tester), sonarqube (builds/base), tempo, tempo (builds/base), thanos, thanos (builds/base), thanos (builds/devops-tester), twistlock, twistlock (builds/base), vault, velero (builds/base), velero (builds/devops-tester) |
+| `kubectl` | `kubectl-fips` | alloy, alloy (builds/base), anchore-enterprise, anchore-enterprise (builds/base), argocd (builds/base), argocd (builds/devops-tester), authservice (builds/base), cert-manager, eck-operator (builds/base), ek, ek (builds/base), external-secrets (builds/base), fluentbit (builds/base), fortify, gatekeeper, gatekeeper (builds/base), gitlab (builds/devops-tester), grafana (builds/base), harbor (builds/base), harbor (builds/devops-tester), headlamp, istio-egress-gateway, keycloak (builds/base), kiali, kyverno, kyverno-policies, kyverno-policies (builds/devops-tester), logging-loki, logging-loki (builds/base), logging-loki (builds/devops-tester), mattermost, mattermost (builds/base), mattermost (builds/devops-tester), mattermost-operator (builds/mattermost-operator), mimir (builds/base), minio, minio (builds/base), minio (builds/devops-tester), minio-operator (builds/base), monitoring, monitoring (builds/base), neuvector (builds/base), passthrough-ingressgateway, public-ingressgateway, renovate, renovate (builds/devops-tester), sonarqube (builds/base), tempo, tempo (builds/base), thanos, thanos (builds/base), thanos (builds/devops-tester), twistlock, twistlock (builds/base), vault, velero (builds/base), velero (builds/devops-tester) |
 | `kyverno` | `kyverno-fips` | kyverno |
 | `kyverno-background-controller` | `kyverno-background-controller-fips` | kyverno |
 | `kyverno-cleanup-controller` | `kyverno-cleanup-controller-fips` | kyverno |

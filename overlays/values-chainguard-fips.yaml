@@ -447,6 +447,11 @@ addons:
           tag: '18.6'
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+  mattermostOperator:
+    values:
+      image:
+        repository: ghcr.io/zapata-technology/bigbang-mattermost-operator-fips
+        tag: v1.25.9
   metricsServer:
     postRenderers:
     - kustomize:
@@ -548,6 +553,8 @@ addons:
           image: ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6
         plugins:
           image: cgr.dev/zapatatechnology.com/sonarqube:26.10.0.133078-community
+        prometheusExporter:
+          image: ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.6.0-busybox1.38.0
   thanos:
     postRenderers:
     - kustomize:
