@@ -146,7 +146,9 @@ images:
   ironbank/opensource/velero/velero: velero
   ironbank/opensource/velero/velero-plugin-for-aws: velero-plugin-for-aws
   ironbank/opensource/mattermost/mattermost: mattermost
-  ironbank/opensource/mattermost/mattermost-operator: {stays: "no Chainguard mattermost-operator image", until: mattermost-operator}
+  # No Chainguard mattermost-operator image: scripts/bb-mattermost-operator.py builds it from
+  # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
+  ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
   ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
   ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank}
   ironbank/container-hardening-tools/renovate/renovate: renovate

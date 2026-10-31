@@ -75,7 +75,10 @@ boundaries.
 - Each build starts FROM your org's images, pinned by digest. Iron Bank's recipe is pinned
   to a commit.
 - Plugin zips and upstream binaries are pinned by the sha256 or digest in Iron Bank's own
-  manifests, and checked on download.
+  manifests, and checked on download. Upstream source built here (chainsaw, the Redis
+  datasource backend, the Mattermost Operator) is pinned by the sha256 of its tag's
+  tarball in `build.yaml`, and modules raised past upstream's go.mod come from the Go
+  module proxy, checked against sum.golang.org.
 - Each image is smoke-tested (tools, versions, user, and OpenSSL `fips=yes` for `-fips`).
 - Each image is scanned with grype before it's pushed. A fixable critical CVE fails the
   build.
@@ -119,6 +122,7 @@ The Criticals come from a few images:
 | `grafana-plugins` (built here) | 8 / 8 | All in the Redis datasource's Go 1.19 backend (no newer release). Fixed: the backend is rebuilt from source, and loads as an allowed unsigned plugin |
 | `commercial-gitlab-*-ee` (sidekiq, toolbox, webservice, geo-logcursor) | 3 each | Chainguard's image of GitLab's 19.4 release; the nightly run takes its rebuilds |
 | `bigbang-devops-tester` (built here) | 2 / 2 | All from upstream's chainsaw image (Go 1.26.0, x/net v0.52.0). Fixed: chainsaw is now built from source with a current Go, x/net, grpc and go-jose (the last two cleared 4 fixable Highs) |
+| `mattermost-operator` (Iron Bank, now built here) | - | Iron Bank copies upstream's binary, whose go.mod pins `golang.org/x/net` v0.58.0 (GO-2026-6612, Critical). Fixed: `bigbang-mattermost-operator` is built from upstream's source with a current Go and x/net |
 | `renovate` | 1 / 1 | The nightly run takes Chainguard's rebuilds |
 | `kubectl-fips:1.30.14-dev` (Vault's job) | - / 19 | Kubernetes 1.30 is end of life and the org stopped rebuilding it. Fixed: `min_version: "1.34"` moves Vault's kubectl to the newest release |
 

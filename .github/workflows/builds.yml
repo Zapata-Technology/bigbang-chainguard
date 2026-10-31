@@ -6,6 +6,7 @@
 #   vault             Chainguard Vault plus curl (Big Bang's post-start hook); built only
 #                     once the mapping uses it (compat/vault-2.yaml tests it first)
 #   jmx-exporter      the Prometheus JMX javaagent jar, sh and curl (SonarQube's init container)
+#   mattermost-operator  the Mattermost Operator built from upstream's source (Go)
 #
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
@@ -24,6 +25,7 @@ on:
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
       - scripts/bb-jmx-exporter.py
+      - scripts/bb-mattermost-operator.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -38,6 +40,7 @@ on:
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
       - scripts/bb-jmx-exporter.py
+      - scripts/bb-mattermost-operator.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -63,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, installer]
+        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, installer]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
