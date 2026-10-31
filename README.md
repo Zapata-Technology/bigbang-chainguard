@@ -53,7 +53,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester vault; do
+for b in grafana-plugins base devops-tester vault jmx-exporter; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -441,7 +441,9 @@ Big Bang ships three images of its own that Chainguard doesn't publish. Instead 
 depending on anyone's custom build, a script converts **Iron Bank's own recipe**
 (`hardening_manifest.yaml` and Dockerfile, pinned to a repo1 commit) into a build FROM
 your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
-post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it:
+post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
+The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
+sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout):
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
@@ -449,6 +451,7 @@ post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` a
 | `big-bang/base`: bash, kubectl, yq and jq for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `bb-base.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base` |
 | `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `bb-devops-tester.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
 | `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `bb-vault.py` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
+| `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
 
 Each script:
 
@@ -471,6 +474,8 @@ The smoke tests:
 - **grafana-plugins:** Grafana loads every plugin with a valid signature, except a
   rebuilt one, which loads as an allowed unsigned plugin; no plugin reports an error.
 - **base and devops-tester:** the uid, and each tool at Iron Bank's version line.
+- **jmx-exporter:** SonarQube's init container command, run as the chart runs it (uid
+  1000, gid 0, read-only root), copies a jar with Iron Bank's sha256 into `/data`.
 - **Every `-fips` image:** OpenSSL defaults to `fips=yes`.
 
 Each image also has a `-fips` twin.
@@ -482,7 +487,13 @@ Differences from Iron Bank:
   `CCE-*.sh` RHEL STIG scripts don't apply to Wolfi, and `build.yaml` lists them as not
   ported.
 - **Tags:** base and devops-tester are tagged `<Iron Bank tag>-kubectl<version>`, so a
-  kubectl patch gets a new tag.
+  kubectl patch gets a new tag; jmx-exporter `<Iron Bank tag>-busybox<version>`.
+- **jmx-exporter** carries only the javaagent jar, at Big Bang's version (the chart's
+  `downloadURL` names it), from the newest Iron Bank commit that builds that version.
+  Iron Bank's Java runtime and standalone exporter entrypoint are not ported: Big Bang
+  runs the image only as SonarQube's init container. Iron Bank's 1.6.0 manifest URL has a
+  `v` upstream's release tag doesn't; the build takes the file from the tag without it,
+  pinned by the manifest's sha256.
 - **chainsaw** (devops-tester) has no Chainguard package. It is built from upstream's
   source at Iron Bank's version, using Wolfi's Go with `golang.org/x/net` raised to its
   newest release. Iron Bank copies upstream's image, whose old Go and x/net carry a

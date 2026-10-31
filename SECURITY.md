@@ -137,3 +137,7 @@ latest run's summary for current numbers.
 - **The Redis datasource plugin loads unsigned**: its backend is built here (to drop Go
   1.19), so Grafana can't check it against the publisher's signature. The image build
   pins its source by sha256, and the image itself is signed when `SIGN_IMAGES` is set.
+- **The JMX exporter jar** (`bigbang-jmx-exporter`) is upstream's release jar, pinned by
+  Iron Bank's sha256 and run inside SonarQube's JVM; it is not a FIPS build (Chainguard
+  has no FIPS SonarQube either). Its download URL differs from Iron Bank's manifest by a
+  `v` in the release tag; the sha256 is what pins it.

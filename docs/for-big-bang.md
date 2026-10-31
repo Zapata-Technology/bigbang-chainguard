@@ -23,8 +23,9 @@ built it and offers it to the Big Bang community under Apache-2.0.
   - vendor products (Twistlock, Anchore Enterprise, Fortify, SonarQube)
   - the GitLab CNG set, which must move as one release
   - a few with no Chainguard image yet
-- Big Bang's own images (`big-bang/base`, `grafana-plugins`, `devops-tester`) are rebuilt
-  from Iron Bank's own recipes, FROM Chainguard images.
+- Big Bang's own images (`big-bang/base`, `grafana-plugins`, `devops-tester`) and the
+  JMX exporter SonarQube's init container uses are rebuilt from Iron Bank's own recipes,
+  FROM Chainguard images.
 - Verified by rendering every package, in standard and FIPS mode.
 - **Not yet verified on a full cluster deployment.** That is the next milestone, and help
   is welcome.

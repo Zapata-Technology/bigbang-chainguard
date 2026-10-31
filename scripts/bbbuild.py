@@ -89,9 +89,10 @@ def write_spec(name, spec, header):
     print(f"wrote builds/{name}/build.yaml")
 
 
-def run_checks(image, script, checks):
-    """Run a bash script in the image and require each regex in `checks` ({label: regex}) to match."""
-    p = subprocess.run(["docker", "run", "--rm", "--entrypoint", "bash", image, "-c", "set -e; " + script],
+def run_checks(image, script, checks, shell="bash", docker_args=()):
+    """Run a script in the image (with `shell`, after `docker run` options `docker_args`) and
+    require each regex in `checks` ({label: regex}) to match."""
+    p = subprocess.run(["docker", "run", "--rm", "--entrypoint", shell, *docker_args, image, "-c", "set -e; " + script],
                        capture_output=True, text=True)
     out = p.stdout + p.stderr
     print("  " + out.strip().replace("\n", "\n  "))

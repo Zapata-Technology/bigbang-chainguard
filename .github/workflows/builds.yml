@@ -5,6 +5,7 @@
 #   devops-tester     Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc)
 #   vault             Chainguard Vault plus curl (Big Bang's post-start hook); built only
 #                     once the mapping uses it (compat/vault-2.yaml tests it first)
+#   jmx-exporter      the Prometheus JMX javaagent jar, sh and curl (SonarQube's init container)
 #
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
@@ -22,6 +23,7 @@ on:
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
+      - scripts/bb-jmx-exporter.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -35,6 +37,7 @@ on:
       - scripts/bb-base.py
       - scripts/bb-devops-tester.py
       - scripts/bb-vault.py
+      - scripts/bb-jmx-exporter.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -60,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault, installer]
+        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, installer]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
@@ -133,7 +136,17 @@ jobs:
         id: build
         run: |
           python3 -m pip install --quiet pyyaml
-          args=(--no-generate --build --test --built-file "${RUNNER_TEMP}/built.txt")
+          args=(--build --test --built-file "${RUNNER_TEMP}/built.txt")
+          # A new builder has no build.yaml until update.yml on main writes it together with
+          # the overlays that use it (committed alone, bb-verify fails: the mapping says
+          # `build:` but the overlays still name Iron Bank). Until then generate it here and
+          # upload it for review; on main this publishes the image before the overlays
+          # switch to it. Otherwise build exactly what is committed.
+          if [ -f "builds/${{ matrix.name }}/build.yaml" ]; then
+            args+=(--no-generate)
+          else
+            echo "generated=true" >> "$GITHUB_OUTPUT"
+          fi
           # A pull request tests every builder, including one this org's mapping doesn't use;
           # main builds only what the mapping uses, unless a manual run sets force (to publish
           # an image before the mapping switches to it, so its kind tests can pull it).
@@ -154,6 +167,14 @@ jobs:
             echo "::warning::transient package fetch failure; building once more"
           done
           [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
+
+      - name: Upload the generated build.yaml (for review)
+        if: steps.build.outputs.generated == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: build-yaml-${{ matrix.name }}
+          path: builds/${{ matrix.name }}/build.yaml
+          if-no-files-found: error
 
       - name: Install grype
         if: steps.build.outputs.built == 'true'

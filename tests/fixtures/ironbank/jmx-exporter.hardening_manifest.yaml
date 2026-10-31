@@ -1,0 +1,47 @@
+apiVersion: v1
+
+name: "opensource/prometheus/jmx-exporter"
+
+tags:
+  - "1.6.0"
+  - "latest"
+
+args:
+  BASE_IMAGE: "redhat/ubi/ubi9"
+  BASE_TAG: "9.8"
+
+labels:
+  org.opencontainers.image.title: "jmx-exporter"
+  org.opencontainers.image.description: "A collector that can configurably scrape and expose mBeans of a JMX target"
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/prometheus/jmx_exporter"
+  org.opencontainers.image.vendor: "Iron Bank"
+  org.opencontainers.image.version: "1.6.0"
+  mil.dso.ironbank.image.keywords: "exporter, java, prometheus"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "prometheus"
+
+resources:
+- url: https://github.com/prometheus/jmx_exporter/releases/download/v1.6.0/jmx_prometheus_javaagent-1.6.0.jar
+  filename: jmx_prometheus_javaagent-1.6.0.jar
+  validation:
+    type: sha256
+    value: a95983fd96e865d2bcdf911cc500e7c82808c27ab9fd226bf96732b6c3d8c46e
+
+- url: https://github.com/prometheus/jmx_exporter/releases/download/v1.6.0/jmx_prometheus_standalone-1.6.0.jar
+  filename: jmx_prometheus_standalone-1.6.0.jar
+  validation:
+    type: sha256
+    value: 6314f19186eb97023d424f5bdf108269fd86dbb0c70f65809b4d8751d68842b9
+
+- url: https://github.com/prometheus/jmx_exporter/archive/refs/tags/v1.6.0.tar.gz
+  filename: jmx_exporter-1.6.0.tar.gz
+  validation:
+    type: sha256
+    value: 6885639fe1e249135a6edd0617367b8d53be27cbd414ded442f598ff2f147b02
+
+maintainers:
+- email: "AFLCMC.HNCX.Helpdesk@us.af.mil"
+  name: "Iron Bank Forge"
+  username: "ibforge"
+  cht_member: true

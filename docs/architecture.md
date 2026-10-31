@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py]
+    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -109,6 +109,7 @@ flowchart LR
 | `bigbang-grafana-plugins` | `big-bang/grafana/grafana-plugins` | `grafana(-fips)` |
 | `bigbang-devops-tester` | `big-bang/devops-tester` | `kubectl(-fips)-dev` |
 | `bigbang-vault` | `hashicorp/vault` (adds curl) | `vault(-fips)-dev` |
+| `bigbang-jmx-exporter` | `opensource/prometheus/jmx-exporter` (the javaagent jar, plus curl) | `busybox(-fips)-dev` |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 ## 4. Deploying: how the overlays layer
