@@ -1,0 +1,35 @@
+apiVersion: v1
+
+name: opensource/mattermost/mattermost-operator
+
+tags:
+- v1.25.9
+- latest
+
+args:
+  BASE_IMAGE: google/distroless12/static
+  BASE_TAG: nonroot
+
+labels:
+  org.opencontainers.image.title: mattermost-operator
+  org.opencontainers.image.description: This project offers a Kubernetes Operator
+    for Mattermost to simplify deploying and managing your Mattermost instance.
+  org.opencontainers.image.licenses: Apache-2.0
+  org.opencontainers.image.url: https://github.com/mattermost/mattermost-operator
+  org.opencontainers.image.vendor: Iron Bank
+  org.opencontainers.image.version: v1.25.9
+  mil.dso.ironbank.image.keywords: chat,golang,react,mattermost
+  mil.dso.ironbank.image.type: opensource
+  mil.dso.ironbank.product.name: mattermost
+
+resources:
+- tag: mattermost/mattermost-operator:v1.25.9
+  url: docker://docker.io/mattermost/mattermost-operator@sha256:0d1a61d3795494d4f12c738954adf3b1574d380e5544bfae40a1cc3ee482137c
+- tag: mattermost/mattermost-operator:v1.25.9.arm64
+  url: docker://docker.io/mattermost/mattermost-operator@sha256:ec7066de888916726e794d2d1b2a9ff5ea3b54de675baf64d2c07e57af06a91a
+
+maintainers:
+- email: "AFLCMC.HNCX.Helpdesk@us.af.mil" 
+  name: "Iron Bank Forge" 
+  username: "ibforge" 
+  cht_member: true

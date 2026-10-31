@@ -53,7 +53,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester vault jmx-exporter; do
+for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -443,7 +443,9 @@ depending on anyone's custom build, a script converts **Iron Bank's own recipe**
 your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
 post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
-sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout):
+sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
+The Mattermost Operator is the sixth: Chainguard publishes no image of it, so
+`bb-mattermost-operator.py` builds it from upstream's source:
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
@@ -452,6 +454,7 @@ sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami lay
 | `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `bb-devops-tester.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
 | `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `bb-vault.py` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
 | `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
+| `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `bb-mattermost-operator.py` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
 
 Each script:
 
@@ -506,6 +509,20 @@ Differences from Iron Bank:
   build drops the file, and `overrides.grafana` in `mapping.yaml` lets Grafana load
   `redis-datasource` unsigned. Big Bang's provisioned Redis datasources (Argo CD,
   AuthService, GitLab) use it. Its backend is not FIPS-built.
+- **mattermost-operator** is built from upstream's source at the tag Iron Bank ships
+  (Iron Bank copies upstream's binary onto distroless static), with `golang.org/x/net`
+  raised past upstream's v0.58.0 (a Critical CVE). The standard binary is static. With a
+  `go-fips` image in the org, the FIPS one is built like upstream's `Dockerfile.fips` (cgo,
+  `-tags=requirefips`) with Chainguard's FIPS Go, on OpenSSL's FIPS provider. Without
+  one (kubectl-fips -dev has no FIPS Go package), it is built with Wolfi's Go against
+  Go's own FIPS 140-3 module (`GOFIPS140`, `GODEBUG=fips140=on` by default); add
+  `go`/`go-fips` to the org to switch. `build.yaml` records which (`image.fips.fips`). It runs as
+  65532 with Iron Bank's entrypoint `/mattermost-operator`, tagged with Iron Bank's tag.
+  The builder takes the first image pair the org has: `go`/`go-fips` and
+  `glibc-openssl`/`glibc-openssl-fips` when you add them, else `kubectl`/`kubectl-fips`.
+  Its smoke test runs `--help`, starts it with no cluster (it must log its Go version and
+  stop at the missing kubeconfig) and reads the binary's build info (raised modules; for
+  `-fips`, a cgo build with a FIPS crypto backend).
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,

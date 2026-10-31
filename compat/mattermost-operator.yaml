@@ -1,0 +1,15 @@
+# The Mattermost Operator built here from upstream's source (builds/mattermost-operator),
+# FROM the org's images, in place of Iron Bank's copy of upstream's binary. The harness
+# builds bigbang-mattermost-operator and loads it into kind; the operator must start,
+# take its leader lease and watch its CRDs.
+images:
+  ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
+test:
+  enable: [addons.mattermostOperator]
+  namespaces: [mattermost-operator]
+  expect: [bigbang-mattermost-operator]
+  setup:
+    - sh compat/support/watch.sh operator "kubectl -n mattermost-operator logs deploy/mattermost-operator --tail=30"
+  debug:
+    - "kubectl -n mattermost-operator get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "cat $COMPAT_OUT/watch-operator.log"

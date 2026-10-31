@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py]
+    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -110,6 +110,7 @@ flowchart LR
 | `bigbang-devops-tester` | `big-bang/devops-tester` | `kubectl(-fips)-dev` |
 | `bigbang-vault` | `hashicorp/vault` (adds curl) | `vault(-fips)-dev` |
 | `bigbang-jmx-exporter` | `opensource/prometheus/jmx-exporter` (the javaagent jar, plus curl) | `busybox(-fips)-dev` |
+| `bigbang-mattermost-operator` | `opensource/mattermost/mattermost-operator` (built from upstream's source) | `go(-fips)-dev` or `kubectl(-fips)-dev`, onto `glibc-openssl(-fips)` or `kubectl(-fips)` |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 ## 4. Deploying: how the overlays layer

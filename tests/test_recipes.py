@@ -205,3 +205,72 @@ def test_jmx_exporter_build_args_and_smoke_test(monkeypatch):
     assert seen["shell"] == "/bin/sh" and "--read-only" in seen["docker_args"]
     assert seen["docker_args"][seen["docker_args"].index("--user") + 1] == "1000:0"
     assert set(seen["checks"]) == {"jar copied with Iron Bank's sha256", "openssl fips=yes"}
+operator = load_script("bb-mattermost-operator")
+
+
+def test_mattermost_operator_recipe():
+    ib = operator.recipe(*recipe("mattermost-operator"))
+    assert ib == {"upstream": "v1.25.9", "binary": "/mattermost-operator", "user": "nonroot:nonroot"}
+    with pytest.raises(SystemExit):
+        operator.recipe({"resources": []}, "FROM scratch\n")
+
+
+def operator_tarball(gomod, commit="07a736bbb8d6c1e8cf76bdc935d1f08c47307a69"):
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz", format=tarfile.PAX_FORMAT, pax_headers={"comment": commit}) as t:
+        for name, body in (("mattermost-operator-1.25.9/go.mod", gomod), ("mattermost-operator-1.25.9/sub/go.mod", "x")):
+            info = tarfile.TarInfo(name)
+            info.size, info.mtime = len(body), 1787140394   # 2026-08-19 11:53:14 UTC
+            t.addfile(info, io.BytesIO(body.encode()))
+    return buf.getvalue()
+
+
+def test_mattermost_operator_is_built_from_source(monkeypatch):
+    tarball = operator_tarball("module github.com/mattermost/mattermost-operator\n\ngo 1.26.6\n")
+
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return b'{"Version": "v0.62.0"}'
+        assert url == "https://codeload.github.com/mattermost/mattermost-operator/tar.gz/refs/tags/v1.25.9"
+        return tarball
+    monkeypatch.setattr(operator.bbbuild, "fetch", fetch)
+    src = operator.source("v1.25.9")
+    assert src["go"] == "1.26.6" and src["go_get"] == ["golang.org/x/net@v0.62.0"]
+    assert src["commit"] == "07a736bbb8d6c1e8cf76bdc935d1f08c47307a69" and src["build_time"] == "20260819.115314"
+    assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
+    spec = {"operator": src, "ironbank": {"binary": "/mattermost-operator"}, "user": "65532:65532",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    std, fips = operator.build_args(spec, "standard"), operator.build_args(spec, "fips")
+    assert std["FIPS"] == "" and fips["FIPS"] == "native" and fips["GO_PACKAGE"] == "go"
+    assert std["OPERATOR_GO_GET"] == "golang.org/x/net@v0.62.0" and std["RUN_USER"] == "65532:65532"
+    monkeypatch.setattr(operator.bbbuild, "fetch", lambda url: operator_tarball("go 1.26.6\n", commit=""))
+    with pytest.raises(SystemExit):   # no commit id: the version ldflags would be empty
+        operator.source("v1.25.9")
+
+
+def test_mattermost_operator_prefers_the_go_images():
+    from conftest import FakeTags
+    tags = FakeTags({"go": ["1.26.6"], "go-fips": ["1.26.6"], "kubectl": ["1.36.6"], "kubectl-fips": ["1.36.6"]})
+    assert operator.first_pair(tags, operator.BUILD_IMAGES) == {"standard": "go", "fips": "go-fips"}
+    # A pair counts only when the org has both: no go-fips means kubectl -dev plus Wolfi's Go.
+    tags = FakeTags({"go": ["1.26.6"], "kubectl": ["1.36.6"], "kubectl-fips": ["1.36.6"]})
+    assert operator.first_pair(tags, operator.BUILD_IMAGES)["fips"] == "kubectl-fips"
+    with pytest.raises(SystemExit):
+        operator.first_pair(FakeTags({}), operator.RUNTIME_IMAGES)
+
+
+def test_mattermost_operator_build_info():
+    blob = b"\x00junk\npath\tgithub.com/mattermost/mattermost-operator\ndep\tgolang.org/x/net\tv0.62.0\th1:x=\n" \
+           b"build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=systemcrypto\n\x00"
+    info = operator.build_info(blob)
+    assert "dep\tgolang.org/x/net\tv0.62.0\th1:x=" in info
+
+    def fips_build(mode, settings):
+        return all(operator.re.search(rx, settings, operator.re.M) for rx in operator.FIPS_BUILDS[mode])
+    assert fips_build("toolchain", "\n".join(info))
+    assert not fips_build("toolchain", "build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=greenteagc")
+    native = "build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0\nbuild\tDefaultGODEBUG=fips140=on,tracebacklabels=0"
+    assert fips_build("native", native)
+    assert not fips_build("native", native.replace("fips140=on,", ""))   # module linked but not enabled
