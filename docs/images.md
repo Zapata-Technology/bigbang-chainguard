@@ -92,7 +92,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | gitlab-runner | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | grafana | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
 | grafana | ironbank/big-bang/cypress:15.21.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
-| grafana | ironbank/big-bang/grafana/grafana-plugins:13.2.1 | ghcr.io/zapata-technology/grafana-plugins:13.2.5 | ghcr.io/zapata-technology/grafana-plugins-fips:13.2.5 | signed build from Zapata-Technology/grafana-plugins |
+| grafana | ironbank/big-bang/grafana/grafana-plugins:13.2.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.2.5 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.2.5 | built FROM the org's images by scripts/bb-grafana-plugins.py |
 | grafana | ironbank/kiwigrid/k8s-sidecar:2.11.2 | k8s-sidecar:2.14.1 | k8s-sidecar-fips:2.14.1 | k8s-sidecar: MINOR AHEAD: org has no 2.11.x; using 2.14.1 (Iron Bank 2.11.2); k8s-sidecar-fips: MINOR AHEAD: org has no 2.11.x; using 2.14.1 (Iron Bank 2.11.2) |
 | grafana | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | grafana | ironbank/opensource/grafana/grafana-image-renderer:v5.12.3 | grafana-image-renderer:5.12.10 | grafana-image-renderer:5.12.10 | grafana-image-renderer: Iron Bank v5.12.3 -> newest 5.12 patch; no FIPS variant; FIPS overlay keeps the standard image |
@@ -174,7 +174,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | minio-operator | ironbank/opensource/minio/operator-sidecar:v7.1.0 | Iron Bank | Iron Bank | no Chainguard minio-operator-sidecar image |
 | minio-operator | ironbank/opensource/minio/operator:v7.1.1 | Iron Bank | Iron Bank | no Chainguard minio-operator image |
 | monitoring | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
-| monitoring | ironbank/big-bang/grafana/grafana-plugins:13.2.1 | ghcr.io/zapata-technology/grafana-plugins:13.2.5 | ghcr.io/zapata-technology/grafana-plugins-fips:13.2.5 | signed build from Zapata-Technology/grafana-plugins |
+| monitoring | ironbank/big-bang/grafana/grafana-plugins:13.2.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.2.5 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.2.5 | built FROM the org's images by scripts/bb-grafana-plugins.py |
 | monitoring | ironbank/kiwigrid/k8s-sidecar:2.11.2 | k8s-sidecar:2.14.1 | k8s-sidecar-fips:2.14.1 | k8s-sidecar: MINOR AHEAD: org has no 2.11.x; using 2.14.1 (Iron Bank 2.11.2); k8s-sidecar-fips: MINOR AHEAD: org has no 2.11.x; using 2.14.1 (Iron Bank 2.11.2) |
 | monitoring | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0 | kube-state-metrics:2.20.0 | kube-state-metrics-fips:2.20.0 |  |
