@@ -116,7 +116,7 @@ The Criticals come from a few images:
 |---|---|---|
 | `grafana-plugins` (built here) | 8 / 8 | All in the Redis datasource's Go 1.19 backend (no newer release). Fixed: the backend is rebuilt from source, and loads as an allowed unsigned plugin |
 | `commercial-gitlab-*-ee` (sidekiq, toolbox, webservice, geo-logcursor) | 3 each | Chainguard's image of GitLab's 19.4 release; the nightly run takes its rebuilds |
-| `bigbang-devops-tester` (built here) | 2 / 2 | All from upstream's chainsaw image (Go 1.26.0, x/net v0.52.0). Fixed: chainsaw is now built from source with a current Go and x/net |
+| `bigbang-devops-tester` (built here) | 2 / 2 | All from upstream's chainsaw image (Go 1.26.0, x/net v0.52.0). Fixed: chainsaw is now built from source with a current Go, x/net, grpc and go-jose (the last two cleared 4 fixable Highs) |
 | `renovate` | 1 / 1 | The nightly run takes Chainguard's rebuilds |
 | `kubectl-fips:1.30.14-dev` (Vault's job) | - / 19 | Kubernetes 1.30 is end of life and the org stopped rebuilding it. Fixed: `min_version: "1.34"` moves Vault's kubectl to the newest release |
 

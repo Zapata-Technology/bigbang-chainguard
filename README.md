@@ -495,9 +495,9 @@ Differences from Iron Bank:
   `v` upstream's release tag doesn't; the build takes the file from the tag without it,
   pinned by the manifest's sha256.
 - **chainsaw** (devops-tester) has no Chainguard package. It is built from upstream's
-  source at Iron Bank's version, using Wolfi's Go with `golang.org/x/net` raised to its
-  newest release. Iron Bank copies upstream's image, whose old Go and x/net carry a
-  fixable Critical CVE. The FIPS image's chainsaw is not FIPS-built.
+  source at Iron Bank's version, using Wolfi's Go with `golang.org/x/net`, `grpc` and
+  `go-jose` raised to their newest releases. Iron Bank copies upstream's image, whose old Go
+  and x/net carry a fixable Critical CVE (and grpc and go-jose fixable Highs). The FIPS image's chainsaw is not FIPS-built.
 - **The Redis datasource's Go backend** (grafana-plugins) is rebuilt from its release's
   source. Its latest release (2.2.1) ships binaries built with Go 1.19 and old grpc,
   x/net and plugin SDK modules, with 8 fixable Critical CVEs. The build raises those

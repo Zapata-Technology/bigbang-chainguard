@@ -30,6 +30,8 @@ chainsaw:
   sha256: 04f3fc7dd8e958e4fc7d73383bc22b05827240dd2fe7a8e32ee99d8c0332da2a
   go_get:
   - golang.org/x/net@v0.62.0
+  - google.golang.org/grpc@v1.85.0
+  - github.com/go-jose/go-jose/v4@v4.1.7
 packages:
 - bash
 - curl

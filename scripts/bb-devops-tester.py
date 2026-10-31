@@ -36,8 +36,9 @@ IB_IMAGE = "ironbank/big-bang/devops-tester"
 IB_PROJECT = "big-bang/devops-tester"
 IMAGE = "bigbang-devops-tester"
 CHAINSAW_SOURCE = "https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v{version}"
-# Modules raised past what chainsaw's go.mod pins: x/net v0.52.0 has GO-2026-6612 (Critical).
-GO_BUMPS = ["golang.org/x/net"]
+# Modules raised past what chainsaw's go.mod pins: x/net v0.52.0 has GO-2026-6612 (Critical);
+# grpc v1.79.3 and go-jose v4.1.4 have fixable Highs (GHSA-2v4p-qf9q-27wj, GHSA-mgcc-cww5-fp2q).
+GO_BUMPS = ["golang.org/x/net", "google.golang.org/grpc", "github.com/go-jose/go-jose/v4"]
 GO_PROXY = "https://proxy.golang.org"
 
 

@@ -73,13 +73,13 @@ def test_chainsaw_is_built_from_source(monkeypatch):
         return b"tarball"
     monkeypatch.setattr(tester.bbbuild, "fetch", fetch)
     c = tester.chainsaw_source("0.2.15")
-    assert c["go_get"] == ["golang.org/x/net@v0.62.0"]
+    assert c["go_get"] == [f"{m}@v0.62.0" for m in tester.GO_BUMPS] and "golang.org/x/net@v0.62.0" in c["go_get"]
     assert c["sha256"] == hashlib.sha256(b"tarball").hexdigest()
     spec = {"chainsaw": c, "packages": ["bash"], "user": {"name": "u", "group": "g", "id": 1000},
             "image": {"standard": {"velero": "v", "kyverno": "k"}}}
     args = tester.build_args(spec, "standard")
     assert args["CHAINSAW_SOURCE"].endswith("/v0.2.15") and args["CHAINSAW_VERSION"] == "0.2.15"
-    assert args["CHAINSAW_GO_GET"] == "golang.org/x/net@v0.62.0" and "CHAINSAW_IMAGE" not in args
+    assert args["CHAINSAW_GO_GET"] == " ".join(c["go_get"]) and "CHAINSAW_IMAGE" not in args
 
 
 def test_redis_datasource_backend_is_rebuilt(monkeypatch):
