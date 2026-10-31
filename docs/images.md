@@ -156,7 +156,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | mattermost | ironbank/opensource/mattermost/mattermost:11.11.0 | mattermost:11.11.3 | mattermost-fips:11.11.3 | mattermost: Iron Bank 11.11.0 -> newest 11.11 patch; mattermost-fips: Iron Bank 11.11.0 -> newest 11.11 patch |
 | mattermost | ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z | Iron Bank | Iron Bank | MinIO not used by Zapata; org minio repos removed 2026-10-27 |
 | mattermost | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
-| mattermost-operator | ironbank/opensource/mattermost/mattermost-operator:v1.25.9 | Iron Bank | Iron Bank | no Chainguard mattermost-operator image |
+| mattermost-operator | ironbank/opensource/mattermost/mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator-fips:v1.25.9 | built FROM the org's images by scripts/bb-mattermost-operator.py |
 | metrics-server | ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0 | metrics-server:0.9.1 | metrics-server-fips:0.9.1 | metrics-server: Iron Bank v0.9.0 -> newest 0.9 patch; metrics-server-fips: Iron Bank v0.9.0 -> newest 0.9 patch |
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
 | mimir | ironbank/opensource/apache/kafka-native:4.3.1 | kafka-native:4.3.2 | kafka-native:4.3.2 | kafka-native: Iron Bank 4.3.1 -> newest 4.3 patch; no FIPS variant; FIPS overlay keeps the standard image |
@@ -200,7 +200,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | renovate | ironbank/opensource/go-gitea/gitea:1.27.3 | Iron Bank | Iron Bank | org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.35 | kubectl:1.35-dev | kubectl-fips:1.35-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
-| sonarqube | ironbank/opensource/prometheus/jmx-exporter:1.6.0 | Iron Bank | Iron Bank | SonarQube's init container needs Iron Bank's /opt/jmx_exporter jar, sh and curl; Chainguard's jmx-exporter-iamguarded is the Bitnami layout |
+| sonarqube | ironbank/opensource/prometheus/jmx-exporter:1.6.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter:1.6.0-busybox1.38.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.6.0-busybox1.38.0 | built FROM the org's images by scripts/bb-jmx-exporter.py |
 | sonarqube | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | sonarqube | ironbank/sonarsource/sonarqube/sonarqube-community-build:26.9.0.129388-community | sonarqube:26.10.0.133078-community | sonarqube:26.10.0.133078-community | sonarqube: MINOR AHEAD: org has no 26.9.x; using 26.10.0.133078-community (Iron Bank 26.9.0.129388-community); no FIPS variant; FIPS overlay keeps the standard image |
 | tempo | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-base.py |
@@ -228,7 +228,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | velero | ironbank/opensource/velero/velero:v1.18.4 | velero:1.18.4 | velero-fips:1.18.4 |  |
 | ztunnel | ironbank/opensource/istio/ztunnel:1.31.1 | ztunnel:1.31.3 | ztunnel-fips:1.31.3 | ztunnel: Iron Bank 1.31.1 -> newest 1.31 patch; ztunnel-fips: Iron Bank 1.31.1 -> newest 1.31 patch |
 
-## Stays on Iron Bank (25)
+## Stays on Iron Bank (23)
 
 - `gitlab/gitlab-org/build/cng/gitaly-init-cgroups`: no Chainguard image (Gitaly's cgroups init container)
 - `gitlab/gitlab-org/build/cng/gitlab-openbao`: GitLab's own OpenBao build; Chainguard's openbao is upstream's
@@ -244,13 +244,11 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 - `ironbank/microfocus/fortify/ssc`: Fortify SSC is proprietary; vendor image only
 - `ironbank/opensource/go-gitea/gitea`: org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)
 - `ironbank/opensource/grafana/tempo-query`: no Chainguard tempo-query image
-- `ironbank/opensource/mattermost/mattermost-operator`: no Chainguard mattermost-operator image
 - `ironbank/opensource/minio/mc`: MinIO not used by Zapata; org minio repos removed 2026-10-27
 - `ironbank/opensource/minio/minio`: MinIO not used by Zapata; org minio repos removed 2026-10-27
 - `ironbank/opensource/minio/operator`: no Chainguard minio-operator image
 - `ironbank/opensource/minio/operator-sidecar`: no Chainguard minio-operator-sidecar image
 - `ironbank/opensource/neuvector/registry-adapter`: no Chainguard neuvector-registry-adapter image
-- `ironbank/opensource/prometheus/jmx-exporter`: SonarQube's init container needs Iron Bank's /opt/jmx_exporter jar, sh and curl; Chainguard's jmx-exporter-iamguarded is the Bitnami layout
 - `ironbank/redhat/ubi/ubi9`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland
 - `ironbank/redhat/ubi/ubi9-minimal`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland
 - `ironbank/twistlock/console/console`: Prisma Cloud (Twistlock) is proprietary; vendor image only
