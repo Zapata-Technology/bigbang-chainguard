@@ -178,9 +178,21 @@ jobs:
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
           echo "::add-mask::$CGR_TOKEN"
           export CGR_TOKEN
-          python3 scripts/bb-compat.py "compat/${{ matrix.test }}.yaml" \
-            ${{ matrix.mode == 'fips' && '--fips' || '' }} | tee "${RUNNER_TEMP}/compat.log"
-          exit "${PIPESTATUS[0]}"
+          # repo1.dso.mil refuses GitHub's runners now and then, and a package whose chart
+          # Flux couldn't fetch never starts: one more run on the same cluster then (Flux
+          # has kept retrying meanwhile). Any other failure is real.
+          for try in 1 2; do
+            set +e
+            python3 scripts/bb-compat.py "compat/${{ matrix.test }}.yaml" \
+              ${{ matrix.mode == 'fips' && '--fips' || '' }} 2>&1 | tee "${RUNNER_TEMP}/compat.log"
+            rc=${PIPESTATUS[0]}
+            set -e
+            [ "$rc" = 0 ] && exit 0
+            if [ "$try" = 2 ] || ! grep -q "^PROBLEM: repo1.dso.mil: .* can't fetch" "${RUNNER_TEMP}/compat.log"; then
+              exit "$rc"
+            fi
+            echo "::warning::repo1.dso.mil refused a chart fetch; running the test once more"
+          done
 
       - name: Summary
         if: always()

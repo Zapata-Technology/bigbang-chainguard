@@ -81,8 +81,11 @@ def run_installer(a, test, out):
     if os.environ.get("CGR_TOKEN"):
         env.update(CGR_USERNAME="_token", CGR_PASSWORD=os.environ["CGR_TOKEN"])
     if os.environ.get("GHCR_TOKEN"):
-        env.update(BUILD_REGISTRY_USERNAME=os.environ.get("GHCR_USER", "x"),
-                   BUILD_REGISTRY_PASSWORD=os.environ["GHCR_TOKEN"])
+        # A token alone, the way a site's read-only bot account logs in: the installer's
+        # pull check proves the registry takes it with no particular username.
+        env["BUILD_REGISTRY_TOKEN"] = os.environ["GHCR_TOKEN"]
+        for k in ("BUILD_REGISTRY_USERNAME", "BUILD_REGISTRY_PASSWORD"):
+            env.pop(k, None)
     base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
     install = base + ["install", "--site", site, "--small-cluster", "--yes",
                       "--timeout", str(a.timeout)] + (["--fips"] if a.fips else []) + test.get("installer_args", [])
