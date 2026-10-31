@@ -14,12 +14,16 @@ script jobs use it. This converts Iron Bank's own recipe:
   4. velero and the kyverno CLI are copied from the org's velero(-fips) and
      kyverno-cli(-fips) images on Iron Bank's MAJOR.MINOR lines (so the FIPS image
      gets FIPS builds); mc comes from Wolfi. chainsaw has no Chainguard package, so
-     it is copied from upstream's image at the digest Iron Bank pins (as Iron Bank does).
+     it is built from source at Iron Bank's version with the Wolfi Go toolchain, with
+     GO_BUMPS raised to their newest release. Upstream's image (the one Iron Bank
+     copies) is built with an old Go and x/net, which carry a fixable Critical CVE.
   5. write builds/devops-tester/build.yaml
 
   bb-devops-tester.py [--org <org>] [--ref master]       regenerate build.yaml
   bb-devops-tester.py --build [--test] [--push]          also build both images
 """
+import hashlib
+import json
 import os
 import re
 import sys
@@ -31,6 +35,10 @@ NAME = "devops-tester"
 IB_IMAGE = "ironbank/big-bang/devops-tester"
 IB_PROJECT = "big-bang/devops-tester"
 IMAGE = "bigbang-devops-tester"
+CHAINSAW_SOURCE = "https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v{version}"
+# Modules raised past what chainsaw's go.mod pins: x/net v0.52.0 has GO-2026-6612 (Critical).
+GO_BUMPS = ["golang.org/x/net"]
+GO_PROXY = "https://proxy.golang.org"
 
 
 def line(version):
@@ -56,6 +64,17 @@ def recipe(manifest, dockerfile):
             {"name": user.group(1), "group": group.group(1), "id": int(user.group(2))})
 
 
+def go_latest(module):
+    """`module@<newest release>` from the Go module proxy."""
+    return f"{module}@{json.loads(bbbuild.fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
+
+
+def chainsaw_source(version):
+    url = CHAINSAW_SOURCE.format(version=version)
+    return {"version": version, "source": url, "sha256": hashlib.sha256(bbbuild.fetch(url)).hexdigest(),
+            "go_get": [go_latest(m) for m in GO_BUMPS]}
+
+
 def generate(a):
     bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
     commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, a.ref)
@@ -67,15 +86,16 @@ def generate(a):
     packages = ["bash", "curl", "mc"]
     spec = {
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
-                     "commit": commit, "versions": versions},
+                     "commit": commit, "versions": versions, "chainsaw": chainsaw},
         "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": f"{bb_tag}-kubectl{img['tag']}",
                       "dev": img["dev"], "velero": velero[v]["base"], "kyverno": kyverno[v]["base"]}
                   for v, img in images.items()},
-        "chainsaw": chainsaw,
+        "chainsaw": chainsaw_source(versions["chainsaw"]),
         "packages": packages,
         "user": user,
-        "notes": ["chainsaw is upstream's build (ghcr.io/kyverno/chainsaw at Iron Bank's digest): "
-                  "Chainguard has no chainsaw package, and the FIPS image's chainsaw is not FIPS-built"],
+        "notes": ["chainsaw is built from upstream's source at Iron Bank's version (Chainguard has no chainsaw "
+                  "package) with Wolfi's Go and `chainsaw.go_get` raised; the FIPS image's chainsaw is not "
+                  "FIPS-built. `ironbank.chainsaw` is the upstream image Iron Bank copies instead"],
     }
     bbbuild.write_spec(NAME, spec, "# Big Bang's devops-tester rebuilt FROM the Chainguard org's kubectl -dev images,\n"
                                    "# with the tools of Iron Bank's big-bang/devops-tester at `ironbank.commit`.\n")
@@ -86,7 +106,9 @@ def generate(a):
 
 def build_args(spec, variant):
     img = spec["image"][variant]
-    return {"CHAINSAW_IMAGE": spec["chainsaw"], "VELERO_IMAGE": img["velero"], "KYVERNO_IMAGE": img["kyverno"],
+    c = spec["chainsaw"]
+    return {"CHAINSAW_SOURCE": c["source"], "CHAINSAW_SHA256": c["sha256"], "CHAINSAW_VERSION": c["version"],
+            "CHAINSAW_GO_GET": " ".join(c["go_get"]), "VELERO_IMAGE": img["velero"], "KYVERNO_IMAGE": img["kyverno"],
             "PACKAGES": " ".join(spec["packages"]),
             "USER_NAME": spec["user"]["name"], "GROUP_NAME": spec["user"]["group"],
             "USER_ID": str(spec["user"]["id"])}

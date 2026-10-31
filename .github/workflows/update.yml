@@ -59,6 +59,7 @@ jobs:
             objects.githubusercontent.com:443
             pipelines.actions.githubusercontent.com:443
             pkg-containers.githubusercontent.com:443
+            proxy.golang.org:443
             pypi.org:443
             raw.githubusercontent.com:443
             registry1.dso.mil:443
