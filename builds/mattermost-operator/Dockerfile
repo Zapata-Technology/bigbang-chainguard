@@ -31,7 +31,7 @@ USER root
 # FIPS=toolchain: the build image's Go is Chainguard's FIPS Go (go-fips): build like
 #   upstream's Dockerfile.fips (cgo, -tags=requirefips), crypto through OpenSSL's FIPS provider.
 # FIPS=native: no FIPS toolchain in the org (kubectl-fips -dev offers only go-1.N): build
-#   against Go's own FIPS 140-3 module (GOFIPS140=v1.0.0, the frozen module, which the
+#   against Go's own FIPS 140-3 module (GOFIPS140=v1.0.0-<hash>, the frozen module, which the
 #   Go command checks against its lib/fips140/fips140.sum; Wolfi's Go ships the sum but
 #   not the zip, so it comes from the module proxy), which also makes fips140=on the
 #   binary's default GODEBUG.
@@ -49,8 +49,9 @@ RUN set -e; \
     case "${FIPS}" in \
       toolchain) export CGO_ENABLED=1; tags="-tags=requirefips";; \
       native) sums="$(go env GOROOT)/lib/fips140/fips140.sum"; grep -v '^#' "$sums" || true; \
-        if grep -q '^v1\.0\.0\.zip ' "$sums"; then export GOFIPS140=v1.0.0; \
-        else echo "this Go lists no frozen FIPS 140-3 module v1.0.0 in $sums"; exit 1; fi;; \
+        v=$(sed -n 's/^\(v1\.0\.0\(-[0-9a-f]*\)\?\)\.zip .*/\1/p' "$sums" | tail -1); \
+        [ -n "$v" ] || { echo "this Go lists no frozen FIPS 140-3 module v1.0.0 in $sums"; exit 1; }; \
+        export GOFIPS140="$v";; \
       "") ;; \
       *) echo "FIPS=${FIPS}: want toolchain, native or empty"; exit 1;; \
     esac; \
