@@ -412,8 +412,10 @@ Differences from Iron Bank:
   ported.
 - **Tags:** base and devops-tester are tagged `<Iron Bank tag>-kubectl<version>`, so a
   kubectl patch gets a new tag.
-- **chainsaw** (devops-tester) has no Chainguard package. It is copied from upstream at
-  the digest Iron Bank pins, as Iron Bank does, and is not FIPS-built.
+- **chainsaw** (devops-tester) has no Chainguard package. It is built from upstream's
+  source at Iron Bank's version, using Wolfi's Go with `golang.org/x/net` raised to its
+  newest release. Iron Bank copies upstream's image, whose old Go and x/net carry a
+  fixable Critical CVE. The FIPS image's chainsaw is not FIPS-built.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,

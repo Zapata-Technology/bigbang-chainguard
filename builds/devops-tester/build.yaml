@@ -10,6 +10,7 @@ ironbank:
     kyverno: 1.19.2
     kubectl: 1.37.2
     chainsaw: 0.2.15
+  chainsaw: ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
 image:
   standard:
     name: bigbang-devops-tester
@@ -23,7 +24,12 @@ image:
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
     velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:5435624f7ed2aa5f4e32435819cfd3d30d1afb850b3ae26de6f2d3bd80a969d7
     kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:f4db2a7da434887b25d662f2fb6b5d51799ad91b4402dc49cdd3e8ce96518309
-chainsaw: ghcr.io/kyverno/chainsaw@sha256:1b60c420cd93a3a36d2877427ab6f154bc87de8612e3235167ac05666a795626
+chainsaw:
+  version: 0.2.15
+  source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15
+  sha256: 04f3fc7dd8e958e4fc7d73383bc22b05827240dd2fe7a8e32ee99d8c0332da2a
+  go_get:
+  - golang.org/x/net@v0.62.0
 packages:
 - bash
 - curl
@@ -33,4 +39,5 @@ user:
   group: devops
   id: 1000
 notes:
-- 'chainsaw is upstream''s build (ghcr.io/kyverno/chainsaw at Iron Bank''s digest): Chainguard has no chainsaw package, and the FIPS image''s chainsaw is not FIPS-built'
+- chainsaw is built from upstream's source at Iron Bank's version (Chainguard has no chainsaw package) with Wolfi's Go and `chainsaw.go_get` raised; the FIPS image's chainsaw is not FIPS-built. `ironbank.chainsaw`
+  is the upstream image Iron Bank copies instead

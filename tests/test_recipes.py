@@ -3,6 +3,8 @@
 If Iron Bank reshapes a Dockerfile, the builder fails loudly instead of building
 something different; these tests pin the shapes the parsers accept.
 """
+import hashlib
+
 import pytest
 import yaml
 
@@ -59,3 +61,20 @@ def test_reshaped_dockerfile_fails_loudly():
         grafana.plugin_layout("FROM scratch\nCOPY a b\n")
     with pytest.raises(SystemExit):
         tester.recipe({"resources": []}, "FROM scratch\n")
+
+
+def test_chainsaw_is_built_from_source(monkeypatch):
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return b'{"Version": "v0.62.0"}'
+        assert url == "https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15"
+        return b"tarball"
+    monkeypatch.setattr(tester.bbbuild, "fetch", fetch)
+    c = tester.chainsaw_source("0.2.15")
+    assert c["go_get"] == ["golang.org/x/net@v0.62.0"]
+    assert c["sha256"] == hashlib.sha256(b"tarball").hexdigest()
+    spec = {"chainsaw": c, "packages": ["bash"], "user": {"name": "u", "group": "g", "id": 1000},
+            "image": {"standard": {"velero": "v", "kyverno": "k"}}}
+    args = tester.build_args(spec, "standard")
+    assert args["CHAINSAW_SOURCE"].endswith("/v0.2.15") and args["CHAINSAW_VERSION"] == "0.2.15"
+    assert args["CHAINSAW_GO_GET"] == "golang.org/x/net@v0.62.0" and "CHAINSAW_IMAGE" not in args
