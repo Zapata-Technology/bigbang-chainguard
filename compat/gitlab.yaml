@@ -1,5 +1,5 @@
 # GitLab (webservice, sidekiq, gitaly, shell, registry, kas, toolbox) with PostgreSQL and
-# Redis from the org's images (compat/support/gitlab-deps.py), objects on SeaweedFS.
+# Redis from the org's images (compat/support/app-deps.py gitlab), objects on SeaweedFS.
 # Large: weekly and on demand only (compat.yml), it needs more memory than a pull
 # request's runner reliably has.
 images: {}
@@ -26,7 +26,7 @@ test:
   setup:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
-    - python3 compat/support/gitlab-deps.py
+    - python3 compat/support/app-deps.py gitlab
     # Crash-looping pods restart before the report reads them: keep their last output.
     - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
     - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"

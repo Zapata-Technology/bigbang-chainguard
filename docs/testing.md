@@ -94,6 +94,8 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | installer-signatures (new) | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
+| mattermost-operator (new) | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs |
+| mattermost (new) | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
 | gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** no crashes since the GODEBUG fix, but it times out on the private repo's 2-CPU, 7 GB runner (see the README's Known gaps) |
 | gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
 
@@ -115,13 +117,14 @@ None of these showed up when rendering. All are fixed in the overlays:
 | object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps even when our values set it to null | `overrides.tempo` replaces the chart's config template with a copy that omits it |
 | object-storage | Big Bang creates Mimir's credential Secret even with Mimir off | Site file sets credentials only for enabled packages |
 
+| mattermost | The Mattermost Operator sets `MM_FILESETTINGS_AMAZONS3SSL=true` for every external file store (false only for a MinIO it manages), so Mattermost would speak HTTPS to an `http://` SeaweedFS endpoint (found reading the operator while writing the test) | The object-storage overlay sets it from the endpoint's scheme (`{ssl}` in `object-storage.yaml`) |
 | velero | The chart's placeholder snapshot location has an empty credential that Flux keeps; Velero's CRD rejects it | No snapshot locations with S3 object storage |
 | thanos | Monitoring depends on the `prometheusOperatorCRDs` package, which also creates the `monitoring` namespace | Keep it on (the installer's preflight checks) |
 | keycloak (FIPS) | Big Bang's default admin (`password`) and database (`keycloak`) passwords are too short for FIPS ("password must be at least 112 bits") | Test passwords; the installer generates both on a fresh Keycloak |
 | every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
 | keycloak | A Chainguard rebuild of 26.8.1 made `quarkus-application.dat` 0770 65532/65532; Big Bang's uid 1000 couldn't read it | `overrides.keycloak` runs as the image's user; digest pins stop a rebuild arriving untested |
 | gitlab | Its chart sets `GODEBUG=tlskyber=0`, which newer Go refuses: Gitaly, Shell and the registry died at start | `overrides.gitlab` sets `tlsmlkem=0` |
-| gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/gitlab-deps.py` deploys them from the org's images |
+| gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/app-deps.py` deploys them from the org's images |
 | mattermost (signatures) | Digest pins rendered as `name:@sha256` for an image with no tag | `kustomize_image` renders `name@digest` |
 | cve-report | Vault's kubectl 1.30 pin resolved to the org's unmaintained 1.30 FIPS image (19 Critical) | `min_version: "1.34"` on kubectl |
 | signatures (CI) | `builds.yml` pushed the release tag about a minute before signing it; a check in that window found the tag unsigned, and an enforcing cluster would refuse the Pod | Push `<tag>-staging`, sign its digest, then move `<tag>` |
@@ -153,5 +156,6 @@ A compat file with `large: true` runs in the weekly `compat.yml` schedule (Sunda
 and when named in a manual run, not on pull requests: GitLab's dozen pods need more memory
 and time (`timeout:` in seconds; the job gets 90 minutes) than a pull request should wait
 for. MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which
-CI has no credentials for. Mattermost has none yet either; its operator is now built here
-(`bigbang-mattermost-operator`) and covered by the render, signature and smoke tests.
+CI has no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server
+with the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on
+SeaweedFS on every pull request that touches `compat/`.
