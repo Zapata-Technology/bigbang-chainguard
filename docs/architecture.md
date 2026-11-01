@@ -195,11 +195,11 @@ sequenceDiagram
     N->>N: bb-convert (tags and today's digests) + bb-verify (standard, FIPS)
     N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
     N->>PR: open bot/bigbang-update, report in the body
-    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images;<br/>build + smoke-test images; every package on kind
+    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test images, every package on kind
     CI-->>PR: checks
     PR->>M: merge (you)
     M->>B: push to main
-    B->>G: build, scan, sign, then move the tag;<br/>SBOM + provenance; tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
+    B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt,bigbang&gt,-cg.&lt,n&gt,,<br/>signed archive and notes
 ```
 
 Every org image is pinned to the digest its tag had when the overlays were generated
