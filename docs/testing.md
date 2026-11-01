@@ -8,8 +8,9 @@ things the one before can't.
 flowchart LR
     U[Unit tests<br/>pytest tests/] --> SC[Chart scan<br/>bb-scan.py<br/>sh needs bash, empty defaults]
     SC --> V[Render verify<br/>bb-verify.py<br/>standard + FIPS]
-    V --> S[Signatures<br/>bb-signatures.py<br/>cosign, every org image]
+    V --> S[Signatures<br/>bb-signatures.py<br/>cosign: org images +<br/>bigbang-* built here]
     V --> AG[Image age<br/>bb-age.py<br/>rebuilt in 30 days]
+    V --> CV[CVE gate<br/>bb-cve.py<br/>new fixable Criticals]
     V --> B[Image builds<br/>builds.yml<br/>smoke test + grype]
     S --> C[Run on kind<br/>compat.yml<br/>one package per job]
     B --> C
@@ -20,10 +21,10 @@ flowchart LR
 | **Unit** (`tests/`) | every PR (`ci.yml`) | Tag selection, settings and org files, conversion rules and post-renderer patches, value-path discovery, Iron Bank recipe parsing, the image policy, object-storage credentials, the chart scan's rules, the leftovers report, and every `compat/*.yaml` being well formed |
 | **Chart scan** (`bb-scan.py`) | every PR | Shell code run by `sh` that needs bash (Chainguard `-dev` images' `sh` is busybox; UBI's is bash), and empty chart defaults written into an app config. Each finding must be listed in `mapping.yaml` `scan_reviewed` with its fix. |
 | **Render verify** (`bb-verify.py`) | every PR, standard and FIPS | An image the overlays don't convert; a non-FIPS image in the FIPS overlay; an org image left on a tag instead of its digest pin |
-| **Signatures** (`bb-signatures.py`) | every PR | An org image Chainguard didn't sign for your org, or a tag that doesn't exist. This found `neuvector-manager-fips:5.6`, which had no tags. |
+| **Signatures** (`bb-signatures.py`) | every PR | An org image Chainguard didn't sign for your org, a `bigbang-*` image `builds.yml` didn't sign on `main` (the signer is `BUILD_SIGNER`, else this repo), or a tag that doesn't exist. This found `neuvector-manager-fips:5.6`, which had no tags. |
 | **Image age** (`bb-age.py`) | every PR | An org image not rebuilt in 30 days: a release line Chainguard stopped maintaining. Vault's kubectl 1.30 (19 Critical CVEs in FIPS) was one. |
-| **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. The weekly report lists each Critical with its fixed-in version. |
-| **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE |
+| **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
+| **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime |
 
 ## Running packages on kind
@@ -59,7 +60,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; an upgrade with existing data was not tested. |
-| sonarqube-26.10 | SonarQube **26.10** community | Big Bang pins 26.9 |
+| sonarqube-26.10 | SonarQube **26.10** community | Big Bang pins 26.9. Monitoring is off, so the `bigbang-jmx-exporter` init container doesn't run; its smoke test runs the chart's command instead |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination |
 | argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | |
 | grafana | k8s-sidecar 2.14 | |
@@ -84,7 +85,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
 | installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
 | installer-tls (new) | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
-| installer-signatures (new) | `--verify-signatures enforce`: Kyverno policy for Chainguard signatures | Policy Ready, a signed org image admitted, an unverifiable one refused |
+| installer-signatures (new) | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
 | installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
 | gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** no crashes since the GODEBUG fix, but it times out on the private repo's 2-CPU, 7 GB runner (see the README's Known gaps) |
@@ -102,7 +103,7 @@ None of these showed up when rendering. All are fixed in the overlays:
 | kiali | `istio-init` was built from `hub` + `proxy_init.image`, so it still pulled Iron Bank's | Overrides set `hub`, `tag` and `proxy_init.image` |
 | kiali | The gateway wait job compares proxy tags with istiod's version label, which the chart sets to Big Bang's patch | A Flux post-renderer sets the label to the deployed patch |
 | argocd, harbor | Bitnami's Redis chart starts the exporter with `/bin/bash -ec redis_exporter` | `prometheus-redis-exporter-iamguarded` |
-| sonarqube | Its JMX init container needs Iron Bank's `/opt/jmx_exporter` jar, `sh` and `curl` | The JMX exporter stays on Iron Bank |
+| sonarqube | Its JMX init container needs Iron Bank's `/opt/jmx_exporter` jar, `sh` and `curl`, which Chainguard's `jmx-exporter-iamguarded` lacks | `bigbang-jmx-exporter`: the jar at Iron Bank's version on `busybox(-fips)-dev` |
 | kyverno-enforce | Kyverno policies' wait script is `#!/bin/sh` with bash arrays; busybox `sh` fails on it | `bash_wait_jobs`: a post-renderer runs it with bash |
 | kyverno-enforce | Big Bang's non-root policies render `preconditions.all: null` with no excluded containers | The test excludes a placeholder container (Istio normally supplies the list) |
 | object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps even when our values set it to null | `overrides.tempo` replaces the chart's config template with a copy that omits it |
@@ -117,6 +118,8 @@ None of these showed up when rendering. All are fixed in the overlays:
 | gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/gitlab-deps.py` deploys them from the org's images |
 | mattermost (signatures) | Digest pins rendered as `name:@sha256` for an image with no tag | `kustomize_image` renders `name@digest` |
 | cve-report | Vault's kubectl 1.30 pin resolved to the org's unmaintained 1.30 FIPS image (19 Critical) | `min_version: "1.34"` on kubectl |
+| signatures (CI) | `builds.yml` pushed the release tag about a minute before signing it; a check in that window found the tag unsigned, and an enforcing cluster would refuse the Pod | Push `<tag>-staging`, sign its digest, then move `<tag>` |
+| cve-report | `devops-tester`'s chainsaw carried old grpc, x/net and go-jose (4 fixable Highs) | `GO_BUMPS` in `bb-devops-tester.py` raises them |
 
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
 job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's keystore job
@@ -134,11 +137,15 @@ These are kind-on-GitHub-Actions limits, not image problems:
   the disk.
 - **Rate limits.** Lookups of Flux releases on `api.github.com` use the job's token, since
   parallel jobs share the anonymous rate limit.
+- **Known flakes are retried.** A kind test reruns once when repo1.dso.mil refuses the
+  runner; a build reruns once on a transient package-fetch error; a GHCR push is tried
+  three times, 30 seconds apart.
 
 ### Large tests
 
 A compat file with `large: true` runs in the weekly `compat.yml` schedule (Sunday 06:00 UTC)
 and when named in a manual run, not on pull requests: GitLab's dozen pods need more memory
 and time (`timeout:` in seconds; the job gets 90 minutes) than a pull request should wait
-for. Mattermost, MinIO and the MinIO operator have no kind test: their operator or server
-images stay on Iron Bank, which CI has no credentials for.
+for. MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which
+CI has no credentials for. Mattermost has none yet either; its operator is now built here
+(`bigbang-mattermost-operator`) and covered by the render, signature and smoke tests.

@@ -87,21 +87,34 @@ Two more options change this per image:
 
 ## 3. Images this repo builds
 
-Chainguard doesn't publish Big Bang's own images. For those, a script converts **Iron Bank's
-own recipe** into a build FROM your org's images. Vault also gets a build, to add the curl
-that Big Bang's post-start hook needs.
+Chainguard doesn't publish Big Bang's own images (base, grafana-plugins, devops-tester).
+For those, a script converts **Iron Bank's own recipe** into a build FROM your org's images.
+Three more get a build for what Chainguard's image lacks: Vault (the curl Big Bang's
+post-start hook needs), the JMX exporter (SonarQube's init container copies its jar with
+sh and curl) and the Mattermost Operator (no Chainguard image; built from upstream's source).
 
 ```mermaid
 flowchart LR
     R[Iron Bank recipe<br/>hardening_manifest.yaml + Dockerfile<br/>pinned to a repo1 commit] --> S[bb-&lt;name&gt;.py]
     O[cgr.dev/&lt;org&gt;/&lt;base&gt;-dev<br/>pinned by digest] --> S
     S --> Y[builds/&lt;name&gt;/build.yaml]
-    Y --> K[docker build<br/>builds/&lt;name&gt;/Dockerfile]
+    Y --> K[docker build<br/>builds/&lt;name&gt;/Dockerfile<br/>retried once on a<br/>transient fetch error]
     K --> T{smoke test<br/>tools, versions, uid,<br/>OpenSSL fips=yes}
-    T -- pass --> P[(BUILD_REGISTRY<br/>ghcr.io/&lt;owner&gt;)]
     T -- fail --> X[CI fails; nothing pushed]
-    P --> SIG[optional: cosign keyless<br/>signature + SBOM]
+    T -- pass --> G{grype: a fixable<br/>Critical CVE?}
+    G -- yes --> X
+    G -- "no, on main" --> ST[push &lt;tag&gt;-staging]
+    ST --> SIG[cosign keyless sign<br/>the digest, bundle +<br/>classic .sig formats]
+    SIG --> P[(push &lt;tag&gt;<br/>BUILD_REGISTRY<br/>ghcr.io/&lt;owner&gt;)]
+    P --> AT[attest SPDX SBOM +<br/>SLSA provenance]
 ```
+
+With `SIGN_IMAGES=keyless`, each image is signed **before its release tag moves to it**:
+`builds.yml` pushes `<tag>-staging`, signs that digest, then pushes `<tag>`. A cluster
+enforcing signatures never sees the tag on an unsigned image. Pushes are retried (GHCR
+refuses a new package's first push now and then). The provenance record
+(`scripts/bb-provenance.py`) names the workflow run, the commit and every pinned input from
+`build.yaml`.
 
 | Image | Iron Bank source | Built FROM |
 |---|---|---|
@@ -113,20 +126,34 @@ flowchart LR
 | `bigbang-mattermost-operator` | `opensource/mattermost/mattermost-operator` (built from upstream's source) | `go(-fips)-dev` or `kubectl(-fips)-dev`, onto `glibc-openssl(-fips)` or `kubectl(-fips)` |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
+The Mattermost Operator uses the `go`/`glibc-openssl` images when the org has them. Without
+them it builds in `kubectl(-fips)-dev` with Wolfi's Go and runs on `kubectl(-fips)`, and the
+FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`'s OpenSSL
+backend. The next build switches over once the org has those images.
+
 ## 4. Deploying: how the overlays layer
 
-`scripts/bb-install.py install --site my-site.yaml [--fips]` does all of this in order:
+`scripts/bb-install.py install [--fips]` (or `scripts/bb-docker.sh install`, the same from
+the installer image) does all of this in order:
 
 ```mermaid
 flowchart LR
-    CH[Chart<br/>repo1 git archive,<br/>no Iron Bank login] --> PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
-    PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>kept in bigbang/bb-install]
-    CR --> FX[Flux<br/>pull secret + flux/]
+    SF[Site file<br/>my-site.yaml; written<br/>first if missing:<br/>--domain, --enable] --> CH[Chart<br/>repo1 git archive,<br/>no Iron Bank login]
+    CH --> PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
+    PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>a token alone works;<br/>kept in bigbang/bb-install]
+    CR --> PC{Pull check<br/>cgr.dev, every bigbang-*<br/>image, the mirror}
+    PC -- refused --> CR
+    PC -- ok --> FX[Flux<br/>pull secret + flux/]
     FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
     SW --> BB[Big Bang<br/>helm upgrade -i with the overlays,<br/>or --gitops: a Flux HelmRelease]
     BB --> TL[TLS<br/>cert-manager self-signed CA,<br/>your ClusterIssuer, or your cert]
-    TL --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
+    TL --> SG[Image signatures<br/>Kyverno policy,<br/>enforce by default]
+    SG --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
 ```
+
+The pull check asks each registry for a manifest with the login it was given. A refused
+login is asked for again, up to three tries, before anything changes in the cluster.
+`--no-pull-check` skips it for a registry only the nodes can reach.
 
 The layering it uses:
 
@@ -172,7 +199,7 @@ sequenceDiagram
     CI-->>PR: checks
     PR->>M: merge (you)
     M->>B: push to main
-    B->>G: build, scan, push (+ sign); tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
+    B->>G: build, scan, sign, then move the tag;<br/>SBOM + provenance; tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```
 
 Every org image is pinned to the digest its tag had when the overlays were generated
@@ -229,12 +256,14 @@ missing `mimir` namespace.
 flowchart LR
     subgraph trusted[What a cluster pulls]
         CG[(cgr.dev/&lt;org&gt;<br/>Chainguard, signed,<br/>pinned by digest)]
-        BR[(BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed)]
+        BR[(BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed,<br/>SBOM + provenance)]
         IBR[(registry1.dso.mil<br/>documented leftovers)]
         SR[(site registry<br/>disconnected sites:<br/>copies of the above)]
     end
     K[Kyverno restrict-image-registries<br/>allow list = exactly these] --> trusted
-    S[Kyverno signature policy<br/>Chainguard's signature on<br/>cgr.dev/&lt;org&gt; images<br/>audit by default] --> CG
+    S[Kyverno signature policy<br/>enforce by default]
+    S --"Chainguard's signature" --> CG
+    S -- "builds.yml on main" --> BR
     subgraph build[What a build reads]
         IBRec[Iron Bank recipes<br/>pinned commit]
         Z[plugin zips / binaries<br/>sha256 or digest from<br/>Iron Bank's manifest]
@@ -251,15 +280,19 @@ flowchart LR
 ```
 
 - A cluster only pulls from the three registries Kyverno allows. The overlay sets that list.
-  With `bb-install.py --verify-signatures` (audit by default when Kyverno is on), Kyverno
-  also checks Chainguard's signature on every `cgr.dev/<org>` image a Pod runs.
+- With Kyverno on, the installer's signature policy is in enforce mode by default
+  (`--verify-signatures audit` or `off` to change it). Every `cgr.dev/<org>` image needs
+  Chainguard's signature, and every `<build registry>/bigbang-*` image needs the keyless
+  signature `builds.yml` makes on this repo's `main` (`--build-signer` names another repo).
+  CI's `bb-signatures.py` checks the same two rules on every pull request.
 - Org images are pinned by digest (section 5), so what runs is what CI tested.
 - Releases are signed keylessly by `release.yml`; the release notes show the `cosign
   verify-blob` command.
 - The installer keeps credentials in one Secret, `bigbang/bb-install`. Anyone who can read
   Secrets in the `bigbang` namespace can read them (SECURITY.md, "Credentials in the cluster").
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
-  digest, and each base image by digest.
+  digest, and each base image by digest. The SLSA provenance attached to each built image
+  lists them.
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's
   `main` branch and pull requests. GitHub Actions are pinned to commit SHAs.
 - The CI, build and nightly runners block every outbound call they don't list

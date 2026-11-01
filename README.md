@@ -23,8 +23,8 @@ releases.
   - If you enable fewer packages, you need fewer images.
   - `scripts/bb-convert.py --missing` lists the ones your org lacks.
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and Vault needs curl added; this repo builds those FROM your
-  Chainguard images; see
+  Big Bang's own builds, and three more need what Chainguard's image lacks (Vault, the JMX
+  exporter, the Mattermost Operator); this repo builds those FROM your Chainguard images; see
   [Images this repo builds](#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
 - **Iron Bank credentials, for the images with no Chainguard equivalent.** These are
@@ -531,7 +531,9 @@ and verification accepts them.
 **How images get published (`builds.yml` in CI):**
 
 - Every change builds and smoke-tests the images.
-- A merge to `main` pushes them to `BUILD_REGISTRY` (signed when `SIGN_IMAGES=keyless`).
+- A merge to `main` pushes them to `BUILD_REGISTRY`. With `SIGN_IMAGES=keyless` each
+  image is signed before its tag moves to it (pushed as `<tag>-staging`, signed, then
+  tagged), then gets an SBOM and SLSA provenance. GHCR pushes are retried.
 - The nightly job regenerates the build specs, so a new Grafana or kubectl patch, or a
   plugin added by Iron Bank, arrives as a pull request.
 
@@ -614,7 +616,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 | Gap | Why | What closes it |
 |---|---|---|
-| 28 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
+| 23 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
 | GitLab's kind test doesn't finish | GitLab, its PostgreSQL and Redis need more than the 2 CPUs and 7 GB of a private repository's runner; it times out with nothing crashing | A public repository (4 CPUs, 16 GB runners) or a larger runner group. Render and signature checks cover GitLab meanwhile |
 | Keycloak's images stay on tags, not digests | Big Bang 3.35.1's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |

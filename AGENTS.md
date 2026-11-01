@@ -186,8 +186,12 @@ builds on the PR and pushes on merge.
   must allow it.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
   the matching upstream Flux release (`fluxrelease.py`).
-- GHCR refuses the first push to a new package from Actions: re-run the failed job.
-  repo1.dso.mil intermittently refuses GitHub runners: the scripts retry; re-run if not.
+- GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
+  push three times; re-run the job if all three fail. repo1.dso.mil intermittently refuses
+  GitHub runners: the scripts retry, and `compat.yml` reruns a kind test once.
+- **Sign before the tag moves.** With enforce the default, a tag that points at an unsigned
+  digest even for a minute refuses Pods. `builds.yml` pushes `<tag>-staging`, signs, then
+  pushes `<tag>`; keep that order in any new publish step.
 - On Windows: git checks out with CRLF (render charts from a Linux checkout if line endings
   matter), `docker-credential-cgr` may be blocked (no local cgr.dev pulls; debug in CI),
   shell heredocs turn `\n` in Python strings into real newlines (write the script
