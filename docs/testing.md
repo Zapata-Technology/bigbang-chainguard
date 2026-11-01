@@ -61,7 +61,17 @@ Each test then:
 5. fails if any container was **OOMKilled** during the test, even one whose pod restarted
    and came up (the package doesn't fit its memory limit), and lists every other container
    that exited non-zero (`EXITED:`);
-6. keeps the evidence. While the test runs, every 30 seconds it saves each container's log,
+6. watches while it waits. Every 30 seconds it reads every container's log and prints the
+   first error-looking line each one logs, as it happens (`LIVE <ns>/<pod> <container>:
+   ...`: `rake aborted!`, `panic:`, a traceback, `FATAL`, `out of shared memory`, `x509:`,
+   ...). It **stops the test early**, with `PROBLEM: stopped early: ...` naming the cause,
+   on a failure that waiting won't fix: an OOM kill, a Job that used up its retries, a
+   container stuck on `ImagePullBackOff` or a config error for 5 minutes, or one restarted
+   6 times (about 10 minutes) with an error line in its log; fewer is normal for apps that
+   crash until a dependency is up (Harbor's jobservice restarts 3 times). A broken test
+   then ends in minutes, not at its
+   timeout;
+7. keeps the evidence. While the test runs, every 30 seconds it saves each container's log,
    and after a restart the log of the run that ended, so a crash-looping pod's output
    survives Flux uninstalling a failed release. At the end it adds events, pod
    descriptions, `kubectl describe nodes` (what each node has allocated) and Flux's view of

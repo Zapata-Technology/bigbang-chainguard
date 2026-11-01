@@ -132,3 +132,90 @@ def test_progress_deadline_keeps_the_overlays_post_renderers(tmp_path):
         [p] = patch["kustomize"]["patches"]
         assert p["target"] == {"kind": "Deployment"}
         assert yaml.safe_load(p["patch"]) == [{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]
+
+
+def _watch(tmp_path, monkeypatch, pods, jobs=(), logs=None, clock=None):
+    """A PodLogKeeper over fake kubectl output: `pods` and `jobs` for namespace ns, `logs`
+    {(pod, container, previous): text}."""
+    bbcluster = load_script("bbcluster")
+    logs = logs or {}
+
+    def kubectl(*args, check=True):
+        if args[:2] == ("get", "pod"):
+            return json.dumps({"items": pods})
+        if args[:2] == ("get", "job"):
+            return json.dumps({"items": list(jobs)})
+        if args[0] == "logs":
+            return logs.get((args[3], args[5], "--previous" in args), "")
+        return ""
+    monkeypatch.setattr(bbcluster, "kubectl", kubectl)
+    return bbcluster.PodLogKeeper(lambda: ["ns"], str(tmp_path), clock=clock or (lambda: 0))
+
+
+def test_live_prints_each_containers_first_error_line_once(tmp_path, monkeypatch, capsys):
+    running = {"name": "app", "state": {"running": {}}}
+    keeper = _watch(tmp_path, monkeypatch, [_pod("web-1", [running])],
+                    logs={("web-1", "app", False): "starting\npanic: runtime error\npanic: again\n"})
+    keeper.snapshot()
+    keeper.snapshot()
+    out = capsys.readouterr().out
+    assert out.count(" LIVE ") == 1
+    assert "LIVE ns/web-1 app: panic: runtime error" in out
+    assert keeper.abort_reasons() == []      # one error line alone doesn't stop the test
+
+
+def test_crash_looping_on_an_error_stops_the_test_but_a_waiting_init_container_does_not(tmp_path, monkeypatch):
+    def crashing(restarts, log):
+        s = {"name": "app", "restartCount": restarts, "state": {"waiting": {"reason": "CrashLoopBackOff"}},
+             "lastState": {"terminated": {"reason": "Error", "exitCode": 1}}}
+        return _pod("migrations-x", [s]), {("migrations-x", "app", True): log}
+    # Harbor's jobservice panics 3 times while core starts, then runs: not a stop.
+    pod, logs = crashing(5, "panic: failed to load configuration\n")
+    keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)
+    keeper.snapshot()
+    assert keeper.abort_reasons() == []      # five restarts: it may still recover
+    pod, logs = crashing(6, "ERROR: out of shared memory\nrake aborted!\n")
+    keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)
+    keeper.snapshot()
+    [why] = keeper.abort_reasons()
+    assert "ns/migrations-x container app restarted 6 times" in why and "out of shared memory" in why
+    # GitLab's `dependencies` init container exits 1 until the migrations are done: no error line.
+    pod, logs = crashing(9, "Checking database migrations are up-to-date\nWaiting for migrations\n")
+    keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)
+    keeper.snapshot()
+    assert keeper.abort_reasons() == []
+
+
+def test_oom_kill_and_failed_job_stop_the_test(tmp_path, monkeypatch):
+    oom = {"name": "app", "restartCount": 1, "state": {"running": {}},
+           "lastState": {"terminated": {"reason": "OOMKilled", "exitCode": 137}}}
+    failed = {"metadata": {"name": "migrations-x"},
+              "status": {"conditions": [{"type": "Failed", "status": "True", "reason": "BackoffLimitExceeded",
+                                         "message": "Job has reached the specified backoff limit"}]}}
+    keeper = _watch(tmp_path, monkeypatch, [_pod("web-1", [oom])], jobs=[failed])
+    keeper.snapshot()
+    reasons = keeper.abort_reasons()
+    assert "ns/web-1 container app was OOMKilled" in reasons
+    assert any(r.startswith("Job ns/migrations-x failed: BackoffLimitExceeded") for r in reasons)
+
+
+def test_an_image_that_cant_be_pulled_stops_the_test_after_five_minutes(tmp_path, monkeypatch):
+    now = [1000]
+    stuck = {"name": "app", "state": {"waiting": {"reason": "ImagePullBackOff", "message": "not found"}}}
+    keeper = _watch(tmp_path, monkeypatch, [_pod("web-1", [stuck])], clock=lambda: now[0])
+    keeper.snapshot()
+    now[0] += 299
+    keeper.snapshot()
+    assert keeper.abort_reasons() == []      # a slow pull may still finish
+    now[0] += 1
+    keeper.snapshot()
+    [why] = keeper.abort_reasons()
+    assert why.startswith("ns/web-1 container app: ImagePullBackOff for 300s")
+
+
+def test_wait_ready_ends_as_soon_as_the_watcher_has_a_reason(monkeypatch):
+    bbcluster = load_script("bbcluster")
+    monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: json.dumps({"items": []}))
+    monkeypatch.setattr(bbcluster.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("waited")))
+    ok, problems = bbcluster.wait_ready(["ns"], 3600, abort=lambda: ["ns/web-1 container app was OOMKilled"])
+    assert not ok and problems == ["stopped early: ns/web-1 container app was OOMKilled"]

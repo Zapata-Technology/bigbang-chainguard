@@ -207,7 +207,7 @@ jobs:
           {
             echo "### ${{ matrix.test }} (${{ matrix.mode }})"
             echo '```'
-            grep -E "^RESULT|^PROBLEM|^EXITED|^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
+            grep -E "^RESULT|^PROBLEM|^EXITED|^[0-9:]{8} LIVE |^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
             echo '```'
             echo "Every pod's logs and the cluster's state: artifact \`compat-${{ matrix.test }}-${{ matrix.mode }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
