@@ -621,7 +621,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 | Keycloak's images stay on tags, not digests | Big Bang 3.35.1's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
-| Iron Bank's side of the weekly CVE report is empty | It needs an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |
+| Iron Bank's side of the weekly CVE report is empty, and the Vault 1.21 to 2.x upgrade test (`compat/vault-upgrade.yaml`) is skipped | Both need an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |
 | Some images have open Critical CVEs | See [SECURITY.md](SECURITY.md#known-vulnerabilities) | Chainguard rebuilds, or a rebuild of the images built here |
 
 ## Contributing and support

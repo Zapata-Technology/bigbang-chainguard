@@ -130,8 +130,12 @@ command line or in output.
 ### Write a compat test
 `compat/<name>.yaml`: `enable` (Big Bang keys), `namespaces`, `expect` (image fragments that
 must run), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
-(commands that must exit 0), `installer: true` with `installer_args`. Unknown keys fail
-`tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
+(commands that must exit 0), `installer: true` with `installer_args`, `large: true` and
+`timeout` (weekly, slow packages), `registry1: true` (pulls from Iron Bank: SKIPPED, exit 0,
+without `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`), and `upgrade_from` (`images`: the mapping
+to install first; `check`: commands on that install; `upgrade`: commands after Big Bang is
+upgraded to the test's mapping, before the wait; see `compat/vault-upgrade.yaml`). Unknown
+keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
 ### Disconnected sites
 `scripts/bb-airgap.py` writes the bundle (chart, rendered Flux, bare git clones, images.txt);
