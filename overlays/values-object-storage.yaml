@@ -13,6 +13,9 @@ addons:
     objectStorage:
       bucket: bigbang-mattermost
       endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
+    values:
+      mattermostEnvs:
+        MM_FILESETTINGS_AMAZONS3SSL: 'false'
   mimir:
     s3ObjectStorage:
       bucketName: bigbang-mimir

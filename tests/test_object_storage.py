@@ -13,16 +13,17 @@ SPEC = yaml.safe_load(open(os.path.join(ROOT, "object-storage.yaml")))
 def test_tokens():
     t = storage.tokens("http://seaweedfs-s3.seaweedfs.svc:8333/", "us-east-1", "bb")
     assert t == {"endpoint": "http://seaweedfs-s3.seaweedfs.svc:8333", "host": "seaweedfs-s3.seaweedfs.svc:8333",
-                 "region": "us-east-1", "prefix": "bb", "insecure": True}
+                 "region": "us-east-1", "prefix": "bb", "insecure": True, "ssl": "false"}
     assert storage.tokens("https://s3.example.com", "r", "p")["insecure"] is False
+    assert storage.tokens("https://s3.example.com", "r", "p")["ssl"] == "true"
     with pytest.raises(SystemExit):
         storage.tokens("seaweedfs:8333", "r", "p")
 
 
 def test_fill():
     t = storage.tokens("http://s3:8333", "us-east-1", "bb")
-    assert storage.fill({"a": "{insecure}", "b": "{bucket:x}-{region}", "c": ["{host}"], "d": 1}, t) == \
-        {"a": True, "b": "bb-x-us-east-1", "c": ["s3:8333"], "d": 1}
+    assert storage.fill({"a": "{insecure}", "b": "{bucket:x}-{region}", "c": ["{host}"], "d": 1, "e": "{ssl}"}, t) == \
+        {"a": True, "b": "bb-x-us-east-1", "c": ["s3:8333"], "d": 1, "e": "false"}
 
 
 def test_build_disables_minio_and_skips_optional_packages():

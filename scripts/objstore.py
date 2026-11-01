@@ -44,7 +44,7 @@ def tokens(url, region, prefix):
     if u.scheme not in ("http", "https") or not u.netloc:
         raise SystemExit(f"--endpoint must be http(s)://host[:port], not {url!r}")
     return {"endpoint": url.rstrip("/"), "host": u.netloc, "region": region, "prefix": prefix,
-            "insecure": u.scheme == "http"}
+            "insecure": u.scheme == "http", "ssl": "true" if u.scheme == "https" else "false"}
 
 
 def fill(value, t):
@@ -62,7 +62,7 @@ def fill(value, t):
         start = out.index("{bucket:")
         end = out.index("}", start)
         out = out[:start] + f"{t['prefix']}-{out[start + 8:end]}" + out[end + 1:]
-    for k in ("endpoint", "host", "region", "prefix"):
+    for k in ("endpoint", "host", "region", "prefix", "ssl"):
         out = out.replace("{" + k + "}", str(t[k]))
     return out
 

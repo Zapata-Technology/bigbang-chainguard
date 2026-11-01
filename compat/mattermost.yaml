@@ -1,0 +1,32 @@
+# Mattermost on the org's mattermost (-fips) image, run by the Mattermost Operator built
+# here (bigbang-mattermost-operator; the trial mapping builds it and loads it into kind,
+# as compat/mattermost-operator.yaml does). PostgreSQL from the org's images
+# (compat/support/app-deps.py mattermost), files on SeaweedFS through the object-storage
+# overlay, so no bundled PostgreSQL or MinIO. Passes when the operator brings the server
+# up and /api/v4/system/ping answers OK.
+images:
+  ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
+test:
+  enable: [addons.mattermostOperator, addons.mattermost]
+  namespaces: [mattermost-operator, mattermost, mattermost-deps]
+  setup:
+    - python3 compat/support/seaweedfs.py mattermost
+    - python3 compat/support/app-deps.py mattermost
+    - sh compat/support/watch.sh operator "kubectl -n mattermost-operator logs deploy/mattermost-operator --tail=30"
+    - sh compat/support/watch.sh server "kubectl -n mattermost logs -l app=mattermost --all-containers --previous --tail=60 || kubectl -n mattermost logs -l app=mattermost --all-containers --tail=60"
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+    - $COMPAT_OUT/site-mattermost.yaml
+  # "/mattermost" matches mattermost:<tag> and mattermost-fips:<tag>, not the operator.
+  expect: [/mattermost, bigbang-mattermost-operator, postgres]
+  forbid_log: "Problem with file storage settings|NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
+  check:
+    - sh compat/support/mattermost-ping.sh
+  debug:
+    - "kubectl get pods -n mattermost -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n mattermost get mattermost -o yaml | tail -40"
+    - "cat $COMPAT_OUT/watch-operator.log"
+    - "cat $COMPAT_OUT/watch-server.log"
+    - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image | grep -i -E 'minio|postgresql' || echo 'no MinIO or bundled PostgreSQL pods'"

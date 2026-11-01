@@ -8,6 +8,7 @@
 #   {host}             the same without the scheme (host:port)
 #   {region}           --region
 #   {insecure}         true when the endpoint is http:// (a YAML boolean)
+#   {ssl}              "true" when the endpoint is https://, else "false" (a string, for env values)
 #   {prefix}           --bucket-prefix
 #   {bucket:<name>}    <prefix>-<name>
 #
@@ -48,6 +49,9 @@ packages:
     note: Big Bang installs Mattermost's bundled MinIO unless endpoint, keys and bucket are all set.
     values:
       addons.mattermost.objectStorage: {endpoint: "{host}", bucket: "{bucket:mattermost}"}
+      # The operator sets MM_FILESETTINGS_AMAZONS3SSL=true for every external file store
+      # (false only for a MinIO it manages); the chart's env overrides it.
+      addons.mattermost.values.mattermostEnvs.MM_FILESETTINGS_AMAZONS3SSL: "{ssl}"
     credentials: [addons.mattermost.objectStorage.accessKey, addons.mattermost.objectStorage.accessSecret]
     buckets: [mattermost]
 
