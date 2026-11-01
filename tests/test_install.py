@@ -278,6 +278,12 @@ def test_pull_token_expiry_note():
     assert install.pull_token_note({}) == ""
 
 
+def test_status_notes_a_cluster_that_only_audits_signatures():
+    assert "--verify-signatures enforce" in install.signature_note({"signatures": "audit"})
+    for state in ({"signatures": "enforce"}, {"signatures": "off"}, {}):
+        assert install.signature_note(state) == ""
+
+
 def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
     import json as _json
     vs = {"items": [{"spec": {"hosts": ["grafana.example.com", "*.example.com"]}}]}

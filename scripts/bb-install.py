@@ -1080,6 +1080,15 @@ def signature_problem(state):
         f"signature policy not ready: {ready.get('message', 'no status')[:200]}"
 
 
+def signature_note(state):
+    """A line when the signature policy only audits: a cluster installed before enforce
+    became the default keeps audit, and unsigned images still run there."""
+    if state.get("signatures") != "audit":
+        return ""
+    return ("image signatures are only audited: Pods with unsigned images still run and Kyverno only "
+            "reports them; re-run bb-install.py install --verify-signatures enforce to refuse them")
+
+
 def tls_problem(state):
     """Why the gateway certificate cert-manager issues isn't Ready, or ''."""
     if state.get("tls-mode") not in ("issuer", "self-signed"):
@@ -1140,7 +1149,7 @@ def status_report(co, fips, problems=(), failed=False):
     for p in problems:
         say(f"PROBLEM: {p}")
     state = read_secret(NAMESPACE, STATE_SECRET) or {}
-    for note in (deployed_version_note(co), pull_token_note(state)):
+    for note in (deployed_version_note(co), pull_token_note(state), signature_note(state)):
         if note:
             say(note)
     tls = tls_problem(state)
