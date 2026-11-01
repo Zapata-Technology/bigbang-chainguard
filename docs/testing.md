@@ -56,7 +56,8 @@ Each test then:
    image the mapping keeps; in FIPS mode, `-fips` unless documented otherwise. This catches
    images injected at runtime, which rendering never sees;
 4. reports each expected image as `EXERCISED` or `NOT EXERCISED`, so a pass never counts an
-   image that didn't run.
+   image that didn't run: only a container that is running or exited 0 counts, not one in a
+   Pending pod or one still pulling.
 
 ## Results (Big Bang 3.35.1, 2026-10-30)
 

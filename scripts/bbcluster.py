@@ -155,14 +155,24 @@ def hr_namespaces():
     return sorted({hr["spec"].get("targetNamespace") or hr["metadata"]["namespace"] for hr in hrs})
 
 
+def started_images(pod):
+    """Images of the pod's containers that are running or finished cleanly (an init
+    container, a Job). A Pending pod's spec names images that never started."""
+    statuses = {s["name"]: s for s in pod["status"].get("containerStatuses", [])
+                + pod["status"].get("initContainerStatuses", [])}
+    imgs = set()
+    for c in pod["spec"].get("initContainers", []) + pod["spec"]["containers"]:
+        state = statuses.get(c["name"], {}).get("state", {})
+        if "running" in state or state.get("terminated", {}).get("exitCode") == 0:
+            imgs |= {c["image"], statuses[c["name"]].get("image", "")}
+    return imgs - {""}
+
+
 def images_running(namespaces):
     imgs = set()
     for ns in namespaces:
         for p in json.loads(kubectl("get", "pod", "-n", ns, "-o", "json"))["items"]:
-            for s in p["status"].get("containerStatuses", []) + p["status"].get("initContainerStatuses", []):
-                imgs.add(s.get("image", ""))
-            for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
-                imgs.add(c["image"])
+            imgs |= started_images(p)
     return imgs
 
 
