@@ -1,4 +1,5 @@
 """bb-compat.py's decisions that need no cluster: the Iron Bank skip, its credentials, and which images count as run."""
+import json
 import sys
 
 import yaml
@@ -61,3 +62,51 @@ def test_only_started_containers_count_as_exercised():
     running = {"name": "app", "image": "org/app@sha256:ab", "state": {"running": {}}}
     assert started_images(pod({"containerStatuses": [running], "initContainerStatuses": [done_init]})) == \
         {"org/init:1", "org/app:1", "org/app@sha256:ab"}
+
+
+def _pod(name, statuses, containers=("app",)):
+    return {"metadata": {"name": name},
+            "spec": {"containers": [{"name": c, "image": f"org/{c}:1"} for c in containers]},
+            "status": {"containerStatuses": statuses}}
+
+
+def test_terminations_are_oom_kills_and_non_zero_exits_now_or_before_a_restart():
+    terminations = load_script("bbcluster").terminations
+    oom = {"name": "app", "restartCount": 2, "state": {"running": {}},
+           "lastState": {"terminated": {"reason": "OOMKilled", "exitCode": 137}}}
+    assert terminations(_pod("p", [oom])) == [("app", "OOMKilled", 137)]
+    crashed = {"name": "app", "state": {"terminated": {"reason": "Error", "exitCode": 1}}}
+    assert terminations(_pod("p", [crashed])) == [("app", "Error", 1)]
+    done = {"name": "app", "state": {"terminated": {"reason": "Completed", "exitCode": 0}}}
+    assert terminations(_pod("p", [done])) == []
+
+
+def test_an_oom_kill_fails_the_test_and_other_exits_do_not():
+    exits = {("gitlab", "migrations-x", "migrations"): ("OOMKilled", 137),
+             ("gitlab", "webservice-y", "dependencies"): ("Error", 1)}
+    [p] = compat.oom_problems(exits)
+    assert p.startswith("gitlab/migrations-x container migrations was OOMKilled")
+
+
+def test_log_keeper_keeps_logs_of_a_restarted_container_after_its_pod_is_gone(tmp_path, monkeypatch):
+    bbcluster = load_script("bbcluster")
+    status = {"name": "app", "restartCount": 1, "state": {"running": {}},
+              "lastState": {"terminated": {"reason": "OOMKilled", "exitCode": 137}}}
+    pods = {"items": [_pod("migrations-x", [status])]}
+
+    def kubectl(*args, check=True):
+        if args[:2] == ("get", "pod"):
+            return json.dumps(pods)
+        if args[0] == "logs":
+            return "previous run\n" if "--previous" in args else "current run\n"
+        return ""
+    monkeypatch.setattr(bbcluster, "kubectl", kubectl)
+    keeper = bbcluster.PodLogKeeper(lambda: ["gitlab"], str(tmp_path))
+    keeper.snapshot()
+    pods["items"] = []          # Flux uninstalled the release: nothing left to read
+    keeper.snapshot()
+    logs = tmp_path / "logs" / "gitlab"
+    assert (logs / "migrations-x.app.log").read_text() == "current run\n"
+    assert (logs / "migrations-x.app.previous.log").read_text() == "previous run\n"
+    assert keeper.exits == {("gitlab", "migrations-x", "app"): ("OOMKilled", 137)}
+    assert "gitlab/migrations-x app: OOMKilled (exit 137)" in (tmp_path / "exits.txt").read_text()

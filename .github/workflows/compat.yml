@@ -179,6 +179,8 @@ jobs:
           REGISTRY1_USERNAME: ${{ secrets.REGISTRY1_USERNAME }}
           REGISTRY1_PASSWORD: ${{ secrets.REGISTRY1_PASSWORD }}
           KIND_CLUSTER: compat
+          # bb-compat.py keeps every pod's logs and the cluster's state here; uploaded below.
+          COMPAT_DIAG: ${{ runner.temp }}/diag
         run: |
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
           echo "::add-mask::$CGR_TOKEN"
@@ -205,6 +207,21 @@ jobs:
           {
             echo "### ${{ matrix.test }} (${{ matrix.mode }})"
             echo '```'
-            grep -E "^RESULT|^PROBLEM|^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
+            grep -E "^RESULT|^PROBLEM|^EXITED|^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
             echo '```'
+            echo "Every pod's logs and the cluster's state: artifact \`compat-${{ matrix.test }}-${{ matrix.mode }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Pass or fail: each container's log (and the run before a restart), events, pod
+      # descriptions, node allocations and Flux's status, kept after the cluster is gone.
+      # Download: gh run download <run id> -n compat-<test>-<mode>
+      - name: Upload logs and cluster state
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: compat-${{ matrix.test }}-${{ matrix.mode }}
+          path: |
+            ${{ runner.temp }}/diag
+            ${{ runner.temp }}/compat.log
+          retention-days: 14
+          if-no-files-found: ignore

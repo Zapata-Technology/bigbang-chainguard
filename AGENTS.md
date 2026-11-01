@@ -88,11 +88,15 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 (`bb-convert.py --missing` lists them), add it as below ("Add a repository to the org").
 
 ### A compat (kind) test fails
-1. Get the log: `gh api --allow-escape-sequences repos/<owner>/<repo>/actions/jobs/<id>/logs`
-   (find `<id>` with `gh pr checks <pr>`), then search for `PROBLEM`, `RESULT`, `== debug`.
+1. Download the evidence: `gh run download <run id> -n compat-<test>-<mode>` (pass or fail;
+   `docs/testing.md` "Reading a test's logs" lists the files). Start with `compat.log`
+   (`PROBLEM`, `RESULT`, `EXITED`), then `diag/exits.txt` and the crashed container's
+   `diag/logs/<ns>/<pod>.<container>.previous.log`; Pending pods: `diag/cluster/nodes.txt`.
 2. Flux uninstalls a release whose install fails, so `kubectl logs` after the fact finds
-   nothing. Add a `setup:` line `sh compat/support/watch.sh <name> "<kubectl command>"`
-   and a `debug:` line `cat $COMPAT_OUT/watch-<name>.log` to keep the evidence.
+   nothing; the harness keeps every container's log while the test runs. For anything
+   else (a CR's status, a file in a pod), add a `setup:` line
+   `sh compat/support/watch.sh <name> "<kubectl command>"` and a `debug:` line
+   `cat $COMPAT_OUT/watch-<name>.log`.
 3. Fix the cause in `mapping.yaml` (or a builder), not in the test, unless the test itself
    is wrong. Record what you found in `docs/testing.md` ("What the runtime tests found").
 

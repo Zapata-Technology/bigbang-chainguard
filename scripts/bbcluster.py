@@ -4,7 +4,9 @@ HelmReleases, and report pods. Not a command; imported by those scripts.
 """
 import base64
 import json
+import os
 import subprocess
+import threading
 import time
 
 
@@ -166,6 +168,95 @@ def started_images(pod):
         if "running" in state or state.get("terminated", {}).get("exitCode") == 0:
             imgs |= {c["image"], statuses[c["name"]].get("image", "")}
     return imgs - {""}
+
+
+def terminations(pod):
+    """(container, reason, exit code) for each container of the pod that ended badly, now
+    or before its last restart: OOMKilled, or a non-zero exit (Completed with 0 is a Job
+    or an init container doing its work)."""
+    found = []
+    for s in pod["status"].get("containerStatuses", []) + pod["status"].get("initContainerStatuses", []):
+        for t in (s.get("state", {}).get("terminated"), s.get("lastState", {}).get("terminated")):
+            if t and (t.get("reason") == "OOMKilled" or t.get("exitCode")):
+                found.append((s["name"], t.get("reason") or "Error", t.get("exitCode")))
+    return found
+
+
+class PodLogKeeper:
+    """Saves the test namespaces' pod logs to `dest` while a test runs, every `interval`
+    seconds: each container's current log and, after a restart, the log of the run that
+    ended. Flux uninstalls a release whose install fails, so without this a crash-looping
+    pod's output is gone by the time the report runs. Also remembers every bad
+    termination it saw (`exits`), so an OOM kill counts even if the pod was replaced."""
+
+    def __init__(self, namespaces, dest, interval=30):
+        self.namespaces, self.dest, self.interval = namespaces, dest, interval
+        self.exits = {}
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self):
+        os.makedirs(self.dest, exist_ok=True)
+        self._thread.start()
+        return self
+
+    def _keep(self, path, text):
+        # Keep the last non-empty output: a deleted pod's logs come back empty.
+        if text and text.strip():
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+
+    def snapshot(self):
+        for ns in self.namespaces():
+            out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
+            for p in json.loads(out)["items"] if out else []:
+                pod = p["metadata"]["name"]
+                for c, reason, code in terminations(p):
+                    self.exits[(ns, pod, c)] = (reason, code)
+                restarted = {s["name"] for s in p["status"].get("containerStatuses", [])
+                             + p["status"].get("initContainerStatuses", []) if s.get("restartCount")}
+                for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
+                    base = os.path.join(self.dest, "logs", ns, f"{pod}.{c['name']}")
+                    self._keep(base + ".log", kubectl("logs", "-n", ns, pod, "-c", c["name"], "--tail=2000",
+                                                      check=False))
+                    if c["name"] in restarted:
+                        self._keep(base + ".previous.log", kubectl("logs", "-n", ns, pod, "-c", c["name"],
+                                                                   "--previous", "--tail=2000", check=False))
+        lines = [f"{ns}/{pod} {c}: {r} (exit {code})" for (ns, pod, c), (r, code) in sorted(self.exits.items())]
+        self._keep(os.path.join(self.dest, "exits.txt"), "\n".join(lines) + "\n" if lines else "")
+
+    def _loop(self):
+        while not self._stop.is_set():
+            try:
+                self.snapshot()
+            except Exception as e:  # a snapshot must never break the test it watches
+                print(f"(log keeper: {e})", flush=True)
+            self._stop.wait(self.interval)
+
+    def finish(self):
+        """Stop, take a last snapshot, and save the cluster's state for the report:
+        events, pod descriptions, node allocations and Flux's view. Runs once (the test
+        calls it before its verdict; atexit covers a test that stops early)."""
+        if self._stop.is_set():
+            return
+        self._stop.set()
+        self._thread.join(timeout=120)
+        try:
+            self.snapshot()
+        except Exception as e:
+            print(f"(log keeper: {e})", flush=True)
+        namespaces = self.namespaces()
+        dumps = {"nodes.txt": [("describe", "nodes")],
+                 "flux.txt": [("get", "helmrelease,gitrepository,helmrepository,helmchart,kustomization", "-A",
+                               "-o", "wide"), ("describe", "helmrelease", "-n", "bigbang")]}
+        for ns in namespaces:
+            dumps[f"{ns}.txt"] = [("get", "pod,deploy,statefulset,job,pvc,svc", "-n", ns, "-o", "wide"),
+                                  ("get", "events", "-n", ns, "--sort-by=.lastTimestamp"),
+                                  ("describe", "pod", "-n", ns)]
+        for name, cmds in dumps.items():
+            text = "".join(f"$ kubectl {' '.join(c)}\n{kubectl(*c, check=False) or ''}\n" for c in cmds)
+            self._keep(os.path.join(self.dest, "cluster", name), text)
 
 
 def images_running(namespaces):
