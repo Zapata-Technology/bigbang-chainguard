@@ -139,7 +139,8 @@ latest run's summary for current numbers.
 - **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
   patch schedule, not Chainguard's.
 - **A cluster installed before enforce became the default keeps audit mode** (it remembers its
-  mode): re-run `install --verify-signatures enforce` on it.
+  mode): re-run `install --verify-signatures enforce` on it. `bb-install.py status` says so
+  on any cluster that only audits.
 - **The Redis datasource plugin loads unsigned**: its backend is built here (to drop Go
   1.19), so Grafana can't check it against the publisher's signature. The image build
   pins its source by sha256, and the image itself is signed when `SIGN_IMAGES` is set.
