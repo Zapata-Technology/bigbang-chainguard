@@ -57,7 +57,37 @@ Each test then:
    images injected at runtime, which rendering never sees;
 4. reports each expected image as `EXERCISED` or `NOT EXERCISED`, so a pass never counts an
    image that didn't run: only a container that is running or exited 0 counts, not one in a
-   Pending pod or one still pulling.
+   Pending pod or one still pulling;
+5. fails if any container was **OOMKilled** during the test, even one whose pod restarted
+   and came up (the package doesn't fit its memory limit), and lists every other container
+   that exited non-zero (`EXITED:`);
+6. keeps the evidence. While the test runs, every 30 seconds it saves each container's log,
+   and after a restart the log of the run that ended, so a crash-looping pod's output
+   survives Flux uninstalling a failed release. At the end it adds events, pod
+   descriptions, `kubectl describe nodes` (what each node has allocated) and Flux's view of
+   every source and HelmRelease.
+
+### Reading a test's logs
+
+Each kind job in CI uploads that evidence as the artifact `compat-<test>-<mode>`, pass or
+fail, kept 14 days (on the run's page under Artifacts, or):
+
+```bash
+gh run download <run id> -n compat-gitlab-standard -D gitlab-logs
+```
+
+| File | What it holds |
+|---|---|
+| `compat.log` | the test's own output: `RESULT`, `PROBLEM`, `EXITED`, the pod report, `== debug` |
+| `diag/exits.txt` | every container that was OOMKilled or exited non-zero, and when it was seen |
+| `diag/logs/<namespace>/<pod>.<container>.log` | the container's last log (2000 lines) |
+| `diag/logs/<namespace>/<pod>.<container>.previous.log` | the run before its last restart: why it crashed |
+| `diag/cluster/<namespace>.txt` | pods, Deployments, Jobs, PVCs, Services, events, `describe pod` |
+| `diag/cluster/nodes.txt` | node capacity and allocated requests (Pending pods: `Insufficient cpu`) |
+| `diag/cluster/flux.txt` | every Flux source and HelmRelease, and `describe helmrelease -n bigbang` |
+
+Run locally, the same files land in `<out>/diag` (the test prints the path), or in
+`$COMPAT_DIAG` when set.
 
 ## Results (Big Bang 3.35.1, 2026-10-30)
 

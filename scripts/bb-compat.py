@@ -15,6 +15,7 @@ creates one per test):
   3. Big Bang (work/bigbang/chart) with the overlays and only the test's packages
   4. wait until every HelmRelease is Ready and the test namespaces' pods are Ready
   5. report each pod's images and status; on failure, events and logs
+  6. fail on any OOM kill, and keep every pod's logs and the cluster's state ($COMPAT_DIAG)
 
 An upgrade test (`upgrade_from`) first installs Big Bang with an older mapping (e.g.
 Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test's
@@ -28,6 +29,7 @@ Pull credentials come from the environment and are never printed:
                               them such a test is SKIPPED (exit 0), not failed
 """
 import argparse
+import atexit
 import json
 import os
 import re
@@ -41,8 +43,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bbcommon import ROOT, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
 from orgtags import org_name  # noqa: E402
-from bbcluster import (dockerconfig, hr_namespaces, images_running, install_flux,  # noqa: E402
-                       kubectl, report, sh, wait_ready)
+from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
+                       install_flux, kubectl, report, sh, wait_ready)
 
 
 def test_values(chart_values, enable):
@@ -61,6 +63,25 @@ def test_values(chart_values, enable):
             node = node.setdefault(part, {})
         node["enabled"] = True
     return vals
+
+
+def test_namespaces(test):
+    """The test's namespaces, or every namespace with a Big Bang HelmRelease (none
+    before Big Bang is installed)."""
+    if test.get("namespaces"):
+        return list(test["namespaces"])
+    try:
+        return hr_namespaces()
+    except SystemExit:
+        return []
+
+
+def oom_problems(exits):
+    """PROBLEM lines for containers the kernel killed for memory, from PodLogKeeper.exits.
+    A test fails on one even if the pod restarted and came up: the package doesn't fit
+    its memory limit."""
+    return [f"{ns}/{pod} container {c} was OOMKilled (exit {code}): its memory limit is too low"
+            for (ns, pod, c), (reason, code) in sorted(exits.items()) if reason == "OOMKilled"]
 
 
 def credentials():
@@ -215,6 +236,11 @@ def main():
         return 0
     out = tempfile.mkdtemp(prefix="bb-compat-")
     print(f"== {os.path.basename(a.compat)}: trial mapping {json.dumps(spec.get('images', {}))}", flush=True)
+    # Every pod's logs, kept while the test runs, plus the cluster's state at the end:
+    # $COMPAT_DIAG (compat.yml uploads it as the job's artifact), else <out>/diag.
+    diag = os.environ.get("COMPAT_DIAG") or os.path.join(out, "diag")
+    keeper = PodLogKeeper(lambda: test_namespaces(test) + ["flux-system"], diag).start()
+    atexit.register(keeper.finish)
 
     # Images the trial mapping builds (`build:`, with an optional `version` line): generate,
     # build and smoke-test them here and load them into kind, so an upgrade is tested
@@ -341,6 +367,15 @@ def main():
     # `check`: shell commands that must succeed for a pass (e.g. an HTTPS request through
     # the gateway with the CA the installer made).
     ok = run_checks(test.get("check", []), out, a.fips) and ok
+    # Every container that ended badly during the test (seen by the log keeper, so pods
+    # since replaced count too); an OOM kill fails the test.
+    keeper.finish()
+    for (ns, pod, c), (reason, code) in sorted(keeper.exits.items()):
+        print(f"EXITED: {ns}/{pod} {c}: {reason} (exit {code})")
+    for p in oom_problems(keeper.exits):
+        ok = False
+        print("PROBLEM:", p)
+    print(f"logs and cluster state: {diag}")
     running = images_running(namespaces)
     expect = test.get("expect", [])
     seen = [e for e in expect if any(e in i for i in running)]
