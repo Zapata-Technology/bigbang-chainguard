@@ -1,14 +1,28 @@
-# Upgrade test: SonarQube 26.9 community (Iron Bank) -> Chainguard sonarqube 26.10
-# community (no FIPS image), with its JMX exporter from Chainguard's
-# jmx-exporter-iamguarded (Bitnami file layout, same 1.6 version).
+# SonarQube 26.10 community from the org (Big Bang pins Iron Bank's 26.9; no FIPS image)
+# with its JMX exporter init container on. Big Bang turns the exporter on only with
+# monitoring, so the test sets it directly and adds the Prometheus Operator CRDs for its
+# ServiceMonitor; SonarQube's HelmRelease waits for them (dependsOn), or Flux can install it
+# first and fail on the ServiceMonitor kind. The trial mapping builds bigbang-jmx-exporter here and loads it into
+# kind, so a change to builds/jmx-exporter runs before anything is pushed.
 images:
-  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
-  ironbank/opensource/prometheus/jmx-exporter: {cg: jmx-exporter-iamguarded, fips: jmx-exporter-iamguarded-fips}
+  ironbank/opensource/prometheus/jmx-exporter: {build: jmx-exporter}
 test:
-  enable: [addons.sonarqube]
+  enable: [prometheusOperatorCRDs, addons.sonarqube]
   namespaces: [sonarqube]
+  expect: [sonarqube, bigbang-jmx-exporter]
   values:
     # SonarQube is slow on a shared CI runner: 15 minutes to start, and more slack
     # before a busy moment counts as a failed liveness or readiness check.
-    addons: {sonarqube: {values: {upstream: {startupProbe: {failureThreshold: 90},
-      livenessProbe: {failureThreshold: 20}, readinessProbe: {failureThreshold: 20}}}}}
+    addons: {sonarqube: {dependsOn: [{name: prometheus-operator-crds, namespace: bigbang}],
+      values: {upstream: {startupProbe: {failureThreshold: 90},
+      livenessProbe: {failureThreshold: 20}, readinessProbe: {failureThreshold: 20},
+      prometheusExporter: {enabled: true}}}}}
+  check:
+    # The init container copied the jar (curl from file:///opt/jmx_exporter) and SonarQube's
+    # web process loaded it: the javaagent serves JVM metrics on the web bean port.
+    - >-
+      p=$(kubectl -n sonarqube get pod -l app=sonarqube -o jsonpath='{.items[0].metadata.name}')
+      && kubectl get --raw "/api/v1/namespaces/sonarqube/pods/$p:8000/proxy/metrics" | grep -q '^jvm_'
+  debug:
+    - "kubectl -n sonarqube get pods -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,STATUS:.status.phase"
+    - "kubectl -n sonarqube logs -l app=sonarqube -c inject-prometheus-exporter --tail=20"

@@ -41,3 +41,28 @@ def test_compat_file(path):
 def test_scan_reviewed_entries_explain_the_fix():
     reviewed = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8"))["scan_reviewed"]
     assert reviewed and all(isinstance(v, str) and v.strip() for v in reviewed.values())
+
+
+def source(entry):
+    """Where a mapping entry takes an image from: a Chainguard name, a build, or Iron Bank."""
+    if entry is None or isinstance(entry, str):
+        return ("cg", entry)
+    for key in ("build", "cg"):
+        if key in entry:
+            return (key, entry[key])
+    return ("stays", None)
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda p: os.path.basename(p))
+def test_trial_mapping_does_not_undo_mapping_yaml(path):
+    # A trial mapping tries out what mapping.yaml doesn't do yet: converting an image that
+    # stays on Iron Bank, or another version line of the same source (vault-2). Once
+    # mapping.yaml takes an image from elsewhere, a trial naming the old source tests an
+    # image clusters no longer run (sonarqube kept Chainguard's jmx-exporter-iamguarded
+    # after the mapping moved to the bigbang-jmx-exporter build).
+    mapping = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8"))["images"]
+    for image, trial in (yaml.safe_load(open(path, encoding="utf-8")).get("images") or {}).items():
+        if image not in mapping or source(mapping[image])[0] == "stays":
+            continue
+        assert source(trial) == source(mapping[image]), (
+            f"{image}: the trial takes it from {source(trial)}, mapping.yaml from {source(mapping[image])}")
