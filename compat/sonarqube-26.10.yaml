@@ -1,7 +1,8 @@
 # SonarQube 26.10 community from the org (Big Bang pins Iron Bank's 26.9; no FIPS image)
 # with its JMX exporter init container on. Big Bang turns the exporter on only with
 # monitoring, so the test sets it directly and adds the Prometheus Operator CRDs for its
-# ServiceMonitor. The trial mapping builds bigbang-jmx-exporter here and loads it into
+# ServiceMonitor; SonarQube's HelmRelease waits for them (dependsOn), or Flux can install it
+# first and fail on the ServiceMonitor kind. The trial mapping builds bigbang-jmx-exporter here and loads it into
 # kind, so a change to builds/jmx-exporter runs before anything is pushed.
 images:
   ironbank/opensource/prometheus/jmx-exporter: {build: jmx-exporter}
@@ -12,7 +13,8 @@ test:
   values:
     # SonarQube is slow on a shared CI runner: 15 minutes to start, and more slack
     # before a busy moment counts as a failed liveness or readiness check.
-    addons: {sonarqube: {values: {upstream: {startupProbe: {failureThreshold: 90},
+    addons: {sonarqube: {dependsOn: [{name: prometheus-operator-crds, namespace: bigbang}],
+      values: {upstream: {startupProbe: {failureThreshold: 90},
       livenessProbe: {failureThreshold: 20}, readinessProbe: {failureThreshold: 20},
       prometheusExporter: {enabled: true}}}}}
   check:
