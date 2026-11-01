@@ -76,8 +76,8 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | kyverno-reporter | policy-reporter 3.11, UI 2.9, plugin 0.7 | With Kyverno |
 | loki | memcached-exporter 0.18, rollout-operator 0.41, k8s-sidecar 2.14 | |
 | mimir | memcached-exporter 0.18, rollout-operator 0.41 | |
-| monitoring | k8s-sidecar 2.14, config-reloader 0.94 | Blackbox and SNMP exporters are off by default |
-| neuvector | controller, enforcer, manager, scanner 5.6 | Prometheus exporter not exercised |
+| monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, k8s-sidecar 2.14, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`) |
+| neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
 | renovate | renovate 44.190 | A CronJob: installs only |
 | kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
 | object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README) |
@@ -116,7 +116,6 @@ None of these showed up when rendering. All are fixed in the overlays:
 | kyverno-enforce | Big Bang's non-root policies render `preconditions.all: null` with no excluded containers | The test excludes a placeholder container (Istio normally supplies the list) |
 | object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps even when our values set it to null | `overrides.tempo` replaces the chart's config template with a copy that omits it |
 | object-storage | Big Bang creates Mimir's credential Secret even with Mimir off | Site file sets credentials only for enabled packages |
-
 | mattermost | The Mattermost Operator sets `MM_FILESETTINGS_AMAZONS3SSL=true` for every external file store (false only for a MinIO it manages), so Mattermost would speak HTTPS to an `http://` SeaweedFS endpoint (found reading the operator while writing the test) | The object-storage overlay sets it from the endpoint's scheme (`{ssl}` in `object-storage.yaml`) |
 | velero | The chart's placeholder snapshot location has an empty credential that Flux keeps; Velero's CRD rejects it | No snapshot locations with S3 object storage |
 | thanos | Monitoring depends on the `prometheusOperatorCRDs` package, which also creates the `monitoring` namespace | Keep it on (the installer's preflight checks) |
@@ -128,6 +127,8 @@ None of these showed up when rendering. All are fixed in the overlays:
 | mattermost (signatures) | Digest pins rendered as `name:@sha256` for an image with no tag | `kustomize_image` renders `name@digest` |
 | cve-report | Vault's kubectl 1.30 pin resolved to the org's unmaintained 1.30 FIPS image (19 Critical) | `min_version: "1.34"` on kubectl |
 | signatures (CI) | `builds.yml` pushed the release tag about a minute before signing it; a check in that window found the tag unsigned, and an enforcing cluster would refuse the Pod | Push `<tag>-staging`, sign its digest, then move `<tag>` |
+| neuvector | The `monitor` subchart builds the exporter's image from its own `monitor.registry`, not `exporter.image.registry`; the conversion blanked it, so the image rendered as `/neuvector-prometheus-exporter:<tag>` (rendering missed it: the subchart installs only with monitoring) | `overrides.neuvector` sets `monitor.registry` to the org |
+| monitoring | The SNMP exporter chart reads its pull secrets from top-level `imagePullSecrets`; Big Bang sets `snmpExporter.image.imagePullSecrets`, which nothing reads, so the pod pulled the org's image anonymously and never started (Iron Bank's would fail the same way) | `overrides.monitoring` sets `snmpExporter.imagePullSecrets` |
 | cve-report | `devops-tester`'s chainsaw carried old grpc, x/net and go-jose (4 fixable Highs) | `GO_BUMPS` in `bb-devops-tester.py` raises them |
 
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
