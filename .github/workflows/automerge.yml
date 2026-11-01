@@ -9,8 +9,9 @@ name: Auto-merge - nightly update
 # Not merged automatically: a new Big Bang release (BIGBANG_VERSION changes; a person
 # reads the report first), and a pull request labeled `hold`.
 #
-# The merge uses RELEASE_PAT, as update.yml does: a merge made with GITHUB_TOKEN would not
-# start the push workflows (builds.yml, release.yml) on main.
+# The reads use GITHUB_TOKEN (RELEASE_PAT has no Checks permission, so the check-runs call
+# returned 403). Only the merge uses RELEASE_PAT, as update.yml does: a merge made with
+# GITHUB_TOKEN would not start the push workflows (builds.yml, release.yml) on main.
 
 on:
   workflow_run:
@@ -47,12 +48,13 @@ jobs:
       # No checkout: nothing from the pull request runs here.
       - name: Merge when every check on the head commit passed
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          MERGE_TOKEN: ${{ secrets.RELEASE_PAT }}
           GH_REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          [ -n "$GH_TOKEN" ] || { echo "::warning::RELEASE_PAT is not set; not merging"; exit 0; }
+          [ -n "$MERGE_TOKEN" ] || { echo "::warning::RELEASE_PAT is not set; not merging"; exit 0; }
           pr=$(gh pr list --head bot/bigbang-update --state open --json number,headRefOid \
             --jq ".[] | select(.headRefOid == \"$SHA\") | .number")
           if [ -z "$pr" ]; then
@@ -77,5 +79,5 @@ jobs:
           if echo "$runs" | grep -qvE '^completed (success|skipped|neutral) '; then
             echo "::warning::#$pr has a failed check; not merging"; exit 0
           fi
-          gh pr merge "$pr" --squash --delete-branch --match-head-commit "$SHA"
+          GH_TOKEN="$MERGE_TOKEN" gh pr merge "$pr" --squash --delete-branch --match-head-commit "$SHA"
           echo "merged #$pr at $SHA"
