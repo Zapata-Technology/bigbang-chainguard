@@ -110,3 +110,25 @@ def test_log_keeper_keeps_logs_of_a_restarted_container_after_its_pod_is_gone(tm
     assert (logs / "migrations-x.app.previous.log").read_text() == "previous run\n"
     assert keeper.exits == {("gitlab", "migrations-x", "app"): ("OOMKilled", 137)}
     assert "gitlab/migrations-x app: OOMKilled (exit 137)" in (tmp_path / "exits.txt").read_text()
+
+
+def test_progress_deadline_keeps_the_overlays_post_renderers(tmp_path):
+    import os
+    import subprocess
+    pins = {"kustomize": {"images": [{"name": "org/gitlab-webservice", "digest": "sha256:aa"}]}}
+    fips_pins = {"kustomize": {"images": [{"name": "org/gitlab-webservice-fips", "digest": "sha256:bb"}]}}
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(
+        yaml.safe_dump({"addons": {"gitlab": {"postRenderers": [pins]}}}))
+    (tmp_path / "overlays" / "values-chainguard-fips.yaml").write_text(
+        yaml.safe_dump({"addons": {"gitlab": {"postRenderers": [fips_pins]}}}))
+    script = os.path.join(os.path.dirname(__file__), "..", "compat", "support", "progress-deadline.py")
+    for fips, expect in (("", pins), ("1", fips_pins)):
+        subprocess.run([sys.executable, script, "addons.gitlab", "2400"], check=True, capture_output=True,
+                       env=dict(os.environ, COMPAT_OUT=str(tmp_path), COMPAT_FIPS=fips))
+        out = yaml.safe_load((tmp_path / "site-gitlab-deadline.yaml").read_text())
+        first, patch = out["addons"]["gitlab"]["postRenderers"]
+        assert first == expect     # Helm replaces lists: the digest pins must stay
+        [p] = patch["kustomize"]["patches"]
+        assert p["target"] == {"kind": "Deployment"}
+        assert yaml.safe_load(p["patch"]) == [{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]

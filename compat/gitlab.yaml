@@ -53,6 +53,9 @@ test:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
     - python3 compat/support/app-deps.py gitlab
+    # The migrations take ~10 minutes here; Deployments waiting on them would pass
+    # Kubernetes' 10-minute progress deadline and Helm would stop the install.
+    - python3 compat/support/progress-deadline.py addons.gitlab 2400
     # Crash-looping pods restart before the report reads them: keep their last output.
     - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
     - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"
@@ -64,6 +67,7 @@ test:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
     - $COMPAT_OUT/site-gitlab.yaml
+    - $COMPAT_OUT/site-gitlab-deadline.yaml
   expect: [gitlab-webservice, gitlab-sidekiq, gitaly, gitlab-shell, gitlab-container-registry, postgres, redis]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
   debug:
