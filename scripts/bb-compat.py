@@ -16,6 +16,8 @@ creates one per test):
   4. wait until every HelmRelease is Ready and the test namespaces' pods are Ready
   5. report each pod's images and status; on failure, events and logs
   6. fail on any OOM kill, and keep every pod's logs and the cluster's state ($COMPAT_DIAG)
+While it waits, a watcher reads every container's log: it prints the first error line
+each one logs (LIVE) and stops the test early on a failure that waiting won't fix.
 
 An upgrade test (`upgrade_from`) first installs Big Bang with an older mapping (e.g.
 Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test's
@@ -159,14 +161,14 @@ def helm_bigbang(a, test, overlays, out, tv, creds, label):
        *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
 
 
-def upgrade(a, test, out, tv, creds):
+def upgrade(a, test, out, tv, creds, abort):
     """`upgrade_from`: Big Bang was installed with the mapping the upgrade starts from.
     Wait for it, run upgrade_from.check against it (e.g. write data), then upgrade Big
     Bang to the test's mapping (`out`) and run upgrade_from.upgrade (e.g. delete a
     StatefulSet pod whose update strategy is OnDelete). False if any of that failed."""
     frm = test["upgrade_from"]
     namespaces = test.get("namespaces") or hr_namespaces()
-    ready, problems = wait_ready(namespaces, a.timeout)
+    ready, problems = wait_ready(namespaces, a.timeout, abort)
     ok = report(namespaces, test.get("no_pods", False)) and ready
     for p in problems:
         print("PROBLEM:", p)
@@ -316,7 +318,7 @@ def main():
             yaml.safe_dump(values, open(tv, "w"))
             helm_bigbang(a, test, first or out, out, tv, creds, ", upgrade from" if first else "")
             if first:
-                upgraded = upgrade(a, test, out, tv, creds)
+                upgraded = upgrade(a, test, out, tv, creds, keeper.abort_reasons)
         finally:
             for f in os.listdir(secrets):
                 os.remove(os.path.join(secrets, f))
@@ -326,7 +328,10 @@ def main():
         run_debug(test, out)
         print(f"\nRESULT {name} ({mode}): FAIL (on the mapping the upgrade starts from, or upgrading it)")
         return 1
-    ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
+    # The log keeper ends the wait early on a failure waiting won't fix (an OOM kill, a
+    # failed Job, an image that can't be pulled, a container crash-looping on an error).
+    ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout,
+                                 keeper.abort_reasons)
     namespaces = test.get("namespaces") or hr_namespaces()
     ok = report(namespaces, test.get("no_pods", False)) and ready
     for p in problems:

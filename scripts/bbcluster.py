@@ -5,6 +5,7 @@ HelmReleases, and report pods. Not a command; imported by those scripts.
 import base64
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -93,12 +94,21 @@ def source_problems(nudge=False):
     return lines
 
 
-def wait_ready(namespaces, timeout):
-    """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines)."""
+def wait_ready(namespaces, timeout, abort=None):
+    """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines).
+    `abort`: a callable returning reasons to stop early (a failure that waiting won't fix,
+    PodLogKeeper.abort_reasons); the wait then ends at once with those reasons."""
     end = time.time() + timeout
     last, polls = "", 0
+
+    def stop():
+        reasons = abort() if abort else []
+        return (False, [f"stopped early: {r}" for r in reasons]) if reasons else None
+
     while time.time() < end:
         polls += 1
+        if stopped := stop():
+            return stopped
         if polls % 6 == 0:   # every ~2 minutes: name sources that can't fetch, retry them
             for line in source_problems(nudge=True):
                 print(f"{time.strftime('%H:%M:%S')} source: {line}; retrying", flush=True)
@@ -133,6 +143,8 @@ def wait_ready(namespaces, timeout):
     # crashes), or the time runs out. report() judges the result.
     steady, last_restarts = 0, None
     while time.time() < end and steady < 3:
+        if stopped := stop():
+            return stopped
         pending, restarts = [], 0
         for ns in namespaces:
             out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
@@ -182,16 +194,34 @@ def terminations(pod):
     return found
 
 
-class PodLogKeeper:
-    """Saves the test namespaces' pod logs to `dest` while a test runs, every `interval`
-    seconds: each container's current log and, after a restart, the log of the run that
-    ended. Flux uninstalls a release whose install fails, so without this a crash-looping
-    pod's output is gone by the time the report runs. Also remembers every bad
-    termination it saw (`exits`), so an OOM kill counts even if the pod was replaced."""
+# Log lines that mean something went wrong, whatever the app: shown live (LIVE), and a
+# container that keeps crashing with one of them in its log stops the test early.
+FATAL_LOG = re.compile(r"rake aborted!|panic: |Traceback \(most recent call last\)|\bFATAL\b|"
+                       r"out of shared memory|exec format error|x509: |no space left on device|"
+                       r"Exception in thread \"main\"|segmentation fault", re.I)
+# Waiting reasons that mean the container can't even start (the image or its config).
+STUCK_WAITING = ("ErrImagePull", "ImagePullBackOff", "InvalidImageName", "CreateContainerConfigError")
 
-    def __init__(self, namespaces, dest, interval=30):
-        self.namespaces, self.dest, self.interval = namespaces, dest, interval
-        self.exits = {}
+
+class PodLogKeeper:
+    """Watches the test namespaces' pods while a test runs, every `interval` seconds:
+
+    - saves each container's current log and, after a restart, the log of the run that
+      ended, to `dest`. Flux uninstalls a release whose install fails, so without this a
+      crash-looping pod's output is gone by the time the report runs;
+    - prints the first FATAL_LOG line each container logs as it happens (`LIVE ...`);
+    - remembers every bad termination (`exits`), so an OOM kill counts even if the pod was
+      replaced;
+    - collects reasons to stop the test early (`abort_reasons`): a failure that waiting
+      won't fix, so a broken test ends in minutes with the cause named, not at its timeout.
+    """
+
+    CRASHES = 3            # restarts with a FATAL_LOG line before the test stops
+    STUCK_SECONDS = 300    # how long a container may wait on its image or config
+
+    def __init__(self, namespaces, dest, interval=30, clock=time.time):
+        self.namespaces, self.dest, self.interval, self.clock = namespaces, dest, interval, clock
+        self.exits, self._seen, self._stuck, self._abort = {}, set(), {}, {}
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
 
@@ -200,6 +230,9 @@ class PodLogKeeper:
         self._thread.start()
         return self
 
+    def abort_reasons(self):
+        return list(self._abort.values())
+
     def _keep(self, path, text):
         # Keep the last non-empty output: a deleted pod's logs come back empty.
         if text and text.strip():
@@ -207,22 +240,58 @@ class PodLogKeeper:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
 
+    def _fatal_line(self, where, text):
+        """The first FATAL_LOG line of `text`, printed once per container as LIVE."""
+        hit = next((ln.strip() for ln in (text or "").splitlines() if FATAL_LOG.search(ln)), None)
+        if hit and where not in self._seen:
+            self._seen.add(where)
+            print(f"{time.strftime('%H:%M:%S')} LIVE {where}: {hit[:300]}", flush=True)
+        return hit
+
+    def _check_jobs(self, ns):
+        out = kubectl("get", "job", "-n", ns, "-o", "json", check=False)
+        for j in json.loads(out)["items"] if out else []:
+            for c in j.get("status", {}).get("conditions", []):
+                if c.get("type") == "Failed" and c.get("status") == "True":
+                    name = j["metadata"]["name"]
+                    self._abort[("job", ns, name)] = f"Job {ns}/{name} failed: {c.get('reason')} {c.get('message', '')}"
+
     def snapshot(self):
+        now = self.clock()
         for ns in self.namespaces():
+            self._check_jobs(ns)
             out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
             for p in json.loads(out)["items"] if out else []:
                 pod = p["metadata"]["name"]
                 for c, reason, code in terminations(p):
                     self.exits[(ns, pod, c)] = (reason, code)
-                restarted = {s["name"] for s in p["status"].get("containerStatuses", [])
-                             + p["status"].get("initContainerStatuses", []) if s.get("restartCount")}
+                    if reason == "OOMKilled":
+                        self._abort[("oom", ns, pod, c)] = f"{ns}/{pod} container {c} was OOMKilled"
+                statuses = {s["name"]: s for s in p["status"].get("containerStatuses", [])
+                            + p["status"].get("initContainerStatuses", [])}
                 for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
-                    base = os.path.join(self.dest, "logs", ns, f"{pod}.{c['name']}")
-                    self._keep(base + ".log", kubectl("logs", "-n", ns, pod, "-c", c["name"], "--tail=2000",
-                                                      check=False))
-                    if c["name"] in restarted:
-                        self._keep(base + ".previous.log", kubectl("logs", "-n", ns, pod, "-c", c["name"],
-                                                                   "--previous", "--tail=2000", check=False))
+                    name, s = c["name"], statuses.get(c["name"], {})
+                    base = os.path.join(self.dest, "logs", ns, f"{pod}.{name}")
+                    current = kubectl("logs", "-n", ns, pod, "-c", name, "--tail=2000", check=False)
+                    self._keep(base + ".log", current)
+                    self._fatal_line(f"{ns}/{pod} {name}", current)
+                    if s.get("restartCount"):
+                        previous = kubectl("logs", "-n", ns, pod, "-c", name, "--previous", "--tail=2000",
+                                           check=False)
+                        self._keep(base + ".previous.log", previous)
+                        hit = self._fatal_line(f"{ns}/{pod} {name} (before a restart)", previous)
+                        if hit and s["restartCount"] >= self.CRASHES:
+                            self._abort[("crash", ns, pod, name)] = (
+                                f"{ns}/{pod} container {name} restarted {s['restartCount']} times; its log: {hit[:200]}")
+                    waiting = s.get("state", {}).get("waiting", {})
+                    key = (ns, pod, name)
+                    if waiting.get("reason") in STUCK_WAITING:
+                        first = self._stuck.setdefault(key, now)
+                        if now - first >= self.STUCK_SECONDS:
+                            self._abort[("stuck",) + key] = (f"{ns}/{pod} container {name}: {waiting['reason']} for "
+                                                             f"{int(now - first)}s: {waiting.get('message', '')[:200]}")
+                    else:
+                        self._stuck.pop(key, None)
         lines = [f"{ns}/{pod} {c}: {r} (exit {code})" for (ns, pod, c), (r, code) in sorted(self.exits.items())]
         self._keep(os.path.join(self.dest, "exits.txt"), "\n".join(lines) + "\n" if lines else "")
 

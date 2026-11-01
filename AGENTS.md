@@ -90,7 +90,8 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 ### A compat (kind) test fails
 1. Download the evidence: `gh run download <run id> -n compat-<test>-<mode>` (pass or fail;
    `docs/testing.md` "Reading a test's logs" lists the files). Start with `compat.log`
-   (`PROBLEM`, `RESULT`, `EXITED`), then `diag/exits.txt` and the crashed container's
+   (`PROBLEM` (a `stopped early:` one names the cause), `LIVE` (each container's first
+   error line, when it happened), `RESULT`, `EXITED`), then `diag/exits.txt` and the crashed container's
    `diag/logs/<ns>/<pod>.<container>.previous.log`; Pending pods: `diag/cluster/nodes.txt`.
 2. Flux uninstalls a release whose install fails, so `kubectl logs` after the fact finds
    nothing; the harness keeps every container's log while the test runs. For anything
