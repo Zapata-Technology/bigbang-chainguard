@@ -216,7 +216,10 @@ class PodLogKeeper:
       won't fix, so a broken test ends in minutes with the cause named, not at its timeout.
     """
 
-    CRASHES = 3            # restarts with a FATAL_LOG line before the test stops
+    # Restarts with a FATAL_LOG line before the test stops. Some apps crash at start until a
+    # dependency is up and then recover (Harbor's jobservice panics 3 times waiting for
+    # core); 6 restarts is about 10 minutes of Kubernetes' back-off.
+    CRASHES = 6
     STUCK_SECONDS = 300    # how long a container may wait on its image or config
 
     def __init__(self, namespaces, dest, interval=30, clock=time.time):

@@ -169,15 +169,16 @@ def test_crash_looping_on_an_error_stops_the_test_but_a_waiting_init_container_d
         s = {"name": "app", "restartCount": restarts, "state": {"waiting": {"reason": "CrashLoopBackOff"}},
              "lastState": {"terminated": {"reason": "Error", "exitCode": 1}}}
         return _pod("migrations-x", [s]), {("migrations-x", "app", True): log}
-    pod, logs = crashing(2, "ERROR: out of shared memory\nrake aborted!\n")
+    # Harbor's jobservice panics 3 times while core starts, then runs: not a stop.
+    pod, logs = crashing(5, "panic: failed to load configuration\n")
     keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)
     keeper.snapshot()
-    assert keeper.abort_reasons() == []      # two restarts: it may still recover
-    pod, logs = crashing(3, "ERROR: out of shared memory\nrake aborted!\n")
+    assert keeper.abort_reasons() == []      # five restarts: it may still recover
+    pod, logs = crashing(6, "ERROR: out of shared memory\nrake aborted!\n")
     keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)
     keeper.snapshot()
     [why] = keeper.abort_reasons()
-    assert "ns/migrations-x container app restarted 3 times" in why and "out of shared memory" in why
+    assert "ns/migrations-x container app restarted 6 times" in why and "out of shared memory" in why
     # GitLab's `dependencies` init container exits 1 until the migrations are done: no error line.
     pod, logs = crashing(9, "Checking database migrations are up-to-date\nWaiting for migrations\n")
     keeper = _watch(tmp_path, monkeypatch, [pod], logs=logs)

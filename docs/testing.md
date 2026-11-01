@@ -67,7 +67,9 @@ Each test then:
    ...). It **stops the test early**, with `PROBLEM: stopped early: ...` naming the cause,
    on a failure that waiting won't fix: an OOM kill, a Job that used up its retries, a
    container stuck on `ImagePullBackOff` or a config error for 5 minutes, or one restarted
-   3 times with an error line in its log. A broken test then ends in minutes, not at its
+   6 times (about 10 minutes) with an error line in its log; fewer is normal for apps that
+   crash until a dependency is up (Harbor's jobservice restarts 3 times). A broken test
+   then ends in minutes, not at its
    timeout;
 7. keeps the evidence. While the test runs, every 30 seconds it saves each container's log,
    and after a restart the log of the run that ended, so a crash-looping pod's output
