@@ -57,6 +57,8 @@ test:
     - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
     - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"
     - sh compat/support/watch.sh registry "kubectl -n gitlab logs -l app=registry --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=registry --all-containers --tail=60"
+    - sh compat/support/watch.sh migrations "kubectl -n gitlab logs -l app=migrations --all-containers --previous --tail=80 || kubectl -n gitlab logs -l app=migrations --all-containers --tail=80"
+    - sh compat/support/watch.sh webservice-deps "kubectl -n gitlab logs -l app=webservice -c dependencies --previous --tail=40 || kubectl -n gitlab logs -l app=webservice -c dependencies --tail=40"
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
@@ -67,4 +69,6 @@ test:
     - "cat $COMPAT_OUT/watch-gitaly.log"
     - "cat $COMPAT_OUT/watch-shell.log"
     - "cat $COMPAT_OUT/watch-registry.log"
+    - "cat $COMPAT_OUT/watch-migrations.log"
+    - "cat $COMPAT_OUT/watch-webservice-deps.log"
     - "kubectl -n gitlab get pods -o wide"
