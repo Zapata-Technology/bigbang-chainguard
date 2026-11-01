@@ -309,6 +309,13 @@ overrides:
     upstream:
       podSecurityContext: {runAsUser: null, runAsGroup: null}
       securityContext: {runAsUser: null, runAsGroup: null}
+  monitoring:
+    # The SNMP exporter chart reads pull secrets from its top-level imagePullSecrets;
+    # Big Bang sets snmpExporter.image.imagePullSecrets, which nothing reads, so the pod
+    # pulled the org's private image anonymously and never started ("failed to fetch
+    # anonymous token", compat/monitoring.yaml). The Iron Bank image has the same problem.
+    snmpExporter:
+      imagePullSecrets: [{name: private-registry}]
   tempo:
     # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
     # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo

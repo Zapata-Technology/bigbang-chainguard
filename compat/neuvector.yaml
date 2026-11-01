@@ -3,13 +3,16 @@
 # subchart, which the package installs only with its `monitoring.enabled` (Big Bang sets
 # that, monitor.install and monitor.exporter.enabled only with monitoring on), and logs
 # into the controller as the `metrics` reader Big Bang creates with monitoring on
-# (userinitcfg.yaml); the test creates that user with a test password.
+# (userinitcfg.yaml); the test creates that user with a test password. The package's
+# monitoring flag also writes Grafana dashboards into the `monitoring` namespace, which
+# the prometheusOperatorCRDs package creates: NeuVector waits for it (dependsOn).
 images: {}
 test:
-  enable: [neuvector]
+  enable: [neuvector, prometheusOperatorCRDs]
   expect: [neuvector-prometheus-exporter]
   values:
     neuvector:
+      dependsOn: [{name: prometheus-operator-crds, namespace: bigbang}]
       values:
         monitoring: {enabled: true}
         upstream:
