@@ -1225,6 +1225,8 @@ monitoring:
       image:
         repository: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
         tag: 0.31.0
+      imagePullSecrets:
+      - name: private-registry
     upstream:
       alertmanager:
         alertmanagerSpec:
@@ -1323,7 +1325,7 @@ neuvector:
           registry: cgr.dev/zapatatechnology.com
           repository: neuvector-prometheus-exporter
           tag: 1.1.0.0
-      registry: ''
+      registry: cgr.dev/zapatatechnology.com
     upstream:
       controller:
         image:
