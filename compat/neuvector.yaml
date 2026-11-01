@@ -1,8 +1,9 @@
 # Newer-minor check: NeuVector's prometheus-exporter 1.0 -> 1.1, switched on directly
 # instead of deploying the whole monitoring stack. The exporter lives in the `monitor`
-# subchart (Big Bang sets monitor.install and monitor.exporter.enabled only with
-# monitoring), and logs into the controller as the `metrics` reader Big Bang creates
-# with monitoring on (userinitcfg.yaml); the test creates that user with a test password.
+# subchart, which the package installs only with its `monitoring.enabled` (Big Bang sets
+# that, monitor.install and monitor.exporter.enabled only with monitoring on), and logs
+# into the controller as the `metrics` reader Big Bang creates with monitoring on
+# (userinitcfg.yaml); the test creates that user with a test password.
 images: {}
 test:
   enable: [neuvector]
@@ -10,6 +11,7 @@ test:
   values:
     neuvector:
       values:
+        monitoring: {enabled: true}
         upstream:
           controller:
             secret:

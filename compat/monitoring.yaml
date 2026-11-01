@@ -9,6 +9,12 @@ test:
   expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]
   values:
     monitoring: {values: {snmpExporter: {enabled: true}}}
+  setup:
+    - >-
+      sh compat/support/watch.sh snmp "kubectl -n monitoring get pod -l app.kubernetes.io/name=prometheus-snmp-exporter -o yaml | grep -A12 -E 'containerStatuses|^    args|image:';
+      kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-snmp-exporter --all-containers --previous --tail=20;
+      kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-snmp-exporter --all-containers --tail=20;
+      kubectl -n monitoring get events --field-selector involvedObject.kind=Pod | grep snmp | tail -8"
   check:
     # Blackbox probes Headlamp the way Big Bang's ServiceMonitor does, and the probe succeeds.
     - >-
@@ -27,3 +33,4 @@ test:
     - "kubectl -n headlamp get svc"
     - "kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-blackbox-exporter --all-containers --tail=20"
     - "kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-snmp-exporter --all-containers --tail=20"
+    - "cat $COMPAT_OUT/watch-snmp.log"
