@@ -10,7 +10,8 @@ from conftest import ROOT
 
 FILES = sorted(glob.glob(os.path.join(ROOT, "compat", "*.yaml")))
 KNOWN = {"enable", "expect", "values", "values_files", "setup", "debug", "forbid_log", "no_pods", "namespaces",
-         "installer", "installer_args", "check", "large", "timeout"}
+         "installer", "installer_args", "check", "large", "timeout", "registry1", "upgrade_from"}
+UPGRADE_FROM = {"images", "check", "upgrade"}
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda p: os.path.basename(p))
@@ -24,6 +25,14 @@ def test_compat_file(path):
     assert test.get("no_pods") or test.get("expect") or doc.get("images"), "nothing to check"
     for f in test.get("values_files", []):
         assert f.startswith("$COMPAT_OUT/"), f
+    frm = test.get("upgrade_from")
+    if frm:
+        assert set(frm) <= UPGRADE_FROM, f"unknown upgrade_from keys {set(frm) - UPGRADE_FROM}"
+        assert frm.get("images") and not test.get("installer"), "upgrade_from needs images, and no installer"
+        # Starting from an Iron Bank image needs Iron Bank pulls: mark it, so CI skips the
+        # test without an Iron Bank account instead of failing on the pull.
+        if any(isinstance(v, dict) and "stays" in v for v in frm["images"].values()):
+            assert test.get("registry1"), "upgrade_from keeps an image on Iron Bank: set registry1: true"
     for cmd in test.get("setup", []):
         words = shlex.split(cmd)
         if words[0] not in ("python3", "python", "sh", "bash"):

@@ -124,8 +124,8 @@ images:
   ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
   # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
   # scripts/bb-vault.py adds it. Chainguard carries Vault 2.x only (Big Bang pins
-  # 1.21); tested on kind as a fresh install (compat/vault-2.yaml), not as an upgrade
-  # of existing 1.21 data.
+  # 1.21); tested on kind as a fresh install (compat/vault-2.yaml) and as an upgrade of
+  # Iron Bank 1.21 data (compat/vault-upgrade.yaml, which needs an Iron Bank login).
   ironbank/hashicorp/vault: {build: vault}
   ironbank/hashicorp/vault/vault-k8s: vault-k8s
   ironbank/hashicorp/vault-csi-provider: vault-csi-provider

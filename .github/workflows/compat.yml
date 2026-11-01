@@ -173,6 +173,11 @@ jobs:
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
+          # An Iron Bank account, for tests marked `registry1: true` (vault-upgrade starts
+          # from Iron Bank's Vault). Without these secrets bb-compat.py prints
+          # "RESULT ...: SKIPPED" and exits 0 for such a test.
+          REGISTRY1_USERNAME: ${{ secrets.REGISTRY1_USERNAME }}
+          REGISTRY1_PASSWORD: ${{ secrets.REGISTRY1_PASSWORD }}
           KIND_CLUSTER: compat
         run: |
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)

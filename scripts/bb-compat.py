@@ -16,9 +16,16 @@ creates one per test):
   4. wait until every HelmRelease is Ready and the test namespaces' pods are Ready
   5. report each pod's images and status; on failure, events and logs
 
+An upgrade test (`upgrade_from`) first installs Big Bang with an older mapping (e.g.
+Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test's
+mapping and checks again (read the data back).
+
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
   GHCR_USER, GHCR_TOKEN       for BUILD_REGISTRY on ghcr.io (optional)
+  REGISTRY1_USERNAME, REGISTRY1_PASSWORD
+                              Iron Bank, for tests marked `registry1: true`; without
+                              them such a test is SKIPPED (exit 0), not failed
 """
 import argparse
 import json
@@ -62,10 +69,96 @@ def credentials():
         regs.append(("cgr.dev", "_token", os.environ["CGR_TOKEN"]))
     if os.environ.get("GHCR_TOKEN"):
         regs.append(("ghcr.io", os.environ.get("GHCR_USER", "x"), os.environ["GHCR_TOKEN"]))
+    if os.environ.get("REGISTRY1_USERNAME") and os.environ.get("REGISTRY1_PASSWORD"):
+        regs.append(("registry1.dso.mil", os.environ["REGISTRY1_USERNAME"], os.environ["REGISTRY1_PASSWORD"]))
     if not regs:
         raise SystemExit("set CGR_TOKEN (and GHCR_TOKEN for BUILD_REGISTRY images)")
     values = {"registryCredentials": [{"registry": r, "username": u, "password": p} for r, u, p in regs]}
     return values, dockerconfig(regs)
+
+
+REGISTRY1_ENV = ("REGISTRY1_USERNAME", "REGISTRY1_PASSWORD")
+
+
+def registry1_skip(test, env):
+    """Why a test that pulls from Iron Bank (`registry1: true`) can't run with `env`, or
+    None. Without an Iron Bank account the test is skipped, not failed: the missing
+    secret is the repository's to add, not a problem with the images."""
+    missing = [k for k in REGISTRY1_ENV if not env.get(k)]
+    if not test.get("registry1") or not missing:
+        return None
+    return f"needs Iron Bank pulls (registry1: true); {' and '.join(missing)} not set"
+
+
+def convert(overlay, out, keys):
+    """bb-convert.py with the mapping overlay `overlay` into `out`; print the rows for `keys`."""
+    rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--mapping-overlay", overlay,
+                         "--out", out]).returncode
+    if rc not in (0, 3):
+        raise SystemExit("bb-convert failed with the trial mapping (see above)")
+    for ln in open(os.path.join(out, "docs", "images.md"), encoding="utf-8"):
+        if any(k in ln for k in keys):
+            print(ln.rstrip())
+
+
+def run_debug(test, out):
+    """`debug`: shell commands whose output helps explain a result (e.g. the sidecar
+    injector's config); run whatever the outcome."""
+    for cmd in test.get("debug", []):
+        print(f"\n== debug: {cmd}")
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
+                           env=dict(os.environ, COMPAT_OUT=out))
+        print((p.stdout + p.stderr)[-4000:])
+
+
+def run_checks(cmds, out, fips):
+    """Run `check`-style commands; True when every one exits 0."""
+    ok = True
+    for cmd in cmds:
+        print(f"\n== check: {cmd}", flush=True)
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
+                           env=dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if fips else ""))
+        print((p.stdout + p.stderr)[-2000:])
+        if p.returncode:
+            ok = False
+            print(f"CHECK FAILED ({p.returncode}): {cmd}")
+    return ok
+
+
+def helm_bigbang(a, test, overlays, out, tv, creds, label):
+    """helm upgrade -i Big Bang with the overlays in `overlays` (a bb-convert output dir)."""
+    args = ["-f", os.path.join(overlays, "overlays", "values-chainguard.yaml")]
+    if a.fips:
+        args += ["-f", os.path.join(overlays, "overlays", "values-chainguard-fips.yaml")]
+    for f in test.get("values_files", []):
+        args += ["-f", f.replace("$COMPAT_OUT", out)]
+    print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}{label}): {', '.join(test.get('enable', []))}",
+          flush=True)
+    sh("helm", "upgrade", "-i", "bigbang", os.path.join(a.bigbang, "chart"), "-n", "bigbang", "--create-namespace",
+       *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
+
+
+def upgrade(a, test, out, tv, creds):
+    """`upgrade_from`: Big Bang was installed with the mapping the upgrade starts from.
+    Wait for it, run upgrade_from.check against it (e.g. write data), then upgrade Big
+    Bang to the test's mapping (`out`) and run upgrade_from.upgrade (e.g. delete a
+    StatefulSet pod whose update strategy is OnDelete). False if any of that failed."""
+    frm = test["upgrade_from"]
+    namespaces = test.get("namespaces") or hr_namespaces()
+    ready, problems = wait_ready(namespaces, a.timeout)
+    ok = report(namespaces, test.get("no_pods", False)) and ready
+    for p in problems:
+        print("PROBLEM:", p)
+    if not (ok and run_checks(frm.get("check", []), out, a.fips)):
+        return False
+    helm_bigbang(a, test, out, out, tv, creds, ", upgrade")
+    env = dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else "")
+    for cmd in frm.get("upgrade", []):
+        print(f"\n== upgrade: {cmd}", flush=True)
+        if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
+            print(f"CHECK FAILED: upgrade step {cmd}")
+            return False
+    return True
 
 
 def run_installer(a, test, out):
@@ -110,8 +203,16 @@ def main():
     spec = yaml.safe_load(open(a.compat))
     test = spec.get("test", {})
     # `timeout`: seconds to wait for a slow package (GitLab); `large`: compat.yml runs
-    # the test weekly and on demand, not on pull requests.
+    # the test weekly and on demand, not on pull requests; `registry1`: the test pulls
+    # from Iron Bank, and is skipped without an Iron Bank login.
     a.timeout = test.get("timeout", a.timeout)
+    name, mode = os.path.basename(a.compat), "FIPS" if a.fips else "standard"
+    skip = registry1_skip(test, os.environ)
+    if skip:
+        print(f"\nRESULT {name} ({mode}): SKIPPED ({skip})")
+        if os.environ.get("GITHUB_ACTIONS"):
+            print(f"::notice title=SKIPPED {name} ({mode})::{skip}")
+        return 0
     out = tempfile.mkdtemp(prefix="bb-compat-")
     print(f"== {os.path.basename(a.compat)}: trial mapping {json.dumps(spec.get('images', {}))}", flush=True)
 
@@ -120,26 +221,32 @@ def main():
     # before anything is pushed. Before bb-convert, which reads their build.yaml.
     for m in spec.get("images", {}).values():
         if isinstance(m, dict) and m.get("build"):
-            name = m["build"]
-            print(f"\n== build {name}", flush=True)
+            build = m["build"]
+            print(f"\n== build {build}", flush=True)
             version = ["--version", str(m["version"])] if m.get("version") else []
-            rc = subprocess.run([sys.executable, os.path.join(HERE, f"bb-{name}.py"), *version,
+            rc = subprocess.run([sys.executable, os.path.join(HERE, f"bb-{build}.py"), *version,
                                  "--build", "--test", "--force"]).returncode
             if rc:
-                raise SystemExit(f"\nRESULT: building {name} failed (see above); nothing was deployed")
-            img = load_build(name)["image"]["fips" if a.fips else "standard"]
+                raise SystemExit(f"\nRESULT: building {build} failed (see above); nothing was deployed")
+            img = load_build(build)["image"]["fips" if a.fips else "standard"]
             ref = f"{build_registry() or 'bb-local'}/{img['name']}:{img['tag']}"
             if a.kind_cluster:
                 sh("kind", "load", "docker-image", ref, "--name", a.kind_cluster, capture=True)
                 print(f"loaded {ref} into kind/{a.kind_cluster}")
 
-    rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--mapping-overlay", a.compat,
-                         "--out", out]).returncode
-    if rc not in (0, 3):
-        raise SystemExit("bb-convert failed with the trial mapping (see above)")
-    for ln in open(os.path.join(out, "docs", "images.md"), encoding="utf-8"):
-        if any(k in ln for k in spec.get("images", {})):
-            print(ln.rstrip())
+    convert(a.compat, out, spec.get("images", {}))
+    # `upgrade_from.images`: the mapping the upgrade starts from, over mapping.yaml (not
+    # over the test's `images`), converted into its own directory.
+    first, upgraded = None, True
+    if test.get("upgrade_from"):
+        if test.get("installer"):
+            raise SystemExit("upgrade_from is not supported with installer: true")
+        first = tempfile.mkdtemp(prefix="bb-compat-from-")
+        frm_images = test["upgrade_from"].get("images", {})
+        print(f"\n== upgrade from: mapping {json.dumps(frm_images)}", flush=True)
+        overlay = os.path.join(first, "upgrade-from.yaml")
+        yaml.safe_dump({"images": frm_images}, open(overlay, "w"))
+        convert(overlay, first, frm_images)
 
     if test.get("installer"):
         # `installer: true`: deploy with scripts/bb-install.py exactly as a user would,
@@ -181,19 +288,18 @@ def main():
             deep_merge(values, test.get("values", {}) or {})
             tv = os.path.join(secrets, "test.yaml")
             yaml.safe_dump(values, open(tv, "w"))
-            args = ["-f", os.path.join(out, "overlays", "values-chainguard.yaml")]
-            if a.fips:
-                args += ["-f", os.path.join(out, "overlays", "values-chainguard-fips.yaml")]
-            for f in test.get("values_files", []):
-                args += ["-f", f.replace("$COMPAT_OUT", out)]
-            print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}): {', '.join(test.get('enable', []))}", flush=True)
-            sh("helm", "upgrade", "-i", "bigbang", chart, "-n", "bigbang", "--create-namespace",
-               *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
+            helm_bigbang(a, test, first or out, out, tv, creds, ", upgrade from" if first else "")
+            if first:
+                upgraded = upgrade(a, test, out, tv, creds)
         finally:
             for f in os.listdir(secrets):
                 os.remove(os.path.join(secrets, f))
             os.rmdir(secrets)
 
+    if not upgraded:
+        run_debug(test, out)
+        print(f"\nRESULT {name} ({mode}): FAIL (on the mapping the upgrade starts from, or upgrading it)")
+        return 1
     ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout)
     namespaces = test.get("namespaces") or hr_namespaces()
     ok = report(namespaces, test.get("no_pods", False)) and ready
@@ -203,13 +309,7 @@ def main():
         print("\n== recent events")
         for ns in namespaces + ["bigbang"]:
             print(kubectl("get", "events", "-n", ns, "--sort-by=.lastTimestamp", check=False) or "")
-    # `debug`: shell commands whose output helps explain a result (e.g. the sidecar
-    # injector's config); run whatever the outcome.
-    for cmd in test.get("debug", []):
-        print(f"\n== debug: {cmd}")
-        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
-                           env=dict(os.environ, COMPAT_OUT=out))
-        print((p.stdout + p.stderr)[-4000:])
+    run_debug(test, out)
     # `expect`: images (name:tag fragments) the test is about. A pass only covers the
     # ones that actually ran; the rest need the feature that uses them switched on.
     # Every image the test's namespaces and Flux run must be the conversion's: the org,
@@ -240,21 +340,13 @@ def main():
                     print(f"FORBIDDEN LOG in {ns}/{pod}: {hits[0][:300]}")
     # `check`: shell commands that must succeed for a pass (e.g. an HTTPS request through
     # the gateway with the CA the installer made).
-    for cmd in test.get("check", []):
-        print(f"\n== check: {cmd}", flush=True)
-        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ROOT,
-                           env=dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else ""))
-        print((p.stdout + p.stderr)[-2000:])
-        if p.returncode:
-            ok = False
-            print(f"CHECK FAILED ({p.returncode}): {cmd}")
+    ok = run_checks(test.get("check", []), out, a.fips) and ok
     running = images_running(namespaces)
     expect = test.get("expect", [])
     seen = [e for e in expect if any(e in i for i in running)]
     for e in expect:
         print(f"{'EXERCISED' if e in seen else 'NOT EXERCISED'}: {e}")
-    mode = "FIPS" if a.fips else "standard"
-    print(f"\nRESULT {os.path.basename(a.compat)} ({mode}): {'PASS' if ok else 'FAIL'}"
+    print(f"\nRESULT {name} ({mode}): {'PASS' if ok else 'FAIL'}"
           + (f"; {len(seen)} of {len(expect)} expected images ran" if expect else ""))
     return 0 if ok else 1
 

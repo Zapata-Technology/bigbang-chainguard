@@ -1,0 +1,27 @@
+# Upgrade with existing data: Big Bang's Vault on Iron Bank's 1.21 (what Big Bang 3.35.1
+# pins), initialised and unsealed by Big Bang's autoInit, with a KV secret written; then
+# Big Bang upgraded to the converted bigbang-vault 2.x (built here and loaded into kind,
+# as in compat/vault-2.yaml, which tests a fresh install). Passes when the new server is
+# Vault 2.x, unsealed, and reads the secret back.
+# Needs Iron Bank pulls (registry1: true): SKIPPED unless REGISTRY1_USERNAME and
+# REGISTRY1_PASSWORD are set (compat.yml passes the repository secrets of those names).
+images:
+  ironbank/hashicorp/vault: {build: vault}
+test:
+  registry1: true
+  enable: [addons.vault]
+  namespaces: [vault]
+  expect: [bigbang-vault]
+  upgrade_from:
+    images:
+      ironbank/hashicorp/vault: {stays: "the upgrade's starting point: Iron Bank's Vault 1.21, as Big Bang pins"}
+    check:
+      - sh compat/support/vault-upgrade.sh write
+    upgrade:
+      - sh compat/support/vault-upgrade.sh roll
+  check:
+    - sh compat/support/vault-upgrade.sh read
+  debug:
+    - "kubectl -n vault get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n vault logs -l app.kubernetes.io/name=vault,component=server --tail=60"
+    - "kubectl -n vault get sts -o jsonpath='{.items[*].spec.updateStrategy}'"
