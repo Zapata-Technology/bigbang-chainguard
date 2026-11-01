@@ -9,6 +9,17 @@ images:
 test:
   enable: [addons.mattermostOperator, addons.mattermost]
   namespaces: [mattermost-operator, mattermost, mattermost-deps]
+  values:
+    addons:
+      mattermost:
+        # The chart requests 2 CPUs and 4 GiB for the server, more than any node of a
+        # 4-CPU runner's kind cluster has free ("Insufficient cpu"); its install waits for
+        # the server (wait job), which on that runner can take longer than Flux's 10 minutes.
+        flux: {timeout: 20m}
+        values:
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: 2, memory: 2Gi}
   setup:
     - python3 compat/support/seaweedfs.py mattermost
     - python3 compat/support/app-deps.py mattermost
