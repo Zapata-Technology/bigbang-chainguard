@@ -11,18 +11,44 @@ test:
   values:
     addons:
       gitlab:
-        # A pull request's kind cluster has 2 CPUs: one replica of each, and time for
-        # the database migrations (the first run timed out at Flux's 10 minutes with
-        # migrations, Sidekiq and webservice still starting).
+        # The runner's kind cluster has 2 CPUs and 7 GB in all, and the chart requests
+        # more than that (the toolbox alone: 2 CPUs, 3.5 Gi), so pods stayed Pending:
+        # one replica of each and small requests (the chart's limits stay). The package
+        # chart reads GitLab's values under `upstream:`. Flux gets time for the database
+        # migrations.
         flux:
           timeout: 40m
         values:
-          gitlab:
-            webservice: {minReplicas: 1, maxReplicas: 1}
-            sidekiq: {minReplicas: 1, maxReplicas: 1}
-            gitlab-shell: {minReplicas: 1, maxReplicas: 1}
-            kas: {minReplicas: 1, maxReplicas: 1}
-          registry: {hpa: {minReplicas: 1, maxReplicas: 1}}
+          upstream:
+            registry:
+              hpa: {minReplicas: 1, maxReplicas: 1}
+              resources: {requests: {cpu: 50m, memory: 128Mi}}
+            gitlab:
+              toolbox:
+                resources: {requests: {cpu: 50m, memory: 256Mi}}
+              webservice:
+                minReplicas: 1
+                maxReplicas: 1
+                resources: {requests: {cpu: 100m, memory: 1Gi}}
+                workhorse: {resources: {requests: {cpu: 50m, memory: 128Mi}}}
+              sidekiq:
+                minReplicas: 1
+                maxReplicas: 1
+                resources: {requests: {cpu: 100m, memory: 512Mi}}
+              migrations:
+                resources: {requests: {cpu: 100m, memory: 512Mi}}
+              gitaly:
+                resources: {requests: {cpu: 50m, memory: 256Mi}}
+              gitlab-shell:
+                minReplicas: 1
+                maxReplicas: 1
+                resources: {requests: {cpu: 50m, memory: 64Mi}}
+              kas:
+                minReplicas: 1
+                maxReplicas: 1
+                resources: {requests: {cpu: 50m, memory: 128Mi}}
+              gitlab-exporter:
+                resources: {requests: {cpu: 50m, memory: 64Mi}}
   setup:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
