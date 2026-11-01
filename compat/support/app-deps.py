@@ -86,9 +86,12 @@ def main():
     run("kubectl", "create", "namespace", ns)
     run("kubectl", "-n", ns, "create", "secret", "generic", "private-registry", "--type=kubernetes.io/dockerconfigjson",
         f"--from-file=.dockerconfigjson={os.environ['COMPAT_DOCKERCFG']}")
+    # GitLab loads its schema (db/structure.sql) in one transaction, which takes more
+    # locks than PostgreSQL's default 64 per transaction allow: "out of shared memory".
     docs = workload(ns, "postgres", postgres, 5432,
                     env={"POSTGRES_USER": app, "POSTGRES_PASSWORD": DB_PASSWORD.format(app=app), "POSTGRES_DB": app,
-                         "PGDATA": "/var/lib/postgresql/data/pgdata"})
+                         "PGDATA": "/var/lib/postgresql/data/pgdata"},
+                    args=["-c", "max_locks_per_transaction=256"])
     names = ["postgres"]
     if app == "gitlab":
         redis = mapped(images_md, r"/redis\d*(-slim)?:", fips)
