@@ -36,7 +36,8 @@ test:
                 maxReplicas: 1
                 resources: {requests: {cpu: 100m, memory: 512Mi}}
               migrations:
-                resources: {requests: {cpu: 100m, memory: 512Mi}}
+                # It died without output during db:schema:load at the chart's 1.5G limit.
+                resources: {requests: {cpu: 100m, memory: 512Mi}, limits: {memory: 3Gi}}
               gitaly:
                 resources: {requests: {cpu: 50m, memory: 256Mi}}
               gitlab-shell:
@@ -57,6 +58,7 @@ test:
     - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
     - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"
     - sh compat/support/watch.sh registry "kubectl -n gitlab logs -l app=registry --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=registry --all-containers --tail=60"
+    - sh compat/support/watch.sh exits "kubectl -n gitlab get pod -o jsonpath='{range .items[*]}{.metadata.name}{\" \"}{range .status.containerStatuses[*]}{.name}={.lastState.terminated.reason}/{.lastState.terminated.exitCode} {end}{\"\n\"}{end}'"
     - sh compat/support/watch.sh migrations "kubectl -n gitlab logs -l app=migrations --all-containers --previous --tail=80 || kubectl -n gitlab logs -l app=migrations --all-containers --tail=80"
     - sh compat/support/watch.sh webservice-deps "kubectl -n gitlab logs -l app=webservice -c dependencies --previous --tail=40 || kubectl -n gitlab logs -l app=webservice -c dependencies --tail=40"
   values_files:
@@ -70,5 +72,6 @@ test:
     - "cat $COMPAT_OUT/watch-shell.log"
     - "cat $COMPAT_OUT/watch-registry.log"
     - "cat $COMPAT_OUT/watch-migrations.log"
+    - "cat $COMPAT_OUT/watch-exits.log"
     - "cat $COMPAT_OUT/watch-webservice-deps.log"
     - "kubectl -n gitlab get pods -o wide"
