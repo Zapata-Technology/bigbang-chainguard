@@ -60,7 +60,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; an upgrade with existing data was not tested. |
-| sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics. Not yet run on kind |
+| sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination |
 | argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | |
 | grafana | k8s-sidecar 2.14 | |
