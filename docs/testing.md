@@ -127,7 +127,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | istio-egress-gateway (new) | Istio egress gateway beside istiod | |
 | mattermost-operator (new) | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs |
 | mattermost (new) | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
-| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** no crashes since the GODEBUG fix, but it times out on the private repo's 2-CPU, 7 GB runner (see the README's Known gaps) |
+| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** the sizing values sat outside `upstream:` and never applied (pods Pending on CPU), then the migrations hit PostgreSQL's lock limit; both fixed, re-running |
 | gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
 
 ## What the runtime tests found
@@ -154,6 +154,7 @@ None of these showed up when rendering. All are fixed in the overlays:
 | every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
 | keycloak | A Chainguard rebuild of 26.8.1 made `quarkus-application.dat` 0770 65532/65532; Big Bang's uid 1000 couldn't read it | `overrides.keycloak` runs as the image's user; digest pins stop a rebuild arriving untested |
 | gitlab | Its chart sets `GODEBUG=tlskyber=0`, which newer Go refuses: Gitaly, Shell and the registry died at start | `overrides.gitlab` sets `tlsmlkem=0` |
+| gitlab | Its migrations load the whole schema in one transaction; PostgreSQL's default `max_locks_per_transaction` (64) fails it with `out of shared memory`, so GitLab never starts | The test's PostgreSQL runs with 256. **A site's external PostgreSQL for GitLab needs it raised too** |
 | gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/app-deps.py` deploys them from the org's images |
 | mattermost (signatures) | Digest pins rendered as `name:@sha256` for an image with no tag | `kustomize_image` renders `name@digest` |
 | cve-report | Vault's kubectl 1.30 pin resolved to the org's unmaintained 1.30 FIPS image (19 Critical) | `min_version: "1.34"` on kubectl |

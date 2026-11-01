@@ -36,8 +36,7 @@ test:
                 maxReplicas: 1
                 resources: {requests: {cpu: 100m, memory: 512Mi}}
               migrations:
-                # It died without output during db:schema:load at the chart's 1.5G limit.
-                resources: {requests: {cpu: 100m, memory: 512Mi}, limits: {memory: 3Gi}}
+                resources: {requests: {cpu: 100m, memory: 512Mi}}
               gitaly:
                 resources: {requests: {cpu: 50m, memory: 256Mi}}
               gitlab-shell:
