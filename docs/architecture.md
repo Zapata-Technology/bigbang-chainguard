@@ -199,7 +199,7 @@ sequenceDiagram
     CI-->>PR: checks
     PR->>M: merge (you)
     M->>B: push to main
-    B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt,bigbang&gt,-cg.&lt,n&gt,,<br/>signed archive and notes
+    B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```
 
 Every org image is pinned to the digest its tag had when the overlays were generated
