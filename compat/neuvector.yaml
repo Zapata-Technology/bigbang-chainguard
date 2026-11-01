@@ -1,8 +1,33 @@
 # Newer-minor check: NeuVector's prometheus-exporter 1.0 -> 1.1, switched on directly
-# (upstream.exporter) instead of deploying the whole monitoring stack.
+# instead of deploying the whole monitoring stack. The exporter lives in the `monitor`
+# subchart (Big Bang sets monitor.install and monitor.exporter.enabled only with
+# monitoring), and logs into the controller as the `metrics` reader Big Bang creates
+# with monitoring on (userinitcfg.yaml); the test creates that user with a test password.
 images: {}
 test:
-  enable: [neuvector, prometheusOperatorCRDs]
+  enable: [neuvector]
   expect: [neuvector-prometheus-exporter]
   values:
-    neuvector: {values: {upstream: {exporter: {enabled: true}}}}
+    neuvector:
+      values:
+        upstream:
+          controller:
+            secret:
+              enabled: true
+              data:
+                userinitcfg.yaml:
+                  always_reload: true
+                  users:
+                    - {username: metrics, password: compatMetricsAB12cd34, role: reader, fullname: metrics}
+        monitor:
+          install: true
+          exporter: {enabled: true, CTRL_USERNAME: metrics, CTRL_PASSWORD: compatMetricsAB12cd34}
+  check:
+    # The exporter logged into the controller's API and serves NeuVector metrics.
+    - >-
+      p=$(kubectl -n neuvector get pod -l app=neuvector-prometheus-exporter-pod -o jsonpath='{.items[0].metadata.name}')
+      && kubectl get --raw "/api/v1/namespaces/neuvector/pods/$p:8068/proxy/metrics" | grep -q '^nv_'
+  debug:
+    - "kubectl -n neuvector get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n neuvector logs -l app=neuvector-prometheus-exporter-pod --tail=30"
+    - "p=$(kubectl -n neuvector get pod -l app=neuvector-prometheus-exporter-pod -o jsonpath='{.items[0].metadata.name}') && kubectl get --raw \"/api/v1/namespaces/neuvector/pods/$p:8068/proxy/metrics\" | grep -v '^#' | cut -c1-120 | head -20"

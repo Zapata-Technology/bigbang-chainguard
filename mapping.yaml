@@ -276,6 +276,11 @@ overrides:
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
         scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+    # The monitor subchart builds the exporter's image from its own chart-wide registry
+    # (monitor.registry) and ignores exporter.image.registry, so the generated blank
+    # registry rendered "/neuvector-prometheus-exporter:<tag>" (compat/neuvector.yaml).
+    monitor:
+      registry: "@registry"
   gitlab:
     # GitLab's chart sets GODEBUG=tlsmlkem=0,tlskyber=0 on every container unless the site
     # sets GODEBUG. Chainguard builds Gitaly, GitLab Shell and the registry with a Go that

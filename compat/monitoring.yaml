@@ -1,8 +1,29 @@
 # Newer-minor check: blackbox-exporter 0.28 -> 0.29, snmp-exporter 0.30 -> 0.31,
 # k8s-sidecar 2.11 -> 2.14, config-reloader 0.93 -> 0.94.
+# Both exporters are off by default. Big Bang turns the Blackbox exporter on when Headlamp
+# is enabled, to probe Headlamp (its network policies allow exactly that), so the test
+# enables Headlamp; the SNMP exporter has no Big Bang trigger and is switched on directly.
 images: {}
 test:
-  enable: [certManager, prometheusOperatorCRDs, monitoring]
+  enable: [certManager, prometheusOperatorCRDs, monitoring, addons.headlamp]
   expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]
+  values:
+    monitoring: {values: {snmpExporter: {enabled: true}}}
+  check:
+    # Blackbox probes Headlamp the way Big Bang's ServiceMonitor does, and the probe succeeds.
+    - >-
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=prometheus-blackbox-exporter -o jsonpath='{.items[0].metadata.name}')
+      && kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:9115/proxy/probe?module=http_2xx&target=http://headlamp-headlamp.headlamp.svc.cluster.local:4466"
+      | grep -q '^probe_success 1'
+    # SNMP serves its own metrics and has loaded the image's built-in snmp.yml (if_mib is
+    # the module Big Bang's ServiceMonitor scrapes).
+    - >-
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=prometheus-snmp-exporter -o jsonpath='{.items[0].metadata.name}')
+      && kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:9116/proxy/metrics" | grep -q '^snmp_exporter_build_info'
+      && kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:9116/proxy/config" | grep -q '^ *if_mib:'
   debug:
     - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"
+    - "kubectl -n monitoring get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n headlamp get svc"
+    - "kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-blackbox-exporter --all-containers --tail=20"
+    - "kubectl -n monitoring logs -l app.kubernetes.io/name=prometheus-snmp-exporter --all-containers --tail=20"
