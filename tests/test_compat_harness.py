@@ -1,4 +1,4 @@
-"""bb-compat.py's decisions that need no cluster: the Iron Bank skip and its credentials."""
+"""bb-compat.py's decisions that need no cluster: the Iron Bank skip, its credentials, and which images count as run."""
 import sys
 
 import yaml
@@ -46,3 +46,18 @@ def test_registry1_credentials_reach_the_cluster_pull_secret(monkeypatch):
     monkeypatch.delenv("REGISTRY1_PASSWORD")
     values, _ = compat.credentials()
     assert [r["registry"] for r in values["registryCredentials"]] == ["cgr.dev"]
+
+
+def test_only_started_containers_count_as_exercised():
+    started_images = load_script("bbcluster").started_images
+    pod = lambda status: {"spec": {"initContainers": [{"name": "init", "image": "org/init:1"}],
+                                   "containers": [{"name": "app", "image": "org/app:1"}]},
+                          "status": status}
+    assert started_images(pod({"phase": "Pending"})) == set()
+    waiting = {"name": "app", "image": "org/app:1", "state": {"waiting": {"reason": "ImagePullBackOff"}}}
+    failed_init = {"name": "init", "image": "org/init:1", "state": {"terminated": {"exitCode": 1}}}
+    assert started_images(pod({"containerStatuses": [waiting], "initContainerStatuses": [failed_init]})) == set()
+    done_init = {"name": "init", "image": "org/init:1", "state": {"terminated": {"exitCode": 0}}}
+    running = {"name": "app", "image": "org/app@sha256:ab", "state": {"running": {}}}
+    assert started_images(pod({"containerStatuses": [running], "initContainerStatuses": [done_init]})) == \
+        {"org/init:1", "org/app:1", "org/app@sha256:ab"}
