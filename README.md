@@ -601,7 +601,9 @@ repo has tags, so you know when to switch it over.
 ## Upgrades
 
 - **Nightly** (`update.yml`): regenerates against the newest org patches and Iron Bank
-  recipes, and opens a PR.
+  recipes, and opens a PR. `automerge.yml` merges it once every check on it has passed
+  (CI, the builds and every kind test). It leaves a new Big Bang release, or a PR labeled
+  `hold`, for a person to merge.
 - **New Big Bang release**: the same job bumps `BIGBANG_VERSION` and re-runs discovery.
   If the release adds an image that `mapping.yaml` doesn't cover, CI fails on that PR and
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.

@@ -197,7 +197,7 @@ sequenceDiagram
     N->>PR: open bot/bigbang-update, report in the body
     PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test images, every package on kind
     CI-->>PR: checks
-    PR->>M: merge (you)
+    PR->>M: automerge.yml when every check passed<br/>(a new Big Bang release: you)
     M->>B: push to main
     B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```

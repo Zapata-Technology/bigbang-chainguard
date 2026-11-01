@@ -1,0 +1,81 @@
+name: Auto-merge - nightly update
+
+# Merges the nightly bot pull request (update.yml, branch bot/bigbang-update) once every
+# check on its head commit has passed: CI, the image builds and every kind test. Branch
+# protection only requires `verify`, so GitHub's own auto-merge would not wait for the
+# kind tests; this does. It runs each time one of those workflows finishes and merges on
+# the run that sees nothing pending or failed.
+#
+# Not merged automatically: a new Big Bang release (BIGBANG_VERSION changes; a person
+# reads the report first), and a pull request labeled `hold`.
+#
+# The merge uses RELEASE_PAT, as update.yml does: a merge made with GITHUB_TOKEN would not
+# start the push workflows (builds.yml, release.yml) on main.
+
+on:
+  workflow_run:
+    workflows: [CI, "Compat - upgrade tests", "Build - Big Bang images"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_branch == 'bot/bigbang-update' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+
+      # No checkout: nothing from the pull request runs here.
+      - name: Merge when every check on the head commit passed
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [ -n "$GH_TOKEN" ] || { echo "::warning::RELEASE_PAT is not set; not merging"; exit 0; }
+          pr=$(gh pr list --head bot/bigbang-update --state open --json number,headRefOid \
+            --jq ".[] | select(.headRefOid == \"$SHA\") | .number")
+          if [ -z "$pr" ]; then
+            echo "no open bot/bigbang-update pull request at $SHA (a newer commit, or merged)"; exit 0
+          fi
+          if gh pr view "$pr" --json labels --jq '.labels[].name' | grep -qx hold; then
+            echo "#$pr is labeled hold"; exit 0
+          fi
+          if gh pr diff "$pr" --name-only | grep -qx BIGBANG_VERSION; then
+            echo "#$pr moves to a new Big Bang release: left for a person to merge"; exit 0
+          fi
+          # Every check run on the head commit, any workflow. Wait while any is unfinished;
+          # stop on any that didn't pass. Skipped jobs (codeql before the repo is public) count
+          # as passed.
+          runs=$(gh api --paginate "repos/$GH_REPO/commits/$SHA/check-runs?per_page=100" \
+            --jq '.check_runs[] | "\(.status) \(.conclusion // "-") \(.name)"')
+          echo "$runs"
+          [ -n "$runs" ] || { echo "no checks yet"; exit 0; }
+          if echo "$runs" | grep -qv '^completed '; then
+            echo "checks still running on #$pr"; exit 0
+          fi
+          if echo "$runs" | grep -qvE '^completed (success|skipped|neutral) '; then
+            echo "::warning::#$pr has a failed check; not merging"; exit 0
+          fi
+          gh pr merge "$pr" --squash --delete-branch --match-head-commit "$SHA"
+          echo "merged #$pr at $SHA"

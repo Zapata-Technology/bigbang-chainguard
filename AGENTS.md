@@ -63,13 +63,16 @@ python scripts/bb-install.py status                              # health of a d
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
-`compat/` or the installer), `update.yml` (nightly bot PR), `release.yml` (tags
+`compat/` or the installer), `update.yml` (nightly bot PR), `automerge.yml` (merges that PR
+when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Playbooks
 
 ### The nightly bot PR (`bot/bigbang-update`) fails or reports something
+A green bot PR merges itself (`automerge.yml`), so one still open has a failed check, a
+`hold` label, or a new `BIGBANG_VERSION`. Label it `hold` while you work on it.
 1. Read the PR body: it holds the bb-convert, bb-verify, bb-scan and bb-leftovers output.
 2. *Unmapped image* → "Add or fix an image mapping" below.
 3. *bb-scan NEW finding* → "A chart scan finding" below.
