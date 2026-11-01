@@ -76,7 +76,7 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | kyverno-reporter | policy-reporter 3.11, UI 2.9, plugin 0.7 | With Kyverno |
 | loki | memcached-exporter 0.18, rollout-operator 0.41, k8s-sidecar 2.14 | |
 | mimir | memcached-exporter 0.18, rollout-operator 0.41 | |
-| monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, k8s-sidecar 2.14, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`) |
+| monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`). Monitoring's k8s-sidecar belongs to kube-prometheus-stack's Grafana, which Big Bang turns off; the grafana and loki tests run it |
 | neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
 | renovate | renovate 44.190 | A CronJob: installs only |
 | kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
