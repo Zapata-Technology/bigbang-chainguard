@@ -66,7 +66,8 @@ Each test then:
    ...`: `rake aborted!`, `panic:`, a traceback, `FATAL`, `out of shared memory`, `x509:`,
    ...). It **stops the test early**, with `PROBLEM: stopped early: ...` naming the cause,
    on a failure that waiting won't fix: an OOM kill, a Job that used up its retries, a
-   container stuck on `ImagePullBackOff` or a config error for 5 minutes, or one restarted
+   container stuck on `ImagePullBackOff` or a config error for 5 minutes (not an Iron Bank
+   image when the run has no Iron Bank login: GitLab's upgrade check), or one restarted
    6 times (about 10 minutes) with an error line in its log; fewer is normal for apps that
    crash until a dependency is up (Harbor's jobservice restarts 3 times). A broken test
    then ends in minutes, not at its

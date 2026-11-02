@@ -219,3 +219,19 @@ def test_wait_ready_ends_as_soon_as_the_watcher_has_a_reason(monkeypatch):
     monkeypatch.setattr(bbcluster.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("waited")))
     ok, problems = bbcluster.wait_ready(["ns"], 3600, abort=lambda: ["ns/web-1 container app was OOMKilled"])
     assert not ok and problems == ["stopped early: ns/web-1 container app was OOMKilled"]
+
+
+def test_an_iron_bank_image_without_an_iron_bank_login_does_not_stop_the_test(tmp_path, monkeypatch):
+    bbcluster = load_script("bbcluster")
+    now = [0]
+    stuck = {"name": "app", "state": {"waiting": {"reason": "ImagePullBackOff", "message": "401"}}}
+    pod = _pod("gitlab-upgrade-check-x", [stuck])
+    pod["spec"]["containers"][0]["image"] = "registry1.dso.mil/ironbank/redhat/ubi/ubi9:9.8"
+    monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: json.dumps({"items": [pod]}) if a[:2] == ("get", "pod")
+                        else json.dumps({"items": []}) if a[:2] == ("get", "job") else "")
+    keeper = bbcluster.PodLogKeeper(lambda: ["ns"], str(tmp_path), clock=lambda: now[0],
+                                    unpullable=lambda image: image.startswith("registry1.dso.mil/"))
+    keeper.snapshot()
+    now[0] += 600
+    keeper.snapshot()
+    assert keeper.abort_reasons() == []

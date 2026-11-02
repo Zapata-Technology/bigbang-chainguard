@@ -241,7 +241,11 @@ def main():
     # Every pod's logs, kept while the test runs, plus the cluster's state at the end:
     # $COMPAT_DIAG (compat.yml uploads it as the job's artifact), else <out>/diag.
     diag = os.environ.get("COMPAT_DIAG") or os.path.join(out, "diag")
-    keeper = PodLogKeeper(lambda: test_namespaces(test) + ["flux-system"], diag).start()
+    # Without an Iron Bank login, a documented Iron Bank leftover (GitLab's upgrade check on
+    # UBI) can't be pulled here; that is expected, not a reason to stop the test.
+    no_registry1 = not all(os.environ.get(k) for k in REGISTRY1_ENV)
+    keeper = PodLogKeeper(lambda: test_namespaces(test) + ["flux-system"], diag,
+                          unpullable=lambda image: no_registry1 and image.startswith("registry1.dso.mil/")).start()
     atexit.register(keeper.finish)
 
     # Images the trial mapping builds (`build:`, with an optional `version` line): generate,

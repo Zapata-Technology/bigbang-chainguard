@@ -222,8 +222,11 @@ class PodLogKeeper:
     CRASHES = 6
     STUCK_SECONDS = 300    # how long a container may wait on its image or config
 
-    def __init__(self, namespaces, dest, interval=30, clock=time.time):
+    def __init__(self, namespaces, dest, interval=30, clock=time.time, unpullable=lambda image: False):
+        """`unpullable(image)`: True for an image this run can't pull by design (an Iron
+        Bank leftover without an Iron Bank login); waiting on it doesn't stop the test."""
         self.namespaces, self.dest, self.interval, self.clock = namespaces, dest, interval, clock
+        self.unpullable = unpullable
         self.exits, self._seen, self._stuck, self._abort = {}, set(), {}, {}
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -288,7 +291,7 @@ class PodLogKeeper:
                                 f"{ns}/{pod} container {name} restarted {s['restartCount']} times; its log: {hit[:200]}")
                     waiting = s.get("state", {}).get("waiting", {})
                     key = (ns, pod, name)
-                    if waiting.get("reason") in STUCK_WAITING:
+                    if waiting.get("reason") in STUCK_WAITING and not self.unpullable(c["image"]):
                         first = self._stuck.setdefault(key, now)
                         if now - first >= self.STUCK_SECONDS:
                             self._abort[("stuck",) + key] = (f"{ns}/{pod} container {name}: {waiting['reason']} for "
