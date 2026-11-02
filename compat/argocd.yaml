@@ -15,14 +15,25 @@ test:
       && v=$(kubectl get --raw "/api/v1/namespaces/argocd/services/$s:80/proxy/api/version")
       && echo "$v" && echo "$v" | grep -q '"Version"'
     # The admin logs in with the generated initial password (a session token proves the
-    # server, its secret key and Redis work). The password goes in on stdin and the token
-    # only to grep.
-    - >-
+    # server, its secret key and Redis work). Through a port-forward with the runner's
+    # Python: `kubectl create --raw` posts without a JSON content type, which Argo CD
+    # refuses (UnsupportedMediaType). The password goes in on stdin; the token is only
+    # checked, never printed.
+    - |
       s=$(kubectl -n argocd get svc -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}')
-      && p=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)
-      && printf '{"username":"admin","password":"%s"}' "$p"
-      | kubectl create --raw "/api/v1/namespaces/argocd/services/$s:80/proxy/api/v1/session" -f -
-      | grep -q '"token"' && echo "admin session created"
+      kubectl -n argocd port-forward "svc/$s" 18080:80 >/dev/null 2>&1 &
+      pf=$!
+      sleep 5
+      kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d \
+        | python3 -c 'import json, sys, urllib.request
+      body = json.dumps({"username": "admin", "password": sys.stdin.read()}).encode()
+      req = urllib.request.Request("http://127.0.0.1:18080/api/v1/session", body, {"Content-Type": "application/json"})
+      token = json.load(urllib.request.urlopen(req, timeout=30)).get("token")
+      print("admin session created" if token else "no session token")
+      sys.exit(0 if token else 1)'
+      rc=$?
+      kill $pf
+      exit $rc
     # The application controller reconciles an Application: one whose repository doesn't
     # exist (no network or credentials needed, nothing gets deployed). The controller
     # writes its status (sync Unknown and the repo-server's fetch error) within a minute.
