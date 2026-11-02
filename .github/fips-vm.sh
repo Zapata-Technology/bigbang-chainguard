@@ -57,8 +57,9 @@ boot() {
   # A copy-on-write disk over the image, with room for the packages' images.
   qemu-img create -q -f qcow2 -F qcow2 -b "$IMAGE" disk.qcow2 40G
 
-  # A key for this run only; the VM is gone when the job ends.
-  ssh-keygen -q -t ed25519 -N "" -f id
+  # A key for this run only; the VM is gone when the job ends. ECDSA P-384, not Ed25519: once
+  # the VM is in FIPS mode its sshd refuses Ed25519 keys, and the login after the reboot failed.
+  ssh-keygen -q -t ecdsa -b 384 -N "" -f id
   cat > user-data <<EOF
 #cloud-config
 users:
