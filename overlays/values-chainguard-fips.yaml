@@ -581,6 +581,9 @@ addons:
           registry: cgr.dev/zapatatechnology.com
           repository: thanos-fips
           tag: 0.42.5
+        query:
+          extraFlags:
+          - --store.sd-dns-resolver=golang
   vault:
     postRenderers:
     - kustomize:
@@ -853,6 +856,11 @@ gatekeeper:
           image:
             repository: cgr.dev/zapatatechnology.com/kubectl-fips
             tag: 1.37-dev
+    violations:
+      allowedDockerRegistries:
+        parameters:
+          repos:
+          - cgr.dev/zapatatechnology.com
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
 grafana:
