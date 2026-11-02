@@ -251,6 +251,13 @@ kernel. Nothing in the images broke; what a FIPS kernel did break was the test's
 - RHEL's `sudo` resets `PATH` to `secure_path`, without `/usr/local/bin` (where k3s installs):
   call it by full path.
 
+One more thing to watch: in 1 of 4 kyverno-enforce runs on the FIPS kernel (run
+41529934922, passed on re-run), Kyverno's reports controller was OOMKilled at Big Bang's
+128Mi limit while the node had 2.4 GB free: its own cgroup ran out (about 110 MB anonymous
+plus 105 MB file pages), not the node. It has never happened on kind. A site on RHEL 9 nodes
+that sees the reports controller restart should raise
+`kyverno.values.upstream.reportsController.resources.limits.memory` in its site file.
+
 ## CI environment notes
 
 These are kind-on-GitHub-Actions limits, not image problems:
