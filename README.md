@@ -14,6 +14,10 @@ upstream chart, plus a Flux kustomization:
 A nightly job keeps the overlays current with your org's patches and with new Big Bang
 releases.
 
+> **Status: beta.** Use it for development, test and evaluation clusters; it isn't
+> supported for production yet. Install from a pinned release, not `main`.
+> **[Quickstart](docs/quickstart.md)** has the steps and what is and isn't proven yet.
+
 ## What you need
 
 - **A Chainguard subscription with the images Big Bang uses.**
@@ -670,6 +674,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 ## Contributing and support
 
+- Getting started: [`docs/quickstart.md`](docs/quickstart.md) (status, install from a release, upgrade).
 - Changes are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Security issues and the controls in place: see [SECURITY.md](SECURITY.md).
 - For the Big Bang team: [`docs/for-big-bang.md`](docs/for-big-bang.md).
