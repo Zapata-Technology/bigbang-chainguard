@@ -1,6 +1,38 @@
-# Newer-minor check: Renovate 44.97 -> 44.190 (a CronJob: deploy only, no run).
+# Newer-minor check: Renovate 44.97 -> 44.190, a CronJob: the check runs it once.
 images: {}
 test:
   enable: [renovate]
-  # A CronJob: nothing runs until its schedule, so this only checks it installs.
+  # A CronJob: nothing runs until its schedule, so the wait sees no pods.
   no_pods: true
+  check:
+    # One run of the deployed CronJob's job, on Renovate's `local` platform: a real run
+    # needs a git platform token, which a test has none of. `local` scans the working
+    # directory (an empty one here) instead of a platform's repositories, so the run needs
+    # no credentials or network yet starts Renovate, reads the chart's config file, and
+    # goes through a repository's steps. Passes when the Job completes (exit 0).
+    - |
+      kubectl -n renovate create job compat-run --from=cronjob/renovate --dry-run=client -o yaml |
+        kubectl patch --local -f - --type=json -o yaml -p '[
+          {"op": "add", "path": "/spec/backoffLimit", "value": 0},
+          {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "compat-repo", "emptyDir": {}}},
+          {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "compat-tmp", "emptyDir": {}}},
+          {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "compat-repo", "mountPath": "/compat-repo"}},
+          {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "compat-tmp", "mountPath": "/tmp"}},
+          {"op": "add", "path": "/spec/template/spec/containers/0/workingDir", "value": "/compat-repo"},
+          {"op": "add", "path": "/spec/template/spec/containers/0/env/-", "value": {"name": "RENOVATE_PLATFORM", "value": "local"}},
+          {"op": "add", "path": "/spec/template/spec/containers/0/env/-", "value": {"name": "RENOVATE_DRY_RUN", "value": "lookup"}}
+        ]' | kubectl apply -f - || exit 1
+      i=0
+      while :; do
+        ok=$(kubectl -n renovate get job compat-run -o jsonpath='{.status.succeeded}')
+        bad=$(kubectl -n renovate get job compat-run -o jsonpath='{.status.failed}')
+        [ "$ok" = 1 ] && break
+        if [ -n "$bad" ] && [ "$bad" != 0 ]; then echo "Renovate's run failed:"; kubectl -n renovate logs job/compat-run --tail=40; exit 1; fi
+        i=$((i+1))
+        if [ $i -ge 60 ]; then echo "Renovate's run did not finish in 10 minutes"; kubectl -n renovate logs job/compat-run --tail=40; exit 1; fi
+        sleep 10
+      done
+      kubectl -n renovate logs job/compat-run --tail=15
+  debug:
+    - "kubectl -n renovate get cronjob,job,pod -o wide"
+    - "kubectl -n renovate logs job/compat-run --tail=60"

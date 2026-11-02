@@ -10,6 +10,44 @@ test:
   expect: [bigbang-mattermost-operator]
   setup:
     - sh compat/support/watch.sh operator "kubectl -n mattermost-operator logs deploy/mattermost-operator --tail=30"
+  check:
+    # The operator reconciles a minimal Mattermost: zero replicas, so it creates the
+    # Deployment, Service and the rest but no pod (compat/mattermost.yaml runs a full
+    # server). The external database and file store Secrets only need to exist. Passes
+    # when the operator made the Deployment and reports the installation stable.
+    - |
+      kubectl wait crd/mattermosts.installation.mattermost.com --for=condition=Established --timeout=60s || exit 1
+      img=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/values-chainguard.yaml'))['addons']['mattermost']['values']['image']; print(v['name'], v['tag'])") || exit 1
+      set -- $img
+      kubectl create namespace compat-mm --dry-run=client -o yaml | kubectl apply -f -
+      kubectl -n compat-mm create secret generic compat-db --from-literal=DB_CONNECTION_STRING=postgres://compat:unused@compat-db.invalid:5432/mattermost --dry-run=client -o yaml | kubectl apply -f -
+      kubectl -n compat-mm create secret generic compat-fs --from-literal=accesskey=unused --from-literal=secretkey=unused --dry-run=client -o yaml | kubectl apply -f -
+      cat <<EOF | kubectl apply -f -
+      apiVersion: installation.mattermost.com/v1beta1
+      kind: Mattermost
+      metadata: {name: compat-reconcile, namespace: compat-mm}
+      spec:
+        image: $1
+        version: "$2"
+        replicas: 0
+        ingress: {enabled: false}
+        database: {external: {secret: compat-db}}
+        fileStore: {external: {url: compat-s3.invalid, bucket: compat, secret: compat-fs}}
+      EOF
+      i=0
+      until st=$(kubectl -n compat-mm get mattermost compat-reconcile -o jsonpath='{.status.state}') && [ "$st" = stable ]; do
+        i=$((i+1))
+        if [ $i -ge 30 ]; then
+          echo "Mattermost compat-reconcile is '$st' after 5 minutes"
+          kubectl -n compat-mm get mattermost compat-reconcile -o jsonpath='{.status}'; echo
+          kubectl -n mattermost-operator logs deploy/mattermost-operator --tail=20
+          exit 1
+        fi
+        sleep 10
+      done
+      kubectl -n compat-mm get deploy compat-reconcile -o name || exit 1
+      echo "Mattermost compat-reconcile: $st; $(kubectl -n compat-mm get mattermost compat-reconcile -o jsonpath='{.status}')"
   debug:
     - "kubectl -n mattermost-operator get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
     - "cat $COMPAT_OUT/watch-operator.log"
+    - "kubectl -n compat-mm get all,mattermost"
