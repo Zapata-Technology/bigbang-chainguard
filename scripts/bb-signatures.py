@@ -19,7 +19,8 @@ else, on ghcr.io/<owner>, from any repo of that owner. That registry's credentia
 in the Docker config too.
 
 Images are checked once each; tags are resolved to digests so the result is about the
-exact image a cluster would pull. They are checked in parallel (--jobs) and reported in order.
+exact image a cluster would pull. They are checked in parallel (--jobs), a failure again alone,
+and reported in order.
 """
 import argparse
 import json
@@ -77,12 +78,13 @@ def main():
 
 
 def verify_all(refs, issuer, subject, jobs):
-    """The refs that fail verify(), printing each result in refs' order. The first runs
-    alone: cosign sets up its Sigstore trust root cache on first use, and parallel first
-    uses would race on it."""
-    results = [verify(ref, issuer, subject) for ref in refs[:1]]
+    """The refs that fail verify(), printing each result in refs' order. cosign runs
+    `jobs` at a time; parallel cosigns race on their shared Sigstore cache ("trusted root
+    is required when using new bundle format"), so an image that fails is verified again
+    alone, as every image was before: that answer is the one reported."""
     with ThreadPoolExecutor(jobs) as pool:
-        results += pool.map(lambda ref: verify(ref, issuer, subject), refs[1:])
+        results = list(pool.map(lambda ref: verify(ref, issuer, subject), refs))
+    results = [r if r[0] else verify(ref, issuer, subject) for ref, r in zip(refs, results)]
     for _, line in results:
         print(line, flush=True)
     return [ref for ref, (ok, _) in zip(refs, results) if not ok]
