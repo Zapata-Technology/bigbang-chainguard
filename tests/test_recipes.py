@@ -396,3 +396,51 @@ def test_minio_builders_share_one_dockerfile():
     for program, binary in (("operator", "/minio-operator"), ("sidecar", "/minio-operator-sidecar")):
         assert program in bbminio.PROGRAMS
         assert f"FROM runtime AS {program}\nENTRYPOINT [\"{binary}\"]" in dockerfile
+
+
+gitaly_init = load_script("bb-gitaly-init-cgroups")
+
+
+def test_gitaly_init_cgroups_recipe():
+    # GitLab's CNG recipe: gitaly/Dockerfile builds the module, gitaly-init-cgroups/Dockerfile copies it.
+    init_df, gitaly_df = fixture_text("cng/gitaly-init-cgroups.Dockerfile"), fixture_text("cng/gitaly.Dockerfile")
+    assert gitaly_init.recipe(init_df, gitaly_df) == {"binary": "/setup_cgroups", "module": "tools/gitaly-init-cgroups"}
+    with pytest.raises(SystemExit):   # copied somewhere the command doesn't run
+        gitaly_init.recipe(init_df.replace('CMD ["/setup_cgroups"]', 'CMD ["/bin/setup"]'), gitaly_df)
+    with pytest.raises(SystemExit):   # CNG stops building it in the gitaly image
+        gitaly_init.recipe(init_df, gitaly_df.replace("go build -C", "make -C"))
+
+
+def test_gitaly_init_cgroups_tag():
+    assert gitaly_init.gitaly_tag("v19.4.2-ubi") == "v19.4.2"
+    assert gitaly_init.gitaly_tag("v19.4.2") == "v19.4.2"
+    with pytest.raises(SystemExit):
+        gitaly_init.gitaly_tag("19.4")
+
+
+def test_gitaly_init_cgroups_source(monkeypatch):
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz", format=tarfile.PAX_FORMAT, pax_headers={"comment": "5" * 40}) as t:
+        body = b"module gitlab.com/gitlab-org/gitaly/tools/gitaly-init-cgroups\n\ngo 1.25.0\n"
+        info = tarfile.TarInfo("gitaly-v19.4.2-tools-gitaly-init-cgroups/tools/gitaly-init-cgroups/go.mod")
+        info.size = len(body)
+        t.addfile(info, io.BytesIO(body))
+
+    def fetch(url):
+        if url.endswith("/LICENSE"):
+            assert url == "https://gitlab.com/gitlab-org/gitaly/-/raw/v19.4.2/LICENSE"
+            return b"The MIT License (MIT)\n"
+        assert url == ("https://gitlab.com/gitlab-org/gitaly/-/archive/v19.4.2/gitaly-v19.4.2.tar.gz"
+                       "?path=tools/gitaly-init-cgroups")
+        return buf.getvalue()
+    monkeypatch.setattr(gitaly_init.bbbuild, "fetch", fetch)
+    src = gitaly_init.source("v19.4.2", "tools/gitaly-init-cgroups")
+    assert src["go"] == "1.25.0" and src["commit"] == "5" * 40 and src["go_get"] == []
+    assert src["license_sha256"] == hashlib.sha256(b"The MIT License (MIT)\n").hexdigest()
+    spec = {"gitaly": src, "cng": {"binary": "/setup_cgroups"}, "user": "0:0",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    args = gitaly_init.build_args(spec, "standard")
+    assert args["GITALY_MODULE"] == "tools/gitaly-init-cgroups" and args["RUN_USER"] == "0:0"
+    assert args["BINARY"] == "/setup_cgroups" and args["GITALY_LICENSE"].endswith("/v19.4.2/LICENSE")

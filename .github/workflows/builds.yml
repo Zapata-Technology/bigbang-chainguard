@@ -10,6 +10,7 @@
 #   tempo-query       Tempo's Jaeger storage backend built from upstream's source (Go)
 #   minio-operator, minio-operator-sidecar  the MinIO Operator and its Tenant sidecar,
 #                     built from upstream's (archived) source (Go)
+#   gitaly-init-cgroups  GitLab's Gitaly cgroups init container, built from Gitaly's source (Go)
 #
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
@@ -33,6 +34,7 @@ on:
       - scripts/bb-minio-operator.py
       - scripts/bb-minio-operator-sidecar.py
       - scripts/bbminio.py
+      - scripts/bb-gitaly-init-cgroups.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -52,6 +54,7 @@ on:
       - scripts/bb-minio-operator.py
       - scripts/bb-minio-operator-sidecar.py
       - scripts/bbminio.py
+      - scripts/bb-gitaly-init-cgroups.py
       - scripts/bb-installer.py
       - scripts/bb-install.py
       - .dockerignore
@@ -77,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, installer]
+        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, gitaly-init-cgroups, installer]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
@@ -107,6 +110,7 @@ jobs:
             fulcio.sigstore.dev:443
             ghcr.io:443
             github.com:443
+            gitlab.com:443
             grype.anchore.io:443
             issuer.enforce.dev:443
             objects.githubusercontent.com:443
