@@ -39,18 +39,14 @@ raised modules and, for -fips, the FIPS build (toolchain: cgo with a FIPS crypto
 GOEXPERIMENT; native: GOFIPS140 with fips140=on by default); and for -fips that OpenSSL
 defaults to fips=yes.
 """
-import hashlib
-import io
 import os
 import re
 import subprocess
 import sys
-import tarfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bbbuild  # noqa: E402
-from orgtags import OrgTags, org_name  # noqa: E402
 
 NAME = "mattermost-operator"
 IB_IMAGE = "ironbank/opensource/mattermost/mattermost-operator"
@@ -60,21 +56,10 @@ UPSTREAM = "mattermost/mattermost-operator"
 SOURCE = "https://codeload.github.com/" + UPSTREAM + "/tar.gz/refs/tags/{tag}"
 # Modules raised past what upstream's go.mod pins: x/net v0.58.0 has GO-2026-6612 (Critical).
 GO_BUMPS = ["golang.org/x/net"]
-# Org image pairs to build in and run on, in order of preference: the first the org has.
-# The Go images carry the toolchain (go-fips: Chainguard's FIPS Go); kubectl -dev gets
-# Wolfi's Go from apk. glibc-openssl(-fips) is a minimal runtime with the FIPS OpenSSL a
-# cgo FIPS binary needs; kubectl(-fips), which every Big Bang org has, has the same libraries.
-BUILD_IMAGES = [{"standard": "go", "fips": "go-fips"}, {"standard": "kubectl", "fips": "kubectl-fips"}]
-RUNTIME_IMAGES = [{"standard": "glibc-openssl", "fips": "glibc-openssl-fips"},
-                  {"standard": "kubectl", "fips": "kubectl-fips"}]
-# Wolfi's Go, for a build image without it (the FIPS build then uses Go's own FIPS module).
-GO_PACKAGE = "go"
-# What each FIPS build records in the binary's build info.
-FIPS_BUILDS = {
-    "toolchain": [r"^build\tCGO_ENABLED=1$",
-                  r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],
-    "native": [r"^build\tCGO_ENABLED=0$", r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"],
-}
+# The org images and FIPS modes shared by the Go builders (bbbuild.GO_*).
+BUILD_IMAGES, RUNTIME_IMAGES = bbbuild.GO_BUILD_IMAGES, bbbuild.GO_RUNTIME_IMAGES
+GO_PACKAGE, FIPS_BUILDS = bbbuild.GO_PACKAGE, bbbuild.GO_FIPS_BUILDS
+go_line, first_pair, build_info = bbbuild.go_line, bbbuild.first_pair, bbbuild.build_info
 
 
 def recipe(manifest, dockerfile):
@@ -92,40 +77,13 @@ def recipe(manifest, dockerfile):
     return {"upstream": upstream, "binary": entry.group(1), "user": user.group(1)}
 
 
-def go_line(gomod):
-    m = re.search(r"^go\s+(\d+\.\d+(?:\.\d+)?)\s*$", gomod, re.M)
-    if not m:
-        raise SystemExit("upstream's go.mod has no `go` line; update go_line()")
-    return m.group(1)
-
-
 def source(tag):
     """Upstream's source tarball for `tag`: url, sha256, its go.mod's Go line, the commit."""
-    url = SOURCE.format(tag=tag)
-    data = bbbuild.fetch(url)
-    with tarfile.open(fileobj=io.BytesIO(data)) as t:
-        members = t.getmembers()
-        gomod = next((t.extractfile(m).read().decode() for m in members
-                      if m.name.count("/") == 1 and m.name.endswith("/go.mod")), None)
-        # GitHub's archives are `git archive`: the commit id is the pax comment, and every
-        # entry carries the commit time.
-        commit, when = t.pax_headers.get("comment", ""), members[0].mtime
-    if gomod is None or not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise SystemExit(f"{url} has no top-level go.mod or commit id")
-    return {"tag": tag, "source": url, "sha256": hashlib.sha256(data).hexdigest(), "go": go_line(gomod),
-            "commit": commit,
+    src = bbbuild.go_source(SOURCE.format(tag=tag))
+    return {"tag": tag, "source": src["source"], "sha256": src["sha256"], "go": src["go"], "commit": src["commit"],
             # upstream's Makefile stamps `date -u +%Y%m%d.%H%M%S`; the commit time keeps it reproducible
-            "build_time": time.strftime("%Y%m%d.%H%M%S", time.gmtime(when)),
+            "build_time": time.strftime("%Y%m%d.%H%M%S", time.gmtime(src["time"])),
             "go_get": [bbbuild.go_latest(m) for m in GO_BUMPS]}
-
-
-def first_pair(tags, pairs):
-    """The first {variant: repo} pair whose repositories the org has (both variants)."""
-    for pair in pairs:
-        if all(tags.tags(r) for r in pair.values()):
-            return pair
-    raise SystemExit(f"the org has none of {[list(p.values()) for p in pairs]}: add one pair "
-                     "(AGENTS.md, \"Add a repository to the org\")")
 
 
 def generate(a):
@@ -135,18 +93,11 @@ def generate(a):
     if ib["upstream"] != bb_tag:
         print(f"Iron Bank's recipe at {commit[:12]} copies {ib['upstream']}; Big Bang deploys {bb_tag}: building {bb_tag}")
     src = source(bb_tag)
-    tags = OrgTags(org_name(a.org))
-    build_repos, run_repos = first_pair(tags, BUILD_IMAGES), first_pair(tags, RUNTIME_IMAGES)
-    has_go = build_repos["standard"] == "go"
-    build = bbbuild.org_images(a.org, build_repos, src["go"] if has_go else "*")
-    run = bbbuild.org_images(a.org, run_repos, "*", dev=False)
+    images, repos = bbbuild.go_images(a.org, src["go"])
     spec = {
         "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
                      "commit": commit, **ib},
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": bb_tag,
-                      "dev": build[v]["dev"], "base": run[v]["base"],
-                      "go_package": "" if has_go else GO_PACKAGE,
-                      **({"fips": "toolchain" if has_go else "native"} if v == "fips" else {})}
+        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": bb_tag, **images[v]}
                   for v in ("standard", "fips")},
         "operator": src,
         "user": "65532:65532",   # distroless's nonroot:nonroot, numeric so runAsNonRoot can check it
@@ -158,8 +109,8 @@ def generate(a):
     }
     bbbuild.write_spec(NAME, spec, f"# Big Bang's mattermost-operator built from {UPSTREAM}'s source FROM the\n"
                                    "# Chainguard org's images, following Iron Bank's recipe at `ironbank.commit`.\n")
-    print(f"mattermost-operator {bb_tag} (FIPS: {spec['image']['fips']['fips']}): build in {'/'.join(build_repos.values())} -dev, run on "
-          f"{'/'.join(run_repos.values())}, go.mod Go {src['go']}, raised {' '.join(src['go_get'])}")
+    print(f"mattermost-operator {bb_tag} (FIPS: {spec['image']['fips']['fips']}): build in {'/'.join(repos['build'].values())} -dev, run on "
+          f"{'/'.join(repos['run'].values())}, go.mod Go {src['go']}, raised {' '.join(src['go_get'])}")
     return spec
 
 
@@ -174,23 +125,6 @@ def build_args(spec, variant):
 def docker(*args, check=False):
     # A timeout, so an operator that waits for a cluster instead of stopping fails the test.
     return subprocess.run(["docker", *args], capture_output=True, text=True, check=check, timeout=300)
-
-
-def file_from(image, path):
-    """The bytes of `path` in `image` (no shell needed: docker create + cp)."""
-    cid = docker("create", image, check=True).stdout.strip()
-    try:
-        out = subprocess.run(["docker", "cp", "-L", f"{cid}:{path}", "-"], capture_output=True, check=True).stdout
-        with tarfile.open(fileobj=io.BytesIO(out)) as t:
-            return t.extractfile(t.getmembers()[0]).read()
-    finally:
-        docker("rm", "-f", cid)
-
-
-def build_info(binary):
-    """The Go build info lines (path, dep, build) embedded in a binary."""
-    return sorted({m.decode(errors="replace") for m in
-                   re.findall(rb"(?:^|\n)((?:path|mod|dep|build)\t[^\n]+)", binary)})
 
 
 def smoke_test(image, variant, spec):
@@ -213,27 +147,8 @@ def smoke_test(image, variant, spec):
     print(f"  user: {user}")
     if user != spec["user"]:
         failed.append(f"user {user!r}, want {spec['user']}")
-    info = build_info(file_from(image, binary))
-    print("  build info: " + "; ".join(i.replace("\t", " ") for i in info
-                                        if i.startswith("build") or any(m.split("@")[0] in i
-                                                                        for m in spec["operator"]["go_get"])))
-    for mod in spec["operator"]["go_get"]:
-        name, version = mod.split("@")
-        if f"dep\t{name}\t{version}" not in "\n".join(info):
-            failed.append(f"{name} is not {version}")
-    settings = "\n".join(info)
-    if variant == "fips":
-        mode = spec["image"]["fips"]["fips"]
-        missing = [rx for rx in FIPS_BUILDS[mode] if not re.search(rx, settings, re.M)]
-        if missing:
-            failed.append(f"FIPS Go build ({mode}): no {', '.join(missing)}")
-        cnf = file_from(image, "/etc/ssl/openssl.cnf").decode(errors="replace")
-        if not re.search(r"^\s*(default_)?properties\s*=\s*fips=yes", cnf, re.M):
-            failed.append("openssl fips=yes")
-        else:
-            print("  openssl: fips=yes")
-    elif "build\tCGO_ENABLED=0" not in settings:
-        failed.append("static build (CGO_ENABLED=0)")
+    failed += bbbuild.go_build_problems(image, binary, variant, spec["image"][variant],
+                                       spec["operator"]["go_get"])
     if failed:
         raise SystemExit(f"{image}: failed {', '.join(failed)}")
 
