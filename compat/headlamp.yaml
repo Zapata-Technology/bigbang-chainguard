@@ -5,6 +5,17 @@ images: {}
 test:
   enable: [addons.headlamp]
   expect: [headlamp, kubectl]
+  check:
+    # Headlamp serves its UI and its config, and its backend reaches the API server: the
+    # cluster it lists answers /version through Headlamp's own proxy.
+    - |
+      set -e
+      base=/api/v1/namespaces/headlamp/services/headlamp-headlamp:4466/proxy
+      kubectl get --raw "$base/" | grep -i '<title>headlamp'
+      cfg=$(kubectl get --raw "$base/config")
+      echo "$cfg" | head -c 400; echo
+      cluster=$(echo "$cfg" | sed -n 's/.*"clusters":\[{"name":"\([^"]*\)".*/\1/p')
+      kubectl get --raw "$base/clusters/${cluster:-main}/version" | grep gitVersion
   debug:
     - "kubectl -n headlamp get pod -o custom-columns=POD:.metadata.name,PULLSECRETS:.spec.imagePullSecrets[*].name,IMAGES:.spec.containers[*].image,COMMAND:.spec.containers[0].command"
     - "kubectl -n headlamp get secret private-registry -o custom-columns=CREATED:.metadata.creationTimestamp"
