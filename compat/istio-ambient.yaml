@@ -3,3 +3,57 @@ images: {}
 test:
   enable: [istioCRDs, istiod, istioCNI, ztunnel]
   expect: [istio-install-cni, ztunnel]
+  check:
+    # Traffic between two ambient pods goes through ztunnel: an nginx and a kubectl -dev pod from
+    # the org (pull secret: istio-system's private-registry) opt in with the pod label, the CNI
+    # agent marks them redirected, an HTTP request between them gets its answer, and
+    # ztunnel logs the connection to the server.
+    - |
+      set -e
+      suffix=; [ -n "$COMPAT_FIPS" ] && suffix=-fips
+      dir="$COMPAT_OUT/overlays"; [ -d "$dir" ] || dir=overlays
+      client=$(grep -ohE "cgr\.dev/[a-z0-9._-]+/kubectl$suffix:[0-9][0-9.]*-dev" "$dir"/*.yaml | sort -u | tail -1)
+      nginx=$(grep -h -A1 -E "repository: cgr\.dev/[a-z0-9._-]+/nginx$suffix\$" "$dir"/*.yaml | sed -n 's/^ *repository: //p; s/^ *tag: /:/p' | head -2 | tr -d '\n')
+      echo "client $client, server $nginx"
+      case "$client $nginx" in *:*" "*:*) ;; *) echo "no kubectl$suffix -dev or nginx$suffix image in the overlays"; exit 1;; esac
+      kubectl -n istio-system get secret private-registry -o name
+      for role in server client; do
+        # The org's nginx serves its default page on 8080. The org's busybox has neither httpd
+        # nor wget, so the client is kubectl: get --raw against --server is a plain HTTP GET.
+        if [ $role = server ]; then img=$nginx; cmd=; else img=$client; cmd='command: [sleep, "3600"]'; fi
+        kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: compat-amb-$role
+        namespace: istio-system
+        labels: {app: compat-amb-$role, istio.io/dataplane-mode: ambient}
+      spec:
+        automountServiceAccountToken: false
+        imagePullSecrets: [{name: private-registry}]
+        containers:
+          - name: main
+            image: $img
+            $cmd
+      EOF
+      done
+      kubectl -n istio-system wait pod/compat-amb-server pod/compat-amb-client --for=condition=Ready --timeout=300s
+      for role in server client; do
+        r=$(kubectl -n istio-system get pod compat-amb-$role -o jsonpath='{.metadata.annotations.ambient\.istio\.io/redirection}')
+        echo "compat-amb-$role redirection: $r"
+        [ "$r" = enabled ] || { echo "the CNI agent did not enrol compat-amb-$role in ambient"; exit 1; }
+      done
+      ip=$(kubectl -n istio-system get pod compat-amb-server -o jsonpath='{.status.podIP}')
+      reply=$(kubectl -n istio-system exec compat-amb-client -- kubectl --server="http://$ip:8080" --request-timeout=10s get --raw /)
+      echo "client -> $ip:8080: $(echo "$reply" | grep -i '<title>')"
+      echo "$reply" | grep -qi 'welcome to nginx'
+      i=0
+      until kubectl -n istio-system logs -l app=ztunnel -c istio-proxy --tail=-1 --prefix | grep 'connection complete' | grep -e compat-amb-server -e "$ip:8080" >"$COMPAT_OUT/ztunnel-access.txt"; do
+        i=$((i+1)); [ $i -lt 12 ] || { echo "ztunnel logged no connection to compat-amb-server"; exit 1; }
+        sleep 5
+      done
+      head -3 "$COMPAT_OUT/ztunnel-access.txt"
+  debug:
+    - kubectl -n istio-system get pod -o wide
+    - kubectl -n istio-system describe pod compat-amb-server compat-amb-client | tail -40
+    - kubectl -n istio-system logs -l app=ztunnel -c istio-proxy --tail=20 --prefix

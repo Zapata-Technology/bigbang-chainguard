@@ -1,8 +1,26 @@
-# Istio's egress gateway (Big Bang istioEgressGateway) beside istiod: the gateway's proxy
-# and its wait job on the org's images.
+# Istio's egress gateway (Big Bang istioEgressGateway): a shared egress waypoint that
+# istiod deploys on the org's istio-proxy. Big Bang renders it only in ambient mode, so
+# the test turns on the ambient data plane (CNI and ztunnel); without them the release
+# didn't exist and the test passed with nothing exercised.
 images: {}
 test:
-  enable: [istioCRDs, istiod, istioEgressGateway]
+  enable: [istioCRDs, istiod, istioCNI, ztunnel, istioEgressGateway]
   expect: [istio-proxy]
+  check:
+    # istiod programmed the waypoint Gateway, and its proxy is ready and holds the
+    # configuration istiod pushed (CDS and LDS updates, and the server LIVE).
+    - |
+      set -e
+      kubectl -n istio-egress wait gateway.gateway.networking.k8s.io/egress-waypoint --for=condition=Programmed --timeout=300s
+      p=$(kubectl -n istio-egress get pod -l gateway.networking.k8s.io/gateway-name=egress-waypoint -o jsonpath='{.items[0].metadata.name}')
+      echo "waypoint pod $p"
+      kubectl get --raw "/api/v1/namespaces/istio-egress/pods/$p:15021/proxy/healthz/ready"
+      echo "/healthz/ready: OK"
+      kubectl get --raw "/api/v1/namespaces/istio-egress/pods/$p:15020/proxy/stats/prometheus" > "$COMPAT_OUT/waypoint-stats.txt"
+      grep -E '^envoy_(server_state|cluster_manager_cds_update_success|listener_manager_lds_update_success)' "$COMPAT_OUT/waypoint-stats.txt"
+      grep -qE '^envoy_server_state(\{[^}]*\})? 0$' "$COMPAT_OUT/waypoint-stats.txt"
+      grep -qE '^envoy_cluster_manager_cds_update_success(\{[^}]*\})? [1-9]' "$COMPAT_OUT/waypoint-stats.txt"
+      grep -qE '^envoy_listener_manager_lds_update_success(\{[^}]*\})? [1-9]' "$COMPAT_OUT/waypoint-stats.txt"
   debug:
     - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image"
+    - kubectl -n istio-egress get gateway -o yaml | tail -30

@@ -5,6 +5,24 @@ test:
   # istioGateway: Big Bang lists the gateways in Kiali's CR; with none it is invalid.
   enable: [istioCRDs, istiod, istioGateway, kiali]
   expect: [kiali, istio-proxy]
+  check:
+    # Kiali's status API (the part its token login doesn't guard) says it is running, has
+    # the Istio API, and reached the API server (its version). Through a port-forward,
+    # which enters the pod's network namespace behind its sidecar: the API server's proxy
+    # would be refused by the namespace's STRICT mTLS.
+    - |
+      kubectl -n kiali port-forward svc/kiali 20001:20001 > "$COMPAT_OUT/kiali-pf.log" 2>&1 &
+      pf=$!
+      trap 'kill $pf' EXIT
+      i=0
+      until reply=$(curl -sf http://127.0.0.1:20001/kiali/api || curl -sf http://127.0.0.1:20001/api); do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "no answer from Kiali: $(cat "$COMPAT_OUT/kiali-pf.log")"; exit 1; }
+        sleep 5
+      done
+      echo "$reply" | head -c 800; echo
+      echo "$reply" | grep -q '"Kiali state": *"running"' || { echo "Kiali is not running"; exit 1; }
+      echo "$reply" | grep -q '"istioAPIEnabled": *true' || { echo "Kiali has no Istio API"; exit 1; }
+      echo "$reply" | grep -A1 '"name": *"Kubernetes' | grep -q '"version": *"v1\.' || { echo "Kiali did not reach the API server"; exit 1; }
   debug:
     - "kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath='{.data.values}' | python3 -c \"import json,sys; g=json.load(sys.stdin)['global']; print('hub', g.get('hub'), 'tag', g.get('tag'), 'proxy.image', g.get('proxy', {}).get('image'))\""
     - "kubectl get pods -A -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image"
