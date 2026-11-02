@@ -1,6 +1,37 @@
 # Newer-minor check: policy-reporter 3.10 -> 3.11, UI 2.8 -> 2.9, kyverno plugin 0.6 -> 0.7
-# (needs Kyverno).
+# (needs Kyverno). Big Bang's policies are on so Kyverno writes PolicyReports for the
+# reporter to read.
 images: {}
 test:
-  enable: [kyverno, kyvernoReporter]
+  enable: [kyverno, kyvernoPolicies, kyvernoReporter]
   expect: [kyverno-policy-reporter, kyverno-policy-reporter-ui, kyverno-policy-reporter-plugin-kyverno]
+  values:
+    # The preconditions.all: null trap (compat/kyverno-enforce.yaml): exclude a container
+    # name nothing uses.
+    kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
+  check:
+    # Kyverno reports on the running pods, policy-reporter has read those reports (its
+    # API lists Kyverno as a source), and the UI serves its page.
+    - |
+      i=0
+      until [ "$(kubectl get policyreport -A --no-headers 2>/dev/null | wc -l)" -gt 0 ]; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "no PolicyReports after 10 minutes"; exit 1; }
+        sleep 20
+      done
+      kubectl get policyreport -A | head -5
+    - |
+      names=$(kubectl -n kyverno-reporter get svc -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+      echo "services:" $names
+      core=$(echo "$names" | grep -v -e ui -e plugin -e monitor | head -1)
+      ui=$(echo "$names" | grep -e '-ui$' | head -1)
+      base=/api/v1/namespaces/kyverno-reporter/services
+      i=0
+      until reply=$(kubectl get --raw "$base/$core:8080/proxy/v2/sources" 2>&1) && echo "$reply" | grep -qi kyverno; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "policy-reporter $core lists no kyverno source: $reply"; exit 1; }
+        sleep 20
+      done
+      echo "$core /v2/sources: $(echo "$reply" | head -c 300)"
+      kubectl get --raw "$base/$ui:8080/proxy/" | grep -i '<title>'
+  debug:
+    - kubectl -n kyverno-reporter get svc,pod -o wide
+    - kubectl get policyreport,clusterpolicyreport -A | head -20
