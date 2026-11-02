@@ -57,3 +57,12 @@ def test_cancelled_and_timed_out_jobs_count_as_failed(monkeypatch):
     monkeypatch.setattr(triage, "gh", lambda *a, **k: json.dumps(checks if a[:2] == ("pr", "checks") else jobs))
     assert triage.failed_jobs(pr=5) == [("mimir (standard)", "1", "11"), ("loki (fips)", "1", "12")]
     assert triage.failed_jobs(run=7) == [("a", "7", "21")]
+
+
+def test_a_go_proxy_stream_error_and_a_sigstore_conflict_are_flakes():
+    go = ('#13 399.1 pkg/x.go:11:2: github.com/kudobuilder/kuttl@v0.25.0: read '
+          '"https://proxy.golang.org/github.com/kudobuilder/kuttl/@v/v0.25.0.zip": stream error: stream ID 1; INTERNAL_ERROR')
+    assert triage.classify([go]) == "the Go module proxy dropped a download"
+    rekor = ('Error: signing ghcr.io/x/y@sha256:1: signing bundle: error signing bundle: '
+             '[POST /api/v1/log/entries][409] createLogEntryConflict {"code":409}')
+    assert triage.classify([rekor]) == "Sigstore's log timed out (duplicate entry on retry)"

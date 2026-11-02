@@ -279,6 +279,9 @@ builds on the PR and pushes on merge.
 - **Big Bang's `istioEgressGateway` renders only in ambient mode** (`istioCNI`, `ztunnel`).
 - **The log keeper polls every 30 s**: a pod that lives less (cert-manager's
   startupapicheck, Helm wait jobs) may leave no log in the artifact.
+- **Sigstore's log can answer late**: Rekor stores the entry, cosign times out, and its own
+  retry gets `409 createLogEntryConflict`. `builds.yml` re-runs cosign (new ephemeral keys,
+  a new entry); `ci-triage.py` calls it a flake, as it does a Go proxy `stream error`.
 - **Parallel `cosign verify` races on its Sigstore cache** ("trusted root is required"):
   `bb-signatures.py --jobs` verifies a failed image again alone before reporting it.
 - **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when

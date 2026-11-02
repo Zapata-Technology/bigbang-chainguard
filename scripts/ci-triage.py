@@ -30,6 +30,11 @@ FLAKES = [
     (re.compile(r"(toomanyrequests|rate limit exceeded|secondary rate limit)", re.I), "a rate limit"),
     (re.compile(r"(curl: \(22\) The requested URL returned error: 5\d\d|HTTP/[\d.]+ 50[234])", re.I),
      "a download's server answered 5xx"),
+    # A module download the Go proxy cut off mid-stream during a build.
+    (re.compile(r'read "https://proxy\.golang\.org/[^"]+": stream error', re.I),
+     "the Go module proxy dropped a download"),
+    # Rekor stored the entry, cosign's request timed out, and its retry was refused as a duplicate.
+    (re.compile(r"createLogEntryConflict", re.I), "Sigstore's log timed out (duplicate entry on retry)"),
 ]
 # Lines worth showing from a kind test's compat.log.
 EVIDENCE = re.compile(r"^(RESULT|PROBLEM|EXITED|CHECK FAILED|FORBIDDEN LOG|IMAGE POLICY|NOT EXERCISED)"

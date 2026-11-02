@@ -165,7 +165,7 @@ jobs:
             rc=${PIPESTATUS[0]}
             set -e
             [ "$rc" = 0 ] && break
-            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)|curl: \(22\) The requested URL returned error: 5[0-9][0-9]" \
+            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)|curl: \(22\) The requested URL returned error: 5[0-9][0-9]|proxy\.golang\.org/[^ ]*: stream error" \
                 "${RUNNER_TEMP}/build.log"; then
               exit "$rc"
             fi
@@ -244,6 +244,17 @@ jobs:
               sleep 30
             done
           }
+          # Sigstore's log (Rekor) sometimes stores an entry but answers too late; cosign's
+          # own retry is then refused as a duplicate (409 createLogEntryConflict). A fresh
+          # cosign run makes new ephemeral keys, so a new entry, and goes through.
+          sigstore() {
+            for try in 1 2 3; do
+              cosign "$@" && return 0
+              [ "$try" = 3 ] && return 1
+              echo "::warning::cosign $1 failed; trying again in 20s"
+              sleep 20
+            done
+          }
           while read -r image; do
             [ -n "$image" ] || continue
             if [ -n "$SIGN" ]; then
@@ -252,8 +263,8 @@ jobs:
               push "$staging"
               digest="${image%:*}@$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$staging" \
                 | grep -m1 "^${image%:*}@" | cut -d@ -f2)"
-              cosign sign --yes "$digest"
-              cosign sign --yes --new-bundle-format=false --use-signing-config=false "$digest"
+              sigstore sign --yes "$digest"
+              sigstore sign --yes --new-bundle-format=false --use-signing-config=false "$digest"
             fi
             push "$image"
             docker inspect --format '{{index .RepoDigests 0}}' "$image" >> "${RUNNER_TEMP}/pushed.txt"
@@ -272,11 +283,19 @@ jobs:
         env:
           SYFT: ${{ steps.syft.outputs.cmd }}
         run: |
+          sigstore() {   # as in the push step: retry a late answer from Sigstore's log
+            for try in 1 2 3; do
+              cosign "$@" && return 0
+              [ "$try" = 3 ] && return 1
+              echo "::warning::cosign $1 failed; trying again in 20s"
+              sleep 20
+            done
+          }
           while read -r image; do
             [ -n "$image" ] || continue
             "$SYFT" "$image" -o spdx-json="${RUNNER_TEMP}/sbom.spdx.json"
             python3 scripts/bb-provenance.py "${{ matrix.name }}" "$image" -o "${RUNNER_TEMP}/provenance.json"
-            cosign attest --yes --type spdxjson --predicate "${RUNNER_TEMP}/sbom.spdx.json" "$image"
-            cosign attest --yes --type slsaprovenance1 --predicate "${RUNNER_TEMP}/provenance.json" "$image"
+            sigstore attest --yes --type spdxjson --predicate "${RUNNER_TEMP}/sbom.spdx.json" "$image"
+            sigstore attest --yes --type slsaprovenance1 --predicate "${RUNNER_TEMP}/provenance.json" "$image"
             echo "signed $image (SBOM, provenance)" >> "$GITHUB_STEP_SUMMARY"
           done < "${RUNNER_TEMP}/pushed.txt"
