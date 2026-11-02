@@ -114,6 +114,7 @@ jobs:
 
       - name: Boot a FIPS-mode VM with k3s
         id: vm
+        timeout-minutes: 25   # two boots and k3s take ~3 minutes; a hang shouldn't eat the job
         run: |
           bash .github/fips-vm.sh boot
           echo "KUBECONFIG=$RUNNER_TEMP/fips-vm/kubeconfig" >> "$GITHUB_ENV"

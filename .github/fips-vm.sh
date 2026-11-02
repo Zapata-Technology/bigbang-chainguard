@@ -110,8 +110,11 @@ EOF
     INSTALL_K3S_SKIP_SELINUX_RPM=true INSTALL_K3S_SELINUX_WARN=true \
     INSTALL_K3S_EXEC="server --disable=traefik --disable=servicelb --disable=metrics-server" \
     sh k3s-install.sh'
-  vm 'until sudo k3s kubectl get node >/dev/null 2>&1; do sleep 3; done'
-  vm sudo k3s kubectl wait --for=condition=Ready node --all --timeout=300s
+  # The full path: RHEL's sudo resets PATH to secure_path, which has no /usr/local/bin, so
+  # `sudo k3s` was "command not found" and an unbounded wait hung the job for an hour.
+  vm 'for i in $(seq 100); do sudo /usr/local/bin/k3s kubectl get node >/dev/null 2>&1 && exit 0; sleep 3; done
+      echo "k3s API not up in 300 s" >&2; sudo journalctl -u k3s --no-pager | tail -40 >&2; exit 1'
+  vm sudo /usr/local/bin/k3s kubectl wait --for=condition=Ready node --all --timeout=300s
   # The kubeconfig names https://127.0.0.1:6443, which the port forward above serves.
   vm sudo cat /etc/rancher/k3s/k3s.yaml > kubeconfig
   chmod 600 kubeconfig
