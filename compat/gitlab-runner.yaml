@@ -19,10 +19,16 @@ test:
         flux:
           timeout: 40m
         values:
+          # The runner only needs GitLab's API to register. With Kyverno and the runner beside
+          # GitLab, the 7 GB runner ran out of memory in FIPS mode (webservice OOMKilled, its
+          # node under MemoryPressure; the same webservice passes in gitlab.yaml): leave out
+          # the container registry, KAS and the metrics exporter here. gitlab.yaml runs them.
+          global:
+            kas: {enabled: false}
+            registry: {enabled: false}
           upstream:
             registry:
-              hpa: {minReplicas: 1, maxReplicas: 1}
-              resources: {requests: {cpu: 50m, memory: 128Mi}}
+              enabled: false
             gitlab:
               toolbox:
                 resources: {requests: {cpu: 50m, memory: 256Mi}}
@@ -47,12 +53,8 @@ test:
                 minReplicas: 1
                 maxReplicas: 1
                 resources: {requests: {cpu: 50m, memory: 64Mi}}
-              kas:
-                minReplicas: 1
-                maxReplicas: 1
-                resources: {requests: {cpu: 50m, memory: 128Mi}}
               gitlab-exporter:
-                resources: {requests: {cpu: 50m, memory: 64Mi}}
+                enabled: false
   setup:
     - python3 compat/support/seaweedfs.py gitlab
     # GitLab's chart needs an external PostgreSQL and Redis since v10.
