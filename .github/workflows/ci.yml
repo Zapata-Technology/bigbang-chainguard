@@ -94,10 +94,31 @@ jobs:
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
+      # Big Bang and its package charts change only with BIGBANG_VERSION (each package is
+      # pinned to a tag in Big Bang's values): fetch them from repo1.dso.mil once per
+      # version, so a repo1 outage doesn't fail every pull request.
+      - id: work-key
+        run: echo "key=bigbang-work-$(cat BIGBANG_VERSION)-${{ hashFiles('scripts/bb-fetch.py') }}" >> "$GITHUB_OUTPUT"
+      - id: work-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            work/bigbang
+            work/pkgs
+          key: ${{ steps.work-key.outputs.key }}
+
       - name: Fetch Big Bang and its packages
         run: |
           python3 -m pip install --quiet pyyaml
-          python3 scripts/bb-fetch.py
+          if [ "${{ steps.work-cache.outputs.cache-hit }}" != true ]; then python3 scripts/bb-fetch.py; fi
+
+      - if: steps.work-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            work/bigbang
+            work/pkgs
+          key: ${{ steps.work-key.outputs.key }}
 
       - name: Discovery is current
         run: |
