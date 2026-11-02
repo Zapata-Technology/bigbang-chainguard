@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py<br/>bb-minio-operator(-sidecar).py]
+    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py<br/>bb-minio-operator(-sidecar).py<br/>bb-gitaly-init-cgroups.py]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -126,6 +126,7 @@ refuses a new package's first push now and then). The provenance record
 | `bigbang-mattermost-operator` | `opensource/mattermost/mattermost-operator` (built from upstream's source) | `go(-fips)-dev` or `kubectl(-fips)-dev`, onto `glibc-openssl(-fips)` or `kubectl(-fips)` |
 | `bigbang-tempo-query` | `opensource/grafana/tempo-query` (built from upstream's source) | as the Mattermost Operator |
 | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` | `opensource/minio/operator`, `operator-sidecar` (archived; built from upstream's archived source) | as the Mattermost Operator |
+| `bigbang-gitaly-init-cgroups` | none: GitLab's CNG `gitaly-init-cgroups` (built from Gitaly's source as CNG builds it) | as the Mattermost Operator |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 The Go builds (the Mattermost Operator, tempo-query, the MinIO Operator) use the `go`/`glibc-openssl` images when the org has them. Without

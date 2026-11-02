@@ -223,8 +223,11 @@ images:
   gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-webservice-ee}
   gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-workhorse-ee}
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
+  # No Chainguard gitaly-init-cgroups image (Gitaly's cgroups init container, off by
+  # default): scripts/bb-gitaly-init-cgroups.py builds it from Gitaly's source as GitLab's
+  # CNG does, FROM the org's images; with BUILD_REGISTRY empty it stays on registry1.
+  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {build: gitaly-init-cgroups}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
-  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {stays: "no Chainguard image (Gitaly's cgroups init container)"}
   gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)", until: gitlab-zoekt}
   gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab's own OpenBao build; Chainguard's openbao is upstream's"}
   gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway: {stays: "GitLab AI gateway; GitLab-built only"}

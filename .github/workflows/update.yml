@@ -55,6 +55,7 @@ jobs:
             get.helm.sh:443
             ghcr.io:443
             github.com:443
+            gitlab.com:443
             issuer.enforce.dev:443
             objects.githubusercontent.com:443
             pipelines.actions.githubusercontent.com:443
@@ -123,12 +124,12 @@ jobs:
             if [ -n "$BUILD_REGISTRY" ]; then
               out="${RUNNER_TEMP}/builders"; mkdir -p "$out"
               start=$(date +%s)
-              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar; do
+              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
                 ( s=$(date +%s); python3 "scripts/bb-$b.py" > "$out/$b.log" 2>&1 || true
                   echo "bb-$b.py: $(( $(date +%s) - s )) s" >> "$out/$b.log" ) &
               done
               wait
-              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar; do
+              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
                 cat "$out/$b.log"
               done
               echo "builders (in parallel): $(( $(date +%s) - start )) s"
