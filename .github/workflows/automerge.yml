@@ -74,7 +74,9 @@ jobs:
           if gh pr diff "$pr" --name-only | grep -qx BIGBANG_VERSION; then
             echo "#$pr moves to a new Big Bang release: left for a person to merge"; exit 0
           fi
-          if [ "$CONCLUSION" = failure ] && [ "$ATTEMPT" = 1 ]; then
+          # A kind test cut off by its time limit (repo1.dso.mil) ends the run as cancelled.
+          if { [ "$CONCLUSION" = failure ] || [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = timed_out ]; } \
+              && [ "$ATTEMPT" = 1 ]; then
             echo "run $RUN failed on its first attempt: re-running its failed jobs once"
             gh run rerun "$RUN" --failed
             exit 0

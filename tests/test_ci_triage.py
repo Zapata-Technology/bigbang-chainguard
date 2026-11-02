@@ -1,4 +1,6 @@
 """ci-triage.py: telling a known flake from a real failure, from lines CI printed."""
+import json
+
 from conftest import load_script
 
 triage = load_script("ci-triage")
@@ -44,3 +46,14 @@ def test_a_download_server_error_during_a_build_is_a_flake():
            "build (grafana-plugins)\tUNKNOWN STEP\t2026-11-02T03:48:38.6Z ERROR: failed to build: failed to solve\n"
            "build (grafana-plugins)\tUNKNOWN STEP\t2026-11-02T03:48:38.7Z ##[error]Process completed with exit code 1.\n")
     assert triage.classify(triage.errors(log)) == "a download's server answered 5xx"
+
+
+def test_cancelled_and_timed_out_jobs_count_as_failed(monkeypatch):
+    checks = [{"name": "mimir (standard)", "bucket": "cancel", "link": "https://x/actions/runs/1/job/11"},
+              {"name": "loki (fips)", "bucket": "fail", "link": "https://x/actions/runs/1/job/12"},
+              {"name": "alloy (fips)", "bucket": "pass", "link": "https://x/actions/runs/1/job/13"}]
+    jobs = {"jobs": [{"name": "a", "databaseId": 21, "conclusion": "timed_out"},
+                     {"name": "b", "databaseId": 22, "conclusion": "success"}]}
+    monkeypatch.setattr(triage, "gh", lambda *a, **k: json.dumps(checks if a[:2] == ("pr", "checks") else jobs))
+    assert triage.failed_jobs(pr=5) == [("mimir (standard)", "1", "11"), ("loki (fips)", "1", "12")]
+    assert triage.failed_jobs(run=7) == [("a", "7", "21")]
