@@ -19,11 +19,12 @@ import re
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import chart_defaults, deep_merge, image_nodes  # noqa: E402
+from bbcommon import BASE_LOADER, SAFE_LOADER, chart_defaults, deep_merge, image_nodes, safe_load  # noqa: E402
 
 KUBE_VERSION = "1.34.0"
 # CRD-gated templates (ServiceMonitor, VirtualService, Kiali CR, ...) only render
@@ -111,7 +112,7 @@ def _collect(node, found):
             inner = json.loads(node)
         except ValueError:
             try:
-                inner = yaml.load(node, Loader=yaml.BaseLoader)
+                inner = yaml.load(node, Loader=BASE_LOADER)
             except yaml.YAMLError:
                 return
         if isinstance(inner, (dict, list)):
@@ -123,7 +124,7 @@ def images_in(text):
     registry/repository/tag blocks in CRs, Kiali's image_name, image refs in
     container args, and the same inside JSON/YAML embedded in ConfigMaps."""
     found = set()
-    for doc in yaml.load_all(text, Loader=yaml.BaseLoader):  # BaseLoader: CRDs use odd tags like "="
+    for doc in yaml.load_all(text, Loader=BASE_LOADER):  # BaseLoader: CRDs use odd tags like "="
         if doc:
             _collect(doc, found)
     return {f.strip('"') for f in found}
@@ -149,7 +150,7 @@ def bigbang_releases(bigbang, extra_values):
     rc, out, err = helm_template(os.path.join(bigbang, "chart"), values, "bigbang", "bigbang")
     if rc:
         sys.exit(f"Big Bang render failed:\n{err}")
-    docs = [d for d in yaml.safe_load_all(out) if d]
+    docs = [d for d in yaml.load_all(out, Loader=SAFE_LOADER) if d]
     secrets = {d["metadata"]["name"]: d.get("stringData", {}) for d in docs if d["kind"] == "Secret"}
     repos = {d["metadata"]["name"]: d["spec"]["url"] for d in docs if d["kind"] == "GitRepository"}
     for hr in (d for d in docs if d["kind"] == "HelmRelease"):
@@ -159,7 +160,7 @@ def bigbang_releases(bigbang, extra_values):
         for vf in spec.get("valuesFrom", []):
             raw = secrets.get(vf["name"], {}).get(vf.get("valuesKey", "values.yaml"))
             if raw:
-                deep_merge(merged, yaml.safe_load(raw) or {})
+                deep_merge(merged, safe_load(raw) or {})
         deep_merge(merged, spec.get("values") or {})
         renames = {}
         for pr in spec.get("postRenderers") or []:
@@ -222,54 +223,62 @@ def main():
     else:
         flux = flux_images(a.bigbang)
     result["packages"]["flux"] = {"key": "flux", "rendered": flux, "values": []}
-    for r in bigbang_releases(a.bigbang, a.values):
-        d = by_repo.get(r["repo"].rstrip("/").removesuffix(".git"))
-        if not d:
-            result["errors"][r["release"]] = f"no clone for {r['repo']}"
-            continue
-        chart = os.path.join(d, r["path"])
-        rc, out, err = render_package(chart, r["values"], r["release"], r["namespace"])
-        if rc:
-            result["errors"][r["release"]] = err.strip().splitlines()[-1] if err.strip() else "render failed"
-            continue
-        merged = deep_merge(chart_defaults(chart), r["values"])
-        nodes = []
-        for path, shape, node in image_nodes(merged):
-            if shape == "registry":
-                entry = {"path": list(path), "shape": shape, "value": node}
-            elif shape == "string":
-                entry = {"path": list(path), "shape": shape, "value": node}
-                parent = _get(merged, path[:-1])
-                if ":" not in node.split("/")[-1] and isinstance(parent, dict):
-                    # tag kept in a sibling key (Kiali repo/tag, Kiali CR image_version, Mattermost version)
-                    key = str(path[-1])
-                    pre = key[:-len("Repository")] if key.endswith("Repository") else None
-                    keys = ([pre + "Release", pre + "Tag"] if pre else []) + ["tag", "image_version", "version"]
-                    for k in keys:
-                        if isinstance(parent.get(k), (str, int, float)) and str(parent.get(k)):
-                            entry["tag_key"], entry["tag"] = k, str(parent[k])
-                            break
+    # Each package renders on its own (helm template, then parsing its output): in
+    # parallel, ~2x faster. Results are taken in Big Bang's order, as a loop would.
+    with ThreadPoolExecutor(8) as pool:
+        for release, info, error in pool.map(lambda r: package(r, by_repo), bigbang_releases(a.bigbang, a.values)):
+            if error:
+                result["errors"][release] = error
             else:
-                entry = {"path": list(path), "shape": shape,
-                         "value": {k: str(node[k]) for k in ("registry", "repository", "hub", "image", "tag", "release", "digest")
-                                   if isinstance(node.get(k), (str, int, float))}}
-            ints = [i for i, x in enumerate(path) if isinstance(x, int)]
-            if ints:
-                # Helm replaces lists wholesale: the overlay has to carry the whole list.
-                entry["list_path"] = list(path[:ints[0]])
-                entry["list_value"] = _get(merged, path[:ints[0]])
-            nodes.append(entry)
-        rendered = set()
-        for ref in images_in(out):
-            name, _, tag = ref.rpartition(":") if ":" in ref.rsplit("/", 1)[-1] else (ref, "", "")
-            rendered.add(kustomize_image(name, tag, r["renames"].get(name)) or ref)
-        result["packages"][r["release"]] = {"key": os.path.basename(d), "rendered": sorted(rendered),
-                                            "values": nodes}
+                result["packages"][release] = info
     text = json.dumps(result, indent=2, sort_keys=True)
     if a.output:
         open(a.output, "w", newline="\n").write(text + "\n")
     else:
         print(text)
+
+
+def package(r, by_repo):
+    """(release, discovery entry, None), or (release, None, error) when it can't render."""
+    d = by_repo.get(r["repo"].rstrip("/").removesuffix(".git"))
+    if not d:
+        return r["release"], None, f"no clone for {r['repo']}"
+    chart = os.path.join(d, r["path"])
+    rc, out, err = render_package(chart, r["values"], r["release"], r["namespace"])
+    if rc:
+        return r["release"], None, err.strip().splitlines()[-1] if err.strip() else "render failed"
+    merged = deep_merge(chart_defaults(chart), r["values"])
+    nodes = []
+    for path, shape, node in image_nodes(merged):
+        if shape == "registry":
+            entry = {"path": list(path), "shape": shape, "value": node}
+        elif shape == "string":
+            entry = {"path": list(path), "shape": shape, "value": node}
+            parent = _get(merged, path[:-1])
+            if ":" not in node.split("/")[-1] and isinstance(parent, dict):
+                # tag kept in a sibling key (Kiali repo/tag, Kiali CR image_version, Mattermost version)
+                key = str(path[-1])
+                pre = key[:-len("Repository")] if key.endswith("Repository") else None
+                keys = ([pre + "Release", pre + "Tag"] if pre else []) + ["tag", "image_version", "version"]
+                for k in keys:
+                    if isinstance(parent.get(k), (str, int, float)) and str(parent.get(k)):
+                        entry["tag_key"], entry["tag"] = k, str(parent[k])
+                        break
+        else:
+            entry = {"path": list(path), "shape": shape,
+                     "value": {k: str(node[k]) for k in ("registry", "repository", "hub", "image", "tag", "release", "digest")
+                               if isinstance(node.get(k), (str, int, float))}}
+        ints = [i for i, x in enumerate(path) if isinstance(x, int)]
+        if ints:
+            # Helm replaces lists wholesale: the overlay has to carry the whole list.
+            entry["list_path"] = list(path[:ints[0]])
+            entry["list_value"] = _get(merged, path[:ints[0]])
+        nodes.append(entry)
+    rendered = set()
+    for ref in images_in(out):
+        name, _, tag = ref.rpartition(":") if ":" in ref.rsplit("/", 1)[-1] else (ref, "", "")
+        rendered.add(kustomize_image(name, tag, r["renames"].get(name)) or ref)
+    return r["release"], {"key": os.path.basename(d), "rendered": sorted(rendered), "values": nodes}, None
 
 
 if __name__ == "__main__":

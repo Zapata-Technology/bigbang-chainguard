@@ -121,3 +121,31 @@ def test_fips_mode_needs_fips_images_except_documented_ones():
             "ghcr.io/me/bigbang-base:2"]
     probs = bbcommon.running_image_problems(imgs, "me.example", "ghcr.io/me", MAP, fips=True)
     assert probs == ["cgr.dev/me.example/app:1: not a FIPS image", "ghcr.io/me/bigbang-base:2: not a FIPS image"]
+
+
+# YAML that libyaml and PyYAML's Python loaders could read differently: YAML 1.1 booleans,
+# octal- and float-looking values, timestamps, anchors, block text, a CRD's `=` in a rule.
+TRICKY_YAML = """\
+a: yes
+b: 0777
+c: 1e3
+d: 2026-11-02
+e: &x {k: [1, "2", ~]}
+f: *x
+g: |
+  line one
+    indented
+h: '010'
+i: .inf
+---
+kind: CustomResourceDefinition
+x-kubernetes-validations: [{rule: "self.a = self.b"}]
+"""
+
+
+def test_libyaml_loaders_read_what_the_python_ones_read():
+    import yaml
+    first = TRICKY_YAML.split("---")[0]
+    assert bbcommon.safe_load(first) == yaml.safe_load(first)
+    assert list(yaml.load_all(TRICKY_YAML, Loader=bbcommon.BASE_LOADER)) == \
+        list(yaml.load_all(TRICKY_YAML, Loader=yaml.BaseLoader))
