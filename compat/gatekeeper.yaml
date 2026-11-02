@@ -3,3 +3,29 @@ images: {}
 test:
   enable: [gatekeeper]
   expect: [gatekeeper]
+  check:
+    # Big Bang's constraints are enforced (server dry-run, nothing created): a Pod from a
+    # registry outside allowed-docker-registries is refused, one on an org image (the
+    # running controller's) is admitted, and the audit has run over the cluster.
+    - |
+      set -e
+      bad=docker.io/library/busybox:1.36
+      i=0
+      until ! kubectl -n default run gk-check-bad --image=$bad --restart=Never --dry-run=server -o name 2>"$COMPAT_OUT/gk-refused.txt" \
+          && grep -q allowed-docker-registries "$COMPAT_OUT/gk-refused.txt"; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "Gatekeeper did not refuse $bad: $(cat "$COMPAT_OUT/gk-refused.txt")"; exit 1; }
+        sleep 10
+      done
+      echo "refused $bad: $(tail -c 400 "$COMPAT_OUT/gk-refused.txt")"
+      img=$(kubectl -n gatekeeper-system get pod -l control-plane=controller-manager -o jsonpath='{.items[0].spec.containers[0].image}')
+      kubectl -n default run gk-check-org --image="$img" --restart=Never --dry-run=server -o name
+      echo "admitted $img"
+    - |
+      i=0
+      until [ -n "$(kubectl get k8sallowedrepos allowed-docker-registries -o jsonpath='{.status.auditTimestamp}')" ]; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "Gatekeeper's audit never reported on allowed-docker-registries"; exit 1; }
+        sleep 10
+      done
+      kubectl get constraints -o custom-columns=NAME:.metadata.name,ACTION:.spec.enforcementAction,AUDIT:.status.auditTimestamp,VIOLATIONS:.status.totalViolations
+  debug:
+    - kubectl get k8sallowedrepos allowed-docker-registries -o yaml | tail -40
