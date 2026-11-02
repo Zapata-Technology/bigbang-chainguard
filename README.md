@@ -23,8 +23,9 @@ releases.
   - If you enable fewer packages, you need fewer images.
   - `scripts/bb-convert.py --missing` lists the ones your org lacks.
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and three more need what Chainguard's image lacks (Vault, the JMX
-  exporter, the Mattermost Operator); this repo builds those FROM your Chainguard images; see
+  Big Bang's own builds, and four more need what Chainguard's image lacks or has no image
+  of (Vault, the JMX exporter, the Mattermost Operator, tempo-query); this repo builds
+  those FROM your Chainguard images; see
   [Images this repo builds](#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
 - **Iron Bank credentials, for the images with no Chainguard equivalent.** These are
@@ -53,7 +54,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator; do
+for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -476,8 +477,9 @@ your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
 post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
 sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
-The Mattermost Operator is the sixth: Chainguard publishes no image of it, so
-`bb-mattermost-operator.py` builds it from upstream's source:
+The Mattermost Operator is the sixth and tempo-query the seventh: Chainguard publishes no
+image of either, so `bb-mattermost-operator.py` and `bb-tempo-query.py` build them from
+upstream's source:
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
@@ -487,6 +489,7 @@ The Mattermost Operator is the sixth: Chainguard publishes no image of it, so
 | `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `bb-vault.py` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
 | `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
 | `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `bb-mattermost-operator.py` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
+| `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `bb-tempo-query.py` | as the Mattermost Operator | `bigbang-tempo-query` |
 
 Each script:
 
@@ -555,6 +558,16 @@ Differences from Iron Bank:
   Its smoke test runs `--help`, starts it with no cluster (it must log its Go version and
   stop at the missing kubeconfig) and reads the binary's build info (raised modules; for
   `-fips`, a cgo build with a FIPS crypto backend).
+- **tempo-query** is built the same way (shared helpers in `bbbuild.py`) from
+  grafana/tempo's source at the tag Big Bang deploys (2.10.5; Iron Bank's recipe has
+  moved on to 3.x), `./cmd/tempo-query`, with `golang.org/x/net` (a Critical CVE),
+  `x/text`, `grpc` and `thrift` raised to their newest releases. Iron Bank puts the binary
+  on its jaeger-query image, but the entrypoint is `/tempo-query` alone (a gRPC server on
+  7777 that answers Jaeger's storage API from Tempo's), so no Jaeger is carried over. It
+  runs as 10001, Iron Bank's uid. Big Bang leaves the chart's `tempoQuery` off; turn it
+  on with `tempo.values.upstream.tempoQuery.enabled`. Tempo is AGPL-3.0: the image
+  carries its LICENSE, and `build.yaml` names the source tarball. Its smoke test calls
+  the gRPC health service (curl over HTTP/2) and reads the build info.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,

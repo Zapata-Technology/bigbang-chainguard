@@ -67,7 +67,9 @@ images:
   ironbank/grafana/grafana-enterprise-logs: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/opensource/grafana/tempo: tempo
-  ironbank/opensource/grafana/tempo-query: {stays: "no Chainguard tempo-query image", until: tempo-query}
+  # No Chainguard tempo-query image: scripts/bb-tempo-query.py builds it from grafana/tempo's
+  # source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
+  ironbank/opensource/grafana/tempo-query: {build: tempo-query}
   ironbank/opensource/grafana/mimir: grafana-mimir
   ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
   ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}

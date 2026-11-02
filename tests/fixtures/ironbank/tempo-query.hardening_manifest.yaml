@@ -1,0 +1,38 @@
+apiVersion: v1
+
+name: "opensource/grafana/tempo-query"
+
+tags:
+  - "3.1.1"
+  - "latest"
+
+args:
+  BASE_IMAGE: "opensource/jaegertracing/jaeger-query"
+  BASE_TAG: "2.20.0"
+
+  BUILD_IMAGE: "google/golang/ubi9/golang-1.26"
+  BUILD_TAG: "1.26.9"
+
+labels:
+  org.opencontainers.image.title: "tempo-query"
+  org.opencontainers.image.description: "High-scale distributed tracing backend"
+  org.opencontainers.image.licenses: "GPL-3.0"
+  org.opencontainers.image.url: "https://github.com/grafana/tempo"
+  org.opencontainers.image.vendor: "Iron Bank"
+  org.opencontainers.image.version: "3.1.1"
+  mil.dso.ironbank.image.keywords: "tracing, backend, tempo, query"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "grafana"
+
+resources:
+- url: https://github.com/grafana/tempo/archive/refs/tags/v3.1.1.tar.gz
+  filename: tempo-3.1.1.tar.gz
+  validation:
+    type: sha256
+    value: c39b5ae755523f784e3a5c17864052ab05cb48604468644264a60ebc405e7a0b
+
+maintainers:
+- email: "AFLCMC.HNCX.Helpdesk@us.af.mil"
+  name: "Iron Bank Forge"
+  username: "ibforge"
+  cht_member: true

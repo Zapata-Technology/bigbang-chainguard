@@ -274,3 +274,62 @@ def test_mattermost_operator_build_info():
     native = "build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0\nbuild\tDefaultGODEBUG=fips140=on,tracebacklabels=0"
     assert fips_build("native", native)
     assert not fips_build("native", native.replace("fips140=on,", ""))   # module linked but not enabled
+
+
+tempo_query = load_script("bb-tempo-query")
+
+
+def test_tempo_query_recipe_both_shapes():
+    # Tempo 2.x (what Big Bang deploys): Iron Bank copies upstream's binary, USER 10001:10001.
+    ib = tempo_query.recipe(*recipe("tempo-query-2.10.5"))
+    assert ib == {"upstream": "2.10.5", "binary": "/tempo-query", "user": "10001:10001", "uid": "10001:10001"}
+    # Tempo 3.x: Iron Bank builds it and runs as a named user its useradd/groupadd create.
+    ib = tempo_query.recipe(*recipe("tempo-query"))
+    assert ib == {"upstream": "3.1.1", "binary": "/tempo-query", "user": "tempo-query:tempo-query",
+                  "uid": "10001:10001"}
+    with pytest.raises(SystemExit):
+        tempo_query.recipe({"labels": {"org.opencontainers.image.version": "1"}}, "FROM scratch\n")
+    with pytest.raises(SystemExit):   # a named user nothing creates
+        tempo_query.numeric_user("nobody", "RUN useradd -u 10001 tempo\n")
+
+
+def test_tempo_query_is_built_from_source(monkeypatch):
+    tarball = operator_tarball("module github.com/grafana/tempo\n\ngo 1.26.2\n")
+    latest = {"golang.org/x/net": "v0.62.0", "golang.org/x/text": "v0.43.0",
+              "google.golang.org/grpc": "v1.85.0", "github.com/apache/thrift": "v0.25.0"}
+
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return json.dumps({"Version": latest[url.split("/", 3)[3].rsplit("/@", 1)[0]]}).encode()
+        assert url == "https://codeload.github.com/grafana/tempo/tar.gz/refs/tags/v2.10.5"
+        return tarball
+    monkeypatch.setattr(tempo_query.bbbuild, "fetch", fetch)
+    src = tempo_query.source("2.10.5")
+    assert src["go"] == "1.26.2" and src["package"] == "./cmd/tempo-query"
+    assert src["go_get"] == [f"{m}@{v}" for m, v in latest.items()]
+    assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
+    spec = {"tempo": src, "ironbank": {"binary": "/tempo-query"}, "user": "10001:10001",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    std, fips = tempo_query.build_args(spec, "standard"), tempo_query.build_args(spec, "fips")
+    assert std["FIPS"] == "" and fips["FIPS"] == "native" and std["RUN_USER"] == "10001:10001"
+    assert std["TEMPO_GO_GET"].split() == src["go_get"] and std["TEMPO_PACKAGE"] == "./cmd/tempo-query"
+
+
+def test_tempo_query_grpc_health_frames():
+    # gRPC's length-prefixed messages: an empty HealthCheckRequest, and status SERVING (1).
+    assert tempo_query.HEALTH_REQUEST == b"\x00" + (0).to_bytes(4, "big")
+    assert tempo_query.HEALTH_SERVING == b"\x00" + (2).to_bytes(4, "big") + bytes([0x08, 0x01])
+
+
+def test_go_build_problems(monkeypatch):
+    blobs = {"/tempo-query": b"\npath\tgithub.com/grafana/tempo/cmd/tempo-query\ndep\tgolang.org/x/net\tv0.62.0\th1:x=\n"
+                             b"build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0-c2097c7c\n"
+                             b"build\tDefaultGODEBUG=fips140=on\n",
+             "/etc/ssl/openssl.cnf": b"[algorithm_sect]\ndefault_properties = fips=yes\n"}
+    monkeypatch.setattr(tempo_query.bbbuild, "file_from", lambda image, path: blobs[path])
+    problems = tempo_query.bbbuild.go_build_problems
+    assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.62.0"]) == []
+    assert problems("img", "/tempo-query", "fips", {"fips": "native"}, ["golang.org/x/net@v0.62.0"]) == []
+    assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.63.0"]) == \
+        ["golang.org/x/net is not v0.63.0"]
+    assert problems("img", "/tempo-query", "fips", {"fips": "toolchain"}, [])[0].startswith("FIPS Go build (toolchain)")
