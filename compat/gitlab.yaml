@@ -74,6 +74,26 @@ test:
     - $COMPAT_OUT/site-gitlab-deadline.yaml
   expect: [gitlab-webservice, gitlab-sidekiq, gitaly, gitlab-shell, gitlab-container-registry, postgres, redis]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  check:
+    # Rails' readiness with every dependency (database, Redis, Gitaly, ...) checked, through
+    # Workhorse on the webservice Service: each check reports ok. The chart allows the
+    # monitoring endpoints from any address.
+    - |
+      url="/api/v1/namespaces/gitlab/services/gitlab-webservice-default:8181/proxy/-/readiness?all=1"
+      i=0
+      until r=$(kubectl get --raw "$url" 2>&1) && echo "$r" | grep -q '"status":"ok"' && ! echo "$r" | grep -q '"status":"failed"'; do
+        i=$((i+1))
+        if [ $i -ge 30 ]; then echo "GitLab is not ready after 30 tries: $r"; exit 1; fi
+        sleep 10
+      done
+      echo "$r"
+      for c in db_check gitaly_check; do
+        echo "$r" | grep -q "\"$c\"" || { echo "the readiness reply has no $c"; exit 1; }
+      done
+    # The sign-in page renders (Rails, its views and assets through Workhorse).
+    - >-
+      kubectl get --raw "/api/v1/namespaces/gitlab/services/gitlab-webservice-default:8181/proxy/users/sign_in"
+      | grep -qE 'new_user|user\[login\]' && echo "sign-in page OK"
   debug:
     - "cat $COMPAT_OUT/watch-gitaly.log"
     - "cat $COMPAT_OUT/watch-shell.log"
