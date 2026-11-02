@@ -235,3 +235,71 @@ def test_an_iron_bank_image_without_an_iron_bank_login_does_not_stop_the_test(tm
     now[0] += 600
     keeper.snapshot()
     assert keeper.abort_reasons() == []
+
+
+def _counting_watch(tmp_path, monkeypatch, pods, logs):
+    """_watch, plus the list of `kubectl logs` calls: (pod, container, previous)."""
+    keeper = _watch(tmp_path, monkeypatch, pods, logs=logs)
+    module = keeper.snapshot.__func__.__globals__     # the bbcluster copy _watch loaded
+    calls, fake = [], module["kubectl"]
+
+    def kubectl(*args, check=True):
+        if args[0] == "logs":
+            calls.append((args[3], args[5], "--previous" in args))
+        return fake(*args, check=check)
+    monkeypatch.setitem(module, "kubectl", kubectl)
+    return keeper, calls
+
+
+def test_logs_are_read_only_when_they_can_have_changed(tmp_path, monkeypatch):
+    running = {"name": "app", "state": {"running": {}}}
+    pulling = {"name": "app", "state": {"waiting": {"reason": "ContainerCreating"}}}
+    done = {"name": "app", "containerID": "containerd://d1", "state": {"terminated": {
+        "reason": "Completed", "exitCode": 0, "containerID": "containerd://d1"}}}
+    restarted = {"name": "app", "restartCount": 2, "state": {"running": {}},
+                 "lastState": {"terminated": {"reason": "Error", "exitCode": 1, "containerID": "containerd://r2"}}}
+    pods = [_pod("web", [running]), _pod("new", [pulling]), _pod("job", [done]), _pod("crash", [restarted])]
+    logs = {("web", "app", False): "serving\n", ("job", "app", False): "migrated\n",
+            ("crash", "app", False): "up again\n", ("crash", "app", True): "panic: no database\n"}
+    keeper, calls = _counting_watch(tmp_path, monkeypatch, pods, logs)
+    keeper.snapshot()
+    assert sorted(calls) == [("crash", "app", False), ("crash", "app", True), ("job", "app", False),
+                             ("web", "app", False)]          # nothing for a container that never ran
+    calls.clear()
+    keeper.snapshot()
+    assert sorted(calls) == [("crash", "app", False), ("web", "app", False)]   # only running ones again
+    # Another restart: its previous run is read once; a re-run job (new container ID) once.
+    restarted.update(restartCount=3, lastState={"terminated": {"reason": "Error", "exitCode": 1,
+                                                               "containerID": "containerd://r3"}})
+    done["state"]["terminated"]["containerID"] = "containerd://d2"
+    logs[("crash", "app", True)] = "panic: still no database\n"
+    calls.clear()
+    keeper.snapshot()
+    assert sorted(calls) == [("crash", "app", False), ("crash", "app", True), ("job", "app", False),
+                             ("web", "app", False)]
+    saved = tmp_path / "logs" / "ns"
+    assert (saved / "crash.app.previous.log").read_text() == "panic: still no database\n"
+    assert (saved / "job.app.log").read_text() == "migrated\n" and not (saved / "new.app.log").exists()
+
+
+def test_a_crash_loop_still_stops_the_test_when_its_previous_log_is_not_read_again(tmp_path, monkeypatch):
+    s = {"name": "app", "restartCount": 6, "state": {"waiting": {"reason": "CrashLoopBackOff"}},
+         "lastState": {"terminated": {"reason": "Error", "exitCode": 1, "containerID": "containerd://c6"}}}
+    keeper, calls = _counting_watch(tmp_path, monkeypatch, [_pod("x", [s])], {("x", "app", True): "FATAL: boom\n"})
+    keeper.snapshot()
+    keeper._abort.clear()
+    keeper.snapshot()
+    assert calls.count(("x", "app", True)) == 1
+    assert ["ns/x container app restarted 6 times; its log: FATAL: boom"] == keeper.abort_reasons()
+
+
+def test_an_empty_log_is_asked_for_again(tmp_path, monkeypatch):
+    done = {"name": "app", "state": {"terminated": {"reason": "Completed", "exitCode": 0, "containerID": "c1"}}}
+    logs = {("other", "app", False): ""}    # not empty: _watch would replace an empty dict
+    keeper, calls = _counting_watch(tmp_path, monkeypatch, [_pod("job", [done])], logs)
+    keeper.snapshot()
+    logs[("job", "app", False)] = "done\n"
+    keeper.snapshot()
+    keeper.snapshot()
+    assert calls == [("job", "app", False)] * 2
+    assert (tmp_path / "logs" / "ns" / "job.app.log").read_text() == "done\n"
