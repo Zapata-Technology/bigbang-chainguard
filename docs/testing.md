@@ -227,10 +227,18 @@ These are kind-on-GitHub-Actions limits, not image problems:
 
 ### Large tests
 
-A compat file with `large: true` runs in the weekly `compat.yml` schedule (Sunday 06:00 UTC)
-and when named in a manual run, not on pull requests: GitLab's dozen pods need more memory
-and time (`timeout:` in seconds; the job gets 90 minutes) than a pull request should wait
-for. MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which
-CI has no credentials for. Start one by hand from `main` (`gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`): from another branch the Chainguard login fails, because the CI identity trusts main and pull requests only. Mattermost is not large: `compat/mattermost.yaml` runs the server
-with the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on
-SeaweedFS on every pull request that touches `compat/`.
+A compat file with `large: true` (GitLab, GitLab Runner) needs more memory and time than
+the other tests (`timeout:` in seconds; the job gets 90 minutes). It runs in the weekly
+`compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes only that test's
+`compat/<test>.yaml` (`scripts/compat-plan.py` then runs just the changed tests), and by hand
+from main: `gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`. A manual
+run from another branch fails at the Chainguard login: the CI identity trusts main and pull
+requests only.
+
+A pull request that changes only `compat/*.yaml` files runs just those tests; any other
+change that `compat.yml` watches (the mapping, overlays, the harness, `compat/support/`) runs
+every test that isn't large.
+
+MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which CI has
+no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server with
+the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on SeaweedFS.
