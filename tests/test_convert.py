@@ -1,4 +1,7 @@
 """Mapping an Iron Bank image to the org, and the generated docs."""
+import json
+import sys
+
 import pytest
 
 from conftest import FakeTags, load_script
@@ -276,6 +279,25 @@ def test_render_emulates_kustomize_digest_pins():
     assert images.kustomize_image("r1/x", "1", {"newName": "cgr.dev/o/x", "newTag": "2"}) == "cgr.dev/o/x:2"
     assert images.kustomize_image("cgr.dev/o/x", "", {"newName": "cgr.dev/o/y"}) == "cgr.dev/o/y"
     assert images.kustomize_image("cgr.dev/o/x", "1", None) is None
+
+
+def test_discovery_keeps_big_bangs_order_while_rendering_in_parallel(tmp_path, monkeypatch, capsys):
+    """Packages render in parallel; errors and results land as a sequential loop puts them."""
+    images = load_script("bb-images")
+    (tmp_path / "pkgs" / "a" / ".git").mkdir(parents=True)
+    (tmp_path / "pkgs" / "a" / ".git" / "config").write_text("url = https://repo/a.git\n")
+    rels = [{"release": n, "repo": "https://repo/a" if n != "lost" else "https://repo/none", "path": "chart",
+             "namespace": n, "values": {}, "renames": {}} for n in ("one", "lost", "two")]
+    monkeypatch.setattr(images, "bigbang_releases", lambda *a: iter(rels))
+    monkeypatch.setattr(images, "flux_images", lambda b: [])
+    monkeypatch.setattr(images, "chart_defaults", lambda c: {})
+    monkeypatch.setattr(images, "render_package", lambda c, v, rel, ns: (0, f"image: registry1.dso.mil/x/{rel}:1", ""))
+    monkeypatch.setattr(sys, "argv", ["bb-images.py", "--bigbang", "b", "--pkgs", str(tmp_path / "pkgs")])
+    images.main()
+    out = json.loads(capsys.readouterr().out)
+    assert out["errors"] == {"lost": "no clone for https://repo/none"}
+    assert out["packages"]["two"]["rendered"] == ["registry1.dso.mil/x/two:1"]
+    assert sorted(out["packages"]) == ["flux", "one", "two"]
 
 
 def test_min_version_raises_an_end_of_life_line_to_the_newest_release():

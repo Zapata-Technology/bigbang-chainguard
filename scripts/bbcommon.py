@@ -9,6 +9,16 @@ import yaml
 IRONBANK_HOSTS = ("registry1.dso.mil", "registry.dso.mil")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# libyaml's loaders build the same objects as PyYAML's Python ones, ~10x faster: rendered
+# charts are tens of MB of YAML. PyYAML's wheels ship libyaml; without it, the Python ones.
+SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+BASE_LOADER = getattr(yaml, "CBaseLoader", yaml.BaseLoader)
+
+
+def safe_load(text):
+    """yaml.safe_load, with libyaml when PyYAML has it."""
+    return yaml.load(text, Loader=SAFE_LOADER)
+
 
 def setting(name, arg=None):
     """A repo setting: the command-line value, else $<name>, else the <name> file at the repo root.
@@ -268,11 +278,11 @@ def chart_defaults(path):
 
 
 def _defaults(chart):
-    meta = yaml.safe_load(chart.read("Chart.yaml") or "{}") or {}
-    values = yaml.safe_load(chart.read("values.yaml") or "{}") or {}
+    meta = safe_load(chart.read("Chart.yaml") or "{}") or {}
+    values = safe_load(chart.read("values.yaml") or "{}") or {}
     aliases = {d["name"]: d.get("alias", d["name"]) for d in meta.get("dependencies") or []}
     for sub in chart.subcharts():
-        sub_meta = yaml.safe_load(sub.read("Chart.yaml") or "{}") or {}
+        sub_meta = safe_load(sub.read("Chart.yaml") or "{}") or {}
         name = sub_meta.get("name")
         if not name or sub_meta.get("type") == "library":
             continue
