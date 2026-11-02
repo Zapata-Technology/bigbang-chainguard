@@ -1,0 +1,30 @@
+# Release to release: what a site pinned to the newest release (<Big Bang>-cg.<n>) runs
+# when it moves to this tree. Big Bang is installed from that release's overlays and Flux
+# (its tag, fetched by bb-compat.py; a pull request upgrades from what sites run now),
+# checked, then upgraded with this tree's Flux and overlays and checked again. Fails if a
+# pod still runs an image digest the release pinned and this tree doesn't (Flux didn't roll
+# it), besides the usual readiness, image policy and OOM checks.
+# The packages are kyverno-enforce's: Kyverno in Enforce mode must keep admitting the new
+# images, so a registry the upgrade adds without the allow list catches it here.
+images: {}
+test:
+  enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
+  expect: [kyverno, headlamp, grafana]
+  values:
+    # As in kyverno-enforce.yaml: with Istio off, nothing supplies the non-root policies'
+    # excluded containers, and they render `preconditions.all: null`.
+    kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
+  upgrade_from:
+    release: previous
+    check:
+      - sh compat/support/kyverno-admission.sh headlamp
+  check:
+    - sh compat/support/kyverno-admission.sh headlamp
+    # Grafana is up after the upgrade and reaches its database.
+    - >-
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
+      && out=$(kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:3000/proxy/api/health")
+      && echo "$out" && echo "$out" | grep -q '"database": *"ok"'
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,REVISION:.status.lastAttemptedRevision"
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image"

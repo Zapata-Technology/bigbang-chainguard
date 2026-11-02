@@ -1,0 +1,110 @@
+# Quickstart
+
+From nothing to Big Bang running on your Chainguard org's images, installed from a pinned
+release. The [README](../README.md) has the detail behind each step.
+
+## Status: beta
+
+Use it for **development, test and evaluation clusters**. It isn't supported for
+production yet. Here is what is and isn't proven:
+
+| Proven | Not yet |
+|---|---|
+| Every image Big Bang 3.35.1 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
+| Each package with a kind test (35 tests, most of Big Bang's packages) deploys and passes a functional check, standard and FIPS ([testing](testing.md)) | FIPS on a node whose kernel is in FIPS mode (the FIPS images are tested on a regular kernel) |
+| Upgrading from the newest release to the next is tested on every change (Kyverno, Headlamp, Grafana) | Upgrading an existing Iron Bank Big Bang in place to Chainguard images (needs an Iron Bank account in CI) |
+| Every org image is pinned by digest and signature-checked; images built here are signed and attested | The images that stay on Iron Bank ([Known gaps](../README.md#known-gaps)) |
+
+Support is best effort, through the repository's issues. Report security problems as
+[SECURITY.md](../SECURITY.md) says, not in a public issue.
+
+## Before you start
+
+- [ ] A Chainguard org with the images your packages use. `docs/required-images.md` lists them;
+      `python scripts/bb-convert.py --missing` lists the ones your org lacks.
+- [ ] A **test** cluster, Kubernetes 1.34+, with a default StorageClass, and a kubectl
+      context for it.
+- [ ] `kubectl`, `helm` 3, Python 3.12 with PyYAML, `chainctl`, and `cosign` (to check the
+      release).
+- [ ] An Iron Bank account only if a package you enable keeps an Iron Bank image. The
+      installer's preflight tells you which ones do.
+- [ ] Your org is not `zapatatechnology.com`? Regenerate the overlays for your org first
+      ([Use it with your org](../README.md#use-it-with-your-org)), in your own copy, and
+      install from your copy's releases.
+
+## 1. Pick a release and pin it
+
+Install from a release, never from `main`. A release (`<Big Bang version>-cg.<n>`, e.g.
+`3.35.1-cg.55`) is a fixed set of overlays, digests and installer that CI tested together.
+`main` moves every night.
+
+```bash
+TAG=3.35.1-cg.55        # the release you chose: Releases page, newest first
+# While the repository is private, download with gh (a login with access to it):
+gh release download "$TAG" -R Zapata-Technology/bigbang-chainguard \
+  -p "bigbang-chainguard-$TAG.tar.gz" -p "bigbang-chainguard-$TAG.tar.gz.sigstore.json"
+```
+
+Write the tag down with your cluster's configuration. Upgrading means choosing a newer tag
+on purpose (step 5).
+
+## 2. Check it came from this repository
+
+```bash
+cosign verify-blob --bundle "bigbang-chainguard-$TAG.tar.gz.sigstore.json" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/Zapata-Technology/bigbang-chainguard/.github/workflows/release.yml@' \
+  "bigbang-chainguard-$TAG.tar.gz"
+tar xzf "bigbang-chainguard-$TAG.tar.gz" && cd "bigbang-chainguard-$TAG"
+```
+
+Don't install if `Verified OK` isn't printed.
+
+## 3. Install
+
+```bash
+pip install pyyaml
+chainctl auth login                           # the installer makes a pull token with it
+python scripts/bb-install.py install          # add --fips for FIPS images
+```
+
+The first run asks for your domain and packages and saves them in `my-site.yaml`. Keep
+that file next to the release tag. It shows the kubectl context and asks before changing
+the cluster. It also asks for a login to the build registry when the images built here are
+private ([Registry logins](../README.md#registry-logins)).
+
+## 4. Check it
+
+```bash
+python scripts/bb-install.py status
+```
+
+`status` lists each package's health, the app URLs, and anything that needs attention: an
+expiring pull token, or a cluster that is behind the release you run it from.
+
+## 5. Upgrade to a newer release
+
+Read the new release's notes (image changes since the last one), then:
+
+```bash
+# Download and verify the new tag as in steps 1 and 2, then from its directory:
+cp ../bigbang-chainguard-$OLD_TAG/my-site.yaml .
+python scripts/bb-install.py install --plan   # what would change; changes nothing
+python scripts/bb-install.py install
+python scripts/bb-install.py status
+```
+
+If something breaks, `python scripts/bb-install.py rollback` returns Big Bang to the
+previous revision. A package whose data the new version already migrated may not accept
+the old one, so read `--plan` first.
+
+Upgrade one release at a time when you can. Each release is tested as an upgrade from the
+one before it, not from older ones.
+
+## Getting help
+
+- Something fails: run `status` and include its output in an issue, along with the release
+  tag, standard or FIPS, and the packages you enabled. Leave out tokens and `my-site.yaml`
+  secrets.
+- A package-specific problem: check the README's package notes first (GitLab, FIPS,
+  Keycloak) and `docs/testing.md` ("What the runtime tests found").

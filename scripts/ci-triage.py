@@ -45,7 +45,9 @@ ARTIFACT_JOB = re.compile(r"^(?P<test>[\w.-]+) \((?P<mode>standard|fips)\)$")
 
 
 def gh(*args, binary=False):
-    p = subprocess.run(["gh", *args], capture_output=True, text=not binary)
+    # gh's output is UTF-8 (job logs carry any byte); Windows' default code page can't decode it.
+    p = subprocess.run(["gh", *args], capture_output=True, text=not binary,
+                       encoding=None if binary else "utf-8", errors=None if binary else "replace")
     return p.stdout if p.returncode == 0 else None
 
 

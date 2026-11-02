@@ -1,0 +1,53 @@
+# tempo-query built here from grafana/tempo's source (builds/tempo-query), FROM the
+# org's images, in place of Iron Bank's. The harness builds bigbang-tempo-query and
+# loads it into kind. Big Bang leaves the Tempo chart's tempoQuery off, so the test turns
+# it on: tempo-query then runs beside Tempo in the tempo-tempo-0 pod.
+images:
+  ironbank/opensource/grafana/tempo-query: {build: tempo-query}
+test:
+  enable: [tempo]
+  namespaces: [tempo]
+  values:
+    tempo: {values: {upstream: {tempoQuery: {enabled: true}}}}
+  expect: [bigbang-tempo-query, tempo]
+  setup:
+    - sh compat/support/watch.sh tempo-query "kubectl -n tempo logs tempo-tempo-0 -c tempo-query --tail=30"
+  check:
+    # A trace goes into Tempo and comes back out through tempo-query. tempo-query is
+    # Jaeger's storage backend: a gRPC server on 7777 that reads traces from Tempo's API
+    # (the chart's /conf/tempo-query.yaml names it). Send one span with a unique trace ID
+    # to Tempo's OTLP HTTP receiver, then ask tempo-query for that trace with Jaeger's
+    # SpanReaderPlugin/GetTrace, by hand: one gRPC message (GetTraceRequest{trace_id: the
+    # 16 bytes}) POSTed with curl over HTTP/2, through a port-forward. Passes when the
+    # answer carries the span's name and gRPC status 0.
+    - |
+      kubectl -n tempo port-forward pod/tempo-tempo-0 14318:4318 17777:7777 > "$COMPAT_OUT/pf-tempo.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
+      t=$(date +%s%N); id=$(printf '%032x' "$t"); span=$(printf '%016x' "$t")
+      printf '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compat-check"}}]},"scopeSpans":[{"spans":[{"traceId":"%s","spanId":"%s","name":"compat-tempo-query","kind":1,"startTimeUnixNano":"%s","endTimeUnixNano":"%s"}]}]}]}' "$id" "$span" "$t" "$((t+1000000))" > "$COMPAT_OUT/tempo-trace.json"
+      i=0
+      until curl -sS --fail-with-body -H 'Content-Type: application/json' --data-binary @"$COMPAT_OUT/tempo-trace.json" http://127.0.0.1:14318/v1/traces; do
+        i=$((i+1)); [ $i -lt 15 ] || { echo "Tempo refused the trace:"; cat "$COMPAT_OUT/pf-tempo.log"; exit 1; }
+        sleep 2
+      done
+      echo
+      python3 -c "import sys; m = b'\n\x10' + bytes.fromhex(sys.argv[1]); sys.stdout.buffer.write(b'\0' + len(m).to_bytes(4, 'big') + m)" "$id" > "$COMPAT_OUT/gettrace.bin" || exit 1
+      i=0
+      until curl -sS --http2-prior-knowledge -X POST -H 'content-type: application/grpc' -H 'te: trailers' \
+            --data-binary @"$COMPAT_OUT/gettrace.bin" -D "$COMPAT_OUT/gettrace.headers" -o "$COMPAT_OUT/gettrace.out" \
+            http://127.0.0.1:17777/jaeger.storage.v1.SpanReaderPlugin/GetTrace \
+          && grep -q 'grpc-status: *0' "$COMPAT_OUT/gettrace.headers" && grep -aq compat-tempo-query "$COMPAT_OUT/gettrace.out"; do
+        i=$((i+1))
+        if [ $i -ge 18 ]; then
+          echo "sent trace $id; tempo-query answered:"; cat "$COMPAT_OUT/gettrace.headers"
+          od -c "$COMPAT_OUT/gettrace.out" | head -20; cat "$COMPAT_OUT/pf-tempo.log"
+          exit 1
+        fi
+        sleep 10
+      done
+      echo "trace $id through tempo-query: $(tr -c '[:print:]' ' ' < "$COMPAT_OUT/gettrace.out" | cut -c1-300)"
+  debug:
+    - "kubectl -n tempo get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "cat $COMPAT_OUT/watch-tempo-query.log"
+    - "kubectl -n tempo get configmap tempo-query -o yaml"
+    - "kubectl -n tempo logs tempo-tempo-0 -c tempo --tail=30"

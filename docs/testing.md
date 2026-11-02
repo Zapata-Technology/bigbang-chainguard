@@ -42,8 +42,9 @@ Each `compat/<test>.yaml` names:
 - an optional trial mapping, to test an upgrade before `mapping.yaml` takes it;
 - the images the test is about (`expect`);
 - optional `setup` commands, `values`, `values_files`, `forbid_log`, and `debug` commands;
-- for an upgrade, `upgrade_from`: the mapping to install first and commands to run on it
-  (write data) and after Big Bang is upgraded to the test's mapping;
+- for an upgrade, `upgrade_from`: the mapping to install first, or `release: previous` to
+  install the newest release's overlays and Flux first, and commands to run on it (write
+  data) and after Big Bang is upgraded to the test's mapping;
 - `registry1: true` when it pulls from Iron Bank. Without `REGISTRY1_USERNAME` and
   `REGISTRY1_PASSWORD` (repository secrets in CI) such a test prints `RESULT ...: SKIPPED`
   and exits 0: a missing account is not an image failure.
@@ -134,6 +135,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data. Check: `vault status` initialized and unsealed; a KV v2 secret written and read back |
+| release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays | New. What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
 | vault-upgrade (skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |
@@ -164,6 +166,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | installer-gitops | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
 | istio-egress-gateway | Istio egress gateway beside istiod | Check: the egress waypoint is Programmed and its Envoy ready with config from istiod (the gateway renders only in ambient mode) |
 | mattermost-operator | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs. Check: the operator takes a zero-replica Mattermost to `stable` and creates its Deployment |
+| tempo-query | `bigbang-tempo-query` (built and loaded by the test) beside Tempo, the chart's `tempoQuery` turned on | Check: a span sent to Tempo over OTLP comes back through tempo-query's Jaeger `SpanReaderPlugin/GetTrace` (one gRPC call by hand, curl over HTTP/2) |
 | mattermost | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
 | gitlab (large) | GitLab (webservice, sidekiq, Gitaly, Shell, registry, KAS, toolbox) with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Passes in both modes since 2026-11-01. It needed the sizing values under `upstream:`, PostgreSQL's `max_locks_per_transaction` at 256, a 40-minute Deployment progress deadline and 15 minutes before the liveness probe restarts Rails: see the findings below and the README's GitLab notes. Check: `/-/readiness?all=1` ok with the database and Gitaly checks; the sign-in page renders |
 | gitlab-runner (large) | GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token) | Passes in both modes since 2026-11-02: the runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use |

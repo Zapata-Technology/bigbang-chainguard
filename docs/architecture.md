@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py]
+    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -124,9 +124,10 @@ refuses a new package's first push now and then). The provenance record
 | `bigbang-vault` | `hashicorp/vault` (adds curl) | `vault(-fips)-dev` |
 | `bigbang-jmx-exporter` | `opensource/prometheus/jmx-exporter` (the javaagent jar, plus curl) | `busybox(-fips)-dev` |
 | `bigbang-mattermost-operator` | `opensource/mattermost/mattermost-operator` (built from upstream's source) | `go(-fips)-dev` or `kubectl(-fips)-dev`, onto `glibc-openssl(-fips)` or `kubectl(-fips)` |
+| `bigbang-tempo-query` | `opensource/grafana/tempo-query` (built from upstream's source) | as the Mattermost Operator |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
-The Mattermost Operator uses the `go`/`glibc-openssl` images when the org has them. Without
+The Go builds (the Mattermost Operator, tempo-query) use the `go`/`glibc-openssl` images when the org has them. Without
 them it builds in `kubectl(-fips)-dev` with Wolfi's Go and runs on `kubectl(-fips)`, and the
 FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`'s OpenSSL
 backend. The next build switches over once the org has those images.
