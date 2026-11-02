@@ -32,8 +32,9 @@ def test_the_merge_script_is_valid_bash(tmp_path):
     import shutil
     import subprocess
     import pytest
-    if not shutil.which("bash"):
-        pytest.skip("no bash")
+    # On Windows `bash` may be WSL's launcher with no distribution behind it.
+    if not shutil.which("bash") or subprocess.run(["bash", "-c", "true"], capture_output=True).returncode:
+        pytest.skip("no working bash")
     script = tmp_path / "merge.sh"
     script.write_text(STEP["run"], encoding="utf-8")
     p = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
