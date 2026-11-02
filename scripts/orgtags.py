@@ -13,6 +13,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -87,10 +88,12 @@ class OrgTags:
         self.cache = cached.get("tags", {}) if cached.get("org") == org else {}
         self.digests = cached.get("digests", {}) if cached.get("org") == org else {}
         self._auth = None
+        self._auth_lock = threading.Lock()   # callers may run in threads (bb-age.py)
 
     def _token(self, repo):
-        if self._auth is None:
-            self._auth = _basic_auth()
+        with self._auth_lock:
+            if self._auth is None:
+                self._auth = _basic_auth()
         url = f"https://{REGISTRY}/token?scope=repository:{self.org}/{repo}:pull&service={REGISTRY}"
         req = urllib.request.Request(url, headers={"Authorization": self._auth})
         with _open(req, 30) as r:
