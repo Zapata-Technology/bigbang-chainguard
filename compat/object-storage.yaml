@@ -16,14 +16,22 @@ test:
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
   check:
     # Tempo takes a trace and finds it: send one span with a unique trace ID to the OTLP
-    # HTTP receiver (JSON), then read the trace back through Tempo's API.
+    # HTTP receiver (JSON, with curl through a port-forward: `kubectl create --raw` sends
+    # no JSON content type), then read the trace back through Tempo's API.
     # Then /flush cuts the ingester's block, which Tempo writes to its SeaweedFS bucket
     # (<prefix>-tempo/single-tenant/<block id>/).
     - |
       pod=/api/v1/namespaces/tempo/pods/tempo-tempo-0
+      kubectl -n tempo port-forward pod/tempo-tempo-0 14318:4318 > "$COMPAT_OUT/pf-tempo.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
       t=$(date +%s%N); id=$(printf '%032x' "$t"); span=$(printf '%016x' "$t")
       printf '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compat-check"}}]},"scopeSpans":[{"spans":[{"traceId":"%s","spanId":"%s","name":"compat-check","kind":1,"startTimeUnixNano":"%s","endTimeUnixNano":"%s"}]}]}]}' "$id" "$span" "$t" "$((t+1000000))" > "$COMPAT_OUT/tempo-trace.json"
-      kubectl create --raw "$pod:4318/proxy/v1/traces" -f "$COMPAT_OUT/tempo-trace.json" || exit 1
+      i=0
+      until curl -sS --fail-with-body -H 'Content-Type: application/json' --data-binary @"$COMPAT_OUT/tempo-trace.json" http://127.0.0.1:14318/v1/traces; do
+        i=$((i+1)); [ $i -lt 15 ] || { echo "Tempo refused the trace:"; cat "$COMPAT_OUT/pf-tempo.log"; exit 1; }
+        sleep 2
+      done
+      echo
       i=0
       until out=$(kubectl get --raw "$pod:3200/proxy/api/traces/$id" 2>&1) && echo "$out" | grep -q compat-check; do
         i=$((i+1)); [ $i -lt 18 ] || { echo "sent trace $id, Tempo says: $out"; exit 1; }
