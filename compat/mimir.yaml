@@ -3,3 +3,29 @@ images: {}
 test:
   enable: [addons.mimir]
   expect: [memcached-exporter, grafana-rollout-operator]
+  check:
+    # Mimir stores a sample and answers a query for it: write a gauge with a unique value
+    # through the gateway's OTLP endpoint (JSON; the gateway sets the anonymous tenant),
+    # then query it through the gateway's Prometheus API. Through a port-forward with
+    # curl: OTLP needs Content-Type: application/json, which `kubectl create --raw` doesn't send.
+    - |
+      p=$(kubectl -n mimir get pod -l app.kubernetes.io/name=mimir,app.kubernetes.io/component=gateway -o jsonpath='{.items[0].metadata.name}')
+      kubectl -n mimir port-forward "pod/$p" 18080:8080 > "$COMPAT_OUT/pf-mimir.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
+      gw=http://127.0.0.1:18080
+      i=0
+      until curl -s -o /dev/null "$gw/"; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "no port-forward to $p:"; cat "$COMPAT_OUT/pf-mimir.log"; exit 1; }
+        sleep 2
+      done
+      t=$(date +%s%N); v=$(( $(date +%s) % 100000 ))
+      printf '{"resourceMetrics":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"compat-check"}}]},"scopeMetrics":[{"metrics":[{"name":"compat_check","gauge":{"dataPoints":[{"asDouble":%s,"timeUnixNano":"%s"}]}}]}]}]}' "$v" "$t" > "$COMPAT_OUT/mimir-otlp.json"
+      curl -sS --fail-with-body -H 'Content-Type: application/json' --data-binary @"$COMPAT_OUT/mimir-otlp.json" "$gw/otlp/v1/metrics" || exit 1
+      i=0
+      until out=$(curl -sS -G --data-urlencode 'query={__name__=~"compat_check.*"}' "$gw/prometheus/api/v1/query" 2>&1) && echo "$out" | grep -q "\"$v\""; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "wrote compat_check=$v, query says: $out"; exit 1; }
+        sleep 10
+      done
+      echo "$out"
+  debug:
+    - "kubectl -n mimir get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"

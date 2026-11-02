@@ -13,6 +13,23 @@ test:
   expect: [metrics-server]
   setup:
     - sh compat/support/watch.sh metrics "kubectl -n kube-system logs deploy/metrics-server --tail=30"
+  check:
+    # The Metrics API serves usage for every node and for pods (metrics-server scrapes
+    # each kubelet; the first numbers take about a minute).
+    - |
+      nodes=$(kubectl get nodes --no-headers | wc -l)
+      i=0
+      until out=$(kubectl top nodes --no-headers 2>&1) && [ "$(echo "$out" | grep -c '[0-9]m ')" -eq "$nodes" ]; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "kubectl top nodes, $nodes nodes: $out"; exit 1; }
+        sleep 10
+      done
+      echo "$out"
+      i=0
+      until out=$(kubectl top pods -n kube-system --no-headers 2>&1) && echo "$out" | grep -q '[0-9]m .*[0-9]Mi'; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "kubectl top pods: $out"; exit 1; }
+        sleep 10
+      done
+      echo "$out"
   debug:
     - "kubectl top nodes"
     - "cat $COMPAT_OUT/watch-metrics.log"

@@ -3,3 +3,21 @@ images: {}
 test:
   enable: [grafana]
   expect: [k8s-sidecar]
+  check:
+    # Grafana is up and reaches its database.
+    - >-
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
+      && out=$(kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:3000/proxy/api/health")
+      && echo "$out" && echo "$out" | grep -q '"database": *"ok"'
+    # The dashboard sidecar (k8s-sidecar, the image this test is about) picks up a labelled
+    # ConfigMap and writes it into Grafana's dashboard folder.
+    - |
+      kubectl -n monitoring create configmap compat-check-dashboard \
+        --from-literal=compat-check.json='{"title":"compat-check","uid":"compat-check","panels":[]}' || exit 1
+      kubectl -n monitoring label configmap compat-check-dashboard grafana_dashboard=1 || exit 1
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
+      i=0
+      until kubectl -n monitoring logs "$p" -c grafana-sc-dashboard | grep 'compat-check.json'; do
+        i=$((i+1)); [ $i -lt 18 ] || { kubectl -n monitoring logs "$p" -c grafana-sc-dashboard --tail=20; exit 1; }
+        sleep 10
+      done
