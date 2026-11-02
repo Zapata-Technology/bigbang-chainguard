@@ -20,6 +20,7 @@ on:
       - compat/**
       - .github/kind-compat.yaml
       - scripts/bb-compat.py
+      - scripts/compat-plan.py
       - scripts/bb-install.py
       - scripts/bbcluster.py
       - .github/workflows/compat.yml
@@ -46,24 +47,19 @@ jobs:
       bigbang-key: ${{ steps.bb.outputs.key }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0   # the pull request's changed files
+      # Which tests: a pull request that changes only compat/<test>.yaml files runs just
+      # those (large ones too); see scripts/compat-plan.py.
       - id: m
         env:
           TESTS: ${{ inputs.tests }}
           FIPS: ${{ github.event_name != 'workflow_dispatch' || inputs.fips }}
           EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
         run: |
-          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import glob, json, os, re
-          named = [t.strip() for t in os.environ["TESTS"].split(",") if t.strip()]
-          names = named or sorted(os.path.basename(p)[:-5] for p in glob.glob("compat/*.yaml"))
-          def large(n):   # `large: true` under test: (no PyYAML in this job)
-              return bool(re.search(r"^  large: true", open(f"compat/{n}.yaml").read(), re.M))
-          if not named and os.environ["EVENT"] == "pull_request":
-              names = [n for n in names if not large(n)]   # large tests: weekly and on demand
-          modes = ["standard", "fips"] if os.environ["FIPS"] == "true" else ["standard"]
-          print("matrix=" + json.dumps({"include": [{"test": n, "mode": m, "minutes": 90 if large(n) else 45}
-                                                    for n in names for m in modes]}))
-          EOF
+          python3 scripts/compat-plan.py --event "$EVENT" --tests "$TESTS" \
+            ${BASE:+--changed-from "origin/$BASE"} $([ "$FIPS" = true ] && echo --fips) >> "$GITHUB_OUTPUT"
 
       # Clone Big Bang once per version and share it through the Actions cache: ~50 test
       # jobs cloning repo1.dso.mil at the same moment fail together when it has a bad
