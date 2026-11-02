@@ -181,6 +181,22 @@ jobs:
           path: builds/${{ matrix.name }}/build.yaml
           if-no-files-found: error
 
+      # grype's vulnerability database (~60-90 s to download), cached per UTC day. grype
+      # still asks grype.anchore.io for a newer database before scanning and downloads
+      # one if it exists, so the cache only skips re-downloading an unchanged one.
+      - name: Day (grype database cache key)
+        if: steps.build.outputs.built == 'true'
+        id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: grype database (cached per day)
+        if: steps.build.outputs.built == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/grype/db
+          key: grype-db-${{ steps.day.outputs.day }}
+          restore-keys: grype-db-
+
       - name: Install grype
         if: steps.build.outputs.built == 'true'
         id: grype

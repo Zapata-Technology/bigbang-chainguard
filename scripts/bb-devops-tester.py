@@ -23,7 +23,6 @@ script jobs use it. This converts Iron Bank's own recipe:
   bb-devops-tester.py --build [--test] [--push]          also build both images
 """
 import hashlib
-import json
 import os
 import re
 import sys
@@ -39,7 +38,6 @@ CHAINSAW_SOURCE = "https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags
 # Modules raised past what chainsaw's go.mod pins: x/net v0.52.0 has GO-2026-6612 (Critical);
 # grpc v1.79.3 and go-jose v4.1.4 have fixable Highs (GHSA-2v4p-qf9q-27wj, GHSA-mgcc-cww5-fp2q).
 GO_BUMPS = ["golang.org/x/net", "google.golang.org/grpc", "github.com/go-jose/go-jose/v4"]
-GO_PROXY = "https://proxy.golang.org"
 
 
 def line(version):
@@ -65,15 +63,10 @@ def recipe(manifest, dockerfile):
             {"name": user.group(1), "group": group.group(1), "id": int(user.group(2))})
 
 
-def go_latest(module):
-    """`module@<newest release>` from the Go module proxy."""
-    return f"{module}@{json.loads(bbbuild.fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
-
-
 def chainsaw_source(version):
     url = CHAINSAW_SOURCE.format(version=version)
     return {"version": version, "source": url, "sha256": hashlib.sha256(bbbuild.fetch(url)).hexdigest(),
-            "go_get": [go_latest(m) for m in GO_BUMPS]}
+            "go_get": [bbbuild.go_latest(m) for m in GO_BUMPS]}
 
 
 def generate(a):
