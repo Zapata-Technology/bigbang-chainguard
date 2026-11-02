@@ -33,6 +33,23 @@ def test_age_and_staleness():
     assert age.stale(ages, 30) == [("c", "1", None), ("b", "1", 90), ("d", "1", 31)]
 
 
+def test_age_looks_up_every_image_in_parallel_and_reports_the_stale_one(tmp_path, monkeypatch, capsys):
+    built = {"kubectl": "2026-01-01T00:00:00Z", "kubectl-fips": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+
+    class Tags:
+        def __init__(self, org):
+            pass
+
+        def created(self, repo, tag):
+            return built[repo]
+    (tmp_path / "images.md").write_text(MAP)
+    monkeypatch.setattr(age, "OrgTags", Tags)
+    monkeypatch.setattr(age.sys, "argv", ["bb-age.py", "--org", "example.com", "--images", str(tmp_path / "images.md")])
+    assert age.main() == 1
+    out = capsys.readouterr().out
+    assert "2 org images" in out and "STALE kubectl:1.37.2-dev" in out and "STALE kubectl-fips" not in out
+
+
 def test_digest_gaps_find_org_images_left_on_tags():
     packages = {
         "loki": {"key": "loki", "rendered": [P + "loki:3.6" + D, P + "nginx:1.31.8"]},

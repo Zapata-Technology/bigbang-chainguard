@@ -19,13 +19,14 @@ else, on ghcr.io/<owner>, from any repo of that owner. That registry's credentia
 in the Docker config too.
 
 Images are checked once each; tags are resolved to digests so the result is about the
-exact image a cluster would pull.
+exact image a cluster would pull. They are checked in parallel (--jobs) and reported in order.
 """
 import argparse
 import json
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from orgtags import REGISTRY, org_name  # noqa: E402
@@ -53,12 +54,13 @@ def main():
                                              "else the BUILD_REGISTRY file)")
     ap.add_argument("--build-signer", help="owner/repo whose builds.yml signs them (default: $BUILD_SIGNER, "
                                            "else $GITHUB_REPOSITORY)")
+    ap.add_argument("--jobs", type=int, default=8, help="cosign verify calls at once (default 8)")
     a = ap.parse_args()
 
     refs = images(a.rendered, f"{REGISTRY}/{org_name(a.org)}/")
     print(f"checking Chainguard signatures on {len(refs)} images"
           + (f" (org ID {a.org_id})" if a.org_id else " (any Chainguard signer: set CHAINGUARD_ORG_ID)"), flush=True)
-    bad = [ref for ref in refs if not verify(ref, ISSUERS, identity(a.org_id))]
+    bad = verify_all(refs, ISSUERS, identity(a.org_id), a.jobs)
     built, registry = [], build_registry(a.build_registry)
     if registry:
         subject = build_signature_identity(registry, build_signer(a.build_signer))
@@ -67,21 +69,32 @@ def main():
             raise SystemExit(f"{registry}: set BUILD_SIGNER (owner/repo) to check the signatures of the images built here")
         if built:
             print(f"checking builds.yml's signature on {len(built)} images built here ({subject})", flush=True)
-            bad += [ref for ref in built if not verify(ref, BUILD_SIGNATURE_ISSUER, subject)]
+            bad += verify_all(built, BUILD_SIGNATURE_ISSUER, subject, a.jobs)
     total = len(refs) + len(built)
     if bad:
         raise SystemExit(f"{len(bad)} of {total} images failed signature verification")
     print(f"all {total} images carry the expected signature")
 
 
+def verify_all(refs, issuer, subject, jobs):
+    """The refs that fail verify(), printing each result in refs' order. The first runs
+    alone: cosign sets up its Sigstore trust root cache on first use, and parallel first
+    uses would race on it."""
+    results = [verify(ref, issuer, subject) for ref in refs[:1]]
+    with ThreadPoolExecutor(jobs) as pool:
+        results += pool.map(lambda ref: verify(ref, issuer, subject), refs[1:])
+    for _, line in results:
+        print(line, flush=True)
+    return [ref for ref, (ok, _) in zip(refs, results) if not ok]
+
+
 def verify(ref, issuer, subject):
+    """(ok, the line to print) for one image's cosign verify."""
     p = subprocess.run(["cosign", "verify", "--certificate-oidc-issuer-regexp", issuer,
                         "--certificate-identity-regexp", subject, ref], capture_output=True, text=True)
     if p.returncode:
-        print(f"  UNSIGNED or invalid: {ref}\n    {p.stderr.strip().splitlines()[-1] if p.stderr else ''}")
-        return False
-    print(f"  ok {ref}")
-    return True
+        return False, f"  UNSIGNED or invalid: {ref}\n    {p.stderr.strip().splitlines()[-1] if p.stderr else ''}"
+    return True, f"  ok {ref}"
 
 
 if __name__ == "__main__":

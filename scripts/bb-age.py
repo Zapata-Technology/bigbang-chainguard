@@ -11,12 +11,14 @@ This catches the next one when it goes stale, not when a scan finds the CVEs.
 Reads every converted image (standard and FIPS) from docs/images.md, asks the registry for
 each one's build time (its config's `created`), and lists those older than --max-days.
 Images outside the org (built here, `ref:` entries) are skipped: their own builds scan them.
+The lookups (four registry requests per image) run in parallel.
 """
 import argparse
 import datetime
 import importlib.util
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -70,9 +72,10 @@ def main():
     org = org_name(a.org)
     tags = OrgTags(org)
     now = datetime.datetime.now(datetime.timezone.utc)
-    ages = {}
-    for repo, tag in org_refs(open(a.images, encoding="utf-8").read(), org):
-        ages[(repo, tag)] = age_days(tags.created(repo, tag), now)
+    refs = org_refs(open(a.images, encoding="utf-8").read(), org)
+    with ThreadPoolExecutor(8) as pool:
+        created = list(pool.map(lambda ref: tags.created(*ref), refs))
+    ages = {ref: age_days(c, now) for ref, c in zip(refs, created)}
     old = stale(ages, a.max_days)
     newest = sorted(d for d in ages.values() if d is not None)
     print(f"{len(ages)} org images; median build age {newest[len(newest) // 2] if newest else '?'} days")
