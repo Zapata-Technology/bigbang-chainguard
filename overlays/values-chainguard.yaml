@@ -860,7 +860,10 @@ gatekeeper:
       allowedDockerRegistries:
         parameters:
           repos:
+          - registry1.dso.mil
+          - registry.dso.mil
           - cgr.dev/zapatatechnology.com
+          - ghcr.io/zapata-technology
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
 grafana:

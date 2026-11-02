@@ -856,11 +856,6 @@ gatekeeper:
           image:
             repository: cgr.dev/zapatatechnology.com/kubectl-fips
             tag: 1.37-dev
-    violations:
-      allowedDockerRegistries:
-        parameters:
-          repos:
-          - cgr.dev/zapatatechnology.com
     waitJob:
       image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
 grafana:
