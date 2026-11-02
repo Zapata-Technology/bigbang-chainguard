@@ -214,6 +214,10 @@ class PodLogKeeper:
       replaced;
     - collects reasons to stop the test early (`abort_reasons`): a failure that waiting
       won't fix, so a broken test ends in minutes with the cause named, not at its timeout.
+
+    It asks for a log only when it can have changed: not for a container that has never
+    started, not again for one that ended (same container ID) once its log is kept, and the
+    run before a restart once per restart.
     """
 
     # Restarts with a FATAL_LOG line before the test stops. Some apps crash at start until a
@@ -228,6 +232,9 @@ class PodLogKeeper:
         self.namespaces, self.dest, self.interval, self.clock = namespaces, dest, interval, clock
         self.unpullable = unpullable
         self.exits, self._seen, self._stuck, self._abort = {}, set(), {}, {}
+        # Per (ns, pod, container): the ended run whose log is kept (it can't change), and
+        # {run before the last restart: its FATAL_LOG line} once that run's log is kept.
+        self._final, self._previous = {}, {}
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
 
@@ -278,19 +285,14 @@ class PodLogKeeper:
                 for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]:
                     name, s = c["name"], statuses.get(c["name"], {})
                     base = os.path.join(self.dest, "logs", ns, f"{pod}.{name}")
-                    current = kubectl("logs", "-n", ns, pod, "-c", name, "--tail=2000", check=False)
-                    self._keep(base + ".log", current)
-                    self._fatal_line(f"{ns}/{pod} {name}", current)
+                    key = (ns, pod, name)
+                    self._current_log(key, s, base + ".log")
                     if s.get("restartCount"):
-                        previous = kubectl("logs", "-n", ns, pod, "-c", name, "--previous", "--tail=2000",
-                                           check=False)
-                        self._keep(base + ".previous.log", previous)
-                        hit = self._fatal_line(f"{ns}/{pod} {name} (before a restart)", previous)
+                        hit = self._previous_log(key, s, base + ".previous.log")
                         if hit and s["restartCount"] >= self.CRASHES:
                             self._abort[("crash", ns, pod, name)] = (
                                 f"{ns}/{pod} container {name} restarted {s['restartCount']} times; its log: {hit[:200]}")
                     waiting = s.get("state", {}).get("waiting", {})
-                    key = (ns, pod, name)
                     if waiting.get("reason") in STUCK_WAITING and not self.unpullable(c["image"]):
                         first = self._stuck.setdefault(key, now)
                         if now - first >= self.STUCK_SECONDS:
@@ -300,6 +302,36 @@ class PodLogKeeper:
                         self._stuck.pop(key, None)
         lines = [f"{ns}/{pod} {c}: {r} (exit {code})" for (ns, pod, c), (r, code) in sorted(self.exits.items())]
         self._keep(os.path.join(self.dest, "exits.txt"), "\n".join(lines) + "\n" if lines else "")
+
+    def _current_log(self, key, status, path):
+        """Keep the container's current log, unless it can't have one (it is waiting and never
+        ran) or its run ended and that run's log is already kept (it can't change)."""
+        state = status.get("state", {})
+        if "waiting" in state and not status.get("restartCount") and not status.get("lastState"):
+            return
+        ended = state["terminated"].get("containerID") if "terminated" in state else None
+        if ended and self._final.get(key) == ended:
+            return
+        ns, pod, name = key
+        text = kubectl("logs", "-n", ns, pod, "-c", name, "--tail=2000", check=False)
+        self._keep(path, text)
+        self._fatal_line(f"{ns}/{pod} {name}", text)
+        if ended and text and text.strip():
+            self._final[key] = ended
+
+    def _previous_log(self, key, status, path):
+        """Keep the log of the run before the last restart, once per restart; return its
+        FATAL_LOG line (None if it has none)."""
+        run = (status["restartCount"], status.get("lastState", {}).get("terminated", {}).get("containerID"))
+        if run in self._previous.get(key, {}):
+            return self._previous[key][run]
+        ns, pod, name = key
+        text = kubectl("logs", "-n", ns, pod, "-c", name, "--previous", "--tail=2000", check=False)
+        self._keep(path, text)
+        hit = self._fatal_line(f"{ns}/{pod} {name} (before a restart)", text)
+        if text and text.strip():   # empty: not readable yet, ask again next time
+            self._previous[key] = {run: hit}
+        return hit
 
     def _loop(self):
         while not self._stop.is_set():
