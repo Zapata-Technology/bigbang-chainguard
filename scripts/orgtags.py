@@ -3,7 +3,8 @@
 Credentials, in order:
   CGR_USERNAME / CGR_PASSWORD   a Chainguard pull token (CI)
   chainctl auth token           an interactive chainctl login (laptop)
-Tags are cached in a JSON file so one run asks the registry once per repo.
+Tags are cached in a JSON file so one run asks the registry once per repo; prefetch()
+fills that cache for many repos and digests at once, in parallel.
 
 The org is, in order: --org, $CHAINGUARD_ORG, the CHAINGUARD_ORG file at the repo root.
 """
@@ -17,6 +18,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 from bbcommon import setting
 
@@ -88,7 +90,10 @@ class OrgTags:
         self.cache = cached.get("tags", {}) if cached.get("org") == org else {}
         self.digests = cached.get("digests", {}) if cached.get("org") == org else {}
         self._auth = None
-        self._auth_lock = threading.Lock()   # callers may run in threads (bb-age.py)
+        self._auth_lock = threading.Lock()   # callers may run in threads (bb-age.py, prefetch)
+        # A set while a dry run collects the digests it would pin (bb-convert's prefetch):
+        # pinned() then records each uncached (repo, tag) instead of asking the registry.
+        self.record_digests = None
 
     def _token(self, repo):
         with self._auth_lock:
@@ -105,8 +110,34 @@ class OrgTags:
         if key not in self.digests:
             if self.offline:
                 return None
+            if self.record_digests is not None:
+                self.record_digests.add((repo, tag))
+                return None
             self.digests[key] = self.digest(repo, tag)
         return self.digests[key]
+
+    def prefetch(self, repos=(), refs=(), jobs=8):
+        """Fill the cache with the tags of `repos` and the digests of `refs` ((repo, tag)),
+        `jobs` requests at a time; tags() and pinned() then answer from it. A lookup that
+        fails here is left out, so the caller asks again (and sees the error) only if it
+        needs that one."""
+        if self.offline:
+            return
+        repos = sorted({r for r in repos if r not in self.cache})
+        refs = sorted({r for r in refs if f"{r[0]}:{r[1]}" not in self.digests})
+
+        def quietly(fn, *args):
+            try:
+                return True, fn(*args)
+            except Exception:   # noqa: BLE001 - asked again, and raised, by the caller that needs it
+                return False, None
+        with ThreadPoolExecutor(jobs) as pool:
+            for repo, (ok, tags) in zip(repos, pool.map(lambda r: quietly(self._fetch_tags, r), repos)):
+                if ok:
+                    self.cache[repo] = tags
+            for (repo, tag), (ok, d) in zip(refs, pool.map(lambda r: quietly(self.digest, *r), refs)):
+                if ok:
+                    self.digests[f"{repo}:{tag}"] = d
 
     def digest(self, repo, tag):
         """Manifest digest of <org>/<repo>:<tag> (the multi-arch index when there is one)."""
@@ -150,6 +181,11 @@ class OrgTags:
             return self.cache[repo]
         if self.offline:
             return None
+        self.cache[repo] = self._fetch_tags(repo)
+        return self.cache[repo]
+
+    def _fetch_tags(self, repo):
+        """tags() from the registry, without the cache."""
         tags = []
         try:
             token = self._token(repo)
@@ -165,7 +201,6 @@ class OrgTags:
             if e.code not in (401, 403, 404):
                 raise
             tags = None
-        self.cache[repo] = tags
         return tags
 
     def save(self):

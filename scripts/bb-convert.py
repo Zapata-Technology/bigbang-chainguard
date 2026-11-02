@@ -508,6 +508,63 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
     return files, c
 
 
+def wanted_repos(mapping):
+    """Every org repository the conversion may ask tags for: each image's name and its FIPS
+    twin, `until` names, override tokens' names (and -fips), SeaweedFS's."""
+    names = {"seaweedfs", "seaweedfs-fips"}
+    for m in mapping["images"].values():
+        m = {"cg": m} if isinstance(m, str) else m
+        if m.get("cg"):
+            names.add(m["cg"])
+            if m.get("fips", m["cg"] + "-fips"):
+                names.add(m.get("fips", m["cg"] + "-fips"))
+        if m.get("until"):
+            names.add(m["until"])
+
+    def tokens(spec):
+        if isinstance(spec, dict):
+            for v in spec.values():
+                tokens(v)
+        elif isinstance(spec, list):
+            for v in spec:
+                tokens(v)
+        elif isinstance(spec, str) and spec.startswith(("@repo:", "@tag:", "@ref:")):
+            base = spec.split(":")[1]
+            names.update({base, base + "-fips"})
+    tokens(mapping.get("overrides", {}))
+    return names
+
+
+def prefetch(tags, mapping, dry_run):
+    """Ask the registry for everything the conversion will need, in parallel, so the real
+    run answers from the cache: one request at a time, that took ~3 minutes. Tags come
+    first (the repositories the mapping names); then a dry run of the conversion collects
+    the digests it pins (each found only once its tag is chosen), and those are fetched.
+    Anything this misses, the real run still asks for: the result is the same either way."""
+    if tags.offline:
+        return
+    tags.prefetch(repos=wanted_repos(mapping))
+    tags.record_digests = set()
+    try:
+        dry_run()
+        refs = tags.record_digests
+    finally:
+        tags.record_digests = None
+    tags.prefetch(refs=refs)
+
+
+def run_on_copies(run, *inputs):
+    """run() with each of `inputs` (dicts it reads) restored afterwards: the dry run must
+    leave nothing behind for the real one."""
+    saved = [copy.deepcopy(x) for x in inputs]
+    try:
+        return run()
+    finally:
+        for x, s in zip(inputs, saved):
+            x.clear()
+            x.update(s)
+
+
 def flux_kustomization(controllers, bigbang_version, c, hdr, d):
     """Big Bang's base/flux with Chainguard images. When the org's controllers are a newer
     minor than Big Bang's, Big Bang's base has CRDs too old for them: install the upstream
@@ -760,10 +817,15 @@ def main():
     mapping = load_mapping(org, a.mapping, a.mapping_overlay)
     version = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip()
     tags = OrgTags(org, a.tags_cache, offline=a.offline)
-    files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
-    files["docs/required-images.md"] = required_images(discovered, yaml.safe_load(open(a.mapping)), version)
-    files.update(object_storage_files(objstore.kind(a.object_storage), objstore.endpoint(a.object_storage_endpoint),
-                                      c, tags, version, files))
+
+    def run():
+        files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
+        files["docs/required-images.md"] = required_images(discovered, yaml.safe_load(open(a.mapping)), version)
+        files.update(object_storage_files(objstore.kind(a.object_storage),
+                                          objstore.endpoint(a.object_storage_endpoint), c, tags, version, files))
+        return files, c
+    prefetch(tags, mapping, lambda: run_on_copies(run, discovered, mapping))
+    files, c = run()
     if not a.offline:
         tags.save()
 
