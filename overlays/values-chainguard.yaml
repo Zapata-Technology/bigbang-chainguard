@@ -289,6 +289,8 @@ addons:
           name: cgr.dev/zapatatechnology.com/gitlab-runner-helper
     values:
       upstream:
+        extraEnv:
+          HOME: /home/gitlab-runner
         image:
           image: gitlab-runner
           registry: cgr.dev/zapatatechnology.com
