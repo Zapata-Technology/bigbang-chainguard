@@ -27,8 +27,9 @@ releases.
   - If you enable fewer packages, you need fewer images.
   - `scripts/bb-convert.py --missing` lists the ones your org lacks.
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and four more need what Chainguard's image lacks or has no image
-  of (Vault, the JMX exporter, the Mattermost Operator, tempo-query); this repo builds
+  Big Bang's own builds, and five more need what Chainguard's image lacks or has no image
+  of (Vault, the JMX exporter, the Mattermost Operator, tempo-query, NeuVector's registry
+  adapter); this repo builds
   those FROM your Chainguard images; see
   [Images this repo builds](#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
@@ -58,7 +59,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query; do
+for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query registry-adapter; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -481,9 +482,9 @@ your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
 post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
 sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
-The Mattermost Operator is the sixth and tempo-query the seventh: Chainguard publishes no
-image of either, so `bb-mattermost-operator.py` and `bb-tempo-query.py` build them from
-upstream's source:
+The Mattermost Operator, tempo-query and NeuVector's registry adapter are the sixth to
+eighth: Chainguard publishes no image of them, so `bb-mattermost-operator.py`,
+`bb-tempo-query.py` and `bb-registry-adapter.py` build them from upstream's source:
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
@@ -494,6 +495,7 @@ upstream's source:
 | `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
 | `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `bb-mattermost-operator.py` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
 | `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `bb-tempo-query.py` | as the Mattermost Operator | `bigbang-tempo-query` |
+| `opensource/neuvector/registry-adapter`: no Chainguard image; NeuVector's Harbor scanner adapter, built from upstream's source at Big Bang's tag | `bb-registry-adapter.py` | as the Mattermost Operator | `bigbang-registry-adapter` |
 
 Each script:
 
@@ -572,6 +574,16 @@ Differences from Iron Bank:
   on with `tempo.values.upstream.tempoQuery.enabled`. Tempo is AGPL-3.0: the image
   carries its LICENSE, and `build.yaml` names the source tarball. Its smoke test calls
   the gRPC health service (curl over HTTP/2) and reads the build info.
+- **registry-adapter** (NeuVector's Harbor scanner adapter) is built as Iron Bank builds
+  it, with upstream's `make build` at the tag Big Bang deploys, the tag stamped into
+  `version.go`, and `golang.org/x/net` (a Critical CVE) and go-jose raised. It needs cgo
+  (NeuVector's shared system package), so both binaries link the runtime image's glibc;
+  the FIPS one uses the same FIPS modes as the Go builds above. It runs
+  `/usr/local/bin/adapter` as 65534 (Iron Bank's `nobody`). Big Bang leaves the chart's
+  `cve.adapter` off; turn it on with `neuvector.values.upstream.cve.adapter.enabled`
+  and give it Harbor's credentials (`cve.adapter.harbor.secretName`). Its smoke test
+  starts it with no cluster (it must log its version and stop at the missing internal
+  certificate) and reads the build info.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,

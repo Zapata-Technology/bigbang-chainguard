@@ -124,6 +124,7 @@ The Criticals come from a few images:
 | `bigbang-devops-tester` (built here) | 2 / 2 | All from upstream's chainsaw image (Go 1.26.0, x/net v0.52.0). Fixed: chainsaw is now built from source with a current Go, x/net, grpc and go-jose (the last two cleared 4 fixable Highs) |
 | `mattermost-operator` (Iron Bank, now built here) | - | Iron Bank copies upstream's binary, whose go.mod pins `golang.org/x/net` v0.58.0 (GO-2026-6612, Critical). Fixed: `bigbang-mattermost-operator` is built from upstream's source with a current Go and x/net |
 | `tempo-query` (Iron Bank, now built here) | - | Tempo 2.10.5's go.mod pins `golang.org/x/net` v0.52.0 (GO-2026-6612, Critical) and grpc, thrift and x/text with fixable Highs. Fixed: `bigbang-tempo-query` is built from upstream's source with those raised (grype: none fixable) |
+| `registry-adapter` (Iron Bank, now built here) | - | NeuVector's registry adapter v0.2.11 pins `golang.org/x/net` v0.58.0 (GO-2026-6612, Critical) and go-jose v4.1.4 (a fixable High). Fixed: `bigbang-registry-adapter` is built from upstream's source with both raised |
 | `renovate` | 1 / 1 | The nightly run takes Chainguard's rebuilds |
 | `kubectl-fips:1.30.14-dev` (Vault's job) | - / 19 | Kubernetes 1.30 is end of life and the org stopped rebuilding it. Fixed: `min_version: "1.34"` moves Vault's kubectl to the newest release |
 

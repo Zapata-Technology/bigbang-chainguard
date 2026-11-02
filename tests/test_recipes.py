@@ -333,3 +333,40 @@ def test_go_build_problems(monkeypatch):
     assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.63.0"]) == \
         ["golang.org/x/net is not v0.63.0"]
     assert problems("img", "/tempo-query", "fips", {"fips": "toolchain"}, [])[0].startswith("FIPS Go build (toolchain)")
+    # A cgo program (the registry adapter): the standard and native builds must be cgo builds.
+    assert problems("img", "/tempo-query", "standard", {}, [], cgo=True) == ["cgo build (CGO_ENABLED=1)"]
+    assert "CGO_ENABLED=1" in problems("img", "/tempo-query", "fips", {"fips": "native"}, [], cgo=True)[0]
+    blobs["/tempo-query"] = blobs["/tempo-query"].replace(b"CGO_ENABLED=0", b"CGO_ENABLED=1")
+    assert problems("img", "/tempo-query", "fips", {"fips": "native"}, [], cgo=True) == []
+
+
+adapter = load_script("bb-registry-adapter")
+
+
+def test_registry_adapter_recipe():
+    ib = adapter.recipe(*recipe("registry-adapter"))
+    assert ib == {"upstream": "v0.2.13", "binary": "/usr/local/bin/adapter", "user": "nobody", "uid": "65534:65534"}
+    manifest, dockerfile = recipe("registry-adapter")
+    with pytest.raises(SystemExit):   # a user with no known uid
+        adapter.recipe(manifest, dockerfile.replace("USER nobody", "USER adapter"))
+    with pytest.raises(SystemExit):   # no longer upstream's make build
+        adapter.recipe(manifest, dockerfile.replace("make build", "go build ./..."))
+    with pytest.raises(SystemExit):   # copied somewhere the entrypoint doesn't run
+        adapter.recipe(manifest, dockerfile.replace("/usr/local/bin/\n", "/opt/\n"))
+
+
+def test_registry_adapter_is_built_from_source(monkeypatch):
+    tarball = operator_tarball("module github.com/neuvector/registry-adapter\n\ngo 1.27.0\n")
+
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return b'{"Version": "v4.1.8"}' if "go-jose" in url else b'{"Version": "v0.62.0"}'
+        assert url == "https://codeload.github.com/neuvector/registry-adapter/tar.gz/refs/tags/v0.2.11"
+        return tarball
+    monkeypatch.setattr(adapter.bbbuild, "fetch", fetch)
+    src = adapter.source("v0.2.11")
+    assert src["go"] == "1.27.0" and src["go_get"] == ["golang.org/x/net@v0.62.0", "github.com/go-jose/go-jose/v4@v4.1.8"]
+    spec = {"adapter": src, "ironbank": {"binary": "/usr/local/bin/adapter"}, "user": "65534:65534",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    std, fips = adapter.build_args(spec, "standard"), adapter.build_args(spec, "fips")
+    assert std["ADAPTER_VERSION"] == "v0.2.11" and fips["FIPS"] == "native" and std["RUN_USER"] == "65534:65534"

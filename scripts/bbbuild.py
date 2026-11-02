@@ -59,11 +59,12 @@ GO_RUNTIME_IMAGES = [{"standard": "glibc-openssl", "fips": "glibc-openssl-fips"}
                      {"standard": "kubectl", "fips": "kubectl-fips"}]
 # Wolfi's Go, for a build image without it (the FIPS build then uses Go's own FIPS module).
 GO_PACKAGE = "go"
-# What each FIPS build records in the binary's build info.
+# What each FIPS build records in the binary's build info. A native build also records
+# CGO_ENABLED: 0 for a static program, 1 for one that needs cgo (go_build_problems checks it).
 GO_FIPS_BUILDS = {
     "toolchain": [r"^build\tCGO_ENABLED=1$",
                   r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],
-    "native": [r"^build\tCGO_ENABLED=0$", r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"],
+    "native": [r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"],
 }
 
 
@@ -133,10 +134,12 @@ def build_info(binary):
                    re.findall(rb"(?:^|\n)((?:path|mod|dep|build)\t[^\n]+)", binary)})
 
 
-def go_build_problems(image, binary, variant, image_spec, go_get):
+def go_build_problems(image, binary, variant, image_spec, go_get, cgo=False):
     """What is wrong with a Go image's binary: a raised module not at its version, a FIPS
-    build that isn't one (image_spec["fips"]: toolchain or native), a standard build that
-    isn't static, or a -fips runtime whose OpenSSL doesn't default to fips=yes."""
+    build that isn't one (image_spec["fips"]: toolchain or native), a standard or native
+    build that isn't static (with cgo=True: that isn't a cgo build), or a -fips runtime
+    whose OpenSSL doesn't default to fips=yes."""
+    linking = f"build\tCGO_ENABLED={int(cgo)}"
     info = build_info(file_from(image, binary))
     settings = "\n".join(info)
     print("  build info: " + "; ".join(i.replace("\t", " ") for i in info
@@ -146,6 +149,8 @@ def go_build_problems(image, binary, variant, image_spec, go_get):
     if variant == "fips":
         mode = image_spec["fips"]
         missing = [rx for rx in GO_FIPS_BUILDS[mode] if not re.search(rx, settings, re.M)]
+        if mode == "native" and linking not in settings:
+            missing.append(linking.replace("\t", " "))
         if missing:
             failed.append(f"FIPS Go build ({mode}): no {', '.join(missing)}")
         cnf = file_from(image, "/etc/ssl/openssl.cnf").decode(errors="replace")
@@ -153,8 +158,8 @@ def go_build_problems(image, binary, variant, image_spec, go_get):
             failed.append("openssl fips=yes")
         else:
             print("  openssl: fips=yes")
-    elif "build\tCGO_ENABLED=0" not in settings:
-        failed.append("static build (CGO_ENABLED=0)")
+    elif linking not in settings:
+        failed.append("cgo build (CGO_ENABLED=1)" if cgo else "static build (CGO_ENABLED=0)")
     return failed
 
 
