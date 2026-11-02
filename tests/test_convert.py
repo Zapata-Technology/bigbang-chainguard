@@ -1,10 +1,11 @@
 """Mapping an Iron Bank image to the org, and the generated docs."""
 import json
+import os
 import sys
 
 import pytest
 
-from conftest import FakeTags, load_script
+from conftest import ROOT, FakeTags, load_script
 
 convert = load_script("bb-convert")
 
@@ -333,3 +334,52 @@ def test_post_renderer_rename_carries_the_digest():
         "kustomize"]["images"]
     rename = next(i for i in images if i["name"] == "registry1.dso.mil/ironbank/app")
     assert rename["newName"] == "cgr.dev/example.com/app" and rename["digest"] == c.tags.pinned("app", "1.2.5")
+
+
+REAL_PREFETCH = convert.prefetch
+
+
+def _convert_repo(tmp_path, monkeypatch, with_prefetch):
+    """bb-convert.py's main() on the repo's real mapping and discovery, against a fake
+    registry (every Iron Bank version as a tag, some repositories missing); returns the
+    files it writes and the registry lookups made after the prefetch."""
+    import zlib
+
+    import fluxrelease
+    import orgtags
+    versions = sorted({t.lstrip("v") for info in json.load(open(os.path.join(ROOT, "discovery", "images.json")))["packages"].values()
+                       for ref in info["rendered"] if ":" in ref.rsplit("/", 1)[-1]
+                       for t in [ref.split("@")[0].rsplit(":", 1)[1]]})
+    calls, after = [], []
+
+    def fetch_tags(self, repo):
+        (after if after else calls).append(repo)
+        return None if zlib.crc32(repo.encode()) % 9 == 0 else versions + [v + "-dev" for v in versions]
+
+    def digest(self, repo, tag):
+        (after if after else calls).append(f"{repo}:{tag}")
+        return "sha256:" + format(zlib.crc32(f"{repo}:{tag}".encode()), "08x").ljust(64, "0")
+    monkeypatch.setattr(orgtags.OrgTags, "_fetch_tags", fetch_tags)
+    monkeypatch.setattr(orgtags.OrgTags, "digest", digest)
+    monkeypatch.setattr(fluxrelease, "_release_for", lambda v: ("v2.10.0", dict(v)))
+    monkeypatch.setattr(fluxrelease, "_RELEASES", {})
+    monkeypatch.setattr(fluxrelease, "bigbang_patches", lambda *a: [])
+    def prefetch(*a):
+        if with_prefetch:
+            REAL_PREFETCH(*a)
+        after.append("-- real run --")
+    monkeypatch.setattr(convert, "prefetch", prefetch)
+    out = tmp_path / ("with" if with_prefetch else "without")
+    monkeypatch.setattr(sys, "argv", ["bb-convert.py", "--org", "example.com", "--build-registry", "ghcr.io/o",
+                                      "--object-storage", "seaweedfs", "--out", str(out)])
+    rc = convert.main()
+    files = {str(p.relative_to(out)): p.read_text() for p in out.rglob("*") if p.is_file()}
+    return rc, files, after[1:]
+
+
+def test_prefetch_changes_nothing_and_leaves_the_real_run_no_lookups(tmp_path, monkeypatch):
+    rc, plain, sequential = _convert_repo(tmp_path, monkeypatch, with_prefetch=False)
+    assert len(sequential) > 100     # without it, every lookup happens one at a time
+    rc2, fetched, lookups = _convert_repo(tmp_path, monkeypatch, with_prefetch=True)
+    assert len(plain) >= 5 and fetched == plain and rc2 == rc
+    assert lookups == []    # everything came from the parallel prefetch

@@ -1,4 +1,5 @@
 """Tag selection: the pin policy every converted image goes through."""
+import orgtags
 from orgtags import parse, resolve
 
 TAGS = ["1.20.3", "1.20.4", "1.20.4-dev", "1.20.4-r2", "1.20", "1.21.0", "1.21.2", "v1.22.1", "latest",
@@ -65,3 +66,19 @@ def test_star_takes_the_newest_release():
 
 def test_suffix_selects_a_variant():
     assert resolve("1.20.3", TAGS, suffix="slim")[0] == "1.20.5-slim"
+
+
+def test_prefetch_fills_the_cache_and_leaves_out_what_failed(monkeypatch):
+    def fetch(self, repo):
+        if repo == "flaky":
+            raise TimeoutError("registry timeout")
+        return None if repo == "absent" else [repo + "-1.0"]
+    monkeypatch.setattr(orgtags.OrgTags, "_fetch_tags", fetch)
+    monkeypatch.setattr(orgtags.OrgTags, "digest", lambda self, repo, tag: f"sha256:{repo}{tag}")
+    t = orgtags.OrgTags("example.com")
+    t.prefetch(repos=["a", "absent", "flaky"], refs=[("a", "1")])
+    assert t.cache == {"a": ["a-1.0"], "absent": None} and t.digests == {"a:1": "sha256:a1"}
+    t.record_digests = set()
+    assert t.pinned("b", "2") is None and t.record_digests == {("b", "2")} and "b:2" not in t.digests
+    t.record_digests = None
+    assert t.pinned("b", "2") == "sha256:b2"

@@ -21,6 +21,10 @@ NOT_IN_BIGBANG = ("image-automation-controller", "image-reflector-controller", "
 API = "https://api.github.com/repos/fluxcd/flux2/releases?per_page=30"
 RAW = "https://raw.githubusercontent.com/fluxcd/flux2/{tag}/manifests/bases/{controller}/kustomization.yaml"
 INSTALL = "https://github.com/fluxcd/flux2/releases/download/{tag}/install.yaml"
+# release_for() answers, per set of versions: bb-convert asks for the standard and the FIPS
+# controllers (the same versions), and its prefetch's dry run asks too. Each lookup reads
+# up to 120 files from GitHub.
+_RELEASES = {}
 
 
 def _get(url):
@@ -38,6 +42,13 @@ def _line(version):
 def release_for(versions):
     """The newest Flux release whose controllers are on the same MAJOR.MINOR as
     `versions` ({controller: version}); returns (tag, {controller: version}) or None."""
+    key = tuple(sorted(versions.items()))
+    if key not in _RELEASES:
+        _RELEASES[key] = _release_for(versions)
+    return _RELEASES[key]
+
+
+def _release_for(versions):
     for rel in json.loads(_get(API)):
         if rel.get("prerelease") or rel.get("draft"):
             continue
