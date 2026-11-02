@@ -20,7 +20,7 @@ WORKFLOWS = ["ci.yml", "builds.yml", "release.yml", "update.yml", "compat.yml", 
 
 
 def gh(*args):
-    p = subprocess.run(["gh", *args], capture_output=True, text=True, cwd=ROOT)
+    p = subprocess.run(["gh", *args], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=ROOT)
     return p.stdout if p.returncode == 0 else ""
 
 
