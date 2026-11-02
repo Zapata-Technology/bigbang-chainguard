@@ -237,7 +237,19 @@ It runs weekly, on pull requests that change it, and by hand from main
 (`gh workflow run fips-kernel.yml --ref main`). The artifact `fips-kernel-<test>` holds the
 usual `compat.log` and `diag/`, plus the VM's kernel log, k3s log and serial console. SELinux
 is permissive in the VM (k3s's SELinux policy is another package repository); the VM gets
-2 CPUs and 5.5 GB of the runner's 7 GB.
+4 vCPUs on the runner's 2 CPUs (Kubernetes schedules by requests; kind's four nodes share
+the CPUs the same way) and 5.5 GB of its 7 GB.
+
+**Results (2026-11-02, run 41527896079):** `kyverno-enforce`, `grafana` and `keycloak` pass
+with the FIPS overlay, `fips_enabled=1` and the FIPS crypto policy before and after each
+test. Keycloak's BC-FIPS started, served its realm and took the admin's login on the FIPS
+kernel. Nothing in the images broke; what a FIPS kernel did break was the test's own tooling:
+
+- sshd refuses Ed25519 keys under RHEL 9's FIPS policy, so the VM was unreachable after the
+  FIPS reboot until the runner's key became ECDSA P-384. A site's automation that logs into
+  FIPS nodes with Ed25519 keys fails the same way.
+- RHEL's `sudo` resets `PATH` to `secure_path`, without `/usr/local/bin` (where k3s installs):
+  call it by full path.
 
 ## CI environment notes
 
