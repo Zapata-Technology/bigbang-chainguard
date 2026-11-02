@@ -22,7 +22,10 @@ K3S_INSTALL_SHA256=40b487f0d8ef4f5d1bf422e7bb6228cc7789c40ecc66c5ab067d396bbee98
 
 VM_DIR=${VM_DIR:-${RUNNER_TEMP:-/tmp}/fips-vm}
 # The runner has 2 CPUs and 7 GB; leave the runner itself (kubectl, the harness) about 1.5 GB.
-VM_CPUS=${VM_CPUS:-2}
+# 4 vCPUs on the 2 CPUs: Kubernetes schedules by requests, and one 2-CPU node couldn't fit
+# Kyverno with Headlamp and Grafana ("Insufficient cpu"). kind's four nodes share the same
+# 2 CPUs the same way, so the tests' requests fit as they do there.
+VM_CPUS=${VM_CPUS:-4}
 VM_MEMORY=${VM_MEMORY:-5632}
 SSH_PORT=2222
 
