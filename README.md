@@ -14,6 +14,83 @@ upstream chart, plus a Flux kustomization:
 A nightly job keeps the overlays current with your org's patches and with new Big Bang
 releases.
 
+## Why Chainguard images instead of Iron Bank's
+
+**Run the same, unmodified Big Bang on images with almost no known vulnerabilities.**
+Chainguard rebuilds every image from source, keeps it minimal, and patches it continuously.
+This repo swaps those images in for Iron Bank's across every package, with a FIPS twin for
+almost every one and signatures you can check. Every change is deployed and tested on
+Kubernetes (kind in CI) before it reaches you. You get a smaller attack surface, far less CVE
+triage, and FIPS with one switch, without forking Big Bang.
+
+Security first. Every number below comes from the repo's own scans and tests; the CVE
+counts are from grype on **2026-11-02**, and the [weekly CVE report](.github/workflows/cve-report.yml)
+refreshes them.
+
+- **A fraction of Iron Bank's known vulnerabilities.** Iron Bank's images need an
+  account to scan, but their recipes are public, and each one names the base image it is
+  built FROM (Red Hat UBI 9 for most). We scanned the public copy of each base. For the 67
+  images whose base resolves:
+  - **Iron Bank's bases alone**, before any application is added, carry **840 High and
+    6,688 Medium** CVEs.
+  - **The complete Chainguard replacements**, application included, carry **31 High and
+    29 Medium**.
+  - In **53 of the 67**, the whole Chainguard image has fewer Critical and High CVEs than
+    the Iron Bank image's base alone.
+  - Counts are summed per image; same scanner (grype) and same day for both sides. The
+    Iron Bank figures are a floor: the real images also carry their applications.
+- **Almost no known vulnerabilities.** Big Bang's Iron Bank images are replaced by 111
+  Chainguard images. Of those:
+  - **105 (95%) have no Critical CVE**;
+  - **83 have no Critical or High** (88 of the 111 FIPS images);
+  - **68 have no known CVE at all**.
+
+  Across all 111 there are **6 distinct Critical CVEs**. All are in third-party code:
+  GitLab EE's Rails images (GraphicsMagick and Python), Gitaly (containerd) and Grafana's
+  image renderer (Chromium). Upstream has published a fix for only one of them so far.
+- **A fixable Critical can't sneak in.** Every pull request scans the images it adds, and
+  CI fails if one has a Critical CVE that already has a fix (`bb-cve.py --changed-from`).
+  That includes the nightly update.
+- **Patched continuously.** Every night the overlays move to
+  the newest patch in your org, pinned by digest. CI rejects any image Chainguard hasn't
+  rebuilt in 30 days, so an abandoned release line can't stay deployed.
+  - Where your org doesn't have Iron Bank's minor version, the replacement is a newer
+    minor (31 image references), never an older one. Each case is listed in `docs/images.md`.
+- **A supply chain you can verify.**
+  - Every Chainguard image's signature is checked on every pull request.
+  - The images this repo builds are signed keylessly, with an SBOM and SLSA provenance
+    attached.
+  - Every image is pinned by digest, so a cluster runs exactly what CI tested.
+  - The installer adds a Kyverno policy that refuses unsigned images (enforce mode by
+    default).
+  - Each release archive is signed by the release workflow.
+- **FIPS with one switch.** 177 of the 183 converted image references have a `-fips`
+  twin; the other 6 are listed with the reason. `--fips` (or the FIPS overlay) turns
+  them on.
+  - Each kind test runs in both standard and FIPS mode ([docs/testing.md](docs/testing.md)
+    lists the exceptions).
+  - Kyverno, Grafana and Keycloak also pass on a RHEL 9 node whose kernel is in FIPS mode.
+- **Minimal images.** Chainguard builds each image with only the application and what it
+  needs to run. By Chainguard's design, the runtime images ship without a package manager,
+  so there is less to patch and less to exploit.
+  - For the 67 images compared above, the median Chainguard image, application
+    included, is **83 MB** standard and 116 MB FIPS.
+  - The median Iron Bank base image alone, before the application, is **107 MB**.
+- **Tested on Kubernetes, not just rendered.**
+  - **More than 35 runtime tests**, each with a functional check of the app: a Loki query, a
+    Velero backup, a GitLab readiness check, and so on.
+  - A **release-to-release upgrade test** on every change.
+  - **More than 430 unit tests**.
+- **Problems found and fixed before you hit them.** The runtime tests found **34 problems**
+  that rendering alone would miss, each fixed in the overlays and listed in
+  [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Examples:
+  - an Istio sidecar still pulled from Iron Bank;
+  - Gatekeeper refusing every non-Iron Bank image;
+  - GitLab's migrations running out of PostgreSQL locks;
+  - Thanos with no stores.
+- **No fork, no lock-in.** Big Bang is unchanged. The repo writes values overlays, and
+  [one command](docs/quickstart.md) installs, upgrades or rolls back.
+
 > **Status: beta.** Use it for development, test and evaluation clusters; it isn't
 > supported for production yet. Install from a pinned release, not `main`.
 > **[Quickstart](docs/quickstart.md)** has the steps and what is and isn't proven yet.
@@ -286,8 +363,10 @@ applies it. Commit `DIR` to your own git repository and point a Flux Kustomizati
 
 `cve-report.yml` runs weekly (and on demand): `scripts/bb-cve.py` scans each Iron Bank image
 Big Bang deploys and the Chainguard image that replaces it with grype, and writes totals and
-per-image counts by severity to the run summary and an artifact. Iron Bank's side needs the
-`REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets (an Iron Bank account).
+per-image counts by severity, image sizes and a distinct-image summary to the run summary and
+an artifact. Iron Bank's side is scanned directly with the `REGISTRY1_USERNAME` and
+`REGISTRY1_PASSWORD` secrets (an Iron Bank account). Without them it scans the public base each
+Iron Bank image's public recipe builds FROM, as a floor (`--ironbank-bases`).
 
 ### Doing it by hand
 
