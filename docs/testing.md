@@ -25,7 +25,7 @@ flowchart LR
 | **Image age** (`bb-age.py`) | every PR | An org image not rebuilt in 30 days: a release line Chainguard stopped maintaining. Vault's kubectl 1.30 (19 Critical CVEs in FIPS) was one. |
 | **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
-| **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime |
+| **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
 
 ## Running packages on kind
 
@@ -70,13 +70,39 @@ Each test then:
    image when the run has no Iron Bank login: GitLab's upgrade check), or one restarted
    6 times (about 10 minutes) with an error line in its log; fewer is normal for apps that
    crash until a dependency is up (Harbor's jobservice restarts 3 times). A broken test
-   then ends in minutes, not at its
-   timeout;
+   then ends in minutes, not at its timeout;
 7. keeps the evidence. While the test runs, every 30 seconds it saves each container's log,
    and after a restart the log of the run that ended, so a crash-looping pod's output
    survives Flux uninstalling a failed release. At the end it adds events, pod
    descriptions, `kubectl describe nodes` (what each node has allocated) and Flux's view of
    every source and HelmRelease.
+
+One kind test, as `compat.yml` runs it:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as compat.yml job
+    participant H as bb-compat.py
+    participant W as watcher<br/>(PodLogKeeper thread)
+    participant K as kind cluster
+    participant A as artifact<br/>compat-test-mode
+
+    J->>K: create kind (1 control plane, 3 workers)
+    J->>H: run the test (standard or --fips)
+    H->>H: bb-convert with the trial mapping
+    H->>K: Flux, setup commands, Big Bang with the test's packages
+    H->>W: start
+    loop every 30 s while the test waits
+        W->>K: pods, Jobs, every container's log<br/>(and the run before a restart)
+        W->>W: print the first error line (LIVE)<br/>save logs, note OOM kills and bad exits
+        W-->>H: a failure waiting won't fix?<br/>stop early, naming it
+    end
+    H->>K: report pods, image policy, forbid_log, check commands
+    H->>W: finish: events, describe pods and nodes, Flux status
+    H-->>J: RESULT PASS or FAIL<br/>(an OOM kill fails it)
+    J->>A: upload compat.log + diag/ (pass or fail, 14 days)
+```
 
 ### Reading a test's logs
 
@@ -100,14 +126,14 @@ gh run download <run id> -n compat-gitlab-standard -D gitlab-logs
 Run locally, the same files land in `<out>/diag` (the test prints the path), or in
 `$COMPAT_DIAG` when set.
 
-## Results (Big Bang 3.35.1, 2026-10-30)
+## Results (Big Bang 3.35.1, 2026-11-02)
 
-Every test in this table passes in standard and FIPS mode, except the ones marked new.
+Every test in this table passes in standard and FIPS mode on main's latest runs, except where the notes say otherwise. Large tests run weekly and on demand; the rest on every pull request that touches what clusters run.
 
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data |
-| vault-upgrade (new, skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
+| vault-upgrade (skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination |
 | argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | |
@@ -123,23 +149,23 @@ Every test in this table passes in standard and FIPS mode, except the ones marke
 | renovate | renovate 44.190 | A CronJob: installs only |
 | kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
 | object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README) |
-| keycloak (new) | Keycloak 26.8 with Big Bang's PostgreSQL | |
-| external-secrets (new) | External Secrets Operator 2.12 | |
-| fluentbit (new) | Fluent Bit 5.1 shipping to Loki | |
-| gatekeeper (new) | Gatekeeper 3.23 and its kubectl jobs | |
-| metrics-server (new) | metrics-server 0.9 | kind's kubelet certificates may need `--kubelet-insecure-tls` |
-| thanos (new) | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
-| velero (new) | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
-| istio-ambient (new) | Istio CNI and ztunnel 1.31 | |
-| installer (new) | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
-| installer-tls (new) | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
-| installer-signatures (new) | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
-| installer-gitops (new) | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
-| istio-egress-gateway (new) | Istio egress gateway beside istiod | |
-| mattermost-operator (new) | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs |
-| mattermost (new) | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
-| gitlab (new, large) | GitLab with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Weekly and on demand (`large: true`). **Not passing yet:** the sizing values sat outside `upstream:` and never applied (pods Pending on CPU), then the migrations hit PostgreSQL's lock limit; both fixed, re-running |
-| gitlab-runner (new, large) | GitLab Runner registered with that GitLab | Weekly and on demand |
+| keycloak | Keycloak 26.8 with Big Bang's PostgreSQL | |
+| external-secrets | External Secrets Operator 2.12 | |
+| fluentbit | Fluent Bit 5.1 shipping to Loki | |
+| gatekeeper | Gatekeeper 3.23 and its kubectl jobs | |
+| metrics-server | metrics-server 0.9 | kind's kubelet certificates may need `--kubelet-insecure-tls` |
+| thanos | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
+| velero | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
+| istio-ambient | Istio CNI and ztunnel 1.31 | |
+| installer | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
+| installer-tls | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
+| installer-signatures | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
+| installer-gitops | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
+| istio-egress-gateway | Istio egress gateway beside istiod | |
+| mattermost-operator | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs |
+| mattermost | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
+| gitlab (large) | GitLab (webservice, sidekiq, Gitaly, Shell, registry, KAS, toolbox) with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Passes in both modes since 2026-11-01. It needed the sizing values under `upstream:`, PostgreSQL's `max_locks_per_transaction` at 256, a 40-minute Deployment progress deadline and 15 minutes before the liveness probe restarts Rails: see the findings below and the README's GitLab notes |
+| gitlab-runner (large) | GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token) | Passes in both modes since 2026-11-02: the runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use |
 
 ## What the runtime tests found
 
@@ -168,6 +194,7 @@ None of these showed up when rendering. All are fixed in the overlays:
 | gitlab | Its migrations load the whole schema in one transaction; PostgreSQL's default `max_locks_per_transaction` (64) fails it with `out of shared memory`, so GitLab never starts | The test's PostgreSQL runs with 256. **A site's external PostgreSQL for GitLab needs it raised too** |
 | gitlab | On a 2-CPU runner the migrations take about 10 minutes; webservice and sidekiq wait on them past Kubernetes' 10-minute `progressDeadlineSeconds`, the Deployment turns Failed and Helm stops the install (`failed early due to stalled resources`) | The test patches every GitLab Deployment to 2400 s (`compat/support/progress-deadline.py`, a post-renderer after the digest pins). A slow site cluster needs the same through `addons.gitlab.postRenderers` |
 | gitlab | Webservice and Sidekiq (Rails) take more than the liveness probe's ~3 minutes (20 s, then 3 failures 60 s apart) to boot on a 2-CPU runner in FIPS mode; the probe killed them mid-boot until the test timed out | The test allows 15 failures (~15 minutes). A small or FIPS site cluster may need the same: `upstream.gitlab.webservice.deployment.livenessProbe` and `upstream.gitlab.sidekiq.livenessProbe` |
+| gitlab-runner | In FIPS mode, with Kyverno and the runner beside GitLab, webservice was OOMKilled after 36 minutes under its 3G limit while its node was under MemoryPressure; the same webservice passes in `gitlab.yaml`. Most likely the 7 GB runner running out, not a limit too low | The runner test leaves out the container registry, KAS and the metrics exporter, which the runner doesn't use |
 | gitlab-runner | Once it had a token, the runner registered and then crashed: `PANIC: creating directory: mkdir /.gitlab-runner: permission denied`. The chart mounts its writable config at `/home/gitlab-runner/.gitlab-runner`, Iron Bank's user's home; the Chainguard image's user has another home. Restarted, it registered again and GitLab rate-limited it | `overrides.gitlab-runner` sets `HOME=/home/gitlab-runner`; the test forbids any runner `PANIC:` |
 | gitlab-runner | The test passed while the runner logged `PANIC: The registration-token needs to be entered`: its pod stays Ready without registering. Big Bang copies GitLab's runner token with a Kyverno policy (`autoRegister` needs Kyverno), and the test had Kyverno off | The test enables Kyverno, forbids that log line and checks the runner logs a successful registration. Sites: keep Kyverno on with GitLab Runner, or give the runner a token yourself |
 | gitlab | Chart v10 has no bundled PostgreSQL or Redis | `compat/support/app-deps.py` deploys them from the org's images |
@@ -186,8 +213,8 @@ job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's ke
 
 These are kind-on-GitHub-Actions limits, not image problems:
 
-- **One machine, several nodes.** A runner is a single machine with a 4-CPU allowance, so
-  kind runs three workers to fit Big Bang's resource requests.
+- **One machine, several nodes.** A private repository's runner is one machine with 2 CPUs and
+  7 GB (a public one: 4 CPUs, 16 GB). kind runs three workers on it, which share that CPU and memory, so tests lower requests (never limits) to fit.
 - **Shared kernel limits.** The nodes share the runner's kernel, so the job raises inotify
   limits (NeuVector's enforcers: "too many open files").
 - **Disk space.** The job frees disk space first, because large images on four nodes filled
@@ -204,6 +231,6 @@ A compat file with `large: true` runs in the weekly `compat.yml` schedule (Sunda
 and when named in a manual run, not on pull requests: GitLab's dozen pods need more memory
 and time (`timeout:` in seconds; the job gets 90 minutes) than a pull request should wait
 for. MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which
-CI has no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server
+CI has no credentials for. Start one by hand from `main` (`gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`): from another branch the Chainguard login fails, because the CI identity trusts main and pull requests only. Mattermost is not large: `compat/mattermost.yaml` runs the server
 with the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on
 SeaweedFS on every pull request that touches `compat/`.

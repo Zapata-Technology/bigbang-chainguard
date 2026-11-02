@@ -206,9 +206,10 @@ builds on the PR and pushes on merge.
   pushes `<tag>`; keep that order in any new publish step.
 - On Windows: git checks out with CRLF (render charts from a Linux checkout if line endings
   matter), `docker-credential-cgr` may be blocked (no local cgr.dev pulls; debug in CI),
-  shell heredocs turn `\n` in Python strings into real newlines (write the script
-  to a file instead), and paths past 260 characters fail (Big Bang's chart has deep test
-  paths: build bundles under a short directory). Offline `bb-convert.py` drops images
+  Git Bash heredocs collapse backslashes (`\n` becomes a newline, `\b` a backspace, `\\(`
+  becomes `\(`; write a Python script with the Write tool and run the file), and paths
+  past 260 characters fail (Big Bang's chart has deep test paths: build bundles under a
+  short directory). Offline `bb-convert.py` drops images
   without `work/`; the update workflow can't log into Chainguard from a branch (the
   identity trusts main and pull requests), so a mapping change lands first and
   `update.yml` on main regenerates the overlays.
@@ -216,6 +217,23 @@ builds on the PR and pushes on merge.
   `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
+- **Large kind tests (GitLab) start only from main**: `gh workflow run compat.yml --ref main
+  -f tests=gitlab`. From a branch "Log into Chainguard" fails (the identity trusts main and
+  pull requests), and pull requests skip large tests: merge a test-only change, then run it.
+- **GitLab on a small cluster** needs, in its test and possibly at a site: values under
+  `upstream:` (the package chart ignores top-level ones), PostgreSQL
+  `max_locks_per_transaction` 256, a Deployment `progressDeadlineSeconds` past the
+  migrations (`compat/support/progress-deadline.py`: Helm replaces lists, so it repeats the
+  overlays' digest-pin post-renderer), and a liveness allowance for Rails' boot. GitLab
+  Runner needs Kyverno for its token and `HOME=/home/gitlab-runner` (`overrides`).
+- **A Ready pod isn't a working app**: GitLab Runner stayed Ready while it panicked without a
+  token. Give a test a `check` that proves the app did its job, and a `forbid_log`.
+- **The test watcher's thresholds are tuned**: Harbor's jobservice crashes 3 times while core
+  starts, so a crash loop stops a test only at 6 restarts; GitLab's `dependencies` init
+  container exits 1 while it waits, without an error line. Iron Bank images can't be pulled
+  without `REGISTRY1_*` and don't stop a test. Check a new rule against a full PR run.
+- **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
+  token and uses `RELEASE_PAT` only for `gh pr merge`.
 
 ## Where to look
 

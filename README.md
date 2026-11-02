@@ -347,6 +347,28 @@ The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Ky
   keystores. Set those in the site's `addons.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
 
+### GitLab and GitLab Runner notes
+
+The kind tests found these; each applies to a real cluster too.
+
+- **PostgreSQL:** GitLab loads its schema in one transaction. With PostgreSQL's default
+  `max_locks_per_transaction` (64) the migrations fail with `out of shared memory` and
+  GitLab never starts. Raise it on your external PostgreSQL (the test uses 256).
+- **GitLab Runner needs Kyverno.** Big Bang hands the runner GitLab's registration token
+  with a Kyverno policy (`autoRegister`). Kyverno is on by default; if you turn it off, give
+  the runner a token yourself, or it logs `The registration-token needs to be entered`
+  while its pod still shows Ready.
+- **Runner home directory:** handled for you. The overlays set `HOME=/home/gitlab-runner`,
+  the directory the chart mounts; the Chainguard image's user has another home, and the
+  runner crashed writing `/.gitlab-runner` without it.
+- **Small or FIPS clusters:** the migrations can take longer than Kubernetes' 10-minute
+  rollout deadline, and Rails longer than the liveness probe's ~3 minutes to boot. If
+  Helm stops with `failed early due to stalled resources` or the probe keeps restarting
+  webservice and sidekiq, raise `progressDeadlineSeconds` (through
+  `addons.gitlab.postRenderers`, after the overlays' digest pins) and
+  `upstream.gitlab.webservice.deployment.livenessProbe` /
+  `upstream.gitlab.sidekiq.livenessProbe` `failureThreshold`, as `compat/gitlab.yaml` does.
+
 ## Object storage: SeaweedFS (default) or MinIO
 
 Several packages need S3 storage:
@@ -608,6 +630,16 @@ repo has tags, so you know when to switch it over.
   If the release adds an image that `mapping.yaml` doesn't cover, CI fails on that PR and
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.
 - **CI** (`ci.yml`): unit tests, then discovery, conversion and verification for both modes.
+- **Releases** (`release.yml`): every merge that changes what you deploy (overlays, Flux,
+  SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>`, for example
+  `3.35.1-cg.40`; `n` starts again at 1 with each Big Bang version. A release holds the
+  install archive, its sha256, a Sigstore signature and notes listing the image changes
+  since the previous release (configuration changes are in its list of merged pull
+  requests). Nightly digest re-pins make releases frequent.
+- **Upgrading a cluster:** run `bb-install.py install` again from the newer release.
+  `install --plan` shows what would change (version, FIPS, packages, images) without
+  changing anything, `status` says when the cluster is behind the release you run it
+  from, and `rollback` returns Big Bang to an earlier revision.
 
 `discovery/render-inputs.yaml` holds render-only placeholders (fake database and Redis
 endpoints) so that GitLab and Anchore render during discovery. Never deploy with it.
@@ -619,7 +651,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 | Gap | Why | What closes it |
 |---|---|---|
 | 23 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
-| GitLab's kind test doesn't pass yet | Its sizing values never applied (fixed), then the migrations failed on PostgreSQL's lock limit (fixed in the test's PostgreSQL; see below) | Weekly and on-demand runs; render and signature checks cover GitLab meanwhile. **Your external PostgreSQL for GitLab needs `max_locks_per_transaction` raised** (the test uses 256): with the default 64, GitLab's schema load fails with `out of shared memory` |
+| Upgrading from one release to the next isn't tested | Every kind test starts from an empty cluster; only Vault's 1.21 to 2.x data upgrade has a test (skipped without Iron Bank) | An upgrade test: install the latest release, write data, upgrade with `bb-install.py install`, check the data and pods |
 | Keycloak's images stay on tags, not digests | Big Bang 3.35.1's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |

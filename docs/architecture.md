@@ -212,7 +212,15 @@ deploys on kind before it merges.
 `compat.yml` runs on pull requests that change what clusters run (`overlays/`, `flux*/`,
 `mapping.yaml`, `orgs/`, `compat/`, the installer) and weekly with the large tests
 (GitLab), and deploys packages on kind to prove they **run**, not just render, checking
-every running image against the image policy. See [testing.md](testing.md).
+every running image against the image policy. While each test waits, a watcher reads
+every container's log: it prints errors as they happen, stops the test early on a
+failure that won't recover, and fails it on an OOM kill. Every job uploads its logs
+and the cluster's state as an artifact. See [testing.md](testing.md).
+
+`automerge.yml` reads the pull request and its check runs with the workflow's own
+token and merges with `RELEASE_PAT`, so the merge starts `builds.yml` and `release.yml`
+on main (a merge made with the workflow token wouldn't). Each such merge that changes
+what users deploy becomes a release `<bigbang>-cg.<n>`.
 `cve-report.yml` compares Iron Bank's and Chainguard's images with grype every week.
 
 `bb-leftovers.py` checks each `{stays: ..., until: <name>}` image against Chainguard's
