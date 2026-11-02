@@ -28,11 +28,12 @@ test:
       done
       echo "up: $out" | cut -c1-1500
   values:
-    # TRIAL: Thanos Query's default DNS resolver (miekgdns) found no address for either
-    # endpoint on kind; try Go's resolver.
+    # Thanos Query's default DNS resolver (miekgdns) found no address for either endpoint
+    # on CI's kind cluster ("IP address lookup yielded no results", so no stores): it tries
+    # the search domains first (ndots:5) and stops at the first empty NOERROR answer,
+    # and the runner adds an Azure search domain (*.internal.cloudapp.net). Go's resolver
+    # finds both. Not image-specific (same Thanos code and default as Iron Bank's).
     addons: {thanos: {values: {upstream: {query: {extraFlags: [--store.sd-dns-resolver=golang]}}}}}
   debug:
-    - "docker exec compat-worker cat /etc/resolv.conf; cat /etc/resolv.conf"
-    - "kubectl -n kube-system get configmap coredns -o jsonpath='{.data.Corefile}'"
     - "kubectl -n thanos logs deploy/thanos-query --tail=15"
     - "echo s3.bucket.list | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333"
