@@ -128,11 +128,14 @@ jobs:
 
       # Four kind nodes each pull the package's images (NeuVector's are large): the
       # runner's disk filled up ("No space left on device"). Drop preinstalled
-      # toolchains these jobs don't use (~30 GB).
-      - name: Free disk space
+      # toolchains these jobs don't use (~30 GB). Deleting them takes ~90 s, so it runs in
+      # the background while the cluster starts; "Deploy and check" waits for it before
+      # the package's images are pulled.
+      - name: Free disk space (in the background)
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
+          nohup setsid sh -c 'sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost; df -h /; touch "$0/disk-freed"' "$RUNNER_TEMP" \
+            > "$RUNNER_TEMP/free-disk.log" 2>&1 < /dev/null &
 
       # kind's nodes share the runner's kernel; NeuVector's enforcers ran out of inotify
       # instances ("Failed to open file monitor! too many open files"). kind's documented fix.
@@ -178,6 +181,8 @@ jobs:
           # bb-compat.py keeps every pod's logs and the cluster's state here; uploaded below.
           COMPAT_DIAG: ${{ runner.temp }}/diag
         run: |
+          until [ -f "$RUNNER_TEMP/disk-freed" ]; do sleep 5; done   # "Free disk space" above
+          cat "$RUNNER_TEMP/free-disk.log"
           CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
           echo "::add-mask::$CGR_TOKEN"
           export CGR_TOKEN
