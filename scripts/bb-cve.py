@@ -6,8 +6,9 @@ Chainguard image that replaces it.
   bb-cve.py --changed-from origin/main      (a pull request's gate)
 
 Reads docs/images.md (bb-convert.py's image map), scans every distinct image pair with
-grype, and writes a Markdown report: totals by severity, then one row per image with
-both sides' counts. Iron Bank images need registry1 credentials in the Docker config;
+grype, and writes a Markdown report: totals by severity, each side's distinct images (how
+many have no Critical, or no Critical or High, and their size as grype measured it), then
+one row per image with both sides' counts and sizes. Iron Bank images need registry1 credentials in the Docker config;
 without --ironbank (or without credentials) only the Chainguard side is scanned and the
 Iron Bank columns say so. Images that stay on Iron Bank and the images this repo builds
 are listed under their own headings. cve-report.yml runs this weekly.
@@ -126,7 +127,24 @@ def scan(ref):
     if p.returncode:
         return (p.stderr.strip().splitlines() or ["grype failed"])[-1][:120]
     found = json.loads(p.stdout)
-    return {**counts(found), "critical": criticals(found)}
+    return {**counts(found), "critical": criticals(found), "size": image_size(found)}
+
+
+def image_size(grype_json):
+    """The image's size in bytes (uncompressed, as grype unpacked it), or None."""
+    target = grype_json.get("source", {}).get("target")
+    return target.get("imageSize") if isinstance(target, dict) else None
+
+
+def mb(size):
+    return f"{size / 1e6:,.0f} MB" if size else "?"
+
+
+def distinct(refs, results):
+    """[images, no Critical, no Critical or High, total bytes] over the scanned refs."""
+    done = [results[r] for r in sorted(set(refs)) if isinstance(results.get(r), dict)]
+    return [len(done), sum(1 for r in done if not r["Critical"]),
+            sum(1 for r in done if not r["Critical"] and not r["High"]), sum(r.get("size") or 0 for r in done)]
 
 
 def cell(result):
@@ -153,10 +171,22 @@ def report(pairs, results, fips, ironbank):
              "Chainguard images are often a newer patch than Iron Bank's (docs/images.md says where).", "",
              f"| | {head} |", "|---|" + "---|" * len(SEVERITIES),
              f"| Iron Bank | {' | '.join(str(totals['ib'][s]) for s in SEVERITIES) if ironbank else 'not scanned'} |",
-             f"| Chainguard | {' | '.join(str(totals['cg'][s]) for s in SEVERITIES)} |", "",
-             "## Per image", "", "| Iron Bank image | Iron Bank | Chainguard image | Chainguard |", "|---|---|---|---|"]
+             f"| Chainguard | {' | '.join(str(totals['cg'][s]) for s in SEVERITIES)} |", ""]
+    # Per distinct image: several Iron Bank images can map to one Chainguard image (the four
+    # devops-tester tags), which the totals above count once per Iron Bank image.
+    lines += ["Distinct images scanned:", "",
+              "| | Images | No Critical | No Critical or High | Total size |", "|---|---|---|---|---|"]
+    for name, side, on in (("Iron Bank", 0, ironbank), ("Chainguard", 1, True)):
+        if on:
+            n, nc, nch, size = distinct([p[side] for p in converted], results)
+            lines.append(f"| {name} | {n} | {nc} | {nch} | {mb(size)} |")
+    lines += ["", "## Per image", "",
+              "| Iron Bank image | Iron Bank | Chainguard image | Chainguard | Size (Iron Bank / Chainguard) |",
+              "|---|---|---|---|---|"]
     for ib, new in converted:
-        lines.append(f"| {ib.removeprefix(IRON_BANK + '/')} | {cell(results.get(ib))} | {new} | {cell(results.get(new))} |")
+        sizes = " / ".join(mb(r.get("size")) if isinstance(r, dict) else "-" for r in (results.get(ib), results.get(new)))
+        lines.append(f"| {ib.removeprefix(IRON_BANK + '/')} | {cell(results.get(ib))} | {new} | {cell(results.get(new))} "
+                     f"| {sizes} |")
     crit = [(new, c) for _, new in converted if isinstance(results.get(new), dict)
             for c in results[new].get("critical", [])]
     if crit:
