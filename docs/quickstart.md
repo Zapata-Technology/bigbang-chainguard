@@ -11,7 +11,7 @@ production yet. Here is what is and isn't proven:
 | Proven | Not yet |
 |---|---|
 | Every image Big Bang 3.35.1 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
-| Each package with a kind test (35 tests, most of Big Bang's packages) deploys and passes a functional check, standard and FIPS ([testing](testing.md)) | FIPS on a node whose kernel is in FIPS mode (the FIPS images are tested on a regular kernel) |
+| Each package with a kind test (35 tests, most of Big Bang's packages) deploys and passes a functional check, standard and FIPS ([testing](testing.md)) | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel |
 | Upgrading from the newest release to the next is tested on every change (Kyverno, Headlamp, Grafana) | Upgrading an existing Iron Bank Big Bang in place to Chainguard images (needs an Iron Bank account in CI) |
 | Every org image is pinned by digest and signature-checked; images built here are signed and attested | The images that stay on Iron Bank ([Known gaps](../README.md#known-gaps)) |
 

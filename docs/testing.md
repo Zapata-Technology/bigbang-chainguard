@@ -26,6 +26,7 @@ flowchart LR
 | **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
+| **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
 
 ## Running packages on kind
 
@@ -214,6 +215,41 @@ None of these showed up when rendering. All are fixed in the overlays:
 The two shell problems led to `bb-scan.py`, which found the same pattern in Alloy's upgrade
 job (fixed by `bigbang-base` linking `sh` to bash, as UBI does) and Fortify's keystore job
 (`bash_commands`).
+
+## The FIPS overlay on a FIPS kernel
+
+kind's nodes share the runner's kernel, and GitHub's Ubuntu kernel is not in FIPS mode, so
+the kind tests run the FIPS images on a kernel that reports `fips_enabled = 0`. A STIG'd RHEL
+node or an AKS FIPS node pool reports 1, and some FIPS modules (Keycloak's BC-FIPS, OpenSSL's
+FIPS provider) look at it. `fips-kernel.yml` covers that gap:
+
+1. checks the runner has `/dev/kvm` (without it a VM would be emulated, far too slow);
+2. boots AlmaLinux 9 GenericCloud (pinned build and checksum) under QEMU/KVM, runs
+   `fips-mode-setup --enable` and reboots: RHEL's documented way to put an installed system
+   in FIPS mode (`fips=1` on the kernel command line, the FIPS crypto policy);
+3. fails unless `/proc/sys/crypto/fips_enabled` is 1, then installs k3s (pinned, by checksum)
+   and forwards its API to the runner (`.github/fips-vm.sh`);
+4. runs `bb-compat.py compat/<test>.yaml --fips` against it for a few small tests
+   (`kyverno-enforce`, `grafana`, `keycloak`), one VM per job;
+5. checks `fips_enabled` again after the test, so a pass always means a FIPS kernel.
+
+It runs weekly, on pull requests that change it, and by hand from main
+(`gh workflow run fips-kernel.yml --ref main`). The artifact `fips-kernel-<test>` holds the
+usual `compat.log` and `diag/`, plus the VM's kernel log, k3s log and serial console. SELinux
+is permissive in the VM (k3s's SELinux policy is another package repository); the VM gets
+4 vCPUs on the runner's 2 CPUs (Kubernetes schedules by requests; kind's four nodes share
+the CPUs the same way) and 5.5 GB of its 7 GB.
+
+**Results (2026-11-02, run 41527896079):** `kyverno-enforce`, `grafana` and `keycloak` pass
+with the FIPS overlay, `fips_enabled=1` and the FIPS crypto policy before and after each
+test. Keycloak's BC-FIPS started, served its realm and took the admin's login on the FIPS
+kernel. Nothing in the images broke; what a FIPS kernel did break was the test's own tooling:
+
+- sshd refuses Ed25519 keys under RHEL 9's FIPS policy, so the VM was unreachable after the
+  FIPS reboot until the runner's key became ECDSA P-384. A site's automation that logs into
+  FIPS nodes with Ed25519 keys fails the same way.
+- RHEL's `sudo` resets `PATH` to `secure_path`, without `/usr/local/bin` (where k3s installs):
+  call it by full path.
 
 ## CI environment notes
 

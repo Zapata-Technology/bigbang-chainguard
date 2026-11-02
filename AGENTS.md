@@ -68,7 +68,8 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 `compat/` or the installer), `update.yml` (nightly bot PR), `automerge.yml` (merges that PR
 when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
-vs Chainguard grype counts, with each Critical and its fix), `codeql.yml` / `scorecard.yml` (public repo only).
+vs Chainguard grype counts, with each Critical and its fix), `fips-kernel.yml` (weekly: the FIPS overlay
+on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Maintaining this repo with an AI agent
 
