@@ -25,6 +25,30 @@ test:
                 auth:
                   password: compat-keycloak-db-not-a-secret
   expect: [keycloak, postgres]
+  check:
+    # The master realm's OIDC discovery answers, with a signing key in its JWKS (Keycloak
+    # made a realm key: in FIPS mode, with the BC-FIPS provider). Through the API server's
+    # service proxy; the upstream chart's default path prefix is /auth, so try both.
+    - |
+      base=/api/v1/namespaces/keycloak/services/keycloak-keycloak-http:8080/proxy
+      for p in /realms/master /auth/realms/master; do
+        d=$(kubectl get --raw "$base$p/.well-known/openid-configuration" 2>/dev/null) || continue
+        echo "$d" | grep -q '"token_endpoint"' || continue
+        echo "OIDC discovery at $p: $(echo "$d" | grep -o '"issuer":"[^"]*"')"
+        k=$(kubectl get --raw "$base$p/protocol/openid-connect/certs")
+        echo "$k" | grep -q '"kid"' || { echo "no keys in the master realm's JWKS: $k"; exit 1; }
+        echo "JWKS: $(echo "$k" | grep -o '"alg":"[^"]*"' | sort -u | tr '\n' ' ')"
+        exit 0
+      done
+      echo "no OIDC discovery for the master realm"; exit 1
+    # An admin logs in with the configured credentials and reads the master realm through
+    # the admin API (kcadm in the pod; the password stays in the container's environment).
+    - >-
+      kubectl -n keycloak exec keycloak-keycloak-0 -- sh -c
+      'cfg=/tmp/kcadm-compat.config;
+      /opt/keycloak/bin/kcadm.sh config credentials --config $cfg --server "http://localhost:8080${KC_HTTP_RELATIVE_PATH%/}"
+      --realm master --user "$KEYCLOAK_ADMIN" --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
+      && /opt/keycloak/bin/kcadm.sh get realms/master --config $cfg --fields realm,enabled; rc=$?; rm -f $cfg; exit $rc'
   setup:
     - sh compat/support/watch.sh keycloak "kubectl -n keycloak logs keycloak-keycloak-0 --previous --tail=60 || kubectl -n keycloak logs keycloak-keycloak-0 --tail=60"
   debug:
