@@ -31,7 +31,7 @@ chainsaw:
   go_get:
   - golang.org/x/net@v0.62.0
   - google.golang.org/grpc@v1.85.0
-  - github.com/go-jose/go-jose/v4@v4.1.7
+  - github.com/go-jose/go-jose/v4@v4.1.8
 packages:
 - bash
 - curl
