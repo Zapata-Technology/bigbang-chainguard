@@ -369,6 +369,16 @@ The kind tests found these; each applies to a real cluster too.
   `upstream.gitlab.webservice.deployment.livenessProbe` /
   `upstream.gitlab.sidekiq.livenessProbe` `failureThreshold`, as `compat/gitlab.yaml` does.
 
+### Other package notes
+
+- **Gatekeeper:** its `allowed-docker-registries` constraint admits only Iron Bank's
+  registries by default. The overlays extend it, like Kyverno's `restrict-image-registries`,
+  with your org, `BUILD_REGISTRY` and Iron Bank's registries (for the documented leftovers).
+  A site that sets its own list must keep those.
+- **Thanos:** the overlays run Thanos Query with `--store.sd-dns-resolver=golang`. Its
+  default resolver found no stores on nodes with a DNS search domain (Azure and AKS add
+  one), so Query answered with no data while its pods were Ready.
+
 ## Object storage: SeaweedFS (default) or MinIO
 
 Several packages need S3 storage:

@@ -75,3 +75,12 @@ def test_trial_mapping_does_not_undo_mapping_yaml(path):
             continue
         assert source(trial) == source(mapping[image]), (
             f"{image}: the trial takes it from {source(trial)}, mapping.yaml from {source(mapping[image])}")
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda p: os.path.basename(p))
+def test_every_kind_test_checks_the_app_works(path):
+    # Ready pods aren't a working app: GitLab Runner stayed Ready while it panicked without
+    # a token, Thanos Query had no stores, Gatekeeper refused every org image. Each test
+    # needs a `check` command that proves the package does its job.
+    test = yaml.safe_load(open(path, encoding="utf-8")).get("test", {})
+    assert test.get("check"), f"{os.path.basename(path)}: add a `check:` that proves the app works"

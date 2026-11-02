@@ -128,43 +128,43 @@ Run locally, the same files land in `<out>/diag` (the test prints the path), or 
 
 ## Results (Big Bang 3.35.1, 2026-11-02)
 
-Every test in this table passes in standard and FIPS mode on main's latest runs, except where the notes say otherwise. Large tests run weekly and on demand; the rest on every pull request that touches what clusters run.
+Every test in this table passes in standard and FIPS mode on main's latest runs, except where the notes say otherwise. Every test has a `check` that proves the package does its job, not only that its pods are Ready (`tests/test_compat_files.py` requires one). Large tests run weekly and on demand; the rest on every pull request that touches what clusters run.
 
 | Test | What runs | Notes |
 |---|---|---|
-| vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data |
+| vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data. Check: `vault status` initialized and unsealed; a KV v2 secret written and read back |
 | vault-upgrade (skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
-| alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination |
-| argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | |
-| grafana | k8s-sidecar 2.14 | |
-| harbor | redis exporter 1.96 (`-iamguarded`) | |
-| headlamp | headlamp 0.46, `kubectl-dev` wait job | |
-| kiali | kiali 2.34, Chainguard sidecars (`istio-init`, `istio-proxy`) | With Istio and a gateway |
-| kyverno-reporter | policy-reporter 3.11, UI 2.9, plugin 0.7 | With Kyverno |
-| loki | memcached-exporter 0.18, rollout-operator 0.41, k8s-sidecar 2.14 | |
-| mimir | memcached-exporter 0.18, rollout-operator 0.41 | |
+| alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |
+| argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | Check: `/api/version`; the admin gets a session; the controller writes status on a probe Application |
+| grafana | k8s-sidecar 2.14 | Check: `/api/health` database ok; the dashboard sidecar picks up a labelled ConfigMap |
+| harbor | redis exporter 1.96 (`-iamguarded`) | Check: `/api/v2.0/health` lists every component healthy |
+| headlamp | headlamp 0.46, `kubectl-dev` wait job | Check: serves its UI and `/config`; reaches the API server through its cluster proxy |
+| kiali | kiali 2.34, Chainguard sidecars (`istio-init`, `istio-proxy`) | With Istio and a gateway. Check: `/kiali/api` reports Kiali running with the Istio API (port-forward: STRICT mTLS refuses the API server proxy) |
+| kyverno-reporter | policy-reporter 3.11, UI 2.9, plugin 0.7 | With Kyverno. Check: with Kyverno's policies on, PolicyReports exist, the API lists kyverno and the UI answers |
+| loki | memcached-exporter 0.18, rollout-operator 0.41, k8s-sidecar 2.14 | Check: a pushed log line is found by `query_range` |
+| mimir | memcached-exporter 0.18, rollout-operator 0.41 | Check: a gauge written through the gateway's OTLP endpoint is read back from PromQL |
 | monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`). Monitoring's k8s-sidecar belongs to kube-prometheus-stack's Grafana, which Big Bang turns off; the grafana and loki tests run it |
 | neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
-| renovate | renovate 44.190 | A CronJob: installs only |
-| kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them |
-| object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README) |
-| keycloak | Keycloak 26.8 with Big Bang's PostgreSQL | |
-| external-secrets | External Secrets Operator 2.12 | |
-| fluentbit | Fluent Bit 5.1 shipping to Loki | |
-| gatekeeper | Gatekeeper 3.23 and its kubectl jobs | |
-| metrics-server | metrics-server 0.9 | kind's kubelet certificates may need `--kubelet-insecure-tls` |
-| thanos | Thanos 0.42 with Prometheus, blocks on SeaweedFS | |
-| velero | Velero 1.18 and the AWS plugin, backups on SeaweedFS | |
-| istio-ambient | Istio CNI and ztunnel 1.31 | |
+| renovate | renovate 44.190 | A CronJob. Check: one run of it completes on Renovate's `local` platform (no git platform token in CI) |
+| kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them. Check: an org-image Pod is admitted and the same Pod from docker.io refused (server dry-run) |
+| object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README). Check: a span sent over OTLP is found by trace ID and flushed to a block in the bucket |
+| keycloak | Keycloak 26.8 with Big Bang's PostgreSQL | Check: the master realm's OIDC discovery (under `/auth`) and JWKS; the admin logs in with kcadm in the pod |
+| external-secrets | External Secrets Operator 2.12 | Check: an ExternalSecret on ESO's `fake` provider syncs into a Secret |
+| fluentbit | Fluent Bit 5.1 shipping to Loki | Check: Loki has the streams Fluent Bit labels |
+| gatekeeper | Gatekeeper 3.23 and its kubectl jobs | Check: a docker.io Pod refused, an org-image Pod admitted, the audit ran (found the allow-list gap below) |
+| metrics-server | metrics-server 0.9 | kind's kubelet certificates may need `--kubelet-insecure-tls`. Check: `kubectl top nodes` and `top pods` return numbers |
+| thanos | Thanos 0.42 with Prometheus, blocks on SeaweedFS | Check: Query lists the sidecar and store gateway and answers `up` (found the DNS problem below) |
+| velero | Velero 1.18 and the AWS plugin, backups on SeaweedFS | Check: a backup of a test namespace to SeaweedFS reaches Completed |
+| istio-ambient | Istio CNI and ztunnel 1.31 | Check: traffic between two ambient pods goes through ztunnel over HBONE |
 | installer | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
 | installer-tls | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
 | installer-signatures | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
 | installer-gitops | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
-| istio-egress-gateway | Istio egress gateway beside istiod | |
-| mattermost-operator | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs |
+| istio-egress-gateway | Istio egress gateway beside istiod | Check: the egress waypoint is Programmed and its Envoy ready with config from istiod (the gateway renders only in ambient mode) |
+| mattermost-operator | `bigbang-mattermost-operator` (built and loaded by the test) | Starts, takes its leader lease, watches its CRDs. Check: the operator takes a zero-replica Mattermost to `stable` and creates its Deployment |
 | mattermost | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
-| gitlab (large) | GitLab (webservice, sidekiq, Gitaly, Shell, registry, KAS, toolbox) with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Passes in both modes since 2026-11-01. It needed the sizing values under `upstream:`, PostgreSQL's `max_locks_per_transaction` at 256, a 40-minute Deployment progress deadline and 15 minutes before the liveness probe restarts Rails: see the findings below and the README's GitLab notes |
+| gitlab (large) | GitLab (webservice, sidekiq, Gitaly, Shell, registry, KAS, toolbox) with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | Passes in both modes since 2026-11-01. It needed the sizing values under `upstream:`, PostgreSQL's `max_locks_per_transaction` at 256, a 40-minute Deployment progress deadline and 15 minutes before the liveness probe restarts Rails: see the findings below and the README's GitLab notes. Check: `/-/readiness?all=1` ok with the database and Gitaly checks; the sign-in page renders |
 | gitlab-runner (large) | GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token) | Passes in both modes since 2026-11-02: the runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use |
 
 ## What the runtime tests found
@@ -194,6 +194,9 @@ None of these showed up when rendering. All are fixed in the overlays:
 | gitlab | Its migrations load the whole schema in one transaction; PostgreSQL's default `max_locks_per_transaction` (64) fails it with `out of shared memory`, so GitLab never starts | The test's PostgreSQL runs with 256. **A site's external PostgreSQL for GitLab needs it raised too** |
 | gitlab | On a 2-CPU runner the migrations take about 10 minutes; webservice and sidekiq wait on them past Kubernetes' 10-minute `progressDeadlineSeconds`, the Deployment turns Failed and Helm stops the install (`failed early due to stalled resources`) | The test patches every GitLab Deployment to 2400 s (`compat/support/progress-deadline.py`, a post-renderer after the digest pins). A slow site cluster needs the same through `addons.gitlab.postRenderers` |
 | gitlab | Webservice and Sidekiq (Rails) take more than the liveness probe's ~3 minutes (20 s, then 3 failures 60 s apart) to boot on a 2-CPU runner in FIPS mode; the probe killed them mid-boot until the test timed out | The test allows 15 failures (~15 minutes). A small or FIPS site cluster may need the same: `upstream.gitlab.webservice.deployment.livenessProbe` and `upstream.gitlab.sidekiq.livenessProbe` |
+| gatekeeper | Big Bang's `allowed-docker-registries` constraint (deny) admits only Iron Bank's registries: with Gatekeeper on, every org image was refused ("invalid repository for image") | `bb-convert.py` writes Gatekeeper's allow list like Kyverno's (`registry_policies`): Iron Bank's registries, the org, `BUILD_REGISTRY` and every `ref` owner |
+| thanos | Thanos Query had no stores: its default DNS resolver (miekgdns) tries the search domains first and stops at the first empty answer, and CI's Azure runners add one (AKS nodes do too). Pods were Ready the whole time. Not image-specific | `overrides.thanos` sets `--store.sd-dns-resolver=golang` (ships to deployments) |
+| istio-egress-gateway | The test passed with its gateway never deployed ("0 of 1 expected images ran"): Big Bang renders `istioEgressGateway` only in ambient mode | The test enables `istioCNI` and `ztunnel`; `bb-compat.py` now fails a test where none of the expected images ran |
 | gitlab-runner | In FIPS mode, with Kyverno and the runner beside GitLab, webservice was OOMKilled after 36 minutes under its 3G limit while its node was under MemoryPressure; the same webservice passes in `gitlab.yaml`. Most likely the 7 GB runner running out, not a limit too low | The runner test leaves out the container registry, KAS and the metrics exporter, which the runner doesn't use |
 | gitlab-runner | Once it had a token, the runner registered and then crashed: `PANIC: creating directory: mkdir /.gitlab-runner: permission denied`. The chart mounts its writable config at `/home/gitlab-runner/.gitlab-runner`, Iron Bank's user's home; the Chainguard image's user has another home. Restarted, it registered again and GitLab rate-limited it | `overrides.gitlab-runner` sets `HOME=/home/gitlab-runner`; the test forbids any runner `PANIC:` |
 | gitlab-runner | The test passed while the runner logged `PANIC: The registration-token needs to be entered`: its pod stays Ready without registering. Big Bang copies GitLab's runner token with a Kyverno policy (`autoRegister` needs Kyverno), and the test had Kyverno off | The test enables Kyverno, forbids that log line and checks the runner logs a successful registration. Sites: keep Kyverno on with GitLab Runner, or give the runner a token yourself |

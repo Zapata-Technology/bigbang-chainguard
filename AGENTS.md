@@ -170,7 +170,8 @@ command line or in output.
 
 ### Write a compat test
 `compat/<name>.yaml`: `enable` (Big Bang keys), `namespaces`, `expect` (image fragments that
-must run), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
+must run; none running fails the test), `check` (required: commands that prove the app does
+its job, not just that pods are Ready), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
 (commands that must exit 0), `installer: true` with `installer_args`, `large: true` and
 `timeout` (weekly, slow packages), `registry1: true` (pulls from Iron Bank: SKIPPED, exit 0,
 without `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`), and `upgrade_from` (`images`: the mapping
@@ -268,6 +269,20 @@ builds on the PR and pushes on merge.
   without `REGISTRY1_*` and don't stop a test. Check a new rule against a full PR run.
 - **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
   token and uses `RELEASE_PAT` only for `gh pr merge`.
+
+- **Writing a check:** `kubectl get --raw` (the API server proxy) for reads; `kubectl create
+  --raw` posts without a JSON content type (Loki 400, Tempo and Mimir 415, Argo CD
+  UnsupportedMediaType), so POST JSON through `kubectl port-forward` and curl or the
+  runner's Python. STRICT mTLS (Kiali) refuses the API server proxy: port-forward. The
+  org's `busybox` has no httpd or wget: use its `nginx` and the `kubectl` `-dev` image. Big
+  Bang's Keycloak serves under `/auth`. Pass secrets on stdin, never print them.
+- **Big Bang's `istioEgressGateway` renders only in ambient mode** (`istioCNI`, `ztunnel`).
+- **The log keeper polls every 30 s**: a pod that lives less (cert-manager's
+  startupapicheck, Helm wait jobs) may leave no log in the artifact.
+- **Parallel `cosign verify` races on its Sigstore cache** ("trusted root is required"):
+  `bb-signatures.py --jobs` verifies a failed image again alone before reporting it.
+- **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when
+  PyYAML has it): the pure-Python parser was most of `bb-images`' 75 s.
 
 ## Where to look
 

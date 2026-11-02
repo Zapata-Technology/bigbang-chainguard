@@ -335,6 +335,16 @@ overrides:
     # anonymous token", compat/monitoring.yaml). The Iron Bank image has the same problem.
     snmpExporter:
       imagePullSecrets: [{name: private-registry}]
+  thanos:
+    # Thanos Query's default DNS resolver (miekgdns) found no address for its store
+    # endpoints on a cluster whose nodes add a search domain (CI's Azure runners; AKS does
+    # too): it tries the search domains first (ndots:5) and stops at the first empty
+    # NOERROR answer, so Query had no stores ("IP address lookup yielded no results",
+    # compat/thanos.yaml). Go's resolver finds them. Not image-specific: Iron Bank's
+    # Thanos has the same default.
+    upstream:
+      query:
+        extraFlags: [--store.sd-dns-resolver=golang]
   tempo:
     # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
     # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo
