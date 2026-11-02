@@ -75,7 +75,8 @@ test:
   expect: [gitlab-runner, gitlab-webservice, kyverno]
   # A runner pod can be Ready while it panics on a missing token: the test checks that
   # it registered with GitLab.
-  forbid_log: "registration-token needs to be entered"
+  # Any runner panic: a missing token, or a directory it can't write.
+  forbid_log: "registration-token needs to be entered|PANIC: "
   check:
     - >-
       kubectl -n gitlab-runner logs deploy/gitlab-runner --all-containers --tail=2000
