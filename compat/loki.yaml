@@ -4,3 +4,18 @@ images: {}
 test:
   enable: [loki]
   expect: [memcached-exporter, grafana-rollout-operator, k8s-sidecar]
+  check:
+    # Loki stores a log line and finds it again: push one line with a unique text through
+    # the push API (the API server's service proxy, JSON), then query for it.
+    - |
+      svc=/api/v1/namespaces/logging/services/logging-loki:3100/proxy
+      kubectl get --raw "$svc/ready"
+      t=$(date +%s%N); line="compat-check-$t"
+      printf '{"streams":[{"stream":{"job":"compat-check"},"values":[["%s","%s"]]}]}' "$t" "$line" > "$COMPAT_OUT/loki-push.json"
+      kubectl create --raw "$svc/loki/api/v1/push" -f "$COMPAT_OUT/loki-push.json" || exit 1
+      i=0
+      until out=$(kubectl get --raw "$svc/loki/api/v1/query_range?query=%7Bjob%3D%22compat-check%22%7D&limit=10" 2>&1) && echo "$out" | grep -q "$line"; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "pushed $line, not found: $out"; exit 1; }
+        sleep 10
+      done
+      echo "found $line: $out"

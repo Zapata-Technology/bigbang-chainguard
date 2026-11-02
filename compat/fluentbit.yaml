@@ -3,3 +3,14 @@ images: {}
 test:
   enable: [loki, fluentbit]
   expect: [fluent-bit]
+  check:
+    # Fluent Bit tails container logs and ships them to Loki with Big Bang's labels: Loki
+    # has streams labelled job=fluentbit for its own pods (namespace logging).
+    - |
+      q='/api/v1/namespaces/logging/services/logging-loki:3100/proxy/loki/api/v1/query_range?query=%7Bjob%3D%22fluentbit%22%2Cnamespace%3D%22logging%22%7D&limit=5'
+      i=0
+      until out=$(kubectl get --raw "$q" 2>&1) && echo "$out" | grep -q '"values":\[\['; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "no Fluent Bit logs in Loki: $out"; exit 1; }
+        sleep 10
+      done
+      echo "$out" | cut -c1-1500

@@ -3,5 +3,18 @@ images: {}
 test:
   enable: [alloy, loki]   # alloy needs somewhere to send logs and events
   expect: [grafana-alloy, prometheus-config-reloader]
+  check:
+    # Alloy's two Big Bang collectors deliver to Loki: alloy-logs ships pod logs (Loki's
+    # own, namespace logging), alloy-singleton ships cluster events (source=kubernetes-events).
+    - |
+      for sel in '%7Bnamespace%3D%22logging%22%7D' '%7Bsource%3D%22kubernetes-events%22%7D'; do
+        q="/api/v1/namespaces/logging/services/logging-loki:3100/proxy/loki/api/v1/query_range?query=$sel&limit=5"
+        i=0
+        until out=$(kubectl get --raw "$q" 2>&1) && echo "$out" | grep -q '"values":\[\['; do
+          i=$((i+1)); [ $i -lt 18 ] || { echo "nothing in Loki for $sel: $out"; exit 1; }
+          sleep 10
+        done
+        echo "$sel: $out" | cut -c1-1000
+      done
   debug:
     - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,MESSAGE:.status.conditions[0].message"
