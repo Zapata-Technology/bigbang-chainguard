@@ -90,6 +90,17 @@ def test_override_tokens(conv):
     assert conv.overrides("pkg", spec, True)["image"]["repository"] == "app-fips"
 
 
+def test_both_registry_policies_admit_the_org_builds_and_iron_bank():
+    # Gatekeeper's constraint refused every org image (compat/gatekeeper.yaml); Helm
+    # replaces lists, so Iron Bank's registries must stay for the documented leftovers.
+    policies = convert.registry_policies(MAPPING, "cgr.dev/example.com", "ghcr.io/me")
+    expected = ["registry1.dso.mil", "registry.dso.mil", "cgr.dev/example.com", "ghcr.io/me"]
+    assert policies == {
+        ("kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"): expected,
+        ("gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"): expected,
+    }
+
+
 def test_allowed_registries():
     assert convert.allowed_registries(MAPPING, "cgr.dev/example.com", "ghcr.io/me") == [
         "cgr.dev/example.com", "ghcr.io/me"]

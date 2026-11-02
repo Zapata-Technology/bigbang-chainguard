@@ -57,7 +57,7 @@ Each test then:
    images injected at runtime, which rendering never sees;
 4. reports each expected image as `EXERCISED` or `NOT EXERCISED`, so a pass never counts an
    image that didn't run: only a container that is running or exited 0 counts, not one in a
-   Pending pod or one still pulling;
+   Pending pod or one still pulling. A test where none of its expected images ran fails;
 5. fails if any container was **OOMKilled** during the test, even one whose pod restarted
    and came up (the package doesn't fit its memory limit), and lists every other container
    that exited non-zero (`EXITED:`);
@@ -142,7 +142,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | headlamp | headlamp 0.46, `kubectl-dev` wait job | Check: serves its UI and `/config`; reaches the API server through its cluster proxy |
 | kiali | kiali 2.34, Chainguard sidecars (`istio-init`, `istio-proxy`) | With Istio and a gateway. Check: `/kiali/api` reports Kiali running with the Istio API (port-forward: STRICT mTLS refuses the API server proxy) |
 | kyverno-reporter | policy-reporter 3.11, UI 2.9, plugin 0.7 | With Kyverno. Check: with Kyverno's policies on, PolicyReports exist, the API lists kyverno and the UI answers |
-| loki | memcached-exporter 0.18, rollout-operator 0.41, k8s-sidecar 2.14 | Check: a pushed log line is found by `query_range` |
+| loki | Loki 3.7 (monolithic) | Check: a pushed log line is found by `query_range`. Its memcached-exporter, rollout-operator and rules sidecar images don't run in Big Bang's default Loki (no caches, no distributed mode): the test listed only those, so it tested no image until `loki` was added |
 | mimir | memcached-exporter 0.18, rollout-operator 0.41 | Check: a gauge written through the gateway's OTLP endpoint is read back from PromQL |
 | monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`). Monitoring's k8s-sidecar belongs to kube-prometheus-stack's Grafana, which Big Bang turns off; the grafana and loki tests run it |
 | neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |

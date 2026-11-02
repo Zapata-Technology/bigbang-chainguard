@@ -390,6 +390,12 @@ def main():
     seen = [e for e in expect if any(e in i for i in running)]
     for e in expect:
         print(f"{'EXERCISED' if e in seen else 'NOT EXERCISED'}: {e}")
+    # Some expected images need a feature the test doesn't turn on, but a test where none
+    # ran tested nothing: istio-egress-gateway passed for weeks with its gateway never
+    # rendered (Big Bang renders it only in ambient mode).
+    if expect and not seen:
+        ok = False
+        print("PROBLEM: none of the expected images ran: the test deployed nothing it is about")
     print(f"\nRESULT {name} ({mode}): {'PASS' if ok else 'FAIL'}"
           + (f"; {len(seen)} of {len(expect)} expected images ran" if expect else ""))
     return 0 if ok else 1
