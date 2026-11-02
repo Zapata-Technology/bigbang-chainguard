@@ -6,15 +6,22 @@ test:
   expect: [memcached-exporter, grafana-rollout-operator, k8s-sidecar]
   check:
     # Loki stores a log line and finds it again: push one line with a unique text through
-    # the push API (the API server's service proxy, JSON), then query for it.
+    # the push API, then query for it. Through a port-forward with curl: the push needs
+    # Content-Type: application/json, which `kubectl create --raw` doesn't send.
     - |
-      svc=/api/v1/namespaces/logging/services/logging-loki:3100/proxy
-      kubectl get --raw "$svc/ready"
+      kubectl -n logging port-forward svc/logging-loki 13100:3100 > "$COMPAT_OUT/pf-loki.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
+      loki=http://127.0.0.1:13100
+      i=0
+      until curl -sf "$loki/ready" > /dev/null; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "Loki not ready:"; cat "$COMPAT_OUT/pf-loki.log"; curl -sS "$loki/ready"; exit 1; }
+        sleep 2
+      done
       t=$(date +%s%N); line="compat-check-$t"
       printf '{"streams":[{"stream":{"job":"compat-check"},"values":[["%s","%s"]]}]}' "$t" "$line" > "$COMPAT_OUT/loki-push.json"
-      kubectl create --raw "$svc/loki/api/v1/push" -f "$COMPAT_OUT/loki-push.json" || exit 1
+      curl -sS --fail-with-body -H 'Content-Type: application/json' --data-binary @"$COMPAT_OUT/loki-push.json" "$loki/loki/api/v1/push" || exit 1
       i=0
-      until out=$(kubectl get --raw "$svc/loki/api/v1/query_range?query=%7Bjob%3D%22compat-check%22%7D&limit=10" 2>&1) && echo "$out" | grep -q "$line"; do
+      until out=$(curl -sS -G --data-urlencode 'query={job="compat-check"}' --data-urlencode limit=10 "$loki/loki/api/v1/query_range" 2>&1) && echo "$out" | grep -q "$line"; do
         i=$((i+1)); [ $i -lt 18 ] || { echo "pushed $line, not found: $out"; exit 1; }
         sleep 10
       done
