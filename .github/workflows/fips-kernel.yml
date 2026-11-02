@@ -67,7 +67,6 @@ jobs:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
       GITHUB_TOKEN: ${{ github.token }}
-      VM_DIR: ${{ runner.temp }}/fips-vm
     permissions:
       contents: read
       id-token: write
@@ -117,7 +116,7 @@ jobs:
         id: vm
         run: |
           bash .github/fips-vm.sh boot
-          echo "KUBECONFIG=$VM_DIR/kubeconfig" >> "$GITHUB_ENV"
+          echo "KUBECONFIG=$RUNNER_TEMP/fips-vm/kubeconfig" >> "$GITHUB_ENV"
 
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
