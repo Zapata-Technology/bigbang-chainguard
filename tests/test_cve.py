@@ -54,6 +54,46 @@ def test_report_totals_and_rows():
     assert "| Iron Bank | not scanned |" in cve.report(pairs, results, False, False)
 
 
+def test_distinct_images_and_sizes():
+    pairs = cve.image_pairs(MAP)
+    results = {"registry1.dso.mil/ironbank/x/tempo:2.8.0": {"Critical": 1, "High": 5, "Medium": 0, "Low": 0,
+                                                            "size": 412_000_000},
+               "registry1.dso.mil/ironbank/big-bang/base:2.1.0": {"Critical": 0, "High": 2, "Medium": 0, "Low": 0,
+                                                                  "size": 300_000_000},
+               "cgr.dev/example.com/tempo:2.8.1": {"Critical": 0, "High": 0, "Medium": 1, "Low": 0, "size": 98_000_000},
+               "ghcr.io/o/bigbang-base:2.1.0": {"Critical": 0, "High": 1, "Medium": 0, "Low": 0}}
+    text = cve.report(pairs, results, False, True)
+    assert "| Iron Bank | 2 | 1 | 0 | 712 MB |" in text
+    assert "| Chainguard | 2 | 2 | 1 | 98 MB |" in text
+    assert "| 412 MB / 98 MB |" in text and "| 300 MB / ? |" in text
+    assert cve.image_size({"source": {"target": {"imageSize": 5}}}) == 5 and cve.image_size({}) is None
+
+
+def test_public_bases_from_iron_bank_recipes(monkeypatch):
+    assert cve.public_base({"BASE_IMAGE": "redhat/ubi/ubi9-minimal", "BASE_TAG": "9.8"}) == \
+        "registry.access.redhat.com/ubi9/ubi-minimal:9.8"
+    assert cve.public_base({"BASE_IMAGE": "docker/scratch", "BASE_TAG": "ironbank"}) == "scratch"
+    assert cve.public_base({"BASE_IMAGE": "opensource/grafana/grafana", "BASE_TAG": "13.3.0"}) is None
+    monkeypatch.setattr(cve.bbbuild, "ironbank_recipe",
+                        lambda project, ref: ("c", {"args": {"BASE_IMAGE": "redhat/ubi/ubi9", "BASE_TAG": "9.8"}}, ""))
+    assert cve.ironbank_base("registry1.dso.mil/ironbank/opensource/x/y:1.0") == (
+        "registry.access.redhat.com/ubi9/ubi:9.8", "registry.access.redhat.com/ubi9/ubi:9.8")
+    assert cve.ironbank_base("registry1.dso.mil/gitlab/gitlab-org/x:1")[0] is None
+
+
+def test_a_base_floor_is_marked_as_one():
+    pairs = cve.image_pairs(MAP)
+    floor = {"Critical": 0, "High": 3, "Medium": 40, "Low": 9, "size": 120_000_000,
+             "base": "registry.access.redhat.com/ubi9/ubi-minimal:9.8"}
+    results = {"registry1.dso.mil/ironbank/x/tempo:2.8.0": floor,
+               "registry1.dso.mil/ironbank/big-bang/base:2.1.0": "recipe not found (404)",
+               "cgr.dev/example.com/tempo:2.8.1": {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "size": 40_000_000}}
+    text = cve.report(pairs, results, False, True, bases=True)
+    assert "| Iron Bank (public base only: a floor) | 0 | 3 | 40 | 9 |" in text
+    assert "≥ 0 / 3 / 40 / 9 (ubi-minimal:9.8)" in text and "1 of 2 images resolved" in text
+    assert "error: recipe not found (404)" in text and "| 120 MB / 40 MB |" in text
+
+
 def test_new_refs_are_only_the_images_a_change_adds():
     newer = MAP.replace("tempo:2.8.1 | tempo-fips:2.8.1", "tempo:2.8.2 | tempo-fips:2.8.2")
     assert cve.new_refs(MAP, newer) == ["cgr.dev/example.com/tempo-fips:2.8.2", "cgr.dev/example.com/tempo:2.8.2"]
