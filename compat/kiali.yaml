@@ -6,7 +6,8 @@ test:
   enable: [istioCRDs, istiod, istioGateway, kiali]
   expect: [kiali, istio-proxy]
   check:
-    # Kiali's status API answers and names the Istio it found. Through a port-forward,
+    # Kiali's status API (the part its token login doesn't guard) says it is running, has
+    # the Istio API, and reached the API server (its version). Through a port-forward,
     # which enters the pod's network namespace behind its sidecar: the API server's proxy
     # would be refused by the namespace's STRICT mTLS.
     - |
@@ -19,8 +20,9 @@ test:
         sleep 5
       done
       echo "$reply" | head -c 800; echo
-      echo "$reply" | grep -q '"Kiali state":"running"' || { echo "Kiali is not running"; exit 1; }
-      echo "$reply" | grep -qi '"name":"istio' || { echo "Kiali lists no Istio"; exit 1; }
+      echo "$reply" | grep -q '"Kiali state": *"running"' || { echo "Kiali is not running"; exit 1; }
+      echo "$reply" | grep -q '"istioAPIEnabled": *true' || { echo "Kiali has no Istio API"; exit 1; }
+      echo "$reply" | grep -A1 '"name": *"Kubernetes' | grep -q '"version": *"v1\.' || { echo "Kiali did not reach the API server"; exit 1; }
   debug:
     - "kubectl -n istio-system get cm istio-sidecar-injector -o jsonpath='{.data.values}' | python3 -c \"import json,sys; g=json.load(sys.stdin)['global']; print('hub', g.get('hub'), 'tag', g.get('tag'), 'proxy.image', g.get('proxy', {}).get('image'))\""
     - "kubectl get pods -A -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image"

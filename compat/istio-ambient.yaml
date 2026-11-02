@@ -4,23 +4,22 @@ test:
   enable: [istioCRDs, istiod, istioCNI, ztunnel]
   expect: [istio-install-cni, ztunnel]
   check:
-    # Traffic between two ambient pods goes through ztunnel: two busybox pods from the org
-    # (pull secret: istio-system's private-registry) opt in with the pod label, the CNI
+    # Traffic between two ambient pods goes through ztunnel: an nginx and a busybox pod from
+    # the org (pull secret: istio-system's private-registry) opt in with the pod label, the CNI
     # agent marks them redirected, an HTTP request between them gets its answer, and
     # ztunnel logs the connection to the server.
     - |
       set -e
       suffix=; [ -n "$COMPAT_FIPS" ] && suffix=-fips
       dir="$COMPAT_OUT/overlays"; [ -d "$dir" ] || dir=overlays
-      img=$(grep -ohE "cgr\.dev/[a-z0-9._-]+/busybox$suffix:[0-9][A-Za-z0-9._-]*" "$dir"/*.yaml | head -1)
-      [ -n "$img" ] || { echo "no busybox$suffix image in the overlays"; exit 1; }
+      busybox=$(grep -ohE "cgr\.dev/[a-z0-9._-]+/busybox$suffix:[0-9][A-Za-z0-9._-]*" "$dir"/*.yaml | head -1)
+      nginx=$(grep -h -A1 -E "repository: cgr\.dev/[a-z0-9._-]+/nginx$suffix\$" "$dir"/*.yaml | sed -n 's/^ *repository: //p; s/^ *tag: /:/p' | head -2 | tr -d '\n')
+      echo "client $busybox, server $nginx"
+      case "$busybox $nginx" in *:*" "*:*) ;; *) echo "no busybox$suffix or nginx$suffix image in the overlays"; exit 1;; esac
       kubectl -n istio-system get secret private-registry -o name
       for role in server client; do
-        if [ $role = server ]; then
-          cmd='mkdir -p /tmp/www && echo compat-ambient-ok > /tmp/www/index.html && exec httpd -f -p 8080 -h /tmp/www'
-        else
-          cmd='exec sleep 3600'
-        fi
+        # The org's nginx serves its default page on 8080; busybox (no httpd) is the client.
+        if [ $role = server ]; then img=$nginx; cmd=; else img=$busybox; cmd='command: [sleep, "3600"]'; fi
         kubectl apply -f - <<EOF
       apiVersion: v1
       kind: Pod
@@ -33,7 +32,7 @@ test:
         containers:
           - name: main
             image: $img
-            command: [sh, -c, "$cmd"]
+            $cmd
       EOF
       done
       kubectl -n istio-system wait pod/compat-amb-server pod/compat-amb-client --for=condition=Ready --timeout=300s
@@ -44,8 +43,8 @@ test:
       done
       ip=$(kubectl -n istio-system get pod compat-amb-server -o jsonpath='{.status.podIP}')
       reply=$(kubectl -n istio-system exec compat-amb-client -- wget -qO- -T 10 "http://$ip:8080/")
-      echo "client -> $ip:8080: $reply"
-      [ "$reply" = compat-ambient-ok ]
+      echo "client -> $ip:8080: $(echo "$reply" | grep -i '<title>')"
+      echo "$reply" | grep -qi 'welcome to nginx'
       i=0
       until kubectl -n istio-system logs -l app=ztunnel -c istio-proxy --tail=-1 --prefix | grep 'connection complete' | grep -e compat-amb-server -e "$ip:8080" >"$COMPAT_OUT/ztunnel-access.txt"; do
         i=$((i+1)); [ $i -lt 12 ] || { echo "ztunnel logged no connection to compat-amb-server"; exit 1; }
