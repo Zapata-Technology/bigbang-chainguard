@@ -57,7 +57,7 @@ Each test then:
    images injected at runtime, which rendering never sees;
 4. reports each expected image as `EXERCISED` or `NOT EXERCISED`, so a pass never counts an
    image that didn't run: only a container that is running or exited 0 counts, not one in a
-   Pending pod or one still pulling;
+   Pending pod or one still pulling. A test where none of its expected images ran fails;
 5. fails if any container was **OOMKilled** during the test, even one whose pod restarted
    and came up (the package doesn't fit its memory limit), and lists every other container
    that exited non-zero (`EXITED:`);
