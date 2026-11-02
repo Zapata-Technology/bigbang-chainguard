@@ -1,0 +1,36 @@
+---
+apiVersion: v1
+
+name: "opensource/minio/operator-sidecar"
+
+tags:
+- "v7.1.0"
+- "latest"
+
+args:
+  BASE_IMAGE: "redhat/ubi/ubi9-minimal"
+  BASE_TAG: "9.7"
+
+labels:
+  org.opencontainers.image.title: "minio/operator-sidecar"
+  org.opencontainers.image.description: "This sidecar container is used to initialize the MinIO Tenants."
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/minio/operator/tree/d16ef8a5d713ee6a2e7b1942740e153f9ced72da/sidecar"
+  org.opencontainers.image.vendor: "Iron Bank"
+  org.opencontainers.image.version: "v7.1.0"
+  mil.dso.ironbank.image.keywords: "minio/operator-sidecar, minio, operator-sidecar"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "minio/operator-sidecar"
+
+resources:
+
+- tag: "quay.io/minio/operator-sidecar:v7.1.0"
+  url: "docker://quay.io/minio/operator-sidecar@sha256:306848d4c82262a692d74cdcb455e0324608b8aa47f14aea699e9031394a9f6a"
+- tag: "quay.io/minio/operator-sidecar:v7.1.0.arm64"
+  url: "docker://quay.io/minio/operator-sidecar@sha256:56ce37d215b184746f5ffaed6dadfcf249142537f2b181f6e77f5349c91dca12"
+
+maintainers:
+- email: "ironbank@dsop.io"
+  name: "Joseph Karpp"
+  username: "jkarpp"
+  cht_member: true

@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+
+name: "opensource/minio/operator"
+
+tags:
+- "v7.1.1"
+- "latest"
+
+args:
+  BASE_IMAGE: redhat/ubi/ubi9-minimal
+  BASE_TAG: "9.7"
+
+labels:
+  org.opencontainers.image.title: "minio/operator"
+  org.opencontainers.image.description: "MinIO is a Kubernetes-native high performance object store with an S3-compatible API. "
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/minio/operator"
+  org.opencontainers.image.vendor: "Iron Bank"
+  org.opencontainers.image.version: "v7.1.1"
+  mil.dso.ironbank.image.keywords: "minio/operator, minio, operator, s3"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "minio/operator"
+
+resources:
+- tag: "quay.io/minio/operator:v7.1.1"
+  url: "docker://quay.io/minio/operator@sha256:e9842785444e9e04559fb332fa11a9d27da736adc16c9504f3e6a240834fecc1"
+- tag: "quay.io/minio/operator:v7.1.1.arm64"
+  url: "docker://quay.io/minio/operator@sha256:8149262d1059efd141accbe6c2a1443813b3cbe9462e1947dece7b253a5eedd4"
+
+maintainers:
+- email: "ironbank@dsop.io"
+  name: "Joseph Karpp"
+  username: "jkarpp"
+  cht_member: true
