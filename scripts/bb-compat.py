@@ -21,7 +21,10 @@ each one logs (LIVE) and stops the test early on a failure that waiting won't fi
 
 An upgrade test (`upgrade_from`) first installs Big Bang with an older mapping (e.g.
 Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test's
-mapping and checks again (read the data back).
+mapping and checks again (read the data back). With `release: previous` it starts from
+the newest release's overlays and Flux instead (what a site upgrading from its pinned
+release runs), and fails if a pod still runs an image digest that release had and this
+tree doesn't.
 
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
@@ -32,11 +35,13 @@ Pull credentials come from the environment and are never printed:
 """
 import argparse
 import atexit
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 
 import yaml
@@ -47,6 +52,7 @@ from bbcommon import ROOT, build_registry, deep_merge, load_build, load_mapping,
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
                        install_flux, kubectl, report, sh, wait_ready)
+from release import previous_tag  # noqa: E402
 
 
 def test_values(chart_values, enable):
@@ -113,6 +119,67 @@ def registry1_skip(test, env):
     return f"needs Iron Bank pulls (registry1: true); {' and '.join(missing)} not set"
 
 
+def release_before(ls_remote, head):
+    """The newest release tag (from `git ls-remote --tags` output) not at commit `head`: on
+    a pull request that is the release sites run now; on main, once the release workflow
+    has tagged it, the one before."""
+    at = {}
+    for line in ls_remote.splitlines():
+        sha, ref = line.split("\t")
+        tag = ref.removeprefix("refs/tags/")
+        if tag.endswith("^{}"):
+            at[tag[:-3]] = sha   # an annotated tag's commit
+        else:
+            at.setdefault(tag, sha)
+    return previous_tag([t for t, sha in at.items() if sha != head])
+
+
+BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
+
+
+def fetch_release(dest):
+    """Extract the previous release's overlays, Flux kustomizations and BIGBANG_VERSION
+    into `dest` (git archive of its tag; works in a shallow checkout). Returns the tag and
+    the Big Bang chart it deploys: work/bigbang's when the versions match, else a clone of
+    its Big Bang tag."""
+    head = sh("git", "-C", ROOT, "rev-parse", "HEAD", capture=True).strip()
+    tag = release_before(sh("git", "-C", ROOT, "ls-remote", "--tags", "origin", capture=True), head)
+    if not tag:
+        raise SystemExit("upgrade_from.release: no earlier release to upgrade from")
+    sh("git", "-C", ROOT, "fetch", "-q", "--depth", "1", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
+    archive = subprocess.run(["git", "-C", ROOT, "archive", "--format=tar", tag, "overlays", "flux", "flux-fips",
+                              "BIGBANG_VERSION"], capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tf:
+        tf.extractall(dest, filter="data")
+    version = open(os.path.join(dest, "BIGBANG_VERSION")).read().strip()
+    if version == open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip():
+        return tag, None
+    chart = os.path.join(dest, "bigbang")
+    for _ in range(4):   # repo1.dso.mil intermittently refuses GitHub runners
+        if not sh("git", "clone", "-q", "--depth", "1", "--branch", version, BIGBANG_GIT, chart, check=False):
+            return tag, os.path.join(chart, "chart")
+        sh("rm", "-rf", chart, check=False)
+    raise SystemExit(f"upgrade_from.release: cloning Big Bang {version} (what {tag} deploys) failed")
+
+
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def stale_images(running, old_dirs, new_dirs):
+    """Running images (refs) pinned to a digest the old release's overlays/Flux had and
+    the new ones don't: a pod Flux didn't roll to the upgrade's image."""
+    def digests(dirs):
+        found = set()
+        for d in dirs:
+            for base, _, files in os.walk(d):
+                for f in files:
+                    if f.endswith(".yaml"):
+                        found |= set(DIGEST.findall(open(os.path.join(base, f), encoding="utf-8").read()))
+        return found
+    retired = digests(old_dirs) - digests(new_dirs)
+    return sorted(i for i in running if any(d in i for d in retired)), len(retired)
+
+
 def convert(overlay, out, keys):
     """bb-convert.py with the mapping overlay `overlay` into `out`; print the rows for `keys`."""
     rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--mapping-overlay", overlay,
@@ -148,8 +215,9 @@ def run_checks(cmds, out, fips):
     return ok
 
 
-def helm_bigbang(a, test, overlays, out, tv, creds, label):
-    """helm upgrade -i Big Bang with the overlays in `overlays` (a bb-convert output dir)."""
+def helm_bigbang(a, test, overlays, out, tv, creds, label, chart=None):
+    """helm upgrade -i Big Bang with the overlays in `overlays` (a bb-convert output dir,
+    or a release's files), from `chart` (default: work/bigbang's)."""
     args = ["-f", os.path.join(overlays, "overlays", "values-chainguard.yaml")]
     if a.fips:
         args += ["-f", os.path.join(overlays, "overlays", "values-chainguard-fips.yaml")]
@@ -157,7 +225,8 @@ def helm_bigbang(a, test, overlays, out, tv, creds, label):
         args += ["-f", f.replace("$COMPAT_OUT", out)]
     print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}{label}): {', '.join(test.get('enable', []))}",
           flush=True)
-    sh("helm", "upgrade", "-i", "bigbang", os.path.join(a.bigbang, "chart"), "-n", "bigbang", "--create-namespace",
+    sh("helm", "upgrade", "-i", "bigbang", chart or os.path.join(a.bigbang, "chart"), "-n", "bigbang",
+       "--create-namespace",
        *args, "-f", tv, "-f", creds, "--timeout", "10m", capture=True)
 
 
@@ -174,6 +243,13 @@ def upgrade(a, test, out, tv, creds, abort):
         print("PROBLEM:", p)
     if not (ok and run_checks(frm.get("check", []), out, a.fips)):
         return False
+    if frm.get("release"):
+        # The release's Flux first, as a site upgrading does (bb-install.py applies flux/
+        # before Big Bang): the new controllers must reconcile the new chart.
+        print("\n== flux (upgrade)", flush=True)
+        if not install_flux(os.path.join(out, "flux-fips" if a.fips else "flux"), small_cluster=True):
+            print("PROBLEM: Flux from this tree did not become ready")
+            return False
     helm_bigbang(a, test, out, out, tv, creds, ", upgrade")
     env = dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else "")
     for cmd in frm.get("upgrade", []):
@@ -269,11 +345,15 @@ def main():
     convert(a.compat, out, spec.get("images", {}))
     # `upgrade_from.images`: the mapping the upgrade starts from, over mapping.yaml (not
     # over the test's `images`), converted into its own directory.
-    first, upgraded = None, True
+    first, first_chart, release, upgraded = None, None, None, True
     if test.get("upgrade_from"):
         if test.get("installer"):
             raise SystemExit("upgrade_from is not supported with installer: true")
         first = tempfile.mkdtemp(prefix="bb-compat-from-")
+    if test.get("upgrade_from", {}).get("release"):
+        release, first_chart = fetch_release(first)
+        print(f"\n== upgrade from: release {release}", flush=True)
+    elif first:
         frm_images = test["upgrade_from"].get("images", {})
         print(f"\n== upgrade from: mapping {json.dumps(frm_images)}", flush=True)
         overlay = os.path.join(first, "upgrade-from.yaml")
@@ -299,7 +379,7 @@ def main():
                              "--type=kubernetes.io/dockerconfigjson", f"--from-file=.dockerconfigjson={dcj}",
                              "--dry-run=client", "-o", "yaml")
             sh("kubectl", "apply", "-f", "-", stdin=secret, capture=True)
-            flux_dir = os.path.join(out, "flux-fips" if a.fips else "flux")
+            flux_dir = os.path.join(first if release else out, "flux-fips" if a.fips else "flux")
             if not install_flux(flux_dir, small_cluster=True):
                 report(["flux-system"])
                 print(kubectl("get", "events", "-n", "flux-system", "--sort-by=.lastTimestamp", check=False) or "")
@@ -320,7 +400,8 @@ def main():
             deep_merge(values, test.get("values", {}) or {})
             tv = os.path.join(secrets, "test.yaml")
             yaml.safe_dump(values, open(tv, "w"))
-            helm_bigbang(a, test, first or out, out, tv, creds, ", upgrade from" if first else "")
+            helm_bigbang(a, test, first or out, out, tv, creds, f", upgrade from {release or 'the old mapping'}"
+                         if first else "", chart=first_chart)
             if first:
                 upgraded = upgrade(a, test, out, tv, creds, keeper.abort_reasons)
         finally:
@@ -365,6 +446,15 @@ def main():
         print("IMAGE POLICY:", p)
     print(f"image policy: {len(spec_images)} images, {len(policy)} problems")
     ok = ok and not policy
+    if release:
+        sub = ["overlays", "flux-fips" if a.fips else "flux"]
+        stale, retired = stale_images(spec_images, [os.path.join(first, s) for s in sub],
+                                      [os.path.join(out, s) for s in sub])
+        for i in stale:
+            print(f"PROBLEM: still runs {i}, the image {release} pinned (not rolled by the upgrade)")
+        print(f"release upgrade: {release} -> this tree; {retired} image digests changed, "
+              f"{len(stale)} still running")
+        ok = ok and not stale
     # `forbid_log`: a regex no pod in the test namespaces may log (e.g. S3 errors).
     if test.get("forbid_log"):
         rx = re.compile(test["forbid_log"])

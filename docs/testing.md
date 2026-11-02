@@ -41,8 +41,9 @@ Each `compat/<test>.yaml` names:
 - an optional trial mapping, to test an upgrade before `mapping.yaml` takes it;
 - the images the test is about (`expect`);
 - optional `setup` commands, `values`, `values_files`, `forbid_log`, and `debug` commands;
-- for an upgrade, `upgrade_from`: the mapping to install first and commands to run on it
-  (write data) and after Big Bang is upgraded to the test's mapping;
+- for an upgrade, `upgrade_from`: the mapping to install first, or `release: previous` to
+  install the newest release's overlays and Flux first, and commands to run on it (write
+  data) and after Big Bang is upgraded to the test's mapping;
 - `registry1: true` when it pulls from Iron Bank. Without `REGISTRY1_USERNAME` and
   `REGISTRY1_PASSWORD` (repository secrets in CI) such a test prints `RESULT ...: SKIPPED`
   and exits 0: a missing account is not an image failure.
@@ -133,6 +134,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data. Check: `vault status` initialized and unsealed; a KV v2 secret written and read back |
+| release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays | New. What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
 | vault-upgrade (skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |

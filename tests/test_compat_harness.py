@@ -331,3 +331,27 @@ def test_without_patience_the_wait_runs_to_its_timeout(monkeypatch):
     monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: json.dumps({"items": [hr]}))
     ok, problems = bbcluster.wait_ready(["y"], 1800)
     assert not ok and problems[0].startswith("timed out") and now[0] >= 1800
+
+
+def test_the_release_to_upgrade_from_is_the_newest_not_at_head():
+    ls = ("a1\trefs/tags/3.35.1-cg.9\n"
+          "b2\trefs/tags/3.35.1-cg.10\n"
+          "c3\trefs/tags/3.35.1-cg.11\n"
+          "c4\trefs/tags/3.35.1-cg.11^{}\n"
+          "d5\trefs/tags/not-a-release\n")
+    # A pull request: the newest release is what sites run.
+    assert compat.release_before(ls, "ff") == "3.35.1-cg.11"
+    # main once cg.11 is tagged on it (an annotated tag's commit counts): the one before.
+    assert compat.release_before(ls, "c4") == "3.35.1-cg.10"
+    assert compat.release_before("", "ff") is None
+
+
+def test_a_pod_left_on_the_old_releases_digest_is_stale(tmp_path):
+    old, new = tmp_path / "old", tmp_path / "new"
+    a, b, c = ("sha256:" + x * 64 for x in "abc")
+    for d, text in ((old, f"digest: {a}\ndigest: {b}\n"), (new, f"digest: {a}\ndigest: {c}\n")):
+        (d / "overlays").mkdir(parents=True)
+        (d / "overlays" / "values.yaml").write_text(text)
+    running = {f"cgr.dev/o/x:1@{a}", f"cgr.dev/o/y:1@{b}", f"cgr.dev/o/z:2@{c}"}
+    stale, retired = compat.stale_images(running, [old / "overlays"], [new / "overlays"])
+    assert stale == [f"cgr.dev/o/y:1@{b}"] and retired == 1
