@@ -155,7 +155,9 @@ jobs:
           # an image before the mapping switches to it, so its kind tests can pull it).
           [ "${{ github.event_name }}" = pull_request ] || [ "${{ inputs.force }}" = true ] && args+=(--force)
           # Chainguard's package repository sometimes refuses one fetch ("Permission denied",
-          # a network error): one more try then. Any other failure is real and fails now.
+          # a network error), and a download's server can answer 5xx (grafana.com's plugin
+          # downloads: "curl: (22) ... returned error: 500"): one more try then. Any other
+          # failure is real and fails now.
           for try in 1 2; do
             : > "${RUNNER_TEMP}/built.txt"
             set +e
@@ -163,7 +165,7 @@ jobs:
             rc=${PIPESTATUS[0]}
             set -e
             [ "$rc" = 0 ] && break
-            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)" \
+            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)|curl: \(22\) The requested URL returned error: 5[0-9][0-9]" \
                 "${RUNNER_TEMP}/build.log"; then
               exit "$rc"
             fi

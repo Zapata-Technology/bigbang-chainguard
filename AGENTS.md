@@ -60,6 +60,8 @@ python scripts/bb-compat.py compat/<test>.yaml [--fips]   # one package on a kin
 python scripts/bb-install.py install --site my-site.yaml [--fips]   # what a user runs to deploy
 scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
+python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
+python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
@@ -67,6 +69,36 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix), `codeql.yml` / `scorecard.yml` (public repo only).
+
+## Maintaining this repo with an AI agent
+
+The loop, for a person or an agent picking the repo up:
+
+1. **Start:** `gh api user --jq .login` (the account that may push), then
+   `python scripts/repo-status.py`. An open `bot/bigbang-update` PR or a failed run on main
+   comes first.
+2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
+   failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
+   a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
+   (`--rerun-flakes`); a second failure is real. For FAILED, follow the playbook below that
+   matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
+3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
+   generated ones), `python scripts/check.py`, a PR. A change to one `compat/<test>.yaml`
+   runs just that kind test (`scripts/compat-plan.py`); a mapping or harness change runs them
+   all (20-45 minutes).
+4. **Wait without polling hard:** check every 3 minutes or more; parallel agents share the
+   GitHub API rate limit. GitHub releases a job's log only when the job ends, so a kind test
+   reports its own progress (`LIVE` lines, an early stop) in its log and artifact.
+5. **Merge** when every check passed (`gh pr merge <n> --squash --delete-branch`); branch
+   protection requires only `verify`, so check the rest yourself. The nightly bot PR merges
+   itself (`automerge.yml`) unless it moves Big Bang or carries `hold`.
+6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
+   and, if a site must act, the README; a new trap goes below. Keep `docs/testing.md`'s
+   results current.
+
+Parallel agents: give each its own worktree and its own files (one per `compat/*.yaml`
+test, say); keep shared files (the README, `docs/testing.md`, this file) with one agent.
+Never print or copy secrets, and never change git config.
 
 ## Playbooks
 
@@ -88,7 +120,8 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 (`bb-convert.py --missing` lists them), add it as below ("Add a repository to the org").
 
 ### A compat (kind) test fails
-1. Download the evidence: `gh run download <run id> -n compat-<test>-<mode>` (pass or fail;
+1. `python scripts/ci-triage.py <pr>` shows each failure's evidence and whether it's a flake.
+   For more, download the evidence: `gh run download <run id> -n compat-<test>-<mode>` (pass or fail;
    `docs/testing.md` "Reading a test's logs" lists the files). Start with `compat.log`
    (`PROBLEM` (a `stopped early:` one names the cause), `LIVE` (each container's first
    error line, when it happened), `RESULT`, `EXITED`), then `diag/exits.txt` and the crashed container's
@@ -217,9 +250,10 @@ builds on the PR and pushes on merge.
   `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
-- **Large kind tests (GitLab) start only from main**: `gh workflow run compat.yml --ref main
-  -f tests=gitlab`. From a branch "Log into Chainguard" fails (the identity trusts main and
-  pull requests), and pull requests skip large tests: merge a test-only change, then run it.
+- **Large kind tests (GitLab) run on a PR that changes only their `compat/<test>.yaml`**, or
+  by hand from main (`gh workflow run compat.yml --ref main -f tests=gitlab`). A manual run
+  from any other branch fails at "Log into Chainguard" (the identity trusts main and pull
+  requests), and other pull requests skip large tests.
 - **GitLab on a small cluster** needs, in its test and possibly at a site: values under
   `upstream:` (the package chart ignores top-level ones), PostgreSQL
   `max_locks_per_transaction` 256, a Deployment `progressDeadlineSeconds` past the

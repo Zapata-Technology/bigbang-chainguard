@@ -36,3 +36,11 @@ def test_errors_strips_timestamps_and_skips_the_scripts_own_source():
     log = ("verify\tUnit tests\t2026-11-02T00:00:00.1Z FAILED tests/test_x.py::test_y - AssertionError\n"
            "verify\tUnit tests\t2026-11-02T00:00:00.2Z \x1b[36;1mif ! x; then echo ##[error]; fi\n")
     assert triage.errors(log) == ["FAILED tests/test_x.py::test_y - AssertionError"]
+
+
+def test_a_download_server_error_during_a_build_is_a_flake():
+    log = ("build (grafana-plugins)\tUNKNOWN STEP\t2026-11-02T03:48:38.4Z #10 4.355 curl: (22) The requested URL "
+           "returned error: 500\n"
+           "build (grafana-plugins)\tUNKNOWN STEP\t2026-11-02T03:48:38.6Z ERROR: failed to build: failed to solve\n"
+           "build (grafana-plugins)\tUNKNOWN STEP\t2026-11-02T03:48:38.7Z ##[error]Process completed with exit code 1.\n")
+    assert triage.classify(triage.errors(log)) == "a download's server answered 5xx"

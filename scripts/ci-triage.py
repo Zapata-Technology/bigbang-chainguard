@@ -28,6 +28,8 @@ FLAKES = [
     (re.compile(r"(urlopen error timed out|TimeoutError: timed out|Connection reset by peer|"
                 r"TLS handshake timeout|i/o timeout)", re.I), "a network timeout"),
     (re.compile(r"(toomanyrequests|rate limit exceeded|secondary rate limit)", re.I), "a rate limit"),
+    (re.compile(r"(curl: \(22\) The requested URL returned error: 5\d\d|HTTP/[\d.]+ 50[234])", re.I),
+     "a download's server answered 5xx"),
 ]
 # Lines worth showing from a kind test's compat.log.
 EVIDENCE = re.compile(r"^(RESULT|PROBLEM|EXITED|CHECK FAILED|FORBIDDEN LOG|IMAGE POLICY|NOT EXERCISED)"
@@ -53,7 +55,10 @@ def errors(log, limit=15):
     for ln in log.splitlines():
         # `gh run view --log` prefixes "job<TAB>step<TAB>"; the API's job log doesn't.
         ln = re.sub(r"^(?:[^\t]*\t[^\t]*\t)?﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ", "", ln)
-        if ERROR.search(ln) and "Harden the runner" not in ln and "\x1b[36;1m" not in ln:
+        # Skip the workflow's own script, echoed in cyan (raw escape, or ^[ from `gh run view`).
+        # Keep known-flake lines too: they decide FLAKE vs FAILED (a curl 500 isn't an "error" line).
+        if (ERROR.search(ln) or any(rx.search(ln) for rx, _ in FLAKES)) \
+                and "Harden the runner" not in ln and "[36;1m" not in ln:
             out.append(ln[:300])
     return out[-limit:]
 
@@ -105,7 +110,7 @@ def triage(repo, jobs):
     for name, run, job in jobs:
         m = ARTIFACT_JOB.match(name)
         log = artifact_log(repo, run, f"compat-{m['test']}-{m['mode']}") if m else None
-        lines = evidence(log) if log else errors(gh("api", f"repos/{repo}/actions/jobs/{job}/logs") or "")
+        lines = evidence(log) if log else errors(gh("api", "--allow-escape-sequences", f"repos/{repo}/actions/jobs/{job}/logs") or "")
         report.append((name, run, classify(lines), lines))
     return report
 
