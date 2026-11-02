@@ -3,8 +3,11 @@ images: {}
 test:
   large: true
   timeout: 3300
-  enable: [addons.gitlab, addons.gitlabRunner]
-  namespaces: [gitlab, gitlab-runner, gitlab-deps]
+  # Big Bang hands the runner GitLab's registration token through a Kyverno policy
+  # (gitlab-runner's autoRegister needs Kyverno, on by default in Big Bang); without it
+  # the runner starts with no token and never registers.
+  enable: [kyverno, addons.gitlab, addons.gitlabRunner]
+  namespaces: [gitlab, gitlab-runner, gitlab-deps, kyverno]
   values:
     addons:
       gitlab:
@@ -69,7 +72,14 @@ test:
     - $COMPAT_OUT/site-object-storage.yaml
     - $COMPAT_OUT/site-gitlab.yaml
     - $COMPAT_OUT/site-gitlab-deadline.yaml
-  expect: [gitlab-runner, gitlab-webservice]
+  expect: [gitlab-runner, gitlab-webservice, kyverno]
+  # A runner pod can be Ready while it panics on a missing token: the test checks that
+  # it registered with GitLab.
+  forbid_log: "registration-token needs to be entered"
+  check:
+    - >-
+      kubectl -n gitlab-runner logs deploy/gitlab-runner --all-containers --tail=2000
+      | grep -qE 'Registering runner\.\.\. succeeded|Verifying runner\.\.\. is (valid|alive)'
   debug:
     - "cat $COMPAT_OUT/watch-gitaly.log"
     - "cat $COMPAT_OUT/watch-shell.log"
