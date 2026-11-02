@@ -289,6 +289,8 @@ addons:
           name: cgr.dev/zapatatechnology.com/gitlab-runner-helper-fips
     values:
       upstream:
+        extraEnv:
+          HOME: /home/gitlab-runner
         image:
           image: gitlab-runner-fips
           registry: cgr.dev/zapatatechnology.com
@@ -1178,7 +1180,7 @@ monitoring:
         name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
       - digest: sha256:94fd3ebbcdc24dec644860416dd5dc4d447e09eb7ff5f9ce1676cc89a4659d1f
         name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
-      - digest: sha256:c3408913fa1ab92c7ba3056938d785955c3377a6617cb1d6d0547bf786133999
+      - digest: sha256:a0b157170033563cee89ac33bbbabd560dce5caa9c978f96bea556a0059954ce
         name: cgr.dev/zapatatechnology.com/prometheus-fips
       - digest: sha256:3700f95b110cac4e3a63cfa292729fd95c85c221b4e5e647b07e776f6ea9064f
         name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
