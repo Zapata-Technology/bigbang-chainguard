@@ -82,11 +82,14 @@ def failed_jobs(pr=None, run=None):
         found = []
         for c in checks:
             m = re.search(r"/runs/(\d+)/job/(\d+)", c.get("link", ""))
-            if c.get("bucket") == "fail" and m:
+            # A job cut off by its time limit is "cancel", not "fail" (`gh pr checks` prints
+            # both as fail): a kind test waiting on repo1.dso.mil ends that way.
+            if c.get("bucket") in ("fail", "cancel") and m:
                 found.append((c["name"], m.group(1), m.group(2)))
         return found
     jobs = json.loads(gh("run", "view", str(run), "--json", "jobs") or '{"jobs": []}')["jobs"]
-    return [(j["name"], str(run), str(j["databaseId"])) for j in jobs if j.get("conclusion") == "failure"]
+    return [(j["name"], str(run), str(j["databaseId"])) for j in jobs
+            if j.get("conclusion") in ("failure", "cancelled", "timed_out")]
 
 
 def artifact_log(repo, run, name):
