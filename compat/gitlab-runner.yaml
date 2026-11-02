@@ -28,10 +28,14 @@ test:
                 maxReplicas: 1
                 resources: {requests: {cpu: 100m, memory: 1Gi}}
                 workhorse: {resources: {requests: {cpu: 50m, memory: 128Mi}}}
+                # Rails boots slowly on the runner, slower in FIPS: the chart's liveness probe
+                # (20 s, then 3 failures 60 s apart) killed it mid-boot over and over.
+                deployment: {livenessProbe: {failureThreshold: 15}}
               sidekiq:
                 minReplicas: 1
                 maxReplicas: 1
                 resources: {requests: {cpu: 100m, memory: 512Mi}}
+                livenessProbe: {failureThreshold: 15}
               migrations:
                 resources: {requests: {cpu: 100m, memory: 512Mi}}
               gitaly:
