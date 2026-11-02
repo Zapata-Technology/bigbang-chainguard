@@ -255,6 +255,15 @@ template_defaults:
 # @registry (cgr.dev/<org>)
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
+  gatekeeper:
+    # Big Bang's allowed-docker-registries constraint (enforcementAction deny) admits only
+    # registry1.dso.mil and registry.dso.mil, so with Gatekeeper on every org image was
+    # refused ("invalid repository for image <cgr.dev/<org>/...>", compat/gatekeeper.yaml).
+    # Big Bang appends these repos to its defaults.
+    violations:
+      allowedDockerRegistries:
+        parameters:
+          repos: ["@registry"]
   istiod:
     # Injected sidecars: istio-proxy uses proxy.image, istio-init uses proxy_init.image
     # (default "proxyv2", built as hub/proxyv2:tag), and both fall back to hub and tag.
