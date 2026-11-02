@@ -303,3 +303,31 @@ def test_an_empty_log_is_asked_for_again(tmp_path, monkeypatch):
     keeper.snapshot()
     assert calls == [("job", "app", False)] * 2
     assert (tmp_path / "logs" / "ns" / "job.app.log").read_text() == "done\n"
+
+
+def test_wait_ends_with_the_source_lines_when_repo1_fails_too_long(monkeypatch):
+    bbcluster = load_script("bbcluster")
+    now = [0.0]
+    line = "repo1.dso.mil: bigbang/mimir can't fetch (unable to clone)"
+    monkeypatch.setattr(bbcluster.time, "time", lambda: now[0])
+    monkeypatch.setattr(bbcluster.time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+    monkeypatch.setattr(bbcluster, "source_problems", lambda nudge=False: [line])
+    hr = {"metadata": {"name": "mimir"},
+          "status": {"conditions": [{"type": "Ready", "status": "False", "reason": "", "message": "not ready"}]}}
+    monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: json.dumps({"items": [hr]}))
+    ok, problems = bbcluster.wait_ready(["mimir"], 3600, source_patience=600)
+    # compat.yml re-runs a test whose log has "PROBLEM: repo1.dso.mil: ... can't fetch".
+    assert not ok and problems == [line]
+    assert 600 <= now[0] < 900      # gave up after ~10 minutes, not at the 60-minute timeout
+
+
+def test_without_patience_the_wait_runs_to_its_timeout(monkeypatch):
+    bbcluster = load_script("bbcluster")
+    now = [0.0]
+    monkeypatch.setattr(bbcluster.time, "time", lambda: now[0])
+    monkeypatch.setattr(bbcluster.time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+    monkeypatch.setattr(bbcluster, "source_problems", lambda nudge=False: ["repo1.dso.mil: x/y can't fetch ()"])
+    hr = {"metadata": {"name": "y"}, "status": {"conditions": [{"type": "Ready", "status": "False"}]}}
+    monkeypatch.setattr(bbcluster, "kubectl", lambda *a, **k: json.dumps({"items": [hr]}))
+    ok, problems = bbcluster.wait_ready(["y"], 1800)
+    assert not ok and problems[0].startswith("timed out") and now[0] >= 1800

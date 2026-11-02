@@ -334,8 +334,11 @@ def main():
         return 1
     # The log keeper ends the wait early on a failure waiting won't fix (an OOM kill, a
     # failed Job, an image that can't be pulled, a container crash-looping on an error).
+    # A source that can't fetch for 10 minutes (repo1.dso.mil refusing the runner) ends the
+    # wait with its PROBLEM line: compat.yml then runs the test once more on the same cluster,
+    # instead of the job hitting its time limit and being cancelled.
     ready, problems = wait_ready(test.get("namespaces") or hr_namespaces(), a.timeout,
-                                 keeper.abort_reasons)
+                                 keeper.abort_reasons, source_patience=600)
     namespaces = test.get("namespaces") or hr_namespaces()
     ok = report(namespaces, test.get("no_pods", False)) and ready
     for p in problems:

@@ -225,7 +225,8 @@ These are kind-on-GitHub-Actions limits, not image problems:
 - **Rate limits.** Lookups of Flux releases on `api.github.com` use the job's token, since
   parallel jobs share the anonymous rate limit.
 - **Known flakes are retried.** A kind test reruns once when repo1.dso.mil refuses the
-  runner; a build reruns once on a transient package-fetch error; a GHCR push is tried
+  runner (a source that can't fetch for 10 minutes ends the first try, so the retry runs
+  before the job's time limit); a build reruns once on a transient package-fetch error; a GHCR push is tried
   three times, 30 seconds apart.
 
 ### Large tests

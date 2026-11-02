@@ -94,12 +94,15 @@ def source_problems(nudge=False):
     return lines
 
 
-def wait_ready(namespaces, timeout, abort=None):
+def wait_ready(namespaces, timeout, abort=None, source_patience=None):
     """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines).
     `abort`: a callable returning reasons to stop early (a failure that waiting won't fix,
-    PodLogKeeper.abort_reasons); the wait then ends at once with those reasons."""
+    PodLogKeeper.abort_reasons); the wait then ends at once with those reasons.
+    `source_patience`: seconds a Flux source may fail to fetch before the wait ends with
+    the source lines (`<host>: <ns>/<name> can't fetch (...)`), so a caller can retry
+    instead of waiting out its whole timeout on a repo1.dso.mil outage."""
     end = time.time() + timeout
-    last, polls = "", 0
+    last, polls, sources_failing_since = "", 0, None
 
     def stop():
         reasons = abort() if abort else []
@@ -110,8 +113,12 @@ def wait_ready(namespaces, timeout, abort=None):
         if stopped := stop():
             return stopped
         if polls % 6 == 0:   # every ~2 minutes: name sources that can't fetch, retry them
-            for line in source_problems(nudge=True):
+            failing = source_problems(nudge=True)
+            for line in failing:
                 print(f"{time.strftime('%H:%M:%S')} source: {line}; retrying", flush=True)
+            sources_failing_since = (sources_failing_since or time.time()) if failing else None
+            if failing and source_patience and time.time() - sources_failing_since >= source_patience:
+                return False, failing
         out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
         if not out:   # API server busy on a loaded runner: try again
             time.sleep(20)
