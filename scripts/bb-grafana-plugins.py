@@ -52,7 +52,6 @@ NAME = "grafana-plugins"
 IMAGE = "bigbang-grafana-plugins"   # not grafana-plugins: avoids clashing with an existing package of that name
 IB_IMAGE = "ironbank/big-bang/grafana/grafana-plugins"
 IB_PROJECT = "big-bang/grafana/grafana-plugins"
-GO_PROXY = "https://proxy.golang.org"
 # Plugins whose Go backend is rebuilt from source: {id: source tarball, modules to raise, patch}.
 REBUILD = {
     "redis-datasource": {
@@ -91,11 +90,6 @@ def plugin(resource, directory):
     return out
 
 
-def go_latest(module):
-    """`module@<newest release>` from the Go module proxy."""
-    return f"{module}@{json.loads(bbbuild.fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
-
-
 def rebuild(how, info):
     """How to rebuild a plugin's Go backend: its release's source (by sha256), the
     executable name Grafana runs, the modules to raise and the patch to apply."""
@@ -104,7 +98,7 @@ def rebuild(how, info):
     url = how["source"].format(version=info["info"]["version"])
     return {"source": url, "sha256": hashlib.sha256(bbbuild.fetch(url)).hexdigest(),
             "executable": info["executable"], "patch": how["patch"],
-            "go_get": [go_latest(m) for m in how["go_bumps"]]}
+            "go_get": [bbbuild.go_latest(m) for m in how["go_bumps"]]}
 
 
 def generate(a):

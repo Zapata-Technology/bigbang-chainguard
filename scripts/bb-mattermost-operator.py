@@ -41,7 +41,6 @@ defaults to fips=yes.
 """
 import hashlib
 import io
-import json
 import os
 import re
 import subprocess
@@ -61,7 +60,6 @@ UPSTREAM = "mattermost/mattermost-operator"
 SOURCE = "https://codeload.github.com/" + UPSTREAM + "/tar.gz/refs/tags/{tag}"
 # Modules raised past what upstream's go.mod pins: x/net v0.58.0 has GO-2026-6612 (Critical).
 GO_BUMPS = ["golang.org/x/net"]
-GO_PROXY = "https://proxy.golang.org"
 # Org image pairs to build in and run on, in order of preference: the first the org has.
 # The Go images carry the toolchain (go-fips: Chainguard's FIPS Go); kubectl -dev gets
 # Wolfi's Go from apk. glibc-openssl(-fips) is a minimal runtime with the FIPS OpenSSL a
@@ -101,11 +99,6 @@ def go_line(gomod):
     return m.group(1)
 
 
-def go_latest(module):
-    """`module@<newest release>` from the Go module proxy."""
-    return f"{module}@{json.loads(bbbuild.fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
-
-
 def source(tag):
     """Upstream's source tarball for `tag`: url, sha256, its go.mod's Go line, the commit."""
     url = SOURCE.format(tag=tag)
@@ -123,7 +116,7 @@ def source(tag):
             "commit": commit,
             # upstream's Makefile stamps `date -u +%Y%m%d.%H%M%S`; the commit time keeps it reproducible
             "build_time": time.strftime("%Y%m%d.%H%M%S", time.gmtime(when)),
-            "go_get": [go_latest(m) for m in GO_BUMPS]}
+            "go_get": [bbbuild.go_latest(m) for m in GO_BUMPS]}
 
 
 def first_pair(tags, pairs):

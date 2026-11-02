@@ -22,6 +22,7 @@ from bbcommon import ROOT, build_registry, ironbank_refs, load_mapping
 from orgtags import REGISTRY, OrgTags, org_name, resolve
 
 REPO1 = "https://repo1.dso.mil"
+GO_PROXY = "https://proxy.golang.org"
 
 
 def fetch(url, attempts=4):
@@ -34,6 +35,12 @@ def fetch(url, attempts=4):
             if i == attempts - 1:
                 raise
             time.sleep(10 * (i + 1))
+
+
+def go_latest(module):
+    """`module@<newest release>` from the Go module proxy (the builders raise modules past
+    what upstream's go.mod pins when the pinned ones have fixable CVEs)."""
+    return f"{module}@{json.loads(fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
 
 
 def bigbang_tag(ib_image):
