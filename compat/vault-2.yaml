@@ -8,3 +8,18 @@ images:
 test:
   enable: [addons.vault]
   namespaces: [vault]
+  expect: [bigbang-vault]
+  check:
+    # Big Bang's post-start hook (autoInit) initialised and unsealed the server: vault
+    # status needs no token and exits non-zero when sealed.
+    - >-
+      s=$(kubectl -n vault exec "$(kubectl -n vault get pod -l app.kubernetes.io/name=vault,component=server -o jsonpath='{.items[0].metadata.name}')"
+      -c vault -- vault status); rc=$?; echo "$s";
+      [ $rc -eq 0 ] && echo "$s" | grep -qE '^Initialized +true' && echo "$s" | grep -qE '^Sealed +false'
+    # A KV v2 write, then the read on Vault 2.x (the root token from Secret vault-token
+    # goes to the pod on stdin; compat/vault-upgrade.yaml uses the same steps across an upgrade).
+    - sh compat/support/vault-upgrade.sh write
+    - sh compat/support/vault-upgrade.sh read
+  debug:
+    - "kubectl -n vault get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n vault logs -l app.kubernetes.io/name=vault,component=server --tail=60"

@@ -6,3 +6,16 @@ test:
   expect: [prometheus-redis-exporter-iamguarded]
   values:
     addons: {harbor: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
+  check:
+    # Harbor's health API (core, database, redis, registry, registryctl, jobservice,
+    # portal): overall healthy and no component unhealthy. Through the API server's service
+    # proxy, with retries while jobservice settles.
+    - |
+      url=/api/v1/namespaces/harbor/services/harbor-core:80/proxy/api/v2.0/health
+      i=0
+      until h=$(kubectl get --raw "$url" 2>&1) && echo "$h" | grep -q '"components"' && ! echo "$h" | grep -q unhealthy; do
+        i=$((i+1))
+        if [ $i -ge 30 ]; then echo "Harbor is not healthy after 30 tries: $h"; exit 1; fi
+        sleep 10
+      done
+      echo "$h"
