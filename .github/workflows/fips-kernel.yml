@@ -1,0 +1,190 @@
+# FIPS overlay on a FIPS-mode kernel. The kind tests (compat.yml) run the FIPS overlay on the
+# runner's Ubuntu kernel, which is not in FIPS mode, so nothing there shows what a FIPS kernel
+# changes: the kernel's own crypto self-tests and restrictions, and the images' FIPS modules
+# seeing /proc/sys/crypto/fips_enabled = 1, as on a STIG'd RHEL node or an AKS FIPS node pool.
+# Each job boots an AlmaLinux 9 VM under KVM with fips-mode-setup, runs k3s in it, and runs one
+# compat test with --fips against it. It fails if the VM's kernel isn't in FIPS mode, before
+# the test and after it, so a pass always means a FIPS kernel.
+name: FIPS kernel - packages on a FIPS-mode kernel
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/fips-kernel.yml
+      - .github/fips-vm.sh
+  schedule:
+    - cron: "0 9 * * 0"   # weekly, after compat.yml's Sunday run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      bigbang-key: ${{ steps.bb.outputs.key }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # The same Big Bang clone compat.yml caches: one clone of repo1.dso.mil per release.
+      - id: bb
+        run: echo "key=bigbang-chart-$(cat BIGBANG_VERSION)" >> "$GITHUB_OUTPUT"
+      - id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ steps.bb.outputs.key }}
+          lookup-only: true
+      - name: Fetch Big Bang (cache miss only)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          tag=$(cat BIGBANG_VERSION)
+          for i in 1 2 3 4 5 6; do   # repo1.dso.mil intermittently refuses GitHub runners
+            git clone -q --depth 1 --branch "$tag" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
+            rm -rf work/bigbang; sleep $((30 * i))
+          done
+          test -d work/bigbang/chart
+      - if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ steps.bb.outputs.key }}
+
+  test:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # Small enough for one VM on a 2-CPU, 7 GB runner. Keycloak's BC-FIPS provider is the
+        # most kernel-sensitive: it reads the kernel's FIPS flag and entropy.
+        test: [kyverno-enforce, grafana, keycloak]
+    name: ${{ matrix.test }} (FIPS kernel)
+    env:
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
+      BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      VM_DIR: ${{ runner.temp }}/fips-vm
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      # Audit only, as in compat.yml: the VM pulls from whichever registries the test touches,
+      # and a blocked pull would look like the image failure this test exists to find.
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Without KVM a VM would be emulated (TCG), far too slow for Big Bang: stop here.
+      - name: Check for KVM
+        run: |
+          echo "CPUs: $(nproc); memory: $(free -m | awk '/^Mem:/ {print $2}') MB"
+          grep -m1 -oE 'vmx|svm' /proc/cpuinfo || echo "the CPU flags show no vmx/svm"
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::no /dev/kvm on this runner: nested virtualization isn't available"
+            exit 1
+          fi
+          # GitHub's documented way to let the runner user open /dev/kvm.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: v3.18.3
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Boot a FIPS-mode VM with k3s
+        id: vm
+        run: |
+          bash .github/fips-vm.sh boot
+          echo "KUBECONFIG=$VM_DIR/kubeconfig" >> "$GITHUB_ENV"
+
+      - name: Log into Chainguard
+        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
+        with:
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Big Bang (from the plan job's cache)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: work/bigbang
+          key: ${{ needs.plan.outputs.bigbang-key }}
+          fail-on-cache-miss: true
+
+      - name: Python packages
+        run: |
+          python3 -m pip install --quiet pyyaml
+          test -d work/bigbang/chart
+
+      - name: Deploy and check (FIPS overlay)
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+          COMPAT_DIAG: ${{ runner.temp }}/diag
+        run: |
+          CGR_TOKEN=$(chainctl auth token --audience cgr.dev)
+          echo "::add-mask::$CGR_TOKEN"
+          export CGR_TOKEN
+          # The same single retry as compat.yml when repo1.dso.mil refused a chart fetch.
+          for try in 1 2; do
+            set +e
+            python3 scripts/bb-compat.py "compat/${{ matrix.test }}.yaml" --fips 2>&1 | tee "${RUNNER_TEMP}/compat.log"
+            rc=${PIPESTATUS[0]}
+            set -e
+            [ "$rc" = 0 ] && exit 0
+            if [ "$try" = 2 ] || ! grep -q "^PROBLEM: repo1.dso.mil: .* can't fetch" "${RUNNER_TEMP}/compat.log"; then
+              exit "$rc"
+            fi
+            echo "::warning::repo1.dso.mil refused a chart fetch; running the test once more"
+          done
+
+      # Checked again after the test: a pass must mean the packages ran on a FIPS kernel.
+      - name: The kernel was in FIPS mode throughout
+        if: always() && steps.vm.outcome == 'success'
+        run: bash .github/fips-vm.sh assert
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.test }} (FIPS overlay, FIPS kernel)"
+            echo '```'
+            grep -E "^RESULT|^PROBLEM|^EXITED|^[0-9:]{8} LIVE |^  (OK  |FAIL)|^         [a-z].*: " "${RUNNER_TEMP}/compat.log" 2>/dev/null | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: VM logs
+        if: always() && steps.vm.outcome != 'skipped'
+        run: bash .github/fips-vm.sh logs
+
+      - name: Upload logs and cluster state
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: fips-kernel-${{ matrix.test }}
+          path: |
+            ${{ runner.temp }}/diag
+            ${{ runner.temp }}/compat.log
+            ${{ runner.temp }}/fips-vm/logs
+          retention-days: 14
+          if-no-files-found: ignore
