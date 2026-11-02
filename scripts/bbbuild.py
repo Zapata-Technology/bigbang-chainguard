@@ -74,19 +74,21 @@ def go_line(gomod):
     return m.group(1)
 
 
-def go_source(url):
-    """A GitHub source tarball: {source, sha256, go (its go.mod's line), commit, time}.
+def go_source(url, gomod="go.mod"):
+    """A GitHub source tarball: {source, sha256, go (the line of its go.mod, or of `gomod`
+    for a module in a subdirectory), commit, time}.
 
     GitHub's archives are `git archive`: the commit id is the pax comment, and every
     entry carries the commit time (a reproducible stand-in for a build date)."""
     data = fetch(url)
+    want = os.path.normpath(gomod).replace(os.sep, "/")
     with tarfile.open(fileobj=io.BytesIO(data)) as t:
         members = t.getmembers()
         gomod = next((t.extractfile(m).read().decode() for m in members
-                      if m.name.count("/") == 1 and m.name.endswith("/go.mod")), None)
+                      if m.name.split("/", 1)[-1] == want and "/" in m.name), None)
         commit, when = t.pax_headers.get("comment", ""), members[0].mtime
     if gomod is None or not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise SystemExit(f"{url} has no top-level go.mod or commit id")
+        raise SystemExit(f"{url} has no {want} or commit id")
     return {"source": url, "sha256": hashlib.sha256(data).hexdigest(), "go": go_line(gomod),
             "commit": commit, "time": when}
 
@@ -168,11 +170,12 @@ def bigbang_tag(ib_image):
     return max(tags, key=lambda t: [int(x) for x in re.findall(r"\d+", t)])
 
 
-def ironbank_recipe(project, ref):
-    """(commit, hardening_manifest, Dockerfile text) of dsop/<project> at <ref>."""
-    quoted = urllib.parse.quote(f"dsop/{project}", safe="")
+def ironbank_recipe(project, ref, group="dsop"):
+    """(commit, hardening_manifest, Dockerfile text) of <group>/<project> at <ref>. Iron Bank
+    moves recipes it no longer maintains to iron-bank-archives/dsop-archives (MinIO's operator)."""
+    quoted = urllib.parse.quote(f"{group}/{project}", safe="")
     commit = json.loads(fetch(f"{REPO1}/api/v4/projects/{quoted}/repository/commits/{ref}"))["id"]
-    raw = f"{REPO1}/dsop/{project}/-/raw/{commit}"
+    raw = f"{REPO1}/{group}/{project}/-/raw/{commit}"
     return (commit, yaml.safe_load(fetch(f"{raw}/hardening_manifest.yaml")),
             fetch(f"{raw}/Dockerfile").decode())
 
@@ -273,7 +276,11 @@ def main(name, doc, generate, build_args, smoke_test):
         print(f"== {ref}", flush=True)
         args = {f"{k.upper()}_IMAGE": img[k] for k in ("base", "dev") if k in img}
         args.update(build_args(spec, variant))
-        cmd = ["docker", "build", "--pull", "-t", ref, "-f", os.path.join(ROOT, "builds", name, "Dockerfile")]
+        # Two builds can share one Dockerfile (spec "dockerfile": the other build's directory).
+        cmd = ["docker", "build", "--pull", "-t", ref, "-f",
+               os.path.join(ROOT, "builds", spec.get("dockerfile", name), "Dockerfile")]
+        if spec.get("target"):   # the stage to build, when the Dockerfile has one per image
+            cmd += ["--target", spec["target"]]
         for k, v in args.items():
             cmd += ["--build-arg", f"{k}={v}"]
         subprocess.run(cmd + [os.path.join(ROOT, "builds", spec.get("context", name))], check=True)

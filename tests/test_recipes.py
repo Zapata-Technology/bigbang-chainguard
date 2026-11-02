@@ -333,3 +333,66 @@ def test_go_build_problems(monkeypatch):
     assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.63.0"]) == \
         ["golang.org/x/net is not v0.63.0"]
     assert problems("img", "/tempo-query", "fips", {"fips": "toolchain"}, [])[0].startswith("FIPS Go build (toolchain)")
+
+
+minio_operator = load_script("bb-minio-operator")
+bbminio = minio_operator.bbminio
+
+
+def test_minio_recipes():
+    # Iron Bank's archived recipes copy each binary out of upstream's image; no USER.
+    ib = bbminio.recipe(*recipe("minio-operator"), "operator")
+    assert ib == {"upstream": "v7.1.1", "binary": "/minio-operator", "user": "root (none set)"}
+    ib = bbminio.recipe(*recipe("minio-operator-sidecar"), "operator-sidecar")
+    assert ib == {"upstream": "v7.1.0", "binary": "/minio-operator-sidecar", "user": "root (none set)"}
+    with pytest.raises(SystemExit):   # the operator's manifest names no sidecar image
+        bbminio.recipe(*recipe("minio-operator"), "operator-sidecar")
+
+
+def minio_tarball():
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz", format=tarfile.PAX_FORMAT,
+                      pax_headers={"comment": "0037830" + "0" * 33}) as t:
+        for name, body in (("operator-7.1.0/go.mod", "module github.com/minio/operator\n\ngo 1.23.0\n"),
+                           ("operator-7.1.0/sidecar/go.mod", "module github.com/minio/operator/sidecar\n\ngo 1.24.0\n")):
+            info = tarfile.TarInfo(name)
+            info.size = len(body)
+            t.addfile(info, io.BytesIO(body.encode()))
+    return buf.getvalue()
+
+
+def test_minio_sidecar_is_built_from_its_module(monkeypatch):
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return b'{"Version": "v0.58.0"}' if "crypto" in url else b'{"Version": "v0.62.0"}'
+        assert url == "https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0"
+        return minio_tarball()
+    monkeypatch.setattr(bbminio.bbbuild, "fetch", fetch)
+    src = bbminio.source("v7.1.0", "sidecar")
+    assert src["go"] == "1.24.0"   # the sidecar module's go.mod, not the root's
+    assert src["module"] == "sidecar" and src["package"] == "./cmd/sidecar"
+    assert src["drop_replace"] == ["golang.org/x/crypto"]
+    assert src["go_get"] == ["golang.org/x/crypto@v0.58.0", "golang.org/x/net@v0.62.0"]
+    assert "-X github.com/minio/operator/sidecar/pkg.Version=v7.1.0" in src["ldflags"]
+    assert "sidecar/pkg.ReleaseTag=7.1.0 " in src["ldflags"] and "ShortCommitID=0037830" in src["ldflags"]
+    assert bbminio.source("v7.1.0", "operator")["go"] == "1.23.0"
+    spec = {"minio": src, "ironbank": {"binary": "/minio-operator-sidecar"}, "user": "65532:65532",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    args = bbminio.build_args(spec, "fips")
+    assert args["MINIO_MODULE"] == "sidecar" and args["MINIO_DROP_REPLACE"] == "golang.org/x/crypto"
+    assert args["FIPS"] == "native" and args["BINARY"] == "/minio-operator-sidecar"
+    with pytest.raises(SystemExit):   # no such module in the tarball
+        bbminio.bbbuild.go_source("https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0",
+                                  gomod="nope/go.mod")
+
+
+def test_minio_builders_share_one_dockerfile():
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dockerfile = open(os.path.join(root, "builds", "minio-operator", "Dockerfile"), encoding="utf-8").read()
+    # One final stage per program (build.yaml's `target`), each with Iron Bank's entrypoint.
+    for program, binary in (("operator", "/minio-operator"), ("sidecar", "/minio-operator-sidecar")):
+        assert program in bbminio.PROGRAMS
+        assert f"FROM runtime AS {program}\nENTRYPOINT [\"{binary}\"]" in dockerfile

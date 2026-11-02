@@ -27,8 +27,9 @@ releases.
   - If you enable fewer packages, you need fewer images.
   - `scripts/bb-convert.py --missing` lists the ones your org lacks.
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and four more need what Chainguard's image lacks or has no image
-  of (Vault, the JMX exporter, the Mattermost Operator, tempo-query); this repo builds
+  Big Bang's own builds, and six more need what Chainguard's image lacks or has no image
+  of (Vault, the JMX exporter, the Mattermost Operator, tempo-query, the MinIO Operator and
+  its sidecar); this repo builds
   those FROM your Chainguard images; see
   [Images this repo builds](#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
@@ -58,7 +59,7 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 so later runs need no flags. Then build and push this repo's images:
 
 ```bash
-for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query; do
+for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar; do
   python scripts/bb-$b.py --no-generate --build --test --push
 done
 ```
@@ -481,9 +482,10 @@ your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
 post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
 sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
-The Mattermost Operator is the sixth and tempo-query the seventh: Chainguard publishes no
-image of either, so `bb-mattermost-operator.py` and `bb-tempo-query.py` build them from
-upstream's source:
+The Mattermost Operator, tempo-query and the MinIO Operator with its sidecar are the
+sixth to ninth: Chainguard publishes no image of them, so `bb-mattermost-operator.py`,
+`bb-tempo-query.py`, `bb-minio-operator.py` and `bb-minio-operator-sidecar.py` build them
+from upstream's source:
 
 | Iron Bank image | Script | Built FROM | Image |
 |---|---|---|---|
@@ -494,6 +496,7 @@ upstream's source:
 | `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
 | `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `bb-mattermost-operator.py` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
 | `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `bb-tempo-query.py` | as the Mattermost Operator | `bigbang-tempo-query` |
+| `opensource/minio/operator` and `operator-sidecar` (both archived on Iron Bank): no Chainguard images; built from minio/operator's source (archived upstream) at Big Bang's tags | `bb-minio-operator.py`, `bb-minio-operator-sidecar.py` | as the Mattermost Operator | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` |
 
 Each script:
 
@@ -572,6 +575,17 @@ Differences from Iron Bank:
   on with `tempo.values.upstream.tempoQuery.enabled`. Tempo is AGPL-3.0: the image
   carries its LICENSE, and `build.yaml` names the source tarball. Its smoke test calls
   the gRPC health service (curl over HTTP/2) and reads the build info.
+- **minio-operator and minio-operator-sidecar** are built from minio/operator's source at
+  Big Bang's tags (operator v7.1.1, sidecar v7.1.0: the root module's `./cmd/operator`
+  and the `sidecar` module's `./cmd/sidecar`), with upstream's version ldflags, static.
+  Upstream archived the repository in 2026 and Iron Bank moved both recipes to
+  `iron-bank-archives`, so no newer release will come; the builders read the archived
+  recipes. Upstream's go.mod pins `golang.org/x/crypto` v0.36.0 with a `replace` (8
+  Critical CVEs) and x/net v0.38.0 (Critical): the build drops the replace and raises
+  both. Iron Bank sets no user (root); these run as 65532, and Big Bang's charts run them
+  as their own non-root uids. Both share `builds/minio-operator/Dockerfile` (one final
+  stage per image, `build.yaml` `target`) and `scripts/bbminio.py`. MinIO Operator is
+  AGPL-3.0; the images carry its LICENSE and CREDITS.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,

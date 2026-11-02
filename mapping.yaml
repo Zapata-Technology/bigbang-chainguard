@@ -167,8 +167,11 @@ images:
   # org's newest release (docs/images.md flags it).
   ironbank/opensource/minio/minio: {cg: minio, version: "*"}
   ironbank/opensource/minio/mc: {cg: minio-client, version: "*"}
-  ironbank/opensource/minio/operator: {stays: "no Chainguard minio-operator image", until: minio-operator}
-  ironbank/opensource/minio/operator-sidecar: {stays: "no Chainguard minio-operator-sidecar image", until: minio-operator-sidecar}
+  # No Chainguard MinIO Operator images: scripts/bb-minio-operator.py and
+  # bb-minio-operator-sidecar.py build both from minio/operator's source (archived upstream
+  # and on Iron Bank) FROM the org's images; with BUILD_REGISTRY empty they stay on Iron Bank.
+  ironbank/opensource/minio/operator: {build: minio-operator}
+  ironbank/opensource/minio/operator-sidecar: {build: minio-operator-sidecar}
 
   # --- Shared building blocks ---
   # Big Bang's jobs run kubectl scripts with /bin/bash; Chainguard's kubectl has no
