@@ -13,7 +13,7 @@ images:
   ironbank/opensource/minio/operator: {build: minio-operator}
   ironbank/opensource/minio/operator-sidecar: {build: minio-operator-sidecar}
 test:
-  enable: [addons.minioOperator]
+  enable: [minioOperator]
   namespaces: [minio-operator]
   expect: [bigbang-minio-operator]
   setup:
@@ -27,7 +27,7 @@ test:
     # container is running. The server image is the mapping's minio, whatever it pulls.
     - |
       kubectl wait crd/tenants.minio.min.io --for=condition=Established --timeout=60s || exit 1
-      img=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/values-chainguard.yaml'))['addons']['minio']['values']['upstream']['tenant']['image']; print(v['repository'] + ':' + str(v['tag']))" 2>/dev/null) \
+      img=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/values-chainguard.yaml'))['packages']['minio']['values']['upstream']['tenant']['image']; print(v['repository'] + ':' + str(v['tag']))" 2>/dev/null) \
         || img=registry1.dso.mil/ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z
       kubectl create namespace compat-minio --dry-run=client -o yaml | kubectl apply -f -
       printf 'export MINIO_ROOT_USER=compat\nexport MINIO_ROOT_PASSWORD=compatMinioAB12cd34\n' > "$COMPAT_OUT/minio-config.env"

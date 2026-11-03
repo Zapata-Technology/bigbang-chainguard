@@ -34,7 +34,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT  # noqa: E402
+from bbcommon import ROOT, bigbang_packages  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("bb_install", os.path.join(HERE, "bb-install.py"))
 install = importlib.util.module_from_spec(_spec)
@@ -47,7 +47,7 @@ def package_repos(defaults, enabled):
     """[(repo1 URL, tag)] of Big Bang's git source for each enabled package."""
     out = []
     for key in enabled:
-        node = defaults["addons"].get(key.split(".", 1)[1]) if key.startswith("addons.") else defaults.get(key)
+        node = bigbang_packages(defaults).get(key)
         git = (node or {}).get("git") or {}
         if str(git.get("repo", "")).startswith(install.REPO1) and git.get("tag"):
             out.append((git["repo"], str(git["tag"])))

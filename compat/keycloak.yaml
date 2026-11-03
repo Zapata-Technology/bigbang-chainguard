@@ -1,9 +1,9 @@
 # Keycloak 26.8 with Big Bang's bundled PostgreSQL (dev database), both from the org.
 images: {}
 test:
-  enable: [addons.keycloak]
+  enable: [keycloak]
   values:
-    addons:
+    packages:
       keycloak:
         values:
           upstream:

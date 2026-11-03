@@ -1,9 +1,9 @@
 # metrics-server (Big Bang's "auto": on only where the cluster has none; kind has none).
 images: {}
 test:
-  enable: [addons.metricsServer]
+  enable: [metricsServer]
   values:
-    addons:
+    packages:
       metricsServer:
         values:
           upstream:

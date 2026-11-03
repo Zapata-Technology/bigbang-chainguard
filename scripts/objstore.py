@@ -98,9 +98,9 @@ def build(spec, t, extra):
 
 
 def package_of(path):
-    """The Big Bang package a value path belongs to: addons.<pkg>.* or <pkg>.*."""
+    """The Big Bang package a value path belongs to: packages.<pkg>.* (Big Bang 4)."""
     parts = path.split(".")
-    return parts[1] if parts[0] == "addons" else parts[0]
+    return parts[1] if parts[0] in ("packages", "addons") else parts[0]
 
 
 def credentials_for(paths, packages):

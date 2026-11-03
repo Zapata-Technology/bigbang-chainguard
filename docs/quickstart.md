@@ -10,7 +10,7 @@ production yet. Here is what is and isn't proven:
 
 | Proven | Not yet |
 |---|---|
-| Every image Big Bang 3.35.1 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
+| Every image Big Bang 4.0.0 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
 | Each package with a kind test (35 tests, most of Big Bang's packages) deploys and passes a functional check, standard and FIPS ([testing](testing.md)) | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel |
 | Upgrading from the newest release to the next is tested on every change (Kyverno, Headlamp, Grafana) | Upgrading an existing Iron Bank Big Bang in place to Chainguard images (needs an Iron Bank account in CI) |
 | Every org image is pinned by digest and signature-checked; images built here are signed and attested | The images that stay on Iron Bank ([Known gaps](../README.md#known-gaps)) |
@@ -28,7 +28,7 @@ Support is best effort, through the repository's issues. Report security problem
     any your plan refuses, which you then request from Chainguard.
 
   See [Chainguard entitlements](../README.md#chainguard-entitlements).
-- [ ] A **test** cluster, Kubernetes 1.34+, with a default StorageClass, and a kubectl
+- [ ] A **test** cluster, Kubernetes 1.35+ (Big Bang 4; a Big Bang 3 site upgrades as in the README, "Upgrading from Big Bang 3"), with a default StorageClass, and a kubectl
       context for it.
 - [ ] `kubectl`, `helm` 3, Python 3.12 with PyYAML, `chainctl`, and `cosign` (to check the
       release).
@@ -41,11 +41,11 @@ Support is best effort, through the repository's issues. Report security problem
 ## 1. Pick a release and pin it
 
 Install from a release, never from `main`. A release (`<Big Bang version>-cg.<n>`, e.g.
-`3.35.1-cg.55`) is a fixed set of overlays, digests and installer that CI tested together.
+`4.0.0-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
 `main` moves every night.
 
 ```bash
-TAG=3.35.1-cg.55        # the release you chose: Releases page, newest first
+TAG=4.0.0-cg.1          # the release you chose: Releases page, newest first
 # While the repository is private, download with gh (a login with access to it):
 gh release download "$TAG" -R Zapata-Technology/bigbang-chainguard \
   -p "bigbang-chainguard-$TAG.tar.gz" -p "bigbang-chainguard-$TAG.tar.gz.sigstore.json"

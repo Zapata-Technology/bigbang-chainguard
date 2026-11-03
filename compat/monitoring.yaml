@@ -5,10 +5,10 @@
 # enables Headlamp; the SNMP exporter has no Big Bang trigger and is switched on directly.
 images: {}
 test:
-  enable: [certManager, prometheusOperatorCRDs, monitoring, addons.headlamp]
+  enable: [certManager, prometheusOperatorCRDs, monitoring, headlamp]
   expect: [prometheus-blackbox-exporter, prometheus-snmp-exporter, k8s-sidecar, prometheus-config-reloader]
   values:
-    monitoring: {values: {snmpExporter: {enabled: true}}}
+    packages: {monitoring: {values: {snmpExporter: {enabled: true}}}}
   setup:
     - >-
       sh compat/support/watch.sh snmp "kubectl -n monitoring get pod -l app.kubernetes.io/name=prometheus-snmp-exporter -o yaml | grep -A12 -E 'containerStatuses|^    args|image:';

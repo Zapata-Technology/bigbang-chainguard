@@ -249,7 +249,7 @@ hubs:
 
 # Big Bang keys whose chart values sit below `values` (Big Bang key: sub-path).
 value_roots:
-  istioGateway: shared      # merged into every gateway release by Big Bang
+  packages.istioGateway: shared      # merged into every gateway release by Big Bang
 
 # Images that a package template hardcodes as a default (no value in values.yaml),
 # with the value path that overrides it. Applied to any release that renders one.
@@ -344,60 +344,6 @@ overrides:
     upstream:
       query:
         extraFlags: [--store.sd-dns-resolver=golang]
-  tempo:
-    # The Tempo chart's receivers default lists `opencensus:` with no value. Helm 3 drops
-    # it; Flux's render keeps it (even with opencensus: null in our values), and Tempo
-    # 2.10.10 refuses to start: "unknown type: opencensus" (compat/object-storage.yaml).
-    # No values merge can delete the key, so this is the chart's own `config` template
-    # (tempo chart 2.1.0) with one change: receivers omit opencensus. bb-scan.py lists
-    # the chart version in scan_reviewed, so a new chart forces a review of this copy.
-    upstream:
-      config: |
-        memberlist:
-          cluster_label: "{{ .Release.Name }}.{{ .Release.Namespace }}"
-        multitenancy_enabled: {{ .Values.tempo.multitenancyEnabled }}
-        usage_report:
-          reporting_enabled: {{ .Values.tempo.reportingEnabled }}
-        compactor:
-          compaction:
-            block_retention: {{ .Values.tempo.retention }}
-        distributor:
-          receivers:
-            {{- toYaml (omit .Values.tempo.receivers "opencensus") | nindent 8 }}
-        ingester:
-          {{- toYaml .Values.tempo.ingester | nindent 6 }}
-        server:
-          {{- toYaml .Values.tempo.server | nindent 6 }}
-        storage:
-          {{- toYaml .Values.tempo.storage | nindent 6 }}
-        querier:
-          {{- toYaml .Values.tempo.querier | nindent 6 }}
-        query_frontend:
-          {{- toYaml .Values.tempo.queryFrontend | nindent 6 }}
-        overrides:
-          {{- toYaml .Values.tempo.overrides | nindent 6 }}
-          {{- if .Values.tempo.metricsGenerator.enabled }}
-        metrics_generator:
-          {{- if .Values.tempo.metricsGenerator.processor }}
-          processor:
-            {{- toYaml .Values.tempo.metricsGenerator.processor | nindent 8 }}
-          {{- end }}
-          {{- if .Values.tempo.metricsGenerator.registry }}
-          registry:
-            {{- toYaml .Values.tempo.metricsGenerator.registry | nindent 8 }}
-          {{- end }}
-          storage:
-            path: {{ .Values.tempo.metricsGenerator.storage.path | quote }}
-            {{- if .Values.tempo.metricsGenerator.storage.remote_write }}
-            remote_write:
-              {{- toYaml .Values.tempo.metricsGenerator.storage.remote_write | nindent 10 }}
-            {{- else }}
-            remote_write:
-              - url: {{ .Values.tempo.metricsGenerator.remoteWriteUrl }}
-            {{- end }}
-          traces_storage:
-            path: {{ .Values.tempo.metricsGenerator.traces_storage.path | quote }}
-          {{- end }}
 
 # Images a package template hardcodes with no value to override (Big Bang key:
 # Iron Bank repos). bb-convert writes a Flux postRenderers kustomize image rewrite.
@@ -407,7 +353,7 @@ overrides:
 # sets to its own appVersion (Iron Bank's 1.31.1), while the org runs a newer patch
 # (1.31.3): compat/kiali.yaml's gateway wait job restarted the gateway until it failed.
 version_labels:
-  istiod:
+  packages.istiod:
     Deployment/istiod: ironbank/opensource/istio/pilot
 
 # Wait jobs (Big Bang key: [Job names]) whose script starts #!/bin/sh but is bash
@@ -415,7 +361,7 @@ version_labels:
 # is busybox, so the script dies on its first line. bb-convert writes a Flux
 # post-renderer that runs the job's scripts with bash. Found by compat/kyverno-enforce.yaml.
 bash_wait_jobs:
-  kyvernoPolicies: [kyverno-kyverno-policies-wait-job]
+  packages.kyvernoPolicies: [kyverno-kyverno-policies-wait-job]
 
 # Containers (Big Bang key: [{kind, name regex, container: containers/<i> or
 # initContainers/<i>}]) whose command is
@@ -424,11 +370,11 @@ bash_wait_jobs:
 # bash-only syntax run by sh. (Images this repo builds, like bigbang-base, link sh to
 # bash as UBI does, so jobs on them need no entry.)
 bash_commands:
-  addons.fortify:
+  packages.fortify:
     - {kind: Job, name: .*-keystore-job, container: containers/0}   # secret-creator: kubectl, REQUIRED_KEYS=( ... )
 
 post_renderers:
-  addons.fortify:
+  packages.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
 
 # Value paths that hold Iron Bank strings but are not images to replace.
@@ -445,7 +391,7 @@ ignore:
 # Big Bang keys whose HelmRelease template can't take post-renderers (bb-scan.py finds
 # them): bb-convert gives them none, so their images stay on tags (no digest pin).
 no_post_renderers:
-  addons.keycloak: Big Bang 3.35.1's keycloak/helmrelease.yaml writes postRenderers without the key
+  packages.keycloak: Big Bang 4.0.0's keycloak/helmrelease.yaml writes postRenderers without the key
 
 # Org images that stay on their exact tag instead of a digest pin (release: {org repo: why}).
 # bb-verify.py fails on any other org image without a digest.
@@ -459,7 +405,6 @@ unpinned:
 # finding not listed here, so each new Big Bang release gets the same review.
 scan_reviewed:
   bigbang/templates/keycloak/helmrelease.yaml: no_post_renderers (Keycloak's images stay on tags)
-  kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
-  alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
-  addons.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)
-  tempo/chart/charts/tempo-2.1.0.tgz!tempo: overrides.tempo (config template omits opencensus)
+  packages.kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
+  packages.alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
+  packages.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)

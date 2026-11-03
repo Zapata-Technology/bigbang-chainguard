@@ -6,7 +6,7 @@
 images:
   ironbank/hashicorp/vault: {build: vault, version: "*"}
 test:
-  enable: [addons.vault]
+  enable: [vault]
   namespaces: [vault]
   expect: [bigbang-vault]
   check:

@@ -48,7 +48,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
+from bbcommon import ROOT, bigbang_packages, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
                        install_flux, kubectl, report, sh, wait_ready)
@@ -57,20 +57,39 @@ from release import previous_tag  # noqa: E402
 
 def test_values(chart_values, enable):
     """Turn off every package Big Bang enables by default (true or "auto", like metricsServer),
-    then turn on the test's."""
+    then turn on the test's (package names, e.g. [kyverno, headlamp]). Big Bang 4 turns
+    on Istio's ambient mode by default, which needs istiod: a test without istiod turns it
+    off. A Big Bang 3.x chart (a release-upgrade test's starting point) gets 3.x keys."""
     vals = {"domain": "bigbang.test", "networkPolicies": {"enabled": False}}
-    for k, v in chart_values.items():
-        if isinstance(v, dict) and v.get("enabled") not in (False, None) and k != "networkPolicies":
-            vals[k] = {"enabled": False}
-    for k, v in chart_values.get("addons", {}).items():
-        if isinstance(v, dict) and v.get("enabled") not in (False, None):
-            vals.setdefault("addons", {})[k] = {"enabled": False}
-    for dotted in enable:
-        node = vals
-        for part in dotted.split("."):
-            node = node.setdefault(part, {})
-        node["enabled"] = True
+    keys = {k.split(".")[-1]: k for k in bigbang_packages(chart_values)}
+    for key, v in bigbang_packages(chart_values).items():
+        if v.get("enabled") not in (False, None):
+            set_key(vals, key, {"enabled": False})
+    for name in enable:
+        set_key(vals, keys.get(name, name), {"enabled": True})
+    if "packages" in chart_values and "istiod" not in enable:
+        vals["istio"] = {"ambient": {"enabled": False}}
     return vals
+
+
+def set_key(values, key, value):
+    """values[a][b] = value (merged) for the Big Bang key "a.b"."""
+    node = values
+    for k in key.split("."):
+        node = node.setdefault(k, {})
+    node.update(value)
+
+
+def legacy_values(values, chart_values):
+    """Test values written for Big Bang 4 (packages.<name>) moved to a Big Bang 3.x chart's
+    keys (<name> or addons.<name>), for a release-upgrade test's starting point."""
+    if "packages" in chart_values:
+        return values
+    keys = {k.split(".")[-1]: k for k in bigbang_packages(chart_values)}
+    out = {k: v for k, v in values.items() if k != "packages"}
+    for name, v in (values.get("packages") or {}).items():
+        set_key(out, keys.get(name, name), v)
+    return out
 
 
 def test_namespaces(test):
@@ -400,7 +419,15 @@ def main():
             deep_merge(values, test.get("values", {}) or {})
             tv = os.path.join(secrets, "test.yaml")
             yaml.safe_dump(values, open(tv, "w"))
-            helm_bigbang(a, test, first or out, out, tv, creds, f", upgrade from {release or 'the old mapping'}"
+            # A release on an older Big Bang major installs with that chart's keys.
+            tv_first = tv
+            if first_chart:
+                old = yaml.safe_load(open(os.path.join(first_chart, "values.yaml")))
+                first_values = legacy_values(deep_merge(test_values(old, test.get("enable", [])),
+                                                        test.get("values", {}) or {}), old)
+                tv_first = os.path.join(secrets, "test-first.yaml")
+                yaml.safe_dump(first_values, open(tv_first, "w"))
+            helm_bigbang(a, test, first or out, out, tv_first, creds, f", upgrade from {release or 'the old mapping'}"
                          if first else "", chart=first_chart)
             if first:
                 upgraded = upgrade(a, test, out, tv, creds, keeper.abort_reasons)

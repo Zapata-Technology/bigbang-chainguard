@@ -1,7 +1,7 @@
 # Newer-minor check: Mimir's memcached-exporter 0.16 -> 0.18, rollout-operator 0.40 -> 0.41.
 images: {}
 test:
-  enable: [addons.mimir]
+  enable: [mimir]
   expect: [memcached-exporter, grafana-rollout-operator]
   check:
     # Mimir stores a sample and answers a query for it: write a gauge with a unique value

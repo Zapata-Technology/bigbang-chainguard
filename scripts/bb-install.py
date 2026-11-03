@@ -68,8 +68,8 @@ import objstore  # noqa: E402
 from bbcluster import (apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret,  # noqa: E402
                        report, sh, wait_ready)
 from bbcommon import (BUILD_SIGNATURE_ISSUER, ROOT, SIGNATURE_ISSUERS, build_signature_identity,  # noqa: E402
-                       build_signer, deep_merge, load_mapping, running_image_problems, signature_identity,
-                       split_ref)
+                       bigbang_packages, build_signer, deep_merge, load_mapping, running_image_problems,
+                       signature_identity, split_ref)
 from orgtags import REGISTRY  # noqa: E402
 
 NAMESPACE = "bigbang"
@@ -79,7 +79,7 @@ TRIES = 3                               # logins typed at the prompt, each teste
 # registry1's OCI copy of the chart needs an Iron Bank login; repo1's git archive doesn't.
 CHART_ARCHIVE = "https://repo1.dso.mil/big-bang/bigbang/-/archive/{v}/bigbang-{v}.tar.gz?path=chart"
 CHART_CACHE = os.path.join(ROOT, "work", "charts")
-MIN_KUBERNETES = (1, 34)               # Big Bang's chart requires it
+MIN_KUBERNETES = (1, 35)               # Big Bang 4's chart requires it
 PULL_TOKEN_DAYS = 365                  # chainctl's longest pull token (8760h)
 
 
@@ -159,13 +159,32 @@ def git_mirror_values(defaults, mirror):
     from repo1 git at runtime; a mirror the site controls keeps them coming when repo1
     doesn't answer, and is how a disconnected site gets them at all)."""
     out = {}
-    for key, v in defaults.items():
-        if isinstance(v, dict) and str((v.get("git") or {}).get("repo", "")).startswith(REPO1):
-            out[key] = {"git": {"repo": mirrored(v["git"]["repo"], mirror)}}
-    for key, v in (defaults.get("addons") or {}).items():
-        if isinstance(v, dict) and str((v.get("git") or {}).get("repo", "")).startswith(REPO1):
-            out.setdefault("addons", {})[key] = {"git": {"repo": mirrored(v["git"]["repo"], mirror)}}
+    for key, v in bigbang_packages(defaults).items():
+        if str((v.get("git") or {}).get("repo", "")).startswith(REPO1):
+            set_key(out, key, {"git": {"repo": mirrored(v["git"]["repo"], mirror)}})
     return out
+
+
+def set_key(values, key, value):
+    """values[a][b] = value for the Big Bang key "a.b" (e.g. packages.keycloak)."""
+    *parents, last = key.split(".")
+    for k in parents:
+        values = values.setdefault(k, {})
+    values[last] = value
+
+
+def package_values(site, name):
+    """The site file's packages.<name> (Big Bang 4), or {}."""
+    return ((site.get("packages") or {}).get(name) or {})
+
+
+def legacy_keys(site, defaults):
+    """Big Bang 3.x package keys in a site file (top-level <name> or addons.<name>), which
+    Big Bang 4's chart refuses: they moved to packages.<name>."""
+    names = {k.split(".")[-1] for k in bigbang_packages(defaults)}
+    found = [k for k in site if k in names]
+    found += [f"addons.{k}" for k in (site.get("addons") or {})]
+    return sorted(found)
 
 
 def clone_chart(version, mirror, cache=CHART_CACHE):
@@ -253,12 +272,9 @@ def chart_defaults(a):
 
 
 def enabled_packages(values):
-    """Big Bang keys that are on ('auto' counts: metricsServer), e.g. ['istiod', 'addons.keycloak']."""
-    keys = [k for k, v in values.items() if isinstance(v, dict) and v.get("enabled") not in (False, None)
-            and k not in ("addons", "networkPolicies")]
-    keys += [f"addons.{k}" for k, v in (values.get("addons") or {}).items()
-             if isinstance(v, dict) and v.get("enabled") not in (False, None)]
-    return sorted(keys)
+    """Big Bang keys that are on ('auto' counts: metricsServer), e.g. ['packages.istiod',
+    'packages.keycloak']."""
+    return sorted(k for k, v in bigbang_packages(values).items() if v.get("enabled") not in (False, None))
 
 
 def merged_values(defaults, files):
@@ -488,13 +504,18 @@ def preflight(a, co, site, defaults):
         problems.append("the overlays don't say which org they were generated for: regenerate them")
     if not site.get("domain"):
         problems.append("the site file has no `domain` (bb-install.py init writes one)")
+    legacy = legacy_keys(site, defaults) if "packages" in defaults else []
+    if legacy:
+        problems.append(f"the site file uses Big Bang 3 keys ({', '.join(legacy)}); Big Bang {co.version} reads "
+                        "packages.<name>. Convert it with Big Bang's scripts/migrate-values-3-to-4.sh --target 4 "
+                        "(README, \"Upgrading from Big Bang 3\")")
     files = co.overlays(a.fips) + [a.site]
     enabled = enabled_packages(merged_values(defaults, files))
     on = set(enabled)
     for needs in ("prometheusOperatorCRDs", "certManager"):
         # prometheusOperatorCRDs installs the CRDs and creates the monitoring namespace;
         # monitoring's certificates need cert-manager. Both are on by default.
-        if on & {"monitoring", "addons.thanos"} and needs not in on:
+        if on & {"packages.monitoring", "packages.thanos"} and f"packages.{needs}" not in on:
             problems.append(f"monitoring/Thanos need {needs}: leave it on in the site file")
     if co.in_cluster_seaweedfs() and server:
         scs = json.loads(kubectl("get", "storageclass", "-o", "json", check=False) or '{"items": []}')["items"]
@@ -654,24 +675,25 @@ def install(a):
                                                  for r, u, p in registries]}
         if co.s3:
             deep_merge(secret_values, object_storage_values(co, enabled, s3))
-        if "addons.keycloak" in enabled and not _site_sets_keycloak_password(site):
+        if "packages.keycloak" in enabled and not _site_sets_keycloak_password(site):
             # Big Bang's default admin password ("password") is too short for Keycloak's
             # FIPS mode (14+ characters); a random one works in both modes. Read it with:
             # kubectl -n bigbang get secret bb-install -o jsonpath='{.data.keycloak-admin-password}'
-            deep_merge(secret_values, {"addons": {"keycloak": {"values": {"upstream": {"secrets": {"env": {
+            deep_merge(secret_values, {"packages": {"keycloak": {"values": {"upstream": {"secrets": {"env": {
                 "stringData": {"KEYCLOAK_ADMIN_PASSWORD": keycloak_password}}}}}}}})
         if keycloak_db_password:
             # FIPS also rejects Big Bang's default database password ("keycloak"): the
             # PostgreSQL driver's SCRAM hashing needs 112+ bits. Keycloak's side and the
             # bundled PostgreSQL's (hardcoded by Big Bang) must match.
-            deep_merge(secret_values, {"addons": {"keycloak": {"values": {
+            deep_merge(secret_values, {"packages": {"keycloak": {"values": {
                 "upstream": {"database": {"password": keycloak_db_password}},
                 "postgresql": {"global": {"postgresql": {"auth": {"password": keycloak_db_password}}}}}}}})
         if a.git_mirror:
             deep_merge(secret_values, git_mirror_values(defaults, a.git_mirror))
         if tls == "own":
-            deep_merge(secret_values, {"istioGateway": {"values": {"gateways": {"public": {"gatewayCerts": [
-                {"name": GATEWAY_CERT, "tls": {"cert": creds.values["tls-cert"], "key": creds.values["tls-key"]}}]}}}}})
+            deep_merge(secret_values, {"packages": {"istioGateway": {"values": {"gateways": {"public": {
+                "gatewayCerts": [{"name": GATEWAY_CERT, "tls": {"cert": creds.values["tls-cert"],
+                                                                "key": creds.values["tls-key"]}}]}}}}}})
         sv = os.path.join(d, "credentials.yaml")
         with open(sv, "w", encoding="utf-8") as fh:
             yaml.safe_dump(secret_values, fh)
@@ -709,7 +731,7 @@ def keycloak_database_password(creds, site, enabled):
     Keycloak off, the site sets one (or an external database), or Keycloak already runs on
     Big Bang's default (PostgreSQL keeps the password it started with; changing it here
     would lock Keycloak out of its own database)."""
-    if "addons.keycloak" not in enabled or _site_sets_keycloak_db_password(site):
+    if "packages.keycloak" not in enabled or _site_sets_keycloak_db_password(site):
         return None
     if creds.values.get("keycloak-db-password") or not _keycloak_installed():
         return creds.generated("keycloak-db-password", lambda: secrets.token_urlsafe(24))
@@ -719,11 +741,11 @@ def keycloak_database_password(creds, site, enabled):
 
 
 def _keycloak_values(site):
-    return (((site.get("addons") or {}).get("keycloak") or {}).get("values") or {})
+    return package_values(site, "keycloak").get("values") or {}
 
 
 def _site_sets_keycloak_db_password(site):
-    database = ((site.get("addons") or {}).get("keycloak") or {}).get("database") or {}
+    database = package_values(site, "keycloak").get("database") or {}
     return bool((((_keycloak_values(site).get("upstream") or {}).get("database") or {}).get("password"))
                 or database.get("host") or database.get("password"))
 
@@ -734,8 +756,7 @@ def _keycloak_installed():
 
 
 def _site_sets_keycloak_password(site):
-    env = (((((site.get("addons") or {}).get("keycloak") or {}).get("values") or {}).get("upstream") or {})
-           .get("secrets") or {}).get("env") or {}
+    env = ((_keycloak_values(site).get("upstream") or {}).get("secrets") or {}).get("env") or {}
     return bool((env.get("stringData") or {}).get("KEYCLOAK_ADMIN_PASSWORD"))
 
 
@@ -896,7 +917,7 @@ SELF_SIGNED_CA = "bb-install-ca"       # cert-manager/<this>: the self-signed CA
 
 
 def _site_sets_gateway_certs(site):
-    public = ((((site.get("istioGateway") or {}).get("values") or {}).get("gateways") or {}).get("public") or {})
+    public = (((package_values(site, "istioGateway").get("values") or {}).get("gateways") or {}).get("public") or {})
     return bool(public.get("gatewayCerts"))
 
 
@@ -905,7 +926,7 @@ def tls_choice(a, creds, site, enabled):
     site (the site file sets gatewayCerts), own (--tls-cert/--tls-key), issuer (a
     cert-manager ClusterIssuer the site runs: ACME, Vault, a company CA) or self-signed (a
     CA cert-manager makes; the default). The choice is kept so re-runs don't need the flags."""
-    if not {"istiod", "istioGateway"} <= set(enabled):
+    if not {"packages.istiod", "packages.istioGateway"} <= set(enabled):
         return None
     if _site_sets_gateway_certs(site):
         return "site"
@@ -924,7 +945,7 @@ def tls_choice(a, creds, site, enabled):
         creds.values.pop("tls-key", None)
     if mode != "issuer":
         creds.values.pop("tls-issuer", None)
-    if mode in ("issuer", "self-signed") and "certManager" not in enabled:
+    if mode in ("issuer", "self-signed") and "packages.certManager" not in enabled:
         raise SystemExit(f"TLS {mode} uses cert-manager: leave certManager on, or pass --tls-cert and --tls-key")
     return mode
 
@@ -1004,9 +1025,9 @@ def signature_choice(a, creds, enabled):
         creds.values["signatures"] = a.verify_signatures
     if a.org_id:
         creds.values["org-id"] = a.org_id
-    default = "enforce" if "kyverno" in enabled and not getattr(a, "registry_mirror", None) else "off"
+    default = "enforce" if "packages.kyverno" in enabled and not getattr(a, "registry_mirror", None) else "off"
     mode = creds.values.setdefault("signatures", default)
-    if mode != "off" and "kyverno" not in enabled:
+    if mode != "off" and "packages.kyverno" not in enabled:
         raise SystemExit(f"--verify-signatures {mode} uses Kyverno: leave kyverno on, or pass --verify-signatures off")
     return mode, creds.values.get("org-id") or os.environ.get("CHAINGUARD_ORG_ID")
 
@@ -1358,28 +1379,23 @@ def init(a):
     if os.path.exists(a.site) and not a.force:
         raise SystemExit(f"{a.site} exists (--force overwrites it)")
     discovered = json.load(open(os.path.join(ROOT, "discovery", "images.json"), encoding="utf-8"))
-    known = sorted({i["key"] for i in discovered["packages"].values() if i.get("key")} - {"flux"})
+    known = sorted({i["key"].split(".")[-1] for i in discovered["packages"].values() if i.get("key")} - {"flux"})
     domain = a.domain
     enable = [e.strip() for e in (a.enable or "").split(",") if e.strip()]
     interactive = sys.stdin.isatty() and not a.yes
     if interactive and not domain:
         domain = input("Domain the packages are served under (e.g. bigbang.example.com): ").strip()
     if interactive and not a.enable:
-        say("Big Bang's default packages are on already. Add-ons and other packages you can turn on:\n  "
-            + ", ".join(k for k in known if k.startswith("addons.")))
+        say("Big Bang's default packages are on already. Other packages you can turn on:\n  " + ", ".join(known))
         enable = [e.strip() for e in input("Turn on (comma-separated, Enter for none): ").split(",") if e.strip()]
     if not domain:
         raise SystemExit("--domain is required")
-    unknown = [e for e in enable if e not in known and f"addons.{e}" not in known]
+    unknown = [e for e in enable if e.removeprefix("packages.") not in known]
     if unknown:
         raise SystemExit(f"unknown packages {unknown}; known: {', '.join(known)}")
     values = {"domain": domain}
     for e in enable:
-        key = e if e in known else f"addons.{e}"
-        node = values
-        for part in key.split("."):
-            node = node.setdefault(part, {})
-        node["enabled"] = True
+        set_key(values, "packages." + e.removeprefix("packages."), {"enabled": True})
     with open(a.site, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Big Bang site file for scripts/bb-install.py. No credentials here: the installer\n"
                 "# reads them from the environment or asks, and keeps them in the cluster.\n"

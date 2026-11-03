@@ -9,7 +9,7 @@ images:
   ironbank/hashicorp/vault: {build: vault}
 test:
   registry1: true
-  enable: [addons.vault]
+  enable: [vault]
   namespaces: [vault]
   expect: [bigbang-vault]
   upgrade_from:

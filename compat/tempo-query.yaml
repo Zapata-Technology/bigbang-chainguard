@@ -8,7 +8,7 @@ test:
   enable: [tempo]
   namespaces: [tempo]
   values:
-    tempo: {values: {upstream: {tempoQuery: {enabled: true}}}}
+    packages: {tempo: {values: {upstream: {tempoQuery: {enabled: true}}}}}
   expect: [bigbang-tempo-query, tempo]
   setup:
     - sh compat/support/watch.sh tempo-query "kubectl -n tempo logs tempo-tempo-0 -c tempo-query --tail=30"

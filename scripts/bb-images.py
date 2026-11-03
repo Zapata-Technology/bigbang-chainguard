@@ -24,9 +24,9 @@ from concurrent.futures import ThreadPoolExecutor
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import BASE_LOADER, SAFE_LOADER, chart_defaults, deep_merge, image_nodes, safe_load  # noqa: E402
+from bbcommon import BASE_LOADER, SAFE_LOADER, bigbang_packages, chart_defaults, deep_merge, image_nodes, safe_load  # noqa: E402
 
-KUBE_VERSION = "1.34.0"
+KUBE_VERSION = "1.35.8"
 # CRD-gated templates (ServiceMonitor, VirtualService, Kiali CR, ...) only render
 # when helm believes the API exists.
 API_VERSIONS = [
@@ -136,14 +136,19 @@ def _get(tree, path):
     return tree
 
 
+def set_key(values, key, value):
+    """values[a][b] = value for the Big Bang key "a.b"."""
+    *parents, last = key.split(".")
+    for k in parents:
+        values = values.setdefault(k, {})
+    values[last] = value
+
+
 def bigbang_releases(bigbang, extra_values):
     values = {}
-    for k, x in yaml.safe_load(open(os.path.join(bigbang, "chart", "values.yaml"))).items():
-        if isinstance(x, dict) and isinstance(x.get("git"), dict) and k != "wrapper":
-            values[k] = {"enabled": True}
-    addons = yaml.safe_load(open(os.path.join(bigbang, "chart", "values.yaml")))["addons"]
-    values["addons"] = {k: {"enabled": True} for k, x in addons.items()
-                        if isinstance(x, dict) and isinstance(x.get("git"), dict)}
+    for key, x in bigbang_packages(yaml.safe_load(open(os.path.join(bigbang, "chart", "values.yaml")))).items():
+        if (x.get("git") or {}).get("repo"):
+            set_key(values, key, {"enabled": True})
     values["registryCredentials"] = {"registry": "registry1.dso.mil", "username": "x", "password": "x"}
     for f in extra_values:
         deep_merge(values, yaml.safe_load(open(f)) or {})

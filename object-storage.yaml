@@ -1,6 +1,6 @@
 # External S3 object storage for Big Bang (SeaweedFS, or any S3-compatible service)
 # instead of the MinIO that Big Bang deploys or bundles. scripts/bb-object-storage.py
-# fills the tokens below and writes an overlay. Checked against Big Bang 3.35.1's
+# fills the tokens below and writes an overlay. Checked against Big Bang 4.0.0's
 # templates; recheck this file when BIGBANG_VERSION changes.
 #
 # Tokens:
@@ -18,41 +18,41 @@
 
 # Always applied: Big Bang's own MinIO packages stay off.
 disable:
-  addons.minio.enabled: false
-  addons.minioOperator.enabled: false
+  packages.minio.enabled: false
+  packages.minioOperator.enabled: false
 
 packages:
   tempo:
     note: Traces go to S3 instead of local disk.
     values:
-      tempo.objectStorage: {endpoint: "{host}", region: "{region}", bucket: "{bucket:tempo}", insecure: "{insecure}"}
-    credentials: [tempo.objectStorage.accessKey, tempo.objectStorage.accessSecret]
+      packages.tempo.objectStorage: {endpoint: "{host}", region: "{region}", bucket: "{bucket:tempo}", insecure: "{insecure}"}
+    credentials: [packages.tempo.objectStorage.accessKey, packages.tempo.objectStorage.accessSecret]
     buckets: [tempo]
 
   thanos:
     note: Thanos stores blocks in S3; with an endpoint set, Big Bang does not deploy its bundled MinIO.
     values:
-      addons.thanos.objectStorage: {endpoint: "{host}", region: "{region}", bucket: "{bucket:thanos}", insecure: "{insecure}"}
-      addons.thanos.values.minio.enabled: false
-    credentials: [addons.thanos.objectStorage.accessKey, addons.thanos.objectStorage.accessSecret]
+      packages.thanos.objectStorage: {endpoint: "{host}", region: "{region}", bucket: "{bucket:thanos}", insecure: "{insecure}"}
+      packages.thanos.values.minio.enabled: false
+    credentials: [packages.thanos.objectStorage.accessKey, packages.thanos.objectStorage.accessSecret]
     buckets: [thanos]
 
   mimir:
     note: Mimir's blocks, ruler and alertmanager storage go to S3.
     values:
-      addons.mimir.s3ObjectStorage: {enabled: true, endpoint: "{host}", region: "{region}", bucketName: "{bucket:mimir}", insecure: "{insecure}"}
-      addons.mimir.values.upstream.minio.enabled: false
-    credentials: [addons.mimir.s3ObjectStorage.accessKey, addons.mimir.s3ObjectStorage.accessSecret]
+      packages.mimir.s3ObjectStorage: {enabled: true, endpoint: "{host}", region: "{region}", bucketName: "{bucket:mimir}", insecure: "{insecure}"}
+      packages.mimir.values.upstream.minio.enabled: false
+    credentials: [packages.mimir.s3ObjectStorage.accessKey, packages.mimir.s3ObjectStorage.accessSecret]
     buckets: [mimir]
 
   mattermost:
     note: Big Bang installs Mattermost's bundled MinIO unless endpoint, keys and bucket are all set.
     values:
-      addons.mattermost.objectStorage: {endpoint: "{host}", bucket: "{bucket:mattermost}"}
+      packages.mattermost.objectStorage: {endpoint: "{host}", bucket: "{bucket:mattermost}"}
       # The operator sets MM_FILESETTINGS_AMAZONS3SSL=true for every external file store
       # (false only for a MinIO it manages); the chart's env overrides it.
-      addons.mattermost.values.mattermostEnvs.MM_FILESETTINGS_AMAZONS3SSL: "{ssl}"
-    credentials: [addons.mattermost.objectStorage.accessKey, addons.mattermost.objectStorage.accessSecret]
+      packages.mattermost.values.mattermostEnvs.MM_FILESETTINGS_AMAZONS3SSL: "{ssl}"
+    credentials: [packages.mattermost.objectStorage.accessKey, packages.mattermost.objectStorage.accessSecret]
     buckets: [mattermost]
 
   gitlab:
@@ -60,15 +60,15 @@ packages:
       GitLab's buckets are <prefix>-gitlab-*. type "minio" makes GitLab use path-style
       requests, which SeaweedFS needs.
     values:
-      addons.gitlab.objectStorage: {type: minio, endpoint: "{endpoint}", region: "{region}", bucketPrefix: "{prefix}"}
-    credentials: [addons.gitlab.objectStorage.accessKey, addons.gitlab.objectStorage.accessSecret]
+      packages.gitlab.objectStorage: {type: minio, endpoint: "{endpoint}", region: "{region}", bucketPrefix: "{prefix}"}
+    credentials: [packages.gitlab.objectStorage.accessKey, packages.gitlab.objectStorage.accessSecret]
     buckets: [gitlab-registry, gitlab-lfs, gitlab-artifacts, gitlab-uploads, gitlab-packages, gitlab-mr-diffs,
               gitlab-terraform-state, gitlab-dependency-proxy, gitlab-pseudo, gitlab-backup, gitlab-backup-tmp]
 
   velero:
     note: Backups go to S3 through the AWS plugin (path-style).
     values:
-      addons.velero.values.upstream.configuration.backupStorageLocation:
+      packages.velero.values.upstream.configuration.backupStorageLocation:
         - name: default
           provider: aws
           bucket: "{bucket:velero}"
@@ -76,8 +76,8 @@ packages:
       # The chart's placeholder snapshot location has an empty credential; Flux keeps the
       # nulls and Velero's CRD rejects them (compat/velero.yaml). S3 holds backups only:
       # no volume snapshot locations.
-      addons.velero.values.upstream.configuration.volumeSnapshotLocation: []
-    credentials: [addons.velero.values.upstream.credentials.secretContents.cloud]
+      packages.velero.values.upstream.configuration.volumeSnapshotLocation: []
+    credentials: [packages.velero.values.upstream.credentials.secretContents.cloud]
     buckets: [velero]
 
   loki:
@@ -87,13 +87,13 @@ packages:
       local disk and deploys no MinIO. Object storage needs strategy scalable, which runs
       Loki's read, write and backend components separately.
     values:
-      loki.strategy: scalable
-      loki.objectStorage:
+      packages.loki.strategy: scalable
+      packages.loki.objectStorage:
         endpoint: "{endpoint}"
         region: "{region}"
         bucketNames: {chunks: "{bucket:loki-chunks}", ruler: "{bucket:loki-ruler}", admin: "{bucket:loki-admin}"}
-      loki.values.minio.enabled: false
-      loki.values.loki.storage.s3.s3ForcePathStyle: true
-      loki.values.loki.storage.s3.insecure: "{insecure}"
-    credentials: [loki.objectStorage.accessKey, loki.objectStorage.accessSecret]
+      packages.loki.values.minio.enabled: false
+      packages.loki.values.loki.storage.s3.s3ForcePathStyle: true
+      packages.loki.values.loki.storage.s3.insecure: "{insecure}"
+    credentials: [packages.loki.objectStorage.accessKey, packages.loki.objectStorage.accessSecret]
     buckets: [loki-chunks, loki-ruler, loki-admin]

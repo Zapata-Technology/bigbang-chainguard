@@ -175,7 +175,7 @@ makes with chainctl too: `chainctl_pull_token` captures the output), never on a
 command line or in output.
 
 ### Write a compat test
-`compat/<name>.yaml`: `enable` (Big Bang keys), `namespaces`, `expect` (image fragments that
+`compat/<name>.yaml`: `enable` (package names, e.g. `[kyverno, headlamp]`), `namespaces`, `expect` (image fragments that
 must run; none running fails the test), `check` (required: commands that prove the app does
 its job, not just that pods are Ready), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
 (commands that must exit 0), `installer: true` with `installer_args`, `large: true` and
@@ -290,6 +290,15 @@ builds on the PR and pushes on merge.
   a new entry); `ci-triage.py` calls it a flake, as it does a Go proxy `stream error`.
 - **Parallel `cosign verify` races on its Sigstore cache** ("trusted root is required"):
   `bb-signatures.py --jobs` verifies a failed image again alone before reporting it.
+- **Big Bang 4 keys:** every package is `packages.<name>` (3.x had `<name>` and
+  `addons.<name>`, which 4's chart refuses). mapping.yaml's per-package sections use that
+  key; `bbcommon.bigbang_packages` reads either layout, so a release-upgrade test can start
+  from a 3.x release (`bb-compat.legacy_values`). Big Bang 4 needs Kubernetes 1.35+ (kind
+  node image, `bb-images.KUBE_VERSION`, the FIPS VM's k3s) and turns Istio ambient on by
+  default; a test without istiod turns it off (`test_values`).
+- **Big Bang 4's Kyverno policies are CEL `ValidatingPolicy`** objects
+  (`validatingpolicies.policies.kyverno.io`); the installer's signature policy is still a
+  `ClusterPolicy` (Kyverno 1.19 runs both).
 - **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when
   PyYAML has it): the pure-Python parser was most of `bb-images`' 75 s.
 

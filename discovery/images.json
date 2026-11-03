@@ -2,12 +2,12 @@
   "errors": {},
   "packages": {
     "alloy": {
-      "key": "alloy",
+      "key": "packages.alloy",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/grafana/alloy-operator:1.11.0",
-        "registry1.dso.mil/ironbank/opensource/grafana/alloy:v1.18.0",
+        "registry1.dso.mil/ironbank/opensource/grafana/alloy-operator:1.14.3",
+        "registry1.dso.mil/ironbank/opensource/grafana/alloy:v1.21.2",
         "registry1.dso.mil/ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0",
-        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.93.0"
+        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.94.2"
       ],
       "values": [
         {
@@ -49,7 +49,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/alloy",
-            "tag": "v1.18.0"
+            "tag": "v1.21.2"
           }
         },
         {
@@ -64,7 +64,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus-operator/prometheus-config-reloader",
-            "tag": "v0.93.0"
+            "tag": "v0.94.2"
           }
         },
         {
@@ -78,7 +78,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/alloy-operator",
-            "tag": "1.11.0"
+            "tag": "1.14.3"
           }
         },
         {
@@ -99,13 +99,13 @@
       ]
     },
     "anchore-enterprise": {
-      "key": "addons.anchoreEnterprise",
+      "key": "packages.anchoreEnterprise",
       "rendered": [
-        "registry1.dso.mil/ironbank/anchore/enterprise/enterprise:6.1.1",
-        "registry1.dso.mil/ironbank/anchore/enterpriseui/enterpriseui:6.1.0",
-        "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter:v1.89.0",
-        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.35",
-        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.0"
+        "registry1.dso.mil/ironbank/anchore/enterprise/enterprise:6.2.0",
+        "registry1.dso.mil/ironbank/anchore/enterpriseui/enterpriseui:6.2.0",
+        "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter:v1.91.1",
+        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
+        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.2"
       ],
       "values": [
         {
@@ -123,7 +123,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/anchore/enterprise/enterprise:6.1.1"
+          "value": "registry1.dso.mil/ironbank/anchore/enterprise/enterprise:6.2.0"
         },
         {
           "path": [
@@ -131,7 +131,7 @@
             "kubectlImage"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.35"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         },
         {
           "path": [
@@ -140,7 +140,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/anchore/enterpriseui/enterpriseui:6.1.0"
+          "value": "registry1.dso.mil/ironbank/anchore/enterpriseui/enterpriseui:6.2.0"
         },
         {
           "path": [
@@ -162,7 +162,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/redis/redis8-slim",
-            "tag": "8.10.0"
+            "tag": "8.10.2"
           }
         },
         {
@@ -177,21 +177,32 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/bitnami/analytics/redis-exporter",
-            "tag": "v1.89.0"
+            "tag": "v1.91.1"
           }
         }
       ]
     },
     "argocd": {
-      "key": "addons.argocd",
+      "key": "packages.argocd",
       "rendered": [
-        "registry1.dso.mil/ironbank/big-bang/argocd:v3.4.5",
+        "registry1.dso.mil/ironbank/big-bang/argocd:v3.5.6",
         "registry1.dso.mil/ironbank/big-bang/base:2.1.0",
-        "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter:v1.88.0",
-        "registry1.dso.mil/ironbank/opensource/dexidp/dex:v2.45.1",
-        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.0"
+        "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter:v1.96.0",
+        "registry1.dso.mil/ironbank/opensource/dexidp/dex:v2.46.1",
+        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.3"
       ],
       "values": [
+        {
+          "path": [
+            "global",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/big-bang/argocd",
+            "tag": "v3.5.6"
+          }
+        },
         {
           "path": [
             "upgradeJob",
@@ -210,7 +221,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.18.1"
+          "value": "registry1.dso.mil/ironbank/big-bang/cypress:16.2.0"
         },
         {
           "path": [
@@ -219,7 +230,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.2"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -241,7 +252,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/redis/redis8-slim",
-            "tag": "8.10.0"
+            "tag": "8.10.3"
           }
         },
         {
@@ -256,18 +267,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/bitnami/analytics/redis-exporter",
-            "tag": "v1.88.0"
-          }
-        },
-        {
-          "path": [
-            "global",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/ironbank/big-bang/argocd",
-            "tag": "v3.4.5"
+            "tag": "v1.96.0"
           }
         },
         {
@@ -279,13 +279,101 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/dexidp/dex",
-            "tag": "v2.45.1"
+            "tag": "v2.46.1"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/opensource/redis/redis8-slim",
+            "tag": "8.10.3"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis",
+            "exporter",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter",
+            "tag": "v1.96.0"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis-ha",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/opensource/redis/redis8-slim",
+            "tag": "8.8.0"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis-ha",
+            "configmapTest",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/opensource/shellcheck/shellcheck",
+            "tag": "v0.11.0"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis-ha",
+            "haproxy",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/ironbank/opensource/haproxy/haproxy-latest",
+            "tag": "3.3.10"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis-ha",
+            "sysctlImage"
+          ],
+          "shape": "repo",
+          "value": {
+            "registry": "registry1.dso.mil/ironbank/afdco/docker",
+            "repository": "busybox",
+            "tag": "1.38.0"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "redis-ha",
+            "exporter"
+          ],
+          "shape": "name",
+          "value": {
+            "image": "registry1.dso.mil/ironbank/bitnami/analytics/redis-exporter",
+            "tag": "v1.86.0"
           }
         }
       ]
     },
     "authservice": {
-      "key": "addons.authservice",
+      "key": "packages.authservice",
       "rendered": [
         "registry1.dso.mil/ironbank/istio-ecosystem/authservice:1.1.8"
       ],
@@ -320,7 +408,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/redis/redis8-slim",
-            "tag": "8.10.1"
+            "tag": "8.10.3"
           }
         },
         {
@@ -335,19 +423,19 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/bitnami/analytics/redis-exporter",
-            "tag": "v1.89.0"
+            "tag": "v1.93.0"
           }
         }
       ]
     },
     "cert-manager": {
-      "key": "certManager",
+      "key": "packages.certManager",
       "rendered": [
-        "registry1.dso.mil/ironbank/jetstack/cert-manager-cainjector:v1.20.3",
-        "registry1.dso.mil/ironbank/jetstack/cert-manager-controller:v1.20.3",
-        "registry1.dso.mil/ironbank/jetstack/cert-manager-webhook:v1.20.3",
-        "registry1.dso.mil/ironbank/opensource/cleanstart/cert-manager-startupapicheck:1.20.3-amd64",
-        "registry1.dso.mil/ironbank/opensource/jetstack/cert-manager-acmesolver:v1.20.3"
+        "registry1.dso.mil/ironbank/jetstack/cert-manager-cainjector:v1.21.3",
+        "registry1.dso.mil/ironbank/jetstack/cert-manager-controller:v1.21.3",
+        "registry1.dso.mil/ironbank/jetstack/cert-manager-webhook:v1.21.3",
+        "registry1.dso.mil/ironbank/opensource/cleanstart/cert-manager-startupapicheck:1.21.3-amd64",
+        "registry1.dso.mil/ironbank/opensource/jetstack/cert-manager-acmesolver:v1.21.3"
       ],
       "values": [
         {
@@ -358,7 +446,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/jetstack/cert-manager-controller",
-            "tag": "v1.20.3"
+            "tag": "v1.21.3"
           }
         },
         {
@@ -370,7 +458,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/jetstack/cert-manager-webhook",
-            "tag": "v1.20.3"
+            "tag": "v1.21.3"
           }
         },
         {
@@ -382,7 +470,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/jetstack/cert-manager-cainjector",
-            "tag": "v1.20.3"
+            "tag": "v1.21.3"
           }
         },
         {
@@ -394,7 +482,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/jetstack/cert-manager-acmesolver",
-            "tag": "v1.20.3"
+            "tag": "v1.21.3"
           }
         },
         {
@@ -406,7 +494,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/cleanstart/cert-manager-startupapicheck",
-            "tag": "1.20.3-amd64"
+            "tag": "1.21.3-amd64"
           }
         },
         {
@@ -416,12 +504,12 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.34"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         }
       ]
     },
     "eck-operator": {
-      "key": "eckOperator",
+      "key": "packages.eckOperator",
       "rendered": [
         "registry1.dso.mil/ironbank/elastic/eck-operator/eck-operator:3.5.0"
       ],
@@ -451,7 +539,7 @@
       ]
     },
     "ek": {
-      "key": "elasticsearchKibana",
+      "key": "packages.elasticsearchKibana",
       "rendered": [
         "registry1.dso.mil/ironbank/elastic/elasticsearch/elasticsearch:9.5.5",
         "registry1.dso.mil/ironbank/elastic/kibana/kibana:9.5.5",
@@ -551,9 +639,9 @@
       ]
     },
     "external-secrets": {
-      "key": "addons.externalSecrets",
+      "key": "packages.externalSecrets",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/external-secrets/external-secrets:v2.12.0"
+        "registry1.dso.mil/ironbank/opensource/external-secrets/external-secrets:v2.14.0"
       ],
       "values": [
         {
@@ -582,15 +670,15 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/external-secrets/external-secrets",
-            "tag": "v2.12.0"
+            "tag": "v2.14.0"
           }
         }
       ]
     },
     "fluentbit": {
-      "key": "fluentbit",
+      "key": "packages.fluentbit",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/fluent/fluent-bit:v5.1.3"
+        "registry1.dso.mil/ironbank/opensource/fluent/fluent-bit:v5.1.5"
       ],
       "values": [
         {
@@ -610,7 +698,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/fluent/fluent-bit",
-            "tag": "v5.1.3"
+            "tag": "v5.1.5"
           }
         },
         {
@@ -638,10 +726,10 @@
       "values": []
     },
     "fortify": {
-      "key": "addons.fortify",
+      "key": "packages.fortify",
       "rendered": [
         "registry1.dso.mil/ironbank/microfocus/fortify/ssc:26.2.2.0004",
-        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.35",
+        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
         "registry1.dso.mil/ironbank/opensource/mysql/mysql8:8.4.11",
         "registry1.dso.mil/ironbank/redhat/ubi/ubi9:9.8"
       ],
@@ -707,20 +795,11 @@
             "image": "registry1.dso.mil/ironbank/redhat/ubi/ubi9",
             "tag": "9.8"
           }
-        },
-        {
-          "path": [
-            "bbtests",
-            "cypress",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.21.0"
         }
       ]
     },
     "gatekeeper": {
-      "key": "gatekeeper",
+      "key": "packages.gatekeeper",
       "rendered": [
         "registry1.dso.mil/ironbank/big-bang/base:2.1.0",
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
@@ -834,25 +913,25 @@
       ]
     },
     "gateway-api": {
-      "key": "gatewayAPI",
+      "key": "packages.gatewayAPI",
       "rendered": [],
       "values": []
     },
     "gitlab": {
-      "key": "addons.gitlab",
+      "key": "packages.gitlab",
       "rendered": [
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.41.0-gitlab-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi",
         "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-shell:v14.57.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.4.2-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl:v19.4.2-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.1-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl:v19.5.1-ubi",
         "registry1.dso.mil/ironbank/redhat/ubi/ubi9:9.8"
       ],
       "values": [
@@ -865,7 +944,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -877,7 +956,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -889,7 +968,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -914,124 +993,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "kas",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-kas",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "migrations",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "praefect",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "sidekiq",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "toolbox",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "geo-logcursor",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-geo-logcursor",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "gitlab-pages",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-pages",
-            "tag": "v19.4.2-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "gitlab-shell",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-shell",
-            "tag": "v14.57.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "mailroom",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-mailroom",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1044,7 +1006,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1057,7 +1019,98 @@
           "shape": "name",
           "value": {
             "image": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "geo-logcursor",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-geo-logcursor",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "gitlab-pages",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-pages",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "kas",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-kas",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "mailroom",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-mailroom",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "praefect",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "sidekiq",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee",
+            "tag": "v19.5.1-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "toolbox",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1070,7 +1123,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1085,7 +1138,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly-init-cgroups",
-            "tag": "v19.4.2-ubi"
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1099,6 +1152,32 @@
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-exporter",
             "tag": "17.0.2-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "gitlab-shell",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-shell",
+            "tag": "v14.58.0-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "migrations",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
+            "tag": "v19.5.1-ubi"
           }
         },
         {
@@ -1137,7 +1216,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/nginx/nginx",
-            "tag": "1.31.6"
+            "tag": "1.31.8"
           }
         },
         {
@@ -1149,7 +1228,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-openbao",
-            "tag": "v2.5.5-gitlab2-ubi"
+            "tag": "v2.6.2-gitlab1-ubi"
           }
         },
         {
@@ -1161,7 +1240,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway",
-            "tag": "self-hosted-v19.4.1-ee"
+            "tag": "self-hosted-v19.5.1-ee"
           }
         },
         {
@@ -1184,7 +1263,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/nginx/nginx",
-            "tag": "1.31.6"
+            "tag": "1.31.8"
           }
         },
         {
@@ -1196,7 +1275,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-container-registry",
-            "tag": "v4.41.0-gitlab-ubi"
+            "tag": "v4.42.0-gitlab-ubi"
           }
         },
         {
@@ -1211,7 +1290,7 @@
       ]
     },
     "gitlab-runner": {
-      "key": "addons.gitlabRunner",
+      "key": "packages.gitlabRunner",
       "rendered": [
         "registry1.dso.mil/gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.2.2"
       ],
@@ -1257,10 +1336,10 @@
       ]
     },
     "grafana": {
-      "key": "grafana",
+      "key": "packages.grafana",
       "rendered": [
-        "registry1.dso.mil/ironbank/big-bang/grafana/grafana-plugins:13.2.1",
-        "registry1.dso.mil/ironbank/kiwigrid/k8s-sidecar:2.11.2"
+        "registry1.dso.mil/ironbank/big-bang/grafana/grafana-plugins:13.3.0",
+        "registry1.dso.mil/ironbank/kiwigrid/k8s-sidecar:2.14.1"
       ],
       "values": [
         {
@@ -1284,25 +1363,6 @@
         },
         {
           "path": [
-            "bbtests",
-            "cypress",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.21.1"
-        },
-        {
-          "path": [
-            "bbtests",
-            "cypress",
-            "networkWait",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.21.1"
-        },
-        {
-          "path": [
             "upstream",
             "image"
           ],
@@ -1310,7 +1370,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/big-bang/grafana/grafana-plugins",
-            "tag": "13.2.1"
+            "tag": "13.3.0"
           }
         },
         {
@@ -1361,7 +1421,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/kiwigrid/k8s-sidecar",
-            "tag": "2.11.2"
+            "tag": "2.14.1"
           }
         },
         {
@@ -1374,23 +1434,23 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/grafana-image-renderer",
-            "tag": "v5.12.3"
+            "tag": "v5.12.9"
           }
         }
       ]
     },
     "harbor": {
-      "key": "addons.harbor",
+      "key": "packages.harbor",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-core:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-exporter:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-jobservice:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-portal:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-registryctl:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/registry:v2.15.2",
-        "registry1.dso.mil/ironbank/opensource/goharbor/trivy-adapter:v2.15.2",
+        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-core:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-exporter:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-jobservice:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-portal:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/harbor-registryctl:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/registry:v2.15.4",
+        "registry1.dso.mil/ironbank/opensource/goharbor/trivy-adapter:v2.15.4",
         "registry1.dso.mil/ironbank/opensource/postgres/postgresql:18.6",
-        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.2"
+        "registry1.dso.mil/ironbank/opensource/redis/redis8-slim:8.10.3"
       ],
       "values": [
         {
@@ -1400,7 +1460,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -1435,7 +1495,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/redis/redis8-slim",
-            "tag": "8.10.2"
+            "tag": "8.10.3"
           }
         },
         {
@@ -1450,7 +1510,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/bitnami/analytics/redis-exporter",
-            "tag": "v1.91.1"
+            "tag": "v1.93.0"
           }
         },
         {
@@ -1462,7 +1522,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/nginx/nginx",
-            "tag": "1.31.6"
+            "tag": "1.31.8"
           }
         },
         {
@@ -1474,7 +1534,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/harbor-portal",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1486,7 +1546,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/harbor-core",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1498,7 +1558,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/harbor-jobservice",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1511,7 +1571,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/registry",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1524,7 +1584,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/harbor-registryctl",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1536,7 +1596,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/trivy-adapter",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         },
         {
@@ -1548,15 +1608,15 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/goharbor/harbor-exporter",
-            "tag": "v2.15.2"
+            "tag": "v2.15.4"
           }
         }
       ]
     },
     "headlamp": {
-      "key": "addons.headlamp",
+      "key": "packages.headlamp",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/headlamp-k8s/headlamp:v0.45.0",
+        "registry1.dso.mil/ironbank/opensource/headlamp-k8s/headlamp:v0.46.0",
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
       ],
       "values": [
@@ -1577,15 +1637,15 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/headlamp-k8s/headlamp",
-            "tag": "v0.45.0"
+            "tag": "v0.46.0"
           }
         }
       ]
     },
     "istio-cni": {
-      "key": "istioCNI",
+      "key": "packages.istioCNI",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/istio/install-cni:1.31.1"
+        "registry1.dso.mil/ironbank/opensource/istio/install-cni:1.31.3"
       ],
       "values": [
         {
@@ -1596,18 +1656,18 @@
           "shape": "hub",
           "value": {
             "hub": "registry1.dso.mil/ironbank/opensource/istio",
-            "tag": "1.31.1"
+            "tag": "1.31.3"
           }
         }
       ]
     },
     "istio-crds": {
-      "key": "istioCRDs",
+      "key": "packages.istioCRDs",
       "rendered": [],
       "values": []
     },
     "istio-egress-gateway": {
-      "key": "istioEgressGateway",
+      "key": "packages.istioEgressGateway",
       "rendered": [],
       "values": [
         {
@@ -1622,9 +1682,9 @@
       ]
     },
     "istiod": {
-      "key": "istiod",
+      "key": "packages.istiod",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/istio/pilot:1.31.1"
+        "registry1.dso.mil/ironbank/opensource/istio/pilot:1.31.3"
       ],
       "values": [
         {
@@ -1635,13 +1695,13 @@
           "shape": "hub",
           "value": {
             "hub": "registry1.dso.mil/ironbank/opensource/istio",
-            "tag": "1.31.1"
+            "tag": "1.31.3"
           }
         }
       ]
     },
     "keycloak": {
-      "key": "addons.keycloak",
+      "key": "packages.keycloak",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/keycloak/keycloak:26.8.0",
         "registry1.dso.mil/ironbank/opensource/postgres/postgresql:18.6"
@@ -1683,10 +1743,10 @@
       ]
     },
     "kiali": {
-      "key": "kiali",
+      "key": "packages.kiali",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/kiali/kiali-operator:v2.32.0",
-        "registry1.dso.mil/ironbank/opensource/kiali/kiali:v2.32.0",
+        "registry1.dso.mil/ironbank/opensource/kiali/kiali-operator:v2.33.0",
+        "registry1.dso.mil/ironbank/opensource/kiali/kiali:v2.33.0",
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
       ],
       "values": [
@@ -1705,7 +1765,7 @@
             "repo"
           ],
           "shape": "string",
-          "tag": "v2.32.0",
+          "tag": "v2.33.0",
           "tag_key": "tag",
           "value": "registry1.dso.mil/ironbank/opensource/kiali/kiali-operator"
         },
@@ -1718,23 +1778,23 @@
             "image_name"
           ],
           "shape": "string",
-          "tag": "v2.32.0",
+          "tag": "v2.33.0",
           "tag_key": "image_version",
           "value": "registry1.dso.mil/ironbank/opensource/kiali/kiali"
         }
       ]
     },
     "kyverno": {
-      "key": "kyverno",
+      "key": "packages.kyverno",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/background-controller:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/cleanup-controller:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/readiness-checker:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/reports-controller:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyvernocli:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/kyvernopre:v1.19.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno:v1.19.1"
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/background-controller:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/cleanup-controller:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/readiness-checker:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyverno/reports-controller:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyvernocli:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno/kyvernopre:v1.19.2",
+        "registry1.dso.mil/ironbank/opensource/kyverno:v1.19.2"
       ],
       "values": [
         {
@@ -1765,7 +1825,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno/kyvernocli",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1789,7 +1849,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/kyverno/kyverno/readiness-checker",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1815,7 +1875,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno/kyvernopre",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1839,7 +1899,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1862,7 +1922,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno/kyverno/background-controller",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1884,7 +1944,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno/kyverno/cleanup-controller",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1906,7 +1966,7 @@
           "shape": "repo",
           "value": {
             "repository": "ironbank/opensource/kyverno/kyverno/reports-controller",
-            "tag": "v1.19.1"
+            "tag": "v1.19.2"
           }
         },
         {
@@ -1922,62 +1982,15 @@
       ]
     },
     "kyverno-policies": {
-      "key": "kyvernoPolicies",
+      "key": "packages.kyvernoPolicies",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.34"
+        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
       ],
       "values": [
         {
           "list_path": [
             "policies",
             "require-image-signature",
-            "parameters",
-            "require"
-          ],
-          "list_value": [
-            {
-              "attestors": [
-                {
-                  "count": 1,
-                  "entries": [
-                    {
-                      "keys": {
-                        "ctlog": {
-                          "ignoreSCT": true
-                        },
-                        "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE7CjMGH005DFFz6mffqTIGurBt6fL\nUfTZxuEDFRBS8mFJx1xw8DEVvjMibLTtqmAoJxUmzmGFgzz+LV875syVEg==\n-----END PUBLIC KEY-----",
-                        "rekor": {
-                          "ignoreTlog": true,
-                          "url": ""
-                        }
-                      }
-                    }
-                  ]
-                }
-              ],
-              "imageReferences": [
-                "registry1.dso.mil/ironbank/*"
-              ],
-              "mutateDigest": false,
-              "verifyDigest": false
-            }
-          ],
-          "path": [
-            "policies",
-            "require-image-signature",
-            "parameters",
-            "require",
-            0,
-            "imageReferences",
-            0
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/*"
-        },
-        {
-          "list_path": [
-            "celPoliciesBeta",
-            "require-image-signature-cel",
             "parameters",
             "matchImageReferences"
           ],
@@ -1987,8 +2000,8 @@
             }
           ],
           "path": [
-            "celPoliciesBeta",
-            "require-image-signature-cel",
+            "policies",
+            "require-image-signature",
             "parameters",
             "matchImageReferences",
             0,
@@ -2004,16 +2017,16 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.1"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         }
       ]
     },
     "kyverno-reporter": {
-      "key": "kyvernoReporter",
+      "key": "packages.kyvernoReporter",
       "rendered": [
-        "registry1.dso.mil/ironbank/nirmata/policy-reporter/policy-reporter-ui:2.8.1",
-        "registry1.dso.mil/ironbank/opensource/kyverno/policy-reporter/kyverno-plugin:0.6.2",
-        "registry1.dso.mil/ironbank/opensource/kyverno/policy-reporter:3.10.0"
+        "registry1.dso.mil/ironbank/nirmata/policy-reporter/policy-reporter-ui:2.9.1",
+        "registry1.dso.mil/ironbank/opensource/kyverno/policy-reporter/kyverno-plugin:0.7.3",
+        "registry1.dso.mil/ironbank/opensource/kyverno/policy-reporter:3.11.2"
       ],
       "values": [
         {
@@ -2025,7 +2038,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/kyverno/policy-reporter",
-            "tag": "3.10.0"
+            "tag": "3.11.2"
           }
         },
         {
@@ -2038,7 +2051,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/nirmata/policy-reporter/policy-reporter-ui",
-            "tag": "2.8.1"
+            "tag": "2.9.1"
           }
         },
         {
@@ -2052,15 +2065,15 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/kyverno/policy-reporter/kyverno-plugin",
-            "tag": "0.6.2"
+            "tag": "0.7.3"
           }
         }
       ]
     },
     "logging-loki": {
-      "key": "loki",
+      "key": "packages.loki",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/grafana/loki:3.7.8"
+        "registry1.dso.mil/ironbank/opensource/grafana/loki:3.7.9"
       ],
       "values": [
         {
@@ -2072,7 +2085,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/loki",
-            "tag": "3.7.8"
+            "tag": "3.7.9"
           }
         },
         {
@@ -2084,7 +2097,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/grafana/grafana-enterprise-logs",
-            "tag": "v3.6.14"
+            "tag": "v3.6.16"
           }
         },
         {
@@ -2097,7 +2110,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner",
-            "tag": "3.6.14"
+            "tag": "3.6.16"
           }
         },
         {
@@ -2132,7 +2145,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/bigbang/grafana/loki-canary",
-            "tag": "3.7.8"
+            "tag": "3.7.9"
           }
         },
         {
@@ -2144,7 +2157,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/nginx/nginx",
-            "tag": "1.31.6"
+            "tag": "1.31.7"
           }
         },
         {
@@ -2166,7 +2179,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/prometheus/memcached-exporter",
-            "tag": "v0.16.0"
+            "tag": "v0.17.0"
           }
         },
         {
@@ -2178,7 +2191,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/rollout-operator",
-            "tag": "v0.40.0"
+            "tag": "v0.41.1"
           }
         },
         {
@@ -2202,7 +2215,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -2223,7 +2236,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.36"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         },
         {
           "path": [
@@ -2234,7 +2247,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/kiwigrid/k8s-sidecar",
-            "tag": "2.11.2"
+            "tag": "2.14.1"
           }
         },
         {
@@ -2259,7 +2272,7 @@
       ]
     },
     "mattermost": {
-      "key": "addons.mattermost",
+      "key": "packages.mattermost",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
         "registry1.dso.mil/ironbank/opensource/mattermost/mattermost",
@@ -2273,7 +2286,7 @@
             "name"
           ],
           "shape": "string",
-          "tag": "11.11.0",
+          "tag": "12.0.1",
           "tag_key": "tag",
           "value": "registry1.dso.mil/ironbank/opensource/mattermost/mattermost"
         },
@@ -2298,7 +2311,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -2319,7 +2332,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.36"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         },
         {
           "path": [
@@ -2354,7 +2367,7 @@
       ]
     },
     "mattermost-operator": {
-      "key": "addons.mattermostOperator",
+      "key": "packages.mattermostOperator",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/mattermost/mattermost-operator:v1.25.9"
       ],
@@ -2372,7 +2385,7 @@
       ]
     },
     "metrics-server": {
-      "key": "addons.metricsServer",
+      "key": "packages.metricsServer",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0"
       ],
@@ -2391,11 +2404,11 @@
       ]
     },
     "mimir": {
-      "key": "addons.mimir",
+      "key": "packages.mimir",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/grafana/mimir:3.2.1",
-        "registry1.dso.mil/ironbank/opensource/grafana/rollout-operator:v0.40.0",
-        "registry1.dso.mil/ironbank/opensource/nginx/nginx:1.31.6"
+        "registry1.dso.mil/ironbank/opensource/grafana/mimir:3.2.3",
+        "registry1.dso.mil/ironbank/opensource/grafana/rollout-operator:v0.41.1",
+        "registry1.dso.mil/ironbank/opensource/nginx/nginx:1.31.8"
       ],
       "values": [
         {
@@ -2417,7 +2430,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/grafana/mimir",
-            "tag": "3.2.1"
+            "tag": "3.2.3"
           }
         },
         {
@@ -2441,7 +2454,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/prometheus/memcached-exporter",
-            "tag": "v0.16.0"
+            "tag": "v0.17.0"
           }
         },
         {
@@ -2454,7 +2467,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/rollout-operator",
-            "tag": "v0.40.0"
+            "tag": "v0.41.1"
           }
         },
         {
@@ -2467,7 +2480,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/apache/kafka-native",
-            "tag": "4.3.1"
+            "tag": "4.3.2"
           }
         },
         {
@@ -2481,13 +2494,13 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/nginx/nginx",
-            "tag": "1.31.6"
+            "tag": "1.31.8"
           }
         }
       ]
     },
     "minio": {
-      "key": "addons.minio",
+      "key": "packages.minio",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
         "registry1.dso.mil/ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z"
@@ -2512,7 +2525,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -2536,7 +2549,7 @@
       ]
     },
     "minio-operator": {
-      "key": "addons.minioOperator",
+      "key": "packages.minioOperator",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/minio/operator:v7.1.1"
       ],
@@ -2562,15 +2575,6 @@
             "repository": "registry1.dso.mil/ironbank/big-bang/base",
             "tag": "2.1.0"
           }
-        },
-        {
-          "path": [
-            "bbtests",
-            "cypress",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.21.1"
         },
         {
           "path": [
@@ -2600,15 +2604,15 @@
       ]
     },
     "monitoring": {
-      "key": "monitoring",
+      "key": "packages.monitoring",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0",
-        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.94.0",
-        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-operator:v0.94.0",
+        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.94.1",
+        "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-operator:v0.94.1",
         "registry1.dso.mil/ironbank/opensource/prometheus/alertmanager:v0.34.1",
-        "registry1.dso.mil/ironbank/opensource/prometheus/blackbox_exporter:v0.28.0",
+        "registry1.dso.mil/ironbank/opensource/prometheus/blackbox_exporter:v0.29.1",
         "registry1.dso.mil/ironbank/opensource/prometheus/node-exporter:v1.12.1",
-        "registry1.dso.mil/ironbank/opensource/prometheus/prometheus:v3.14.0",
+        "registry1.dso.mil/ironbank/opensource/prometheus/prometheus:v3.15.1",
         "registry1.dso.mil/ironbank/opensource/thanos/thanos:v0.42.4"
       ],
       "values": [
@@ -2651,7 +2655,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/big-bang/grafana/grafana-plugins",
-            "tag": "13.2.1"
+            "tag": "13.2.3"
           }
         },
         {
@@ -2705,7 +2709,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/kiwigrid/k8s-sidecar",
-            "tag": "2.11.2"
+            "tag": "2.14.1"
           }
         },
         {
@@ -2760,7 +2764,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus-operator/prometheus-operator",
-            "tag": "v0.94.0"
+            "tag": "v0.94.1"
           }
         },
         {
@@ -2774,7 +2778,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus-operator/prometheus-config-reloader",
-            "tag": "v0.94.0"
+            "tag": "v0.94.1"
           }
         },
         {
@@ -2801,7 +2805,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus/prometheus",
-            "tag": "v3.14.0"
+            "tag": "v3.15.1"
           }
         },
         {
@@ -2849,7 +2853,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus/blackbox_exporter",
-            "tag": "v0.28.0"
+            "tag": "v0.29.1"
           }
         },
         {
@@ -2863,7 +2867,7 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/prometheus-operator/prometheus-config-reloader",
-            "tag": "v0.94.0"
+            "tag": "v0.94.1"
           }
         },
         {
@@ -2895,19 +2899,19 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/prometheus-operator/prometheus-config-reloader",
-            "tag": "v0.94.0"
+            "tag": "v0.94.1"
           }
         }
       ]
     },
     "neuvector": {
-      "key": "neuvector",
+      "key": "packages.neuvector",
       "rendered": [
         "registry1.dso.mil/ironbank/big-bang/base:2.1.0",
-        "registry1.dso.mil/ironbank/neuvector/neuvector/controller:5.6.2",
-        "registry1.dso.mil/ironbank/neuvector/neuvector/enforcer:5.6.2",
-        "registry1.dso.mil/ironbank/neuvector/neuvector/manager:5.6.2",
-        "registry1.dso.mil/ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.0",
+        "registry1.dso.mil/ironbank/neuvector/neuvector/controller:5.6.4",
+        "registry1.dso.mil/ironbank/neuvector/neuvector/enforcer:5.6.4",
+        "registry1.dso.mil/ironbank/neuvector/neuvector/manager:5.6.4",
+        "registry1.dso.mil/ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16",
         "registry1.dso.mil/ironbank/neuvector/neuvector/scanner:6"
       ],
       "values": [
@@ -2918,7 +2922,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/cypress:15.21.1"
+          "value": "registry1.dso.mil/ironbank/big-bang/cypress:16.2.0"
         },
         {
           "path": [
@@ -2981,7 +2985,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/neuvector/registry-adapter",
-            "tag": "v0.2.11"
+            "tag": "v0.2.13"
           }
         },
         {
@@ -3030,32 +3034,32 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/neuvector/neuvector/prometheus-exporter",
-            "tag": "1-1.0.0"
+            "tag": "1-1.0.16"
           }
         }
       ]
     },
     "passthrough-ingressgateway": {
-      "key": "istioGateway",
+      "key": "packages.istioGateway",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
       ],
       "values": []
     },
     "prometheus-operator-crds": {
-      "key": "prometheusOperatorCRDs",
+      "key": "packages.prometheusOperatorCRDs",
       "rendered": [],
       "values": []
     },
     "public-ingressgateway": {
-      "key": "istioGateway",
+      "key": "packages.istioGateway",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
       ],
       "values": []
     },
     "renovate": {
-      "key": "renovate",
+      "key": "packages.renovate",
       "rendered": [
         "registry1.dso.mil/ironbank/container-hardening-tools/renovate/renovate:44.97.2"
       ],
@@ -3079,7 +3083,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         },
         {
           "path": [
@@ -3089,7 +3093,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.35"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         },
         {
           "path": [
@@ -3099,16 +3103,16 @@
             "GITEA_IMAGE"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/go-gitea/gitea:1.27.3"
+          "value": "registry1.dso.mil/ironbank/opensource/go-gitea/gitea:28.2.0"
         }
       ]
     },
     "sonarqube": {
-      "key": "addons.sonarqube",
+      "key": "packages.sonarqube",
       "rendered": [
         "registry1.dso.mil/ironbank/big-bang/base:2.1.0",
-        "registry1.dso.mil/ironbank/opensource/prometheus/jmx-exporter:1.6.0",
-        "registry1.dso.mil/ironbank/sonarsource/sonarqube/sonarqube-community-build:26.9.0.129388-community"
+        "registry1.dso.mil/ironbank/opensource/prometheus/jmx-exporter:1.7.0",
+        "registry1.dso.mil/ironbank/sonarsource/sonarqube/sonarqube-community-build:26.10.0.133078-community"
       ],
       "values": [
         {
@@ -3119,7 +3123,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/sonarsource/sonarqube/sonarqube-community-build",
-            "tag": "26.9.0.129388-community"
+            "tag": "26.10.0.133078-community"
           }
         },
         {
@@ -3138,7 +3142,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/prometheus/jmx-exporter:1.6.0"
+          "value": "registry1.dso.mil/ironbank/opensource/prometheus/jmx-exporter:1.7.0"
         },
         {
           "path": [
@@ -3147,7 +3151,7 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/sonarsource/sonarqube/sonarqube-community-build:26.9.0.129388-community"
+          "value": "registry1.dso.mil/ironbank/sonarsource/sonarqube/sonarqube-community-build:26.10.0.133078-community"
         },
         {
           "path": [
@@ -3159,9 +3163,9 @@
       ]
     },
     "tempo": {
-      "key": "tempo",
+      "key": "packages.tempo",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/grafana/tempo:2.10.5"
+        "registry1.dso.mil/ironbank/opensource/grafana/tempo:3.1.1"
       ],
       "values": [
         {
@@ -3172,7 +3176,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl",
-            "tag": "v1.34"
+            "tag": "v1.37"
           }
         },
         {
@@ -3193,7 +3197,7 @@
           "value": {
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/grafana/tempo",
-            "tag": "2.10.5"
+            "tag": "3.1.1"
           }
         },
         {
@@ -3204,61 +3208,17 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/opensource/grafana/tempo-query",
-            "tag": "2.10.5"
+            "tag": "3.1.1"
           }
         }
       ]
     },
     "thanos": {
-      "key": "addons.thanos",
+      "key": "packages.thanos",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/thanos/thanos:v0.42.4"
+        "registry1.dso.mil/ironbank/opensource/thanos/thanos:v0.42.5"
       ],
       "values": [
-        {
-          "path": [
-            "minio",
-            "upstream",
-            "tenant",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/ironbank/opensource/minio/minio",
-            "tag": "RELEASE.2025-10-15T17-29-55Z"
-          }
-        },
-        {
-          "path": [
-            "minio",
-            "bbtests",
-            "scripts",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
-        },
-        {
-          "path": [
-            "minio",
-            "bucketInit",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/ironbank/big-bang/base",
-            "tag": "2.1.0"
-          }
-        },
-        {
-          "path": [
-            "minio",
-            "waitJob",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.36"
-        },
         {
           "path": [
             "upstream",
@@ -3269,17 +3229,17 @@
             "digest": "",
             "registry": "registry1.dso.mil",
             "repository": "ironbank/opensource/thanos/thanos",
-            "tag": "v0.42.4"
+            "tag": "v0.42.5"
           }
         }
       ]
     },
     "twistlock": {
-      "key": "twistlock",
+      "key": "packages.twistlock",
       "rendered": [
         "registry1.dso.mil/ironbank/big-bang/base:2.1.0",
-        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.36",
-        "registry1.dso.mil/ironbank/twistlock/console/console:34.05.157"
+        "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37",
+        "registry1.dso.mil/ironbank/twistlock/console/console:34.05.168"
       ],
       "values": [
         {
@@ -3290,7 +3250,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/twistlock/console/console",
-            "tag": "34.05.157"
+            "tag": "34.05.168"
           }
         },
         {
@@ -3326,7 +3286,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/twistlock/defender/defender",
-            "tag": "34.05.157"
+            "tag": "34.05.168"
           }
         },
         {
@@ -3355,49 +3315,17 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.36"
+          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.37"
         }
       ]
     },
     "vault": {
-      "key": "addons.vault",
+      "key": "packages.vault",
       "rendered": [
         "registry1.dso.mil/ironbank/hashicorp/vault/vault-k8s:v1.7.6",
         "registry1.dso.mil/ironbank/hashicorp/vault:1.21.4"
       ],
       "values": [
-        {
-          "path": [
-            "minio",
-            "tenant",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/ironbank/opensource/minio/minio",
-            "tag": "RELEASE.2025-05-24T17-08-30Z"
-          }
-        },
-        {
-          "path": [
-            "minio",
-            "bbtests",
-            "scripts",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/minio/mc:RELEASE.2025-04-16T18-13-26Z"
-        },
-        {
-          "path": [
-            "minio",
-            "waitJob",
-            "scripts",
-            "image"
-          ],
-          "shape": "string",
-          "value": "registry1.dso.mil/ironbank/opensource/kubernetes/kubectl:v1.30.11"
-        },
         {
           "path": [
             "bbtests",
@@ -3471,7 +3399,7 @@
       ]
     },
     "velero": {
-      "key": "addons.velero",
+      "key": "packages.velero",
       "rendered": [
         "registry1.dso.mil/ironbank/opensource/velero/velero-plugin-for-aws:v1.14.4",
         "registry1.dso.mil/ironbank/opensource/velero/velero:v1.18.4"
@@ -3551,14 +3479,14 @@
             "image"
           ],
           "shape": "string",
-          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.3"
+          "value": "registry1.dso.mil/ironbank/big-bang/devops-tester:1.4"
         }
       ]
     },
     "ztunnel": {
-      "key": "ztunnel",
+      "key": "packages.ztunnel",
       "rendered": [
-        "registry1.dso.mil/ironbank/opensource/istio/ztunnel:1.31.1"
+        "registry1.dso.mil/ironbank/opensource/istio/ztunnel:1.31.3"
       ],
       "values": [
         {
@@ -3568,7 +3496,7 @@
           "shape": "hub",
           "value": {
             "hub": "registry1.dso.mil/ironbank/opensource/istio",
-            "tag": "1.31.1"
+            "tag": "1.31.3"
           }
         }
       ]

@@ -9,7 +9,7 @@ progressDeadlineSeconds (600 by default) turns Failed, and Helm then stops the i
 no setting for it, so this adds a Flux post-renderer patch. Run by bb-compat.py (a
 `setup` command) with COMPAT_OUT and COMPAT_FIPS:
 
-  python3 compat/support/progress-deadline.py addons.gitlab 2400
+  python3 compat/support/progress-deadline.py packages.gitlab 2400
 
 writes $COMPAT_OUT/site-<package>-deadline.yaml (name it in `values_files`). Helm
 replaces lists, so the file repeats the package's postRenderers from this run's
@@ -30,7 +30,7 @@ def post_renderers(values, keys):
 
 def main():
     if len(sys.argv) != 3:
-        sys.exit("usage: progress-deadline.py <package values key, e.g. addons.gitlab> <seconds>")
+        sys.exit("usage: progress-deadline.py <package values key, e.g. packages.gitlab> <seconds>")
     keys, seconds = sys.argv[1].split("."), int(sys.argv[2])
     out, fips = os.environ["COMPAT_OUT"], bool(os.environ.get("COMPAT_FIPS"))
     # The last overlay that sets the list wins, as with helm -f.

@@ -29,11 +29,11 @@ def test_fill():
 def test_build_disables_minio_and_skips_optional_packages():
     t = storage.tokens("http://s3:8333", "us-east-1", "bb")
     overlay, creds, buckets, chosen = storage.build(SPEC, t, set())
-    assert overlay["addons"]["minio"]["enabled"] is False
-    assert overlay["addons"]["minioOperator"]["enabled"] is False
-    assert "loki" not in chosen and "loki" not in overlay
-    assert overlay["addons"]["thanos"]["objectStorage"]["endpoint"] == "s3:8333"
-    assert overlay["addons"]["gitlab"]["objectStorage"]["endpoint"] == "http://s3:8333"
+    assert overlay["packages"]["minio"]["enabled"] is False
+    assert overlay["packages"]["minioOperator"]["enabled"] is False
+    assert "loki" not in chosen and "loki" not in overlay["packages"]
+    assert overlay["packages"]["thanos"]["objectStorage"]["endpoint"] == "s3:8333"
+    assert overlay["packages"]["gitlab"]["objectStorage"]["endpoint"] == "http://s3:8333"
     assert "bb-velero" in buckets
     assert all(not str(v).startswith("<") for v in yaml.safe_dump(overlay).split())  # no credentials
 
@@ -41,9 +41,9 @@ def test_build_disables_minio_and_skips_optional_packages():
 def test_with_loki():
     t = storage.tokens("http://s3:8333", "us-east-1", "bb")
     overlay, creds, buckets, chosen = storage.build(SPEC, t, {"loki"})
-    assert overlay["loki"]["strategy"] == "scalable"
-    assert overlay["loki"]["values"]["loki"]["storage"]["s3"] == {"s3ForcePathStyle": True, "insecure": True}
-    assert "loki.objectStorage.accessKey" in creds and "bb-loki-chunks" in buckets
+    assert overlay["packages"]["loki"]["strategy"] == "scalable"
+    assert overlay["packages"]["loki"]["values"]["loki"]["storage"]["s3"] == {"s3ForcePathStyle": True, "insecure": True}
+    assert "packages.loki.objectStorage.accessKey" in creds and "bb-loki-chunks" in buckets
 
 
 def test_credentials_template_has_only_placeholders():
@@ -107,5 +107,5 @@ def test_credentials_only_for_enabled_packages():
 
 def test_package_of():
     import objstore
-    assert objstore.package_of("addons.mimir.s3ObjectStorage.accessKey") == "mimir"
-    assert objstore.package_of("tempo.objectStorage.accessSecret") == "tempo"
+    assert objstore.package_of("packages.mimir.s3ObjectStorage.accessKey") == "mimir"
+    assert objstore.package_of("packages.tempo.objectStorage.accessSecret") == "tempo"

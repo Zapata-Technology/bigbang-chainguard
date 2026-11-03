@@ -220,6 +220,19 @@ def build_signature_identity(registry, signer=""):
     return rf"^https://github\.com/{repo}/\.github/workflows/builds\.yml@refs/heads/main$"
 
 
+def bigbang_packages(values):
+    """{Big Bang key: package values} for every package in Big Bang values. Big Bang 4
+    keeps every package under `packages:` (key `packages.<name>`); 3.x kept them at the
+    top level and under `addons:`, among other settings, so there a package is a key with
+    a git source."""
+    if isinstance(values.get("packages"), dict):
+        return {f"packages.{k}": x for k, x in values["packages"].items() if isinstance(x, dict)}
+    found = {k: x for k, x in values.items() if k != "wrapper"}
+    found.update({f"addons.{k}": x for k, x in (values.get("addons") or {}).items()})
+    return {k: x for k, x in found.items()
+            if isinstance(x, dict) and isinstance(x.get("git"), dict) and x["git"].get("repo")}
+
+
 def deep_merge(a, b):
     for k, v in b.items():
         if isinstance(v, dict) and isinstance(a.get(k), dict):

@@ -8,12 +8,12 @@
 # images, so a registry the upgrade adds without the allow list catches it here.
 images: {}
 test:
-  enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
+  enable: [kyverno, kyvernoPolicies, headlamp, grafana]
   expect: [kyverno, headlamp, grafana]
   values:
     # As in kyverno-enforce.yaml: with Istio off, nothing supplies the non-root policies'
     # excluded containers, and they render `preconditions.all: null`.
-    kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
+    packages: {kyvernoPolicies: {values: {excludeContainers: [compat-none]}}}
   upgrade_from:
     release: previous
     check:
