@@ -24,7 +24,8 @@ Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test
 mapping and checks again (read the data back). With `release: previous` it starts from
 the newest release's overlays and Flux instead (what a site upgrading from its pinned
 release runs), and fails if a pod still runs an image digest that release had and this
-tree doesn't.
+tree doesn't. `upgrade_from.values` adds values to the starting install only (a
+release on Big Bang 3 takes Big Bang 3's keys).
 
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
@@ -48,7 +49,8 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, bigbang_packages, build_registry, deep_merge, load_build, load_mapping, running_image_problems  # noqa: E402
+from bbcommon import (ROOT, bigbang_packages, build_registry, deep_merge, is_bigbang4, load_build,  # noqa: E402
+                      load_mapping, running_image_problems)
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
                        install_flux, kubectl, report, sh, wait_ready)
@@ -67,7 +69,7 @@ def test_values(chart_values, enable):
             set_key(vals, key, {"enabled": False})
     for name in enable:
         set_key(vals, keys.get(name, name), {"enabled": True})
-    if "packages" in chart_values and "istiod" not in enable:
+    if is_bigbang4(chart_values) and "istiod" not in enable:
         vals["istio"] = {"ambient": {"enabled": False}}
     return vals
 
@@ -83,7 +85,7 @@ def set_key(values, key, value):
 def legacy_values(values, chart_values):
     """Test values written for Big Bang 4 (packages.<name>) moved to a Big Bang 3.x chart's
     keys (<name> or addons.<name>), for a release-upgrade test's starting point."""
-    if "packages" in chart_values:
+    if is_bigbang4(chart_values):
         return values
     keys = {k.split(".")[-1]: k for k in bigbang_packages(chart_values)}
     out = {k: v for k, v in values.items() if k != "packages"}
@@ -425,6 +427,8 @@ def main():
                 old = yaml.safe_load(open(os.path.join(first_chart, "values.yaml")))
                 first_values = legacy_values(deep_merge(test_values(old, test.get("enable", [])),
                                                         test.get("values", {}) or {}), old)
+                # upgrade_from.values: settings only the starting install needs, in its keys.
+                deep_merge(first_values, test["upgrade_from"].get("values") or {})
                 tv_first = os.path.join(secrets, "test-first.yaml")
                 yaml.safe_dump(first_values, open(tv_first, "w"))
             helm_bigbang(a, test, first or out, out, tv_first, creds, f", upgrade from {release or 'the old mapping'}"

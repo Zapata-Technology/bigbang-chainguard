@@ -8,11 +8,6 @@ test:
   setup:
     # Big Bang 4's policies are Kyverno CEL ValidatingPolicies, not ClusterPolicies.
     - sh compat/support/watch.sh policies "kubectl get validatingpolicies.policies.kyverno.io -o custom-columns=NAME:.metadata.name,READY:.status.conditionStatus.ready,MESSAGE:.status.conditionStatus.message | grep -v true"
-  values:
-    # Big Bang's require-non-root-group/-user policies render preconditions.all: null
-    # (rejected by Kyverno's schema) unless some container is excluded; Istio, which
-    # usually supplies that list, is off here. Exclude a container name nothing uses.
-    packages: {kyvernoPolicies: {values: {excludeContainers: [compat-none]}}}
   check:
     # An org-image Pod admitted, the same Pod from docker.io refused (server dry-run).
     - sh compat/support/kyverno-admission.sh headlamp

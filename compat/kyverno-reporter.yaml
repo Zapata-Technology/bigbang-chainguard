@@ -5,10 +5,6 @@ images: {}
 test:
   enable: [kyverno, kyvernoPolicies, kyvernoReporter]
   expect: [kyverno-policy-reporter, kyverno-policy-reporter-ui, kyverno-policy-reporter-plugin-kyverno]
-  values:
-    # The preconditions.all: null trap (compat/kyverno-enforce.yaml): exclude a container
-    # name nothing uses.
-    packages: {kyvernoPolicies: {values: {excludeContainers: [compat-none]}}}
   check:
     # Kyverno reports on the running pods, policy-reporter has read those reports (its
     # API lists Kyverno as a source), and the UI serves its page.

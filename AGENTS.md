@@ -182,7 +182,8 @@ its job, not just that pods are Ready), and as needed `setup`, `values`, `values
 `timeout` (weekly, slow packages), `registry1: true` (pulls from Iron Bank: SKIPPED, exit 0,
 without `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`), and `upgrade_from` (`images`: the mapping
 to install first; `check`: commands on that install; `upgrade`: commands after Big Bang is
-upgraded to the test's mapping, before the wait; see `compat/vault-upgrade.yaml`). Unknown
+upgraded to the test's mapping, before the wait; `values`: values for the starting install
+only; see `compat/vault-upgrade.yaml`). Unknown
 keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
 ### Disconnected sites
@@ -210,7 +211,8 @@ builds on the PR and pushes on merge.
   set them to null (Tempo's `opencensus` receiver). Test with Flux, not only `helm template`.
 - **Big Bang creates Mimir's credential Secret whenever its keys are set**, even with Mimir
   off: set object-storage credentials only for enabled packages.
-- **Kyverno policies render `preconditions.all: null`** unless some container is excluded.
+- **Big Bang 3's Kyverno policies render `preconditions.all: null`** unless some container is
+  excluded (`excludeContainers`); Big Bang 4's CEL policies don't, and its chart refuses that key.
 - **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
   `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
   monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).

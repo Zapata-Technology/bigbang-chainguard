@@ -68,7 +68,7 @@ import objstore  # noqa: E402
 from bbcluster import (apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret,  # noqa: E402
                        report, sh, wait_ready)
 from bbcommon import (BUILD_SIGNATURE_ISSUER, ROOT, SIGNATURE_ISSUERS, build_signature_identity,  # noqa: E402
-                       bigbang_packages, build_signer, deep_merge, load_mapping, running_image_problems,
+                       bigbang_packages, build_signer, deep_merge, is_bigbang4, load_mapping, running_image_problems,
                        signature_identity, split_ref)
 from orgtags import REGISTRY  # noqa: E402
 
@@ -504,7 +504,7 @@ def preflight(a, co, site, defaults):
         problems.append("the overlays don't say which org they were generated for: regenerate them")
     if not site.get("domain"):
         problems.append("the site file has no `domain` (bb-install.py init writes one)")
-    legacy = legacy_keys(site, defaults) if "packages" in defaults else []
+    legacy = legacy_keys(site, defaults) if is_bigbang4(defaults) else []
     if legacy:
         problems.append(f"the site file uses Big Bang 3 keys ({', '.join(legacy)}); Big Bang {co.version} reads "
                         "packages.<name>. Convert it with Big Bang's scripts/migrate-values-3-to-4.sh --target 4 "

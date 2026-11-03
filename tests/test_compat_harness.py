@@ -369,8 +369,9 @@ def test_test_values_turn_off_defaults_and_ambient_without_istiod():
 
 
 def test_a_release_on_big_bang_3_installs_with_its_keys():
+    # Big Bang 3 had `packages:` too, for custom packages; `addons:` is what marks it.
     old = {"kyverno": {"git": {"repo": "r"}, "enabled": True}, "networkPolicies": {"enabled": True},
-           "addons": {"headlamp": {"git": {"repo": "r"}, "enabled": False}}}
+           "addons": {"headlamp": {"git": {"repo": "r"}, "enabled": False}}, "packages": {}}
     v = compat.test_values(old, ["kyverno", "headlamp"])
     assert v["kyverno"] == {"enabled": True} and v["addons"] == {"headlamp": {"enabled": True}} and "istio" not in v
     legacy = compat.legacy_values({"domain": "d", "packages": {"kyvernoPolicies": {"values": {"x": 1}},
