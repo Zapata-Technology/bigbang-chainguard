@@ -821,7 +821,7 @@ can't express, `mapping.yaml` has these escape hatches:
 - `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
   a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
-  (Keycloak in 3.35.1); their images stay on tags instead of digests.
+  (Keycloak in 4.0.0); their images stay on tags instead of digests.
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
   (kubectl `1.34`: Vault pins the end-of-life 1.30).
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
@@ -901,7 +901,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 | Gap | Why | What closes it |
 |---|---|---|
-| 23 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
+| 19 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
 | Release-to-release upgrades are tested for a few packages only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; other packages' upgrades rely on Flux and Helm rolling new digests, which that test checks | More packages in that test as kind's runner allows; a staging cluster that follows releases |
 | Keycloak's images stay on tags, not digests | Big Bang 4.0.0's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |

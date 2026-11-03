@@ -182,6 +182,11 @@ images:
   ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev, min_version: "1.34"}
   ironbank/opensource/postgres/postgresql: postgres
   ironbank/opensource/redis/redis8-slim: redis
+  # Argo CD's redis-ha (off in Big Bang): HAProxy when redis-ha.haproxy is enabled, and
+  # shellcheck for redis-ha's `helm test` only (not in the org; APPLICATION quota is full).
+  # haproxy-fips is in the catalog but not the org (FIPS quota full): FIPS keeps haproxy.
+  ironbank/opensource/haproxy/haproxy-latest: {cg: haproxy, fips: null}
+  ironbank/opensource/shellcheck/shellcheck: {stays: "redis-ha's helm test image (helm test only)", until: shellcheck}
   ironbank/opensource/nginx/nginx: nginx
   ironbank/opensource/mysql/mysql8: mysql
   ironbank/afdco/docker/busybox: busybox
@@ -400,6 +405,8 @@ unpinned:
     istio-proxy: injected into pods from istiod's ConfigMap, which a post-renderer can't reach
   mattermost:
     kubectl: its two wait jobs run two kubectl lines (1.36, 1.37); kustomize pins one digest per name
+  argocd:
+    redis: redis (8.10) and redis-ha (8.8, off in Big Bang) name two redis lines; kustomize pins one digest per name
 
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.

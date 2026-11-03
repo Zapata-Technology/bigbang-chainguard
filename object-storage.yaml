@@ -30,10 +30,10 @@ packages:
     buckets: [tempo]
 
   thanos:
-    note: Thanos stores blocks in S3; with an endpoint set, Big Bang does not deploy its bundled MinIO.
+    note: Thanos stores blocks in S3. Big Bang 4's Thanos chart requires upstream.minio.enabled false.
     values:
       packages.thanos.objectStorage: {endpoint: "{host}", region: "{region}", bucket: "{bucket:thanos}", insecure: "{insecure}"}
-      packages.thanos.values.minio.enabled: false
+      packages.thanos.values.upstream.minio.enabled: false
     credentials: [packages.thanos.objectStorage.accessKey, packages.thanos.objectStorage.accessSecret]
     buckets: [thanos]
 

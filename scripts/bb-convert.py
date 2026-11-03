@@ -699,8 +699,9 @@ def registry_policies(mapping, cg, registry=""):
     keeps Iron Bank's registries for the documented leftovers."""
     allow = IRON_BANK_REGISTRIES + allowed_registries(mapping, cg, registry)
     return {
-        ("kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"): allow,
-        ("gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"): list(allow),
+        ("packages", "kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"): allow,
+        ("packages", "gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"):
+            list(allow),
     }
 
 
