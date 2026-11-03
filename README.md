@@ -601,6 +601,40 @@ Test those packages before production, or run with `--strict-versions` (on `bb-r
 or `bb-convert.py`). Strict mode never moves to a newer minor; those images then fail
 conversion and you decide case by case.
 
+### Flux runs a newer release than Big Bang's
+
+Big Bang 3.35.1 installs Flux 2.9 from Iron Bank. That release pins notification-controller
+v1.9.4, source-controller and kustomize-controller v1.9.5, and helm-controller v1.6.4.
+Chainguard builds only Flux's current release line, so the org has no 1.9.x tags. The oldest
+it has are 1.10.x, and 1.7.x for helm-controller (`docs/images.md` lists them as
+`MINOR AHEAD`).
+
+Swapping in the newer images alone doesn't work, because Big Bang's Flux CRDs are too old for
+them; notification-controller 1.10, for example, doesn't start on Flux 2.9's CRDs. So when the
+org's controllers are on a newer minor, `bb-convert.py` (with `scripts/fluxrelease.py`) does
+the following:
+
+1. Finds the upstream Flux release those controllers belong to. Today that's v2.10.0, which
+   is also the newest Flux release.
+2. Installs that release's `install.yaml`, CRDs included, instead of Big Bang's `base/flux`.
+3. Applies Big Bang's own Flux patches: the `private-registry` pull secret, the security
+   context and the autoscaler annotation.
+4. Removes the controllers Big Bang doesn't run: image-automation, image-reflector and
+   source-watcher.
+5. Points the four controllers at the org's images, pinned by digest, or at the `-fips`
+   images in `flux-fips/`.
+
+`flux/kustomization.yaml` and `flux-fips/kustomization.yaml` name the release in their header.
+The nightly update moves to a new Flux release when Chainguard's controllers do, so you always
+run the newest Flux, which Chainguard keeps patched. If the org's controllers don't match any
+one Flux release, for example halfway through Chainguard publishing a new line, the generator
+writes `UNRESOLVED` and CI fails. It doesn't ship a mismatched set.
+
+Every kind test, the release-upgrade test and the FIPS-kernel test install Flux this way, so
+Big Bang's GitRepositories and HelmReleases are tested on it. The cost is
+that sites run a Flux newer than the one Big Bang 3.35.1 was released with. When Big Bang moves
+to Flux 2.10, the overlay goes back to Big Bang's `base/flux` with only the images swapped.
+
 ## Images this repo builds
 
 Big Bang ships three images of its own that Chainguard doesn't publish. Instead of
