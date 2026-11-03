@@ -154,6 +154,11 @@ chainctl images repos update <name> --parent <org> --source <id>   # start synci
 ```
 
 Tags appear after the sync; `bb-convert.py` converts the image on its next run.
+`scripts/bb-org-repos.py --apply [names]` does both steps for each name (default: what
+`bb-convert.py --missing` lists). If the sync fails with `PermissionDenied ... does not
+have an active entitlement`, the plan doesn't cover the image. Don't retry; report it for
+a person (`chainctl images entitlements summary` shows the per-tier quotas). Only
+Chainguard can add it.
 
 ### Chainguard published an Iron Bank leftover
 Add the repository (above, standard and `-fips`), wait for tags,

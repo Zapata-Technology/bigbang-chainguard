@@ -20,8 +20,14 @@ Support is best effort, through the repository's issues. Report security problem
 
 ## Before you start
 
-- [ ] A Chainguard org with the images your packages use. `docs/required-images.md` lists them;
-      `python scripts/bb-convert.py --missing` lists the ones your org lacks.
+- [ ] A Chainguard org with the images your packages use, **and a plan that covers them**.
+  - `docs/required-images.md` lists the images.
+  - `chainctl images entitlements summary --parent <org>` shows what your plan covers,
+    with a quota per tier.
+  - `python scripts/bb-org-repos.py --org <org> --apply` adds the missing ones and names
+    any your plan refuses, which you then request from Chainguard.
+
+  See [Chainguard entitlements](../README.md#chainguard-entitlements).
 - [ ] A **test** cluster, Kubernetes 1.34+, with a default StorageClass, and a kubectl
       context for it.
 - [ ] `kubectl`, `helm` 3, Python 3.12 with PyYAML, `chainctl`, and `cosign` (to check the
