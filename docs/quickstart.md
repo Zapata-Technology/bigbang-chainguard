@@ -18,6 +18,30 @@ production yet. Here is what is and isn't proven:
 Support is best effort, through the repository's issues. Report security problems as
 [SECURITY.md](../SECURITY.md) says, not in a public issue.
 
+## Using this outside Zapata Technology
+
+This repository's releases are built for Zapata Technology. Every overlay and installer in a
+release points at Zapata's Chainguard org (`cgr.dev/zapatatechnology.com`) and Zapata's build
+registry (`ghcr.io/zapata-technology`), and both are private. Installing a release as-is
+needs pull access to both, which Zapata doesn't give out.
+
+To use the project with your own images:
+
+1. Copy the repository (a fork or a mirror you own).
+2. Get your own Chainguard org with the images Big Bang needs
+   ([Chainguard entitlements](../README.md#chainguard-entitlements)).
+3. Regenerate the overlays for your org and your registry:
+   `python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<your owner> --save`
+   ([Use it with your org](../README.md#use-it-with-your-org)).
+4. Build and push the images this repo builds into your registry, with `builds.yml` in your
+   copy or the `bb-<name>.py --build --push` scripts. Without a build registry those few
+   images stay on Iron Bank.
+5. Install from your copy's own releases, using the steps below with your repository's name
+   in place of `Zapata-Technology/bigbang-chainguard`.
+
+Nothing in your copy pulls from Zapata's org or packages. Each file's header says which org
+it was generated for, so you can check.
+
 ## Before you start
 
 - [ ] A Chainguard org with the images your packages use, **and a plan that covers them**.
@@ -34,9 +58,9 @@ Support is best effort, through the repository's issues. Report security problem
       release).
 - [ ] An Iron Bank account only if a package you enable keeps an Iron Bank image. The
       installer's preflight tells you which ones do.
-- [ ] Your org is not `zapatatechnology.com`? Regenerate the overlays for your org first
-      ([Use it with your org](../README.md#use-it-with-your-org)), in your own copy, and
-      install from your copy's releases.
+- [ ] Your org is not `zapatatechnology.com`? Do the steps in
+      [Using this outside Zapata Technology](#using-this-outside-zapata-technology) first,
+      and install from your copy's releases.
 
 ## 1. Pick a release and pin it
 
