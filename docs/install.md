@@ -229,69 +229,13 @@ an artifact. Iron Bank's side is scanned directly with the `REGISTRY1_USERNAME` 
 `REGISTRY1_PASSWORD` secrets (an Iron Bank account). Without them it scans the public base each
 Iron Bank image's public recipe builds FROM, as a floor (`--ironbank-bases`).
 
-## Doing it by hand
-
-What the installer does, as commands:
-
-```bash
-BB=$(cat BIGBANG_VERSION)
-
-# Flux (standard or FIPS)
-kubectl apply --server-side -k flux/            # or: kubectl apply --server-side -k flux-fips/
-
-# Object storage (OBJECT_STORAGE=seaweedfs, the default): SeaweedFS first. The two
-# Secrets it needs are in the README, "Object storage".
-kubectl apply -k seaweedfs/                     # or: kubectl apply -k seaweedfs-fips/
-
-# Big Bang, FIPS off
-helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" -n bigbang --create-namespace \
-  -f overlays/values-chainguard.yaml -f overlays/values-object-storage.yaml -f my-site.yaml
-
-# Big Bang, FIPS on
-helm upgrade -i bigbang oci://registry1.dso.mil/bigbang/bigbang --version "$BB" -n bigbang --create-namespace \
-  -f overlays/values-chainguard.yaml -f overlays/values-chainguard-fips.yaml \
-  -f overlays/values-object-storage.yaml -f my-site.yaml
-```
-
-With `OBJECT_STORAGE=minio`, skip `seaweedfs/` and `values-object-storage.yaml`: Big Bang
-deploys MinIO itself.
-
-The `oci://registry1.dso.mil` chart needs `helm registry login registry1.dso.mil` first.
-Without an Iron Bank account, use the chart from repo1's git archive
-(`https://repo1.dso.mil/big-bang/bigbang/-/archive/$BB/bigbang-$BB.tar.gz?path=chart`,
-unpacked; pass its `chart/` directory instead of the `oci://` ref and drop `--version`).
-
-The site file supplies pull credentials. Big Bang turns them into the `private-registry`
-secret in every package namespace. Never commit them:
-
-```yaml
-registryCredentials:
-  - registry: cgr.dev
-    username: <Chainguard pull token id>
-    password: <Chainguard pull token secret>
-  - registry: ghcr.io                 # your BUILD_REGISTRY, if it is private
-    username: <read-only bot account>
-    password: <its read:packages token>
-  - registry: registry1.dso.mil       # only if a package in docs/images.md "Stays on Iron Bank" is enabled
-    username: <Iron Bank user>
-    password: <Iron Bank CLI secret>
-```
-
-Create a pull token with
-`chainctl auth pull-token create --repository=oci --parent=<org> --ttl=8760h` (a year, the
-maximum).
-Flux needs the same `private-registry` secret in `flux-system` before `kubectl apply -k flux/`.
-
-The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Kyverno
-`restrict-image-registries` policy. Without that, Kyverno blocks every pod.
-
 ## FIPS notes
 
 - The FIPS overlay swaps each image for its `-fips` twin. Images with no FIPS variant keep
   the standard image, and `docs/images.md` lists them.
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
   keystores. Set those in the site's `packages.keycloak.values` before switching.
-- Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
+- Switching an existing deployment is `bb-install.py install --fips` (and back without `--fips`).
 
 ## GitLab and GitLab Runner notes
 

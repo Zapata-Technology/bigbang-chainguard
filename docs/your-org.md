@@ -20,7 +20,7 @@ that, installing and upgrading are the same three commands as in the
   of (Vault, the JMX exporter, the Mattermost Operator, tempo-query, the MinIO Operator and
   its sidecar, GitLab's gitaly-init-cgroups); this repo builds
   those FROM your Chainguard images; see
-  [Images this repo builds](../README.md#images-this-repo-builds). This is optional: without a
+  [Images this repo builds](how-it-works.md#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
 - **Iron Bank credentials, for the images with no Chainguard equivalent.** These are
   vendor products and the GitLab image set. [`docs/images.md`](images.md) lists them
@@ -88,7 +88,7 @@ start:
 
    - `--optional` adds the repositories whose images otherwise stay on Iron Bank.
    - `--build-bases` adds `go`, `go-fips`, `glibc-openssl` and `glibc-openssl-fips`, which
-     two of the [images this repo builds](../README.md#images-this-repo-builds) use when your org has
+     two of the [images this repo builds](how-it-works.md#images-this-repo-builds) use when your org has
      them:
      - The Mattermost Operator builds with Wolfi's Go on `kubectl` without `go`/`go-fips`.
      - NeuVector's registry adapter needs `glibc-openssl`(`-fips`) and stays on Iron Bank

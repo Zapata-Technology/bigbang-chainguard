@@ -86,7 +86,7 @@ def main():
     if step("scan the charts (sh scripts that need bash, empty config defaults)", os.path.join(HERE, "bb-scan.py"),
             "--pkgs", os.path.join(work, "pkgs"), "--bigbang", os.path.join(work, "bigbang"), ok=(0, 1)):
         raise SystemExit("\nbb-scan.py found something new (listed above). Handle it and add it to mapping.yaml "
-                         "scan_reviewed (README, \"escape hatches\"), then run again.")
+                         "scan_reviewed (docs/how-it-works.md, \"escape hatches\"), then run again.")
     strict = ["--strict-versions"] if a.strict_versions else []
     if step("check the org has every repo", os.path.join(HERE, "bb-convert.py"), "--missing", *strict, ok=(0, 1)):
         raise SystemExit("\nThe org is missing repositories (listed above). Add them in the Chainguard console, or "

@@ -1,7 +1,7 @@
 # Quickstart
 
 From nothing to Big Bang running on your Chainguard org's images, installed from a pinned
-release. The [README](../README.md) has the detail behind each step.
+release. The [installer details](install.md) have what is behind each step.
 
 ## Status: beta
 
@@ -141,5 +141,5 @@ one before it, not from older ones.
 - Something fails: run `status` and include its output in an issue, along with the release
   tag, standard or FIPS, and the packages you enabled. Leave out tokens and `my-site.yaml`
   secrets.
-- A package-specific problem: check the README's package notes first (GitLab, FIPS,
+- A package-specific problem: check the package notes in [install.md](install.md#fips-notes) first (GitLab, FIPS,
   Keycloak) and `docs/testing.md` ("What the runtime tests found").

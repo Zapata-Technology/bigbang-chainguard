@@ -37,7 +37,7 @@ org-neutral.
 4. **mapping.yaml is validated** (`bbcommon.validate_mapping`): an unknown section or
    option fails. A new option or section means adding it to `MAPPING_SECTIONS` /
    `IMAGE_OPTIONS` in `scripts/bbcommon.py`, implementing it in `bb-convert.py`, giving it a
-   commented block in `mapping.yaml`, a line in the README's escape-hatch list, and a test.
+   commented block in `mapping.yaml`, a line in docs/how-it-works.md's escape-hatch list, and a test.
 5. **Org-neutral shared files.** Anything true for one org only goes in `orgs/<org>.yaml`.
 6. **No secrets** in the repo, logs or test output. Pull credentials come from the site
    file (`registryCredentials`) or CI secrets.
