@@ -7,12 +7,20 @@ maintaining this repo: one command instead of reading job logs by hand.
   python scripts/ci-triage.py 86                  # pull request 86
   python scripts/ci-triage.py --run 41390604271   # one workflow run
   python scripts/ci-triage.py 86 --rerun-flakes   # and re-run the jobs that only flaked
+  python scripts/ci-triage.py --flakes            # which jobs needed re-runs lately (30 days)
 
 A kind test's evidence comes from its artifact (compat-<test>-<mode>: compat.log and
 diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in.
 Exit code: 0 nothing failed, 1 a real failure, 2 only flakes.
+
+--flakes counts, per job, the failed attempts of runs that were re-run (by a person or
+--rerun-flakes) and passed in the end, over the last --days. A job re-run --threshold times
+or more is marked FIX: a flake that keeps coming back costs more than finding its cause.
+(compat.yml's own second try after a repo1 refusal happens inside one job and isn't counted.)
+Exit 1 when a job reaches the threshold.
 """
 import argparse
+import datetime
 import io
 import json
 import re
@@ -125,12 +133,68 @@ def triage(repo, jobs):
     return report
 
 
+def job_key(name):
+    """A job name without the parts that change between runs of the same job."""
+    return re.sub(r"\s+\(attempt \d+\)$", "", name).strip()
+
+
+def rerun_counts(runs, failed_in_attempt, since):
+    """{job: [count, last seen]} from runs (`gh run list --json` with attempt, createdAt,
+    databaseId, workflowName, conclusion) and failed_in_attempt(run id, attempt) -> job names.
+    Only runs that passed after a re-run count: a run still failing is a real failure."""
+    counts = {}
+    for r in runs:
+        if r.get("attempt", 1) < 2 or r.get("conclusion") != "success" or r["createdAt"] < since:
+            continue
+        for n in range(1, r["attempt"]):
+            for job in failed_in_attempt(r["databaseId"], n):
+                key = f"{r['workflowName']} / {job_key(job)}"
+                c = counts.setdefault(key, [0, r["createdAt"]])
+                c[0] += 1
+                c[1] = max(c[1], r["createdAt"])
+    return counts
+
+
+def flake_report(counts, threshold):
+    """(lines, jobs at or over the threshold)."""
+    if not counts:
+        return ["no re-run jobs in this period"], []
+    lines, fix = [], []
+    for key, (n, last) in sorted(counts.items(), key=lambda kv: (-kv[1][0], kv[0])):
+        mark = "FIX " if n >= threshold else "    "
+        if n >= threshold:
+            fix.append(key)
+        lines.append(f"  {mark}{n:3}x  {key}  (last {last[:10]})")
+    return lines, fix
+
+
+def flakes(repo, days, threshold):
+    since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    runs = json.loads(gh("run", "list", "--limit", "500", "--json",
+                         "databaseId,attempt,workflowName,createdAt,conclusion") or "[]")
+
+    def failed_in_attempt(run, n):
+        data = json.loads(gh("api", f"repos/{repo}/actions/runs/{run}/attempts/{n}/jobs?per_page=100") or '{"jobs": []}')
+        return [j["name"] for j in data.get("jobs", []) if j.get("conclusion") in ("failure", "cancelled", "timed_out")]
+
+    lines, fix = flake_report(rerun_counts(runs, failed_in_attempt, since), threshold)
+    print(f"Jobs re-run in the last {days} days (FIX: {threshold} or more):")
+    print("\n".join(lines))
+    return 1 if fix else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pr", nargs="?", type=int, help="pull request number")
     ap.add_argument("--run", type=int, help="a workflow run id instead of a pull request")
     ap.add_argument("--rerun-flakes", action="store_true", help="re-run the failed jobs of runs that only flaked")
+    ap.add_argument("--flakes", action="store_true", help="which jobs needed re-runs lately")
+    ap.add_argument("--days", type=int, default=30, help="--flakes: how far back (default 30)")
+    ap.add_argument("--threshold", type=int, default=3, help="--flakes: re-runs that mark a job FIX (default 3)")
     a = ap.parse_args()
+    if a.flakes:
+        repo = (gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner") or "").strip()
+        return flakes(repo, a.days, a.threshold)
     if not (a.pr or a.run):
         ap.error("give a pull request number or --run")
     repo = (gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner") or "").strip()

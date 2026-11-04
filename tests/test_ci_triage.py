@@ -66,3 +66,24 @@ def test_a_go_proxy_stream_error_and_a_sigstore_conflict_are_flakes():
     rekor = ('Error: signing ghcr.io/x/y@sha256:1: signing bundle: error signing bundle: '
              '[POST /api/v1/log/entries][409] createLogEntryConflict {"code":409}')
     assert triage.classify([rekor]) == "Sigstore's log timed out (duplicate entry on retry)"
+
+
+def test_flakes_count_failed_attempts_of_runs_that_passed_after_a_rerun():
+    runs = [
+        {"databaseId": 1, "attempt": 3, "workflowName": "Compat", "createdAt": "2026-11-03T00:00:00Z", "conclusion": "success"},
+        {"databaseId": 2, "attempt": 2, "workflowName": "Compat", "createdAt": "2026-11-04T00:00:00Z", "conclusion": "success"},
+        # Still failing: a real failure, not a flake.
+        {"databaseId": 3, "attempt": 2, "workflowName": "Compat", "createdAt": "2026-11-04T00:00:00Z", "conclusion": "failure"},
+        # Never re-run, or too old.
+        {"databaseId": 4, "attempt": 1, "workflowName": "CI", "createdAt": "2026-11-04T00:00:00Z", "conclusion": "success"},
+        {"databaseId": 5, "attempt": 2, "workflowName": "CI", "createdAt": "2026-09-01T00:00:00Z", "conclusion": "success"},
+    ]
+    failed = {(1, 1): ["tempo-query (standard)"], (1, 2): ["tempo-query (standard)", "mimir (fips)"],
+              (2, 1): ["tempo-query (standard)"], (3, 1): ["gitlab (fips)"], (5, 1): ["verify"]}
+    counts = triage.rerun_counts(runs, lambda r, n: failed.get((r, n), []), "2026-10-05T00:00:00Z")
+    assert counts == {"Compat / tempo-query (standard)": [3, "2026-11-04T00:00:00Z"],
+                      "Compat / mimir (fips)": [1, "2026-11-03T00:00:00Z"]}
+    lines, fix = triage.flake_report(counts, threshold=3)
+    assert fix == ["Compat / tempo-query (standard)"]
+    assert lines[0].strip().startswith("FIX") and "3x" in lines[0]
+    assert triage.flake_report({}, 3) == (["no re-run jobs in this period"], [])

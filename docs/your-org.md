@@ -77,6 +77,12 @@ start:
    against it. An "unlimited" plan can still count **base images** (toolchains and runtimes:
    `go`, `glibc-openssl`, `jdk`, `node`, `python`) against a small per-tier quota, and FIPS
    images are often a separate entitlement. A full tier means Chainguard must raise it.
+
+   `python scripts/bb-org-repos.py --org <your org> --quota` reads the same summary and
+   adds what matters here: each tier's room, the counted images Big Bang doesn't use, and
+   the repositories this repo still needs with their tier and whether it has room. The
+   nightly update prints it in its pull request, so a full tier shows up before a new Big
+   Bang image needs it.
 2. **See what Big Bang needs.** [`docs/required-images.md`](required-images.md) lists
    every repository, standard and FIPS, and which packages use it.
 3. **Add them.** This prints the commands; `--apply` runs them:

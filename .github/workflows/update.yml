@@ -142,6 +142,8 @@ jobs:
             python3 scripts/bb-scan.py --pkgs work/pkgs --bigbang work/bigbang 2>&1 || true
             # Iron Bank leftovers Chainguard now publishes (add them to the org).
             python3 scripts/bb-leftovers.py 2>&1 || true
+            # The plan's per-tier room, and needed repositories that don't fit it.
+            python3 scripts/bb-org-repos.py --quota 2>&1 || true
             echo '```'
           } > "${RUNNER_TEMP}/report.md"
           cat "${RUNNER_TEMP}/report.md" >> "$GITHUB_STEP_SUMMARY"
