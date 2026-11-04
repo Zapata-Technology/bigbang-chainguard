@@ -141,22 +141,36 @@ Three commands share one set of checks. `check` stops after them and changes not
 same commands from the installer image.)
 
 ```mermaid
-flowchart LR
-    subgraph checks["Checks: bb-install.py check (nothing changes)"]
-        direction TB
-        SF[Site file<br/>my-site.yaml, written<br/>first if missing] --> PF[Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>package dependencies]
-        PF --> UP{Upgrade path<br/>from the running Big Bang:<br/>4 needs 3.35.1 first,<br/>never an older major}
-        UP --> RD[Render<br/>helm template of Big Bang<br/>with the overlays + site file:<br/>the chart's schema checks every key]
-        RD --> PC[Pull test<br/>every Chainguard and built<br/>image the packages deploy,<br/>with your logins]
+flowchart TB
+    subgraph UPG["upgrade only"]
+        direction LR
+        MG["A Big Bang 3 site file<br/>converted to packages.*,<br/>original kept"] --> PL["The plan shown<br/>and a question asked"]
     end
-    MG[upgrade only:<br/>a Big Bang 3 site file<br/>converted to packages.*,<br/>original kept] --> SF
-    PC -- "install / upgrade" --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>kept in bigbang/bb-install]
-    CR --> FX[Flux<br/>pull secret + flux/]
-    FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
-    SW --> BB[Big Bang<br/>helm upgrade -i with the overlays,<br/>or --gitops: a Flux HelmRelease]
-    BB --> TL[TLS<br/>self-signed CA, your<br/>ClusterIssuer, or your cert]
-    TL --> SG[Image signatures<br/>Kyverno policy,<br/>enforce by default]
-    SG --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
+
+    subgraph CHK["Checks: bb-install.py check (nothing changes)"]
+        direction LR
+        SF["Site file<br/>written first<br/>if missing"] --> PF["Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>package dependencies"]
+        PF --> UP{"Upgrade path<br/>4 needs 3.35.1 first,<br/>never an older major"}
+        UP --> RD["Render<br/>helm template with the<br/>overlays + site file"]
+        RD --> PC["Pull test<br/>every Chainguard and<br/>built image, your logins"]
+    end
+
+    subgraph INS["install / upgrade: only when every check passed"]
+        direction LR
+        CR["Credentials<br/>kept in<br/>bigbang/bb-install"] --> FX["Flux"]
+        FX --> SW["SeaweedFS<br/>S3 keys, buckets"]
+        SW --> BB["Big Bang<br/>helm, or --gitops"]
+        BB --> TL["TLS"]
+        TL --> SG["Image<br/>signatures"]
+        SG --> W["Wait and report<br/>health, URLs"]
+    end
+
+    UPG --> CHK --> INS
+
+    classDef check fill:#ecfdf5,stroke:#10b981,color:#064e3b
+    classDef act fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    class SF,PF,UP,RD,PC check
+    class CR,FX,SW,BB,TL,SG,W,MG,PL act
 ```
 
 - **The render** catches a misspelled key, a value of the wrong type, or a Big Bang 3 key
