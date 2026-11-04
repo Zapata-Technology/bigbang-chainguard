@@ -77,6 +77,8 @@ start:
    against it. An "unlimited" plan can still count **base images** (toolchains and runtimes:
    `go`, `glibc-openssl`, `jdk`, `node`, `python`) against a small per-tier quota, and FIPS
    images are often a separate entitlement. A full tier means Chainguard must raise it.
+   A `CATALOG` plan entitles every image in its `activeTiers`; the per-tier counts it still
+   shows are left over from a per-image plan and don't limit anything.
 
    `python scripts/bb-org-repos.py --org <your org> --quota` reads the same summary and
    adds what matters here: each tier's room, the counted images Big Bang doesn't use, and

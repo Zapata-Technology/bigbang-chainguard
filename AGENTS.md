@@ -171,7 +171,8 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 
 ### Add a repository to the org
 Add what the conversion needs, but check the plan first: per-image plans count images
-against a quota per tier (`python scripts/bb-org-repos.py --quota` shows each tier's room,
+against a quota per tier, and a `CATALOG` plan has no limit in its active tiers
+(`python scripts/bb-org-repos.py --quota` shows each tier's room,
 what still needs adding and which counted images Big Bang doesn't use). For each name,
 standard and `-fips`:
 
