@@ -27,8 +27,8 @@ Support is best effort, through the repository's issues. Report security problem
   - `python scripts/bb-org-repos.py --org <org> --apply` adds the missing ones and names
     any your plan refuses, which you then request from Chainguard.
 
-  See [Chainguard entitlements](../README.md#chainguard-entitlements).
-- [ ] A **test** cluster, Kubernetes 1.35+ (Big Bang 4; a Big Bang 3 site upgrades as in the README, "Upgrading from Big Bang 3"), with a default StorageClass, and a kubectl
+  See [Chainguard entitlements](your-org.md#chainguard-entitlements).
+- [ ] A **test** cluster, Kubernetes 1.35+ (Big Bang 4; a Big Bang 3 site upgrades as in [Upgrading from Big Bang 3](install.md#upgrading-from-big-bang-3)), with a default StorageClass, and a kubectl
       context for it.
 - [ ] `kubectl`, `helm` 3, Python 3.12 with PyYAML, `chainctl`, and `cosign` (to check the
       release).
@@ -71,13 +71,16 @@ Don't install if `Verified OK` isn't printed.
 ```bash
 pip install pyyaml
 chainctl auth login                           # the installer makes a pull token with it
+python scripts/bb-install.py check            # tests every setting; changes nothing
 python scripts/bb-install.py install          # add --fips for FIPS images
 ```
 
+`check` names anything that would stop the install (an old Kubernetes, a wrong key in the
+site file, an image your login or Chainguard plan can't pull) before the cluster changes.
 The first run asks for your domain and packages and saves them in `my-site.yaml`. Keep
 that file next to the release tag. It shows the kubectl context and asks before changing
 the cluster. It also asks for a login to the build registry when the images built here are
-private ([Registry logins](../README.md#registry-logins)).
+private ([Registry logins](install.md#registry-logins)).
 
 ## 4. Check it
 
@@ -95,14 +98,16 @@ Read the new release's notes (image changes since the last one), then:
 ```bash
 # Download and verify the new tag as in steps 1 and 2, then from its directory:
 cp ../bigbang-chainguard-$OLD_TAG/my-site.yaml .
-python scripts/bb-install.py install --plan   # what would change; changes nothing
-python scripts/bb-install.py install
+python scripts/bb-install.py upgrade         # checks, shows what changes, asks, installs
 python scripts/bb-install.py status
 ```
 
+From Big Bang 3, `upgrade` also converts `my-site.yaml` to Big Bang 4's keys
+([Upgrading from Big Bang 3](install.md#upgrading-from-big-bang-3)).
+
 If something breaks, `python scripts/bb-install.py rollback` returns Big Bang to the
 previous revision. A package whose data the new version already migrated may not accept
-the old one, so read `--plan` first.
+the old one, so read what `upgrade` shows before you answer.
 
 Upgrade one release at a time when you can. Each release is tested as an upgrade from the
 one before it, not from older ones.

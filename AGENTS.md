@@ -166,7 +166,7 @@ replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the 
 compat test if it has one.
 
 ### Change how Big Bang is deployed
-The user-facing path is `scripts/bb-install.py`; keep it and the README's "Doing it by hand"
+The user-facing path is `scripts/bb-install.py`; keep it and docs/install.md's "Doing it by hand"
 commands in step. Cluster helpers it shares with the kind harness live in
 `scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
 kind; `tests/test_install.py` covers its decisions without a cluster. A new credential or
