@@ -288,9 +288,9 @@ come from a real StorageClass. A package that needs a privilege PSA refuses pass
 test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
 
 1. boots AlmaLinux 9 under QEMU/KVM, as the FIPS test does (`.github/vm-lib.sh`, shared by
-   both VMs), with 8 vCPUs and 12 GB on the runner's 2 CPUs and 7 GB (backed by 12 GB of swap:
-   Big Bang's default packages request more memory than the runner has, and istiod stayed
-   Pending with "Insufficient memory" in a 6 GB VM);
+   both VMs), with twice the runner's CPUs (at least 8) and all but 2 GB of its memory. It runs
+   on the runner the repository variable `RKE2_RUNNER` names, else `ubuntu-latest`; on a
+   runner under 14 GB the VM gets 12 GB backed by swap (see the results below);
 2. installs RKE2 `v1.35.9+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
    its release: the release's checksum file is pinned by SHA256 and vouches for the tarball
    and the airgap images (core and Canal, so nothing of RKE2's comes from Docker Hub);
@@ -328,6 +328,20 @@ policy; blocked, every Deployment timed out in Kyverno's webhook. The artifact `
 holds the `check`, `install` and `cluster-check` logs, every pod's log, the events, and the
 VM's RKE2, kubelet, audit and kernel logs. Not covered: SELinux (permissive in the VM;
 `rke2-selinux` is another package repository), several nodes, and the FIPS overlay on RKE2.
+
+**Results (2026-11-04, PR #137, runs 41784393791 to 41812789877):** not passing yet, because
+a standard private-repository runner (2 CPUs, 7 GB) can't hold Big Bang's default packages.
+RKE2, the CIS profile, PSA and local-path come up in every run (about 9 minutes), and
+`bb-install.py check` passes (46 of 46 images pullable). Each run got further as the
+findings above were fixed: Flux (seccomp), Kyverno's policies (the wait job's seccomp), the
+installer's status (RKE2's own pods), Sigstore through the egress block and through Big
+Bang's network policies, Istio's gateways (seccomp). With 6 GB the node ran out of memory
+requests before istiod (4.7 GiB requested by RKE2, Flux, Kyverno and SeaweedFS alone). With
+12 GB on swap everything scheduled, but the control plane starved: the controller manager
+and scheduler lost their leases and Kyverno's webhook timed out, so cert-manager and the
+gateways failed to install. Next step: a larger runner (GitHub's 4-core/16 GB or bigger,
+set as `RKE2_RUNNER`), then the remaining packages (monitoring, Loki, Tempo, Grafana, Kiali,
+NeuVector, Alloy) will show their own PSA and network-policy findings, if any.
 
 ## CI environment notes
 

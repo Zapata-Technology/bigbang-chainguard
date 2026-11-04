@@ -24,7 +24,9 @@ permissions:
 
 jobs:
   rke2:
-    runs-on: ubuntu-latest
+    # Big Bang's default packages need more than a standard private-repository runner (2 CPUs,
+    # 7 GB): set the repository variable RKE2_RUNNER to a larger runner's label (16 GB or more).
+    runs-on: ${{ vars.RKE2_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 150
     name: default packages (RKE2, CIS profile)
     env:
@@ -84,17 +86,28 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      # The VM's disk grows on the runner's as Big Bang's images arrive. Big Bang's default
-      # packages request more memory than the runner's 7 GB (istiod stayed Pending with
-      # "Insufficient memory" in a 6 GB VM), so the VM gets 12 GB, backed by swap on the
-      # runner; Docker, unused here, gives its memory back.
-      - name: Free disk space and memory
+      # The VM's disk grows on the runner's as Big Bang's images arrive. The VM gets twice the
+      # runner's CPUs (at least 8) and all but 2 GB of its memory. Big Bang's default packages
+      # request more than 6 GB (istiod stayed Pending with "Insufficient memory"), so a runner
+      # under 14 GB gets a 12 GB VM backed by swap instead: they schedule, but the control
+      # plane then starves (lost leases, Kyverno's webhook timing out), so use RKE2_RUNNER.
+      - name: Free disk space and memory; size the VM
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           sudo systemctl stop docker.socket docker containerd || true
-          sudo fallocate -l 12G /rke2-swap && sudo chmod 600 /rke2-swap && sudo mkswap -q /rke2-swap && sudo swapon /rke2-swap
+          mem=$(free -m | awk '/^Mem:/ {print $2}')
+          cpus=$(( $(nproc) * 2 > 8 ? $(nproc) * 2 : 8 ))
+          if [ "$mem" -ge 14000 ]; then
+            vm_mem=$((mem - 2048))
+          else
+            echo "::warning::$mem MB on this runner: Big Bang's default packages need a larger one (RKE2_RUNNER); swapping"
+            vm_mem=12288
+            sudo fallocate -l 12G /rke2-swap && sudo chmod 600 /rke2-swap && sudo mkswap -q /rke2-swap && sudo swapon /rke2-swap
+          fi
+          echo "VM_MEMORY=$vm_mem" >> "$GITHUB_ENV"
+          echo "VM_CPUS=$cpus" >> "$GITHUB_ENV"
+          echo "runner: $(nproc) CPUs, $mem MB; VM: $cpus vCPUs, $vm_mem MB"
           df -h /
-          free -m
           swapon --show
 
       # Without KVM a VM would be emulated (TCG), far too slow for Big Bang: stop here.
@@ -133,8 +146,6 @@ jobs:
       - name: Boot a VM with RKE2 (CIS profile)
         id: vm
         timeout-minutes: 30
-        env:
-          VM_MEMORY: 12288
         run: |
           bash .github/rke2-vm.sh boot
           echo "KUBECONFIG=$RUNNER_TEMP/rke2-vm/kubeconfig" >> "$GITHUB_ENV"

@@ -138,7 +138,11 @@ assert() {
   out=$(kubectl run psa-probe -n default --image="$BUSYBOX_IMAGE" --dry-run=server \
         --overrides='{"spec":{"containers":[{"name":"psa-probe","image":"'"$BUSYBOX_IMAGE"'","securityContext":{"privileged":true}}]}}' 2>&1 || true)
   if ! grep -q "violates PodSecurity" <<<"$out"; then
-    echo "::error::Pod Security Admission accepted a privileged pod in default: $out"
+    if grep -q "failed calling webhook" <<<"$out"; then
+      echo "::error::couldn't check PSA: an admission webhook failed first: $out"
+    else
+      echo "::error::Pod Security Admission accepted a privileged pod in default: $out"
+    fi
     exit 1
   fi
   echo "PSA refuses a privileged pod in default: $(grep -o 'violates PodSecurity "[^"]*"' <<<"$out")"
