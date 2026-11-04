@@ -19,7 +19,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | anchore-enterprise | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | anchore-enterprise | ironbank/opensource/redis/redis8-slim:8.10.2 | redis:8.10.3 | redis-fips:8.10.3 | redis: Iron Bank 8.10.2 -> newest 8.10 patch; redis-fips: Iron Bank 8.10.2 -> newest 8.10 patch |
 | argocd | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 |  |
-| argocd | ironbank/big-bang/argocd:v3.5.6 | argocd:3.5.6 | argocd-fips:3.5.6 |  |
+| argocd | ironbank/big-bang/argocd:v3.5.6 | argocd:3.5.7 | argocd-fips:3.5.7 | argocd: Iron Bank v3.5.6 -> newest 3.5 patch; argocd-fips: Iron Bank v3.5.6 -> newest 3.5 patch |
 | argocd | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | argocd | ironbank/big-bang/cypress:16.2.0 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | argocd | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
@@ -44,8 +44,8 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | eck-operator | ironbank/elastic/eck-operator/eck-operator:3.5.0 | eck-operator:3.5.0 | eck-operator-fips:3.5.0 |  |
 | ek | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | ek | ironbank/big-bang/cypress:15.21.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
-| ek | ironbank/elastic/elasticsearch/elasticsearch:9.5.5 | elasticsearch:9.5.5 | elasticsearch-fips:9.5.5 |  |
-| ek | ironbank/elastic/kibana/kibana:9.5.5 | kibana:9.5.5 | kibana-fips:9.5.5 |  |
+| ek | ironbank/elastic/elasticsearch/elasticsearch:9.5.5 | elasticsearch:9.5.6 | elasticsearch-fips:9.5.6 | elasticsearch: Iron Bank 9.5.5 -> newest 9.5 patch; elasticsearch-fips: Iron Bank 9.5.5 -> newest 9.5 patch |
+| ek | ironbank/elastic/kibana/kibana:9.5.5 | kibana:9.5.6 | kibana-fips:9.5.6 | kibana: Iron Bank 9.5.5 -> newest 9.5 patch; kibana-fips: Iron Bank 9.5.5 -> newest 9.5 patch |
 | ek | ironbank/opensource/elasticsearch-exporter:v1.11.0 | prometheus-elasticsearch-exporter:1.11.0 | prometheus-elasticsearch-exporter-fips:1.11.0 |  |
 | ek | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | external-secrets | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
@@ -96,7 +96,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | gitlab-runner | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | grafana | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | grafana | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.0 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
-| grafana | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.1 | k8s-sidecar-fips:2.14.1 |  |
+| grafana | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 | k8s-sidecar: Iron Bank 2.14.1 -> newest 2.14 patch; k8s-sidecar-fips: Iron Bank 2.14.1 -> newest 2.14 patch |
 | grafana | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | grafana | ironbank/opensource/grafana/grafana-image-renderer:v5.12.9 | grafana-image-renderer:5.12.10 | grafana-image-renderer:5.12.10 | grafana-image-renderer: Iron Bank v5.12.9 -> newest 5.12 patch; no FIPS variant; FIPS overlay keeps the standard image |
 | grafana | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
@@ -143,7 +143,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | logging-loki | ironbank/bigbang/grafana/loki-helm-test:0.0.1 | Iron Bank | Iron Bank | Big Bang test image (helm test only) |
 | logging-loki | ironbank/grafana/grafana-enterprise-logs:v3.6.16 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner:3.6.16 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
-| logging-loki | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.1 | k8s-sidecar-fips:2.14.1 |  |
+| logging-loki | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 | k8s-sidecar: Iron Bank 2.14.1 -> newest 2.14 patch; k8s-sidecar-fips: Iron Bank 2.14.1 -> newest 2.14 patch |
 | logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.9 | loki-fips:3.7.9 |  |
 | logging-loki | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
 | logging-loki | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -161,7 +161,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | metrics-server | ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0 | metrics-server:0.9.1 | metrics-server-fips:0.9.1 | metrics-server: Iron Bank v0.9.0 -> newest 0.9 patch; metrics-server-fips: Iron Bank v0.9.0 -> newest 0.9 patch |
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | mimir | ironbank/opensource/apache/kafka-native:4.3.2 | kafka-native:4.3.2 | kafka-native:4.3.2 | no FIPS variant; FIPS overlay keeps the standard image |
-| mimir | ironbank/opensource/grafana/mimir:3.2.3 | grafana-mimir:3.2.3 | grafana-mimir-fips:3.2.3 |  |
+| mimir | ironbank/opensource/grafana/mimir:3.2.3 | grafana-mimir:3.2.4 | grafana-mimir-fips:3.2.4 | grafana-mimir: Iron Bank 3.2.3 -> newest 3.2 patch; grafana-mimir-fips: Iron Bank 3.2.3 -> newest 3.2 patch |
 | mimir | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
 | mimir | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
 | mimir | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.8 | nginx-fips:1.31.8 |  |
@@ -175,7 +175,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | minio-operator | ironbank/opensource/minio/operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1 | built FROM the org's images by scripts/bb-build.py minio-operator |
 | monitoring | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | monitoring | ironbank/big-bang/grafana/grafana-plugins:13.2.3 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.0 | built FROM the org's images by scripts/bb-build.py grafana-plugins; VERSION DIFFERS from Big Bang's 13.2.3 |
-| monitoring | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.1 | k8s-sidecar-fips:2.14.1 |  |
+| monitoring | ironbank/kiwigrid/k8s-sidecar:2.14.1 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 | k8s-sidecar: Iron Bank 2.14.1 -> newest 2.14 patch; k8s-sidecar-fips: Iron Bank 2.14.1 -> newest 2.14 patch |
 | monitoring | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0 | kube-state-metrics:2.20.0 | kube-state-metrics-fips:2.20.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -196,7 +196,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.198.2 | renovate-fips:44.198.2 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.198.2 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.198.2 (Iron Bank 44.97.2) |
+| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.210.0 | renovate-fips:44.210.0 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.210.0 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.210.0 (Iron Bank 44.97.2) |
 | renovate | ironbank/opensource/go-gitea/gitea:28.2.0 | Iron Bank | Iron Bank | org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
@@ -265,7 +265,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - mimir: `ironbank/opensource/prometheus/memcached-exporter:v0.17.0` -> `memcached-exporter:0.18.0` (newer minor)
 - monitoring: `ironbank/opensource/prometheus/snmp_exporter:v0.30.1` -> `prometheus-snmp-exporter:0.31.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
-- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.198.2` (newer minor)
+- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.210.0` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.1-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
 - gitlab: `gitlab/gitlab-org/build/cng/kubectl:v19.5.1-ubi` -> `gitlab-kubectl:v1.37.2` (newest release; Iron Bank's tag has no version line)
 - monitoring: `ironbank/big-bang/grafana/grafana-plugins:13.2.3` -> `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.0` (built by this repo on a different version line)
@@ -275,5 +275,5 @@ Chainguard's current release lines). Test these packages before production, or r
 
 OBJECT_STORAGE=seaweedfs: Big Bang's MinIO is off, and packages use the S3 endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333 (overlays/values-object-storage.yaml).
 
-- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.51`
-- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.51`
+- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.52`
+- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.52`
