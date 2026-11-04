@@ -198,7 +198,9 @@ Differences from Iron Bank:
   (`go_build_problems(..., cgo=True)` checks a cgo build). It runs
   `/usr/local/bin/adapter` as 65534 (Iron Bank's `nobody`). Big Bang leaves the chart's
   `cve.adapter` off; turn it on with `neuvector.values.upstream.cve.adapter.enabled` and
-  give it Harbor's credentials (`cve.adapter.harbor.secretName`). Its smoke test starts it
+  give it Harbor's credentials in a Secret named by `cve.adapter.harbor.secretName` (keys
+  `username`, `password`); not `cve.adapter.env`, which NeuVector core 2.11.4 renders
+  into invalid YAML. Its smoke test starts it
   with no cluster (it must log its version and stop at the missing internal certificate)
   and reads the build info.
 
