@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Rebuild Big Bang's grafana-plugins image FROM the Chainguard org's Grafana.
 
 Chainguard does not publish Iron Bank's big-bang/grafana/grafana-plugins (Grafana
@@ -8,30 +7,24 @@ with plugins baked in), so this converts Iron Bank's own recipe instead:
   2. read Iron Bank's hardening_manifest.yaml (plugin zips + sha256) and Dockerfile
      (where each zip is unpacked) from repo1.dso.mil, pinned to a commit
   3. download each zip, check its sha256, and read the plugin id and version
-     (a plugin in REBUILD also gets its Go backend rebuilt from source: see below)
+     (a plugin in the recipe's `rebuild` also gets its Go backend rebuilt from source)
   4. pin cgr.dev/<org>/grafana and grafana-fips (and their -dev twins) for Big
      Bang's Grafana version by digest
-  5. write builds/grafana-plugins/build.yaml
+  5. return builds/grafana-plugins/build.yaml
 
-  bb-grafana-plugins.py [--org <org>] [--ref master]       regenerate build.yaml
-  bb-grafana-plugins.py --build [--test] [--push]          also build both images
+--test starts each image and checks Grafana loads every plugin, each with a valid
+signature (rebuilt ones: unsigned, and allowed), and, for -fips, that OpenSSL defaults
+to fips=yes.
 
---build    docker build <BUILD_REGISTRY>/bigbang-grafana-plugins:<tag> and -fips:<tag>
-           (bb-local/... when BUILD_REGISTRY is empty)
---test     start each image and check Grafana loads every plugin, each with a valid
-           signature (rebuilt ones: unsigned, and allowed), and, for -fips, that
-           OpenSSL defaults to fips=yes
---push     docker push both images to BUILD_REGISTRY (never cgr.dev)
-
-REBUILD: the Redis datasource's newest release (2.2.1) ships Go backends built with Go
+`rebuild`: the Redis datasource's newest release (2.2.1) ships Go backends built with Go
 1.19 and old grpc, x/net and plugin SDK modules (8 fixable Critical CVEs). Its backend
 is rebuilt from the same release's source with Wolfi's Go and those modules raised
 (patches/ adapts it to the newer SDK). The rebuilt files no longer match the signed
 MANIFEST.txt, which the build removes: Grafana then loads it as unsigned, so
 mapping.yaml `overrides.grafana` allows that one plugin id.
 
-Then run scripts/bb-convert.py: with BUILD_REGISTRY set, the overlays use the
-built images; with it empty, Grafana stays on Iron Bank's image.
+Recipe keys: ironbank {image, project}, org_images {standard, fips}, rebuild {plugin id:
+{source ({{version}}: the plugin's), go_bumps, patch}}.
 """
 import hashlib
 import io
@@ -39,27 +32,11 @@ import json
 import os
 import re
 import subprocess
-import sys
-import tarfile
 import time
 import urllib.request
 import zipfile
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import bbbuild  # noqa: E402
-
-NAME = "grafana-plugins"
-IMAGE = "bigbang-grafana-plugins"   # not grafana-plugins: avoids clashing with an existing package of that name
-IB_IMAGE = "ironbank/big-bang/grafana/grafana-plugins"
-IB_PROJECT = "big-bang/grafana/grafana-plugins"
-# Plugins whose Go backend is rebuilt from source: {id: source tarball, modules to raise, patch}.
-REBUILD = {
-    "redis-datasource": {
-        "source": "https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v{version}",
-        "go_bumps": ["github.com/grafana/grafana-plugin-sdk-go", "google.golang.org/grpc", "golang.org/x/net"],
-        "patch": "patches/redis-datasource.patch",   # the SDK's instance factory now takes a context
-    },
-}
+import bbbuild
 
 
 def plugin_layout(dockerfile):
@@ -73,7 +50,7 @@ def plugin_layout(dockerfile):
     return unzips, [d.strip() for d in dirs if d.strip()]
 
 
-def plugin(resource, directory):
+def plugin(resource, directory, rebuilds):
     """Download one plugin zip, check its sha256, and read its plugin id."""
     data = bbbuild.fetch(resource["url"])
     want = resource["validation"]["value"]
@@ -85,8 +62,8 @@ def plugin(resource, directory):
             raise SystemExit(f"{resource['url']}: no plugin.json in the zip")
         info = json.loads(z.read(meta[0]))
     out = {"id": info["id"], "url": resource["url"], "sha256": want, "dir": directory}
-    if info["id"] in REBUILD:
-        out["rebuild"] = rebuild(REBUILD[info["id"]], info)
+    if info["id"] in rebuilds:
+        out["rebuild"] = rebuild(rebuilds[info["id"]], info)
     return out
 
 
@@ -94,49 +71,48 @@ def rebuild(how, info):
     """How to rebuild a plugin's Go backend: its release's source (by sha256), the
     executable name Grafana runs, the modules to raise and the patch to apply."""
     if not info.get("backend") or not info.get("executable"):
-        raise SystemExit(f"{info['id']}: REBUILD lists it, but its plugin.json has no Go backend")
-    url = how["source"].format(version=info["info"]["version"])
+        raise SystemExit(f"{info['id']}: the recipe's `rebuild` lists it, but its plugin.json has no Go backend")
+    url = bbbuild.fill(how["source"], {"version": info["info"]["version"]})
     return {"source": url, "sha256": hashlib.sha256(bbbuild.fetch(url)).hexdigest(),
             "executable": info["executable"], "patch": how["patch"],
             "go_get": [bbbuild.go_latest(m) for m in how["go_bumps"]]}
 
 
-def generate(a):
-    bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
-    commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, a.ref)
+def generate(r, a):
+    ib_image, ib_project = r["ironbank"]["image"], r["ironbank"]["project"]
+    bb_tag = bbbuild.bigbang_tag(ib_image)
+    commit, manifest, dockerfile = bbbuild.ironbank_recipe(ib_project, a.ref)
     unzips, dirs = plugin_layout(dockerfile)
     plugins = []
     for res in manifest.get("resources", []):
         if res["filename"] not in unzips:
             raise SystemExit(f"Iron Bank's Dockerfile does not unpack {res['filename']}; update plugin_layout()")
-        plugins.append(plugin(res, unzips[res["filename"]]))
+        plugins.append(plugin(res, unzips[res["filename"]], r.get("rebuild") or {}))
     empty = [d for d in dirs if d not in {p["dir"] for p in plugins} and d.startswith("/var/lib/bb-plugins/")]
-    images = bbbuild.org_images(a.org, {"standard": "grafana", "fips": "grafana-fips"}, bb_tag)
+    images = bbbuild.org_images(a.org, r["org_images"], bb_tag)
     spec = {
-        "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
+        "ironbank": {"image": f"{ib_image}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{ib_project}",
                      "commit": commit, "manifest_tags": manifest.get("tags", [])},
         # Tagged with the Grafana version each is built FROM.
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), **img} for v, img in images.items()},
+        "image": {v: {"name": bbbuild.image_name(r, v), **img} for v, img in images.items()},
         "plugins": plugins,
         "empty_dirs": empty,
     }
-    bbbuild.write_spec(NAME, spec, "# Big Bang's grafana-plugins image rebuilt FROM the Chainguard org's grafana images,\n"
-                                   "# with the plugin set from Iron Bank's hardening_manifest.yaml at `ironbank.commit`.\n")
     print(f"grafana {images['standard']['tag']} / fips {images['fips']['tag']}, plugins "
           + ", ".join(p["id"] for p in plugins))
     return spec
 
 
-def build_args(spec, variant):
+def build_args(spec, variant, r=None):
     rebuilds = [p for p in spec["plugins"] if p.get("rebuild")]
     return {"PLUGINS": ";".join(f"{p['url']} {p['sha256']} {p['dir']}" for p in spec["plugins"]),
             "EMPTY_DIRS": " ".join(spec["empty_dirs"]),
             # "<dir> <source> <sha256> <executable> <patch> <module@version>..." per plugin
-            "REBUILDS": ";".join(" ".join([p["dir"], r["source"], r["sha256"], r["executable"], r["patch"],
-                                          *r["go_get"]]) for p in rebuilds for r in [p["rebuild"]])}
+            "REBUILDS": ";".join(" ".join([p["dir"], b["source"], b["sha256"], b["executable"], b["patch"],
+                                          *b["go_get"]]) for p in rebuilds for b in [p["rebuild"]])}
 
 
-def smoke_test(image, variant, spec, port=3300):
+def smoke_test(image, variant, spec, r=None, port=3300):
     name = f"bb-smoke-{os.getpid()}"
     # The rebuilt plugins allowed the way mapping.yaml's overrides.grafana allows them.
     unsigned = ",".join(p["id"] for p in spec["plugins"] if p.get("rebuild"))
@@ -169,17 +145,6 @@ def smoke_test(image, variant, spec, port=3300):
         if errors:
             raise SystemExit(f"{image}: plugin errors {errors}\n" + bbbuild.logs(name))
         if variant == "fips":
-            # The runtime image has no shell: copy the file out (docker cp - writes a tar stream).
-            cnf = subprocess.run(["docker", "cp", "-L", f"{name}:/etc/ssl/openssl.cnf", "-"],
-                                 capture_output=True, check=True)
-            with tarfile.open(fileobj=io.BytesIO(cnf.stdout)) as t:
-                text = t.extractfile(t.getmembers()[0]).read().decode(errors="replace")
-            if not re.search(r"^\s*(default_)?properties\s*=\s*fips=yes", text, re.M):
-                raise SystemExit(f"{image}: OpenSSL does not default to fips=yes")
-            print("  openssl: fips=yes")
+            bbbuild.require_openssl_fips(name, image)
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
-
-
-if __name__ == "__main__":
-    bbbuild.run(NAME, __doc__, generate, build_args, smoke_test)

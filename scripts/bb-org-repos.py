@@ -4,6 +4,7 @@ entitlement doesn't cover.
 
   bb-org-repos.py [--org <org>] [--optional] [--build-bases] [--apply]
   bb-org-repos.py --org <org> --apply go go-fips      # just these
+  bb-org-repos.py --quota                             # the plan's per-tier room, and what uses it
 
 Without names it asks bb-convert.py which repositories discovery needs and the org lacks
 (`--missing`; `--optional` adds the ones whose images otherwise stay on Iron Bank).
@@ -23,13 +24,23 @@ is outside your plan. An "unlimited" plan can still count base images (toolchain
 runtimes such as go, glibc-openssl, jdk, node) against a per-tier quota;
 `chainctl images entitlements summary --parent <org>` shows the quotas, and Chainguard
 (your account team, or "Contact us for access" in the console) raises them.
+
+`--quota` reads that summary and says, per tier, how many images the plan counts and how
+many it allows; which counted images Big Bang doesn't use (another project may: a slot is
+freed only by asking Chainguard to swap one, and only if nothing else needs it); and which
+repositories this repo still needs, each with its tier and whether that tier has room.
+Exit 1 when something needed has no room: a person has to talk to Chainguard. The nightly
+update prints it in its pull request.
 """
 import argparse
 import json
 import os
 import re
+import glob
 import subprocess
 import sys
+
+import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from orgtags import org_name  # noqa: E402
@@ -73,6 +84,115 @@ def catalog_entry(name):
     return None
 
 
+def used_by_bigbang(mapping, texts):
+    """Org repository names this repo uses: every mapped image and its FIPS twin, `until`
+    names, override tokens, SeaweedFS, the build bases, and any cgr.dev/<org>/<name> in
+    the given texts (builds' Dockerfiles and build.yaml)."""
+    names = {"seaweedfs", "seaweedfs-fips", *BUILD_BASES}
+    for m in mapping.get("images", {}).values():
+        m = {"cg": m} if isinstance(m, str) else (m or {})
+        if m.get("cg"):
+            names.add(m["cg"])
+            fips = m.get("fips", m["cg"] + "-fips")
+            if fips:
+                names.add(fips)
+        if m.get("until"):
+            names.add(m["until"])
+
+    def tokens(spec):
+        if isinstance(spec, dict):
+            for v in spec.values():
+                tokens(v)
+        elif isinstance(spec, list):
+            for v in spec:
+                tokens(v)
+        elif isinstance(spec, str) and spec.startswith(("@repo:", "@tag:", "@ref:")):
+            base = spec.split(":")[1]
+            names.update({base, base + "-fips"})
+    tokens(mapping.get("overrides", {}))
+    for text in texts:
+        names.update(re.findall(r"cgr\.dev/[^/\s\"']+/([a-z0-9][a-z0-9._-]*)", text))
+    return names
+
+
+def quota_report(summary, used, needed):
+    """(lines, blocked) from `chainctl images entitlements summary -o json`, the names this
+    repo uses, and {needed name: catalog tier}. blocked: needed names whose tier is full."""
+    quota = summary.get("quota") or {}
+    active = summary.get("activeImages") or []
+    lines = [f"Chainguard plan: {summary.get('plan', '?')}"
+             + (f" (swap quota {summary['swapQuota']})" if summary.get("swapQuota") is not None else "")]
+    free = {}
+    for tier in sorted(quota):
+        q = quota[tier]
+        cur, top = q.get("current", 0), q.get("max", 0)
+        unlimited = top is None or top < 0
+        free[tier] = None if unlimited else top - cur
+        state = "unlimited" if unlimited else ("FULL" if cur >= top else f"{top - cur} free")
+        lines.append(f"  {tier:12} {cur}/{'-' if unlimited else top}  {state}")
+    unused = {}
+    for img in active:
+        if img.get("name") not in used:
+            unused.setdefault(img.get("catalogTier", "?"), []).append(img.get("name"))
+    if unused:
+        lines.append("Counted, but not used by Big Bang (another project may use them):")
+        for tier in sorted(unused):
+            lines.append(f"  {tier}: {', '.join(sorted(unused[tier]))}")
+    blocked = []
+    if needed:
+        lines.append("Needed by this repo and not in the org:")
+        want = {}
+        for name, tier in sorted(needed.items()):
+            want[tier] = want.get(tier, 0) + 1
+            room = free.get(tier, None) if tier in free else None
+            if tier in free and room is not None and want[tier] > room:
+                blocked.append(name)
+                note = f"no room in {tier}"
+            else:
+                note = "room" if tier in free else "tier not counted"
+            lines.append(f"  {name:28} {tier or '?':12} {note}")
+    else:
+        lines.append("Needed by this repo and not in the org: (none)")
+    if blocked:
+        lines.append(f"{len(blocked)} needed image(s) don't fit the plan: ask Chainguard to raise the quota, "
+                     "or to swap out a counted image nothing uses.")
+    return lines, blocked
+
+
+def quota(org, optional):
+    summary = chainctl_json_obj("images", "entitlements", "summary", "--parent", org)
+    root = os.path.dirname(HERE)
+    with open(os.path.join(root, "mapping.yaml"), encoding="utf-8") as f:
+        mapping = yaml.safe_load(f)
+    texts = []
+    for path in glob.glob(os.path.join(root, "builds", "*", "*")):
+        if os.path.basename(path) in ("Dockerfile", "build.yaml"):
+            with open(path, encoding="utf-8") as f:
+                texts.append(f.read())
+    used = used_by_bigbang(mapping, texts)
+    p = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--org", org, "--missing"],
+                       capture_output=True, text=True)
+    have = {r.get("name"): bool(r.get("sync_config")) for r in chainctl_json("images", "repos", "list", "--parent", org)}
+    names = [n for n in missing_from(p.stdout, optional) + BUILD_BASES if not have.get(n)]
+    needed = {}
+    for name in dict.fromkeys(names):
+        entry = catalog_entry(name)
+        if entry:
+            needed[name] = entry[1]
+    lines, blocked = quota_report(summary, used, needed)
+    print("\n".join(lines))
+    return 1 if blocked else 0
+
+
+def chainctl_json_obj(*args):
+    """A chainctl command's JSON object (chainctl_json unwraps lists)."""
+    p = subprocess.run(["chainctl", *args, "-o", "json"], capture_output=True, text=True, timeout=300)
+    if p.returncode:
+        raise RuntimeError(p.stderr.strip()[-300:])
+    out = p.stdout
+    return json.loads(out[out.find("{"):]) if "{" in out else {}
+
+
 def outcome(returncode, stderr):
     """'ok', 'not entitled' or the error's last line."""
     if returncode == 0:
@@ -89,8 +209,11 @@ def main():
     ap.add_argument("--optional", action="store_true", help="also the optional repositories --missing lists")
     ap.add_argument("--build-bases", action="store_true", help="also " + ", ".join(BUILD_BASES))
     ap.add_argument("--apply", action="store_true", help="create and sync them (default: print the commands)")
+    ap.add_argument("--quota", action="store_true", help="the plan's per-tier quotas and what this repo needs")
     a = ap.parse_args()
     org = org_name(a.org)
+    if a.quota:
+        return quota(org, a.optional)
     names = list(a.names)
     if not names:
         p = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--org", org, "--missing"],

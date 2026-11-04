@@ -1,0 +1,20 @@
+# What builds/grafana-plugins is (hand-written). scripts/bb-build.py grafana-plugins reads it
+# and its hook (scripts/buildhooks/grafana_plugins.py) to generate build.yaml.
+description: Grafana with Iron Bank's plugin set, FROM the org's grafana images
+hook: grafana_plugins
+# Not grafana-plugins: avoids clashing with an existing package of that name.
+image: bigbang-grafana-plugins
+header: |-
+  Big Bang's grafana-plugins image rebuilt FROM the Chainguard org's grafana images,
+  with the plugin set from Iron Bank's hardening_manifest.yaml at `ironbank.commit`.
+ironbank:
+  image: ironbank/big-bang/grafana/grafana-plugins
+  project: big-bang/grafana/grafana-plugins
+org_images: {standard: grafana, fips: grafana-fips}
+# Plugins whose Go backend is rebuilt from source: the release's source tarball, the
+# modules to raise and the patch to apply (builds/grafana-plugins/patches/).
+rebuild:
+  redis-datasource:
+    source: https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v{{version}}
+    go_bumps: [github.com/grafana/grafana-plugin-sdk-go, google.golang.org/grpc, golang.org/x/net]
+    patch: patches/redis-datasource.patch   # the SDK's instance factory now takes a context

@@ -1,6 +1,6 @@
 # bb-install.py and everything it needs in one image, so a user needs only a container
 # runtime and a kubeconfig. Built FROM the org's kubectl or kubectl-fips -dev image (the
-# same digest builds/base pins); scripts/bb-installer.py passes:
+# same digest builds/base pins); scripts/bb-build.py installer passes:
 #
 #   DEV_IMAGE   kubectl(-fips) -dev image, pinned by digest
 #   PACKAGES    Wolfi packages: Python and PyYAML, Helm, git (for --git-mirror)

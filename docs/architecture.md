@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD["bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py<br/>bb-minio-operator(-sidecar).py<br/>bb-gitaly-init-cgroups.py"]
+    IB --> BLD["bb-build.py &lt;name&gt;<br/>builds/*/recipe.yaml<br/>+ scripts/buildhooks/<br/>(base, grafana-plugins, devops-tester,<br/>vault, jmx-exporter, mattermost-operator,<br/>tempo-query, minio-operator(-sidecar),<br/>gitaly-init-cgroups, installer)"]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -97,7 +97,7 @@ lists them all.
 
 ```mermaid
 flowchart LR
-    R[Iron Bank recipe<br/>hardening_manifest.yaml + Dockerfile<br/>pinned to a repo1 commit] --> S[bb-&lt;name&gt;.py]
+    R[Iron Bank recipe<br/>hardening_manifest.yaml + Dockerfile<br/>pinned to a repo1 commit] --> S["bb-build.py &lt;name&gt;<br/>recipe.yaml + its hook"]
     O[cgr.dev/&lt;org&gt;/&lt;base&gt;-dev<br/>pinned by digest] --> S
     S --> Y[builds/&lt;name&gt;/build.yaml]
     Y --> K[docker build<br/>builds/&lt;name&gt;/Dockerfile<br/>retried once on a<br/>transient fetch error]

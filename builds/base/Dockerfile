@@ -1,6 +1,6 @@
 # Big Bang's job base image (Iron Bank big-bang/base) rebuilt FROM the org's
 # kubectl or kubectl-fips -dev image. Big Bang's jobs run bash scripts, so the
-# image needs a shell and the -dev image is the runtime. scripts/bb-base.py passes
+# image needs a shell and the -dev image is the runtime. scripts/bb-build.py base passes
 # every input from build.yaml, which it generates from Iron Bank's own
 # hardening_manifest.yaml and Dockerfile (repo1.dso.mil/dsop/big-bang/base):
 #

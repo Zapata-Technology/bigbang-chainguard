@@ -2,7 +2,7 @@
 # built from Gitaly's source FROM the org's images, as GitLab's CNG builds it (CNG's
 # gitaly/Dockerfile builds tools/gitaly-init-cgroups; gitaly-init-cgroups/Dockerfile copies
 # it onto scratch). Chainguard publishes no such image; Iron Bank has no recipe.
-# scripts/bb-gitaly-init-cgroups.py passes every input from build.yaml:
+# scripts/bb-build.py gitaly-init-cgroups passes every input from build.yaml:
 #
 #   DEV_IMAGE          the org's build image (go(-fips) -dev, or kubectl(-fips) -dev), by digest
 #   BASE_IMAGE         the org's runtime image (glibc-openssl(-fips), or kubectl(-fips)), by digest

@@ -353,7 +353,7 @@ def main():
             build = m["build"]
             print(f"\n== build {build}", flush=True)
             version = ["--version", str(m["version"])] if m.get("version") else []
-            rc = subprocess.run([sys.executable, os.path.join(HERE, f"bb-{build}.py"), *version,
+            rc = subprocess.run([sys.executable, os.path.join(HERE, "bb-build.py"), build, *version,
                                  "--build", "--test", "--force"]).returncode
             if rc:
                 raise SystemExit(f"\nRESULT: building {build} failed (see above); nothing was deployed")

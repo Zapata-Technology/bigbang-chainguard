@@ -1,0 +1,38 @@
+# What builds/gitaly-init-cgroups is (hand-written). scripts/bb-build.py gitaly-init-cgroups
+# reads it and its hook (scripts/buildhooks/gitaly_init_cgroups.py) to generate build.yaml.
+description: GitLab's Gitaly cgroups init container built from Gitaly's source (Go) FROM the org's images
+hook: gitaly_init_cgroups
+image: bigbang-gitaly-init-cgroups
+header: |-
+  GitLab's gitaly-init-cgroups built from Gitaly's source FROM the Chainguard
+  org's images, following GitLab's CNG recipe (`cng.source`).
+# GitLab's own CNG build on registry1, which Big Bang deploys; Iron Bank has no recipe.
+bigbang_image: gitlab/gitlab-org/build/cng/gitaly-init-cgroups
+gitlab: https://gitlab.com
+cng_raw: "{{gitlab}}/gitlab-org/build/CNG/-/raw/{{tag}}/{{path}}"
+# GitLab's archive of one directory of the repository at a tag (deterministic: git archive).
+source: "{{gitlab}}/gitlab-org/gitaly/-/archive/{{tag}}/gitaly-{{tag}}.tar.gz?path={{module}}"
+license: "{{gitlab}}/gitlab-org/gitaly/-/raw/{{tag}}/LICENSE"
+# Modules raised past what the module's go.mod pins: none needed at 19.4.2 (grype finds no
+# fixable Critical); listed here as the other builds do, to raise one when it does.
+go_bumps: []
+user: "0:0"
+notes:
+  - >-
+    built from Gitaly {{tag}}'s {{module}} module as GitLab's CNG builds it (Chainguard has no
+    gitaly-init-cgroups image; Iron Bank has no recipe); the tag keeps Big Bang's
+  - "runs as root like CNG's: the chart runs it as root to chown the pod's cgroup to Gitaly's uid"
+  - >-
+    image.fips.fips: toolchain = cgo with the org's go-fips; native = the org has no go-fips image, so
+    Wolfi's Go builds it against Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)
+build_args:
+  GITALY_SOURCE: "{{gitaly.source}}"
+  GITALY_SHA256: "{{gitaly.sha256}}"
+  GITALY_MODULE: "{{gitaly.module}}"
+  GITALY_GO_GET: "{{gitaly.go_get}}"
+  GITALY_LICENSE: "{{gitaly.license}}"
+  GITALY_LICENSE_SHA256: "{{gitaly.license_sha256}}"
+  GO_PACKAGE: "{{image.$variant.go_package?}}"
+  FIPS: "{{image.$variant.fips?}}"
+  BINARY: "{{cng.binary}}"
+  RUN_USER: "{{user}}"

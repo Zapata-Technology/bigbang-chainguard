@@ -18,7 +18,7 @@ pick a tag from the org, and write overlays. Diagrams: [docs/architecture.md](do
 | `mapping.yaml`: image map and every escape hatch | `overlays/*.yaml`, `flux/`, `flux-fips/` (`bb-convert.py`) |
 | `orgs/<org>.yaml`: one org's exceptions | `seaweedfs/`, `seaweedfs-fips/` (`bb-convert.py`, from `object-storage.yaml`) |
 | `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md`, `docs/version-differences.md` (`bb-convert.py`) |
-| `scripts/*.py`, `scripts/bbinstall/`, `builds/*/Dockerfile` | `builds/*/build.yaml` (`bb-<name>.py`) |
+| `scripts/*.py`, `scripts/bbinstall/`, `builds/*/Dockerfile`, `builds/*/recipe.yaml` | `builds/*/build.yaml` (`bb-build.py <name>`) |
 | `compat/*.yaml`, `compat/support/*` | `discovery/images.json` (`bb-images.py`) |
 | `tests/`, docs other than the two above | |
 
@@ -65,7 +65,10 @@ python scripts/bb-install.py upgrade --site my-site.yaml [--fips]   # a running 
 scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
+python scripts/bb-preview.py          # Big Bang's development branch against this repo: what would break
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
+python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
@@ -73,7 +76,9 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix), `fips-kernel.yml` (weekly: the FIPS overlay
-on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `codeql.yml` / `scorecard.yml` (public repo only).
+on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `bigbang-preview.yml` (weekly:
+`bb-preview.py` against Big Bang's development branch; keeps one `bigbang-preview` issue
+current), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Maintaining this repo with an AI agent
 
@@ -85,7 +90,8 @@ The loop, for a person or an agent picking the repo up:
 2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
    failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
    a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
-   (`--rerun-flakes`); a second failure is real. For FAILED, follow the playbook below that
+   (`--rerun-flakes`); a second failure is real. A job that `ci-triage.py --flakes` marks
+   FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, follow the playbook below that
    matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
    generated ones), `python scripts/check.py`, a PR. A change to one `compat/<test>.yaml`
@@ -118,6 +124,15 @@ A green bot PR merges itself (`automerge.yml`), so one still open has a failed c
    test fails.
 6. Push fixes to the bot branch or a new branch; never edit its generated files by hand.
 
+### The Big Bang preview issue (`bigbang-preview`)
+`bigbang-preview.yml` runs this repo against Big Bang's development branch every Monday and
+keeps one issue with what would break: a newer Kubernetes requirement, images added or
+removed, a package that doesn't render, unmapped images, new chart scan findings, and kind
+tests whose values the new charts refuse. Work it like a bot PR, ahead of time: each fix
+that is also right for the current release (a mapping, an override that both accept) can
+land now; the rest waits on a branch for the release. The issue closes itself when nothing
+would break. Run it locally with `python scripts/bb-preview.py [--ref <branch or tag>]`.
+
 ### Add or fix an image mapping
 Follow [docs/adding-a-package.md](docs/adding-a-package.md). In short: find the image in
 `discovery/images.json`, find the Chainguard name (`chainctl images catalog --name <n>`),
@@ -148,8 +163,10 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 - Then add the finding's key to `scan_reviewed` with one line saying how it is handled.
 
 ### Add a repository to the org
-Big Bang orgs have a Chainguard license with unlimited repositories, so add what the
-conversion needs. For each name, standard and `-fips`:
+Add what the conversion needs, but check the plan first: per-image plans count images
+against a quota per tier (`python scripts/bb-org-repos.py --quota` shows each tier's room,
+what still needs adding and which counted images Big Bang doesn't use). For each name,
+standard and `-fips`:
 
 ```bash
 chainctl images catalog --name <name> -o json          # its id and catalog_tier
@@ -211,9 +228,19 @@ CRD and namespace and its admission webhook) and a `*_problem` that `status_repo
 (`status.py`) reports. `install.py` calls the first three; the flag goes in `bb-install.py`.
 
 ### Change an image this repo builds
-Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with
-`scripts/bb-<name>.py`; the smoke test in that script must cover the change. `builds.yml`
-builds on the PR and pushes on merge.
+Edit `builds/<name>/Dockerfile`, `builds/<name>/recipe.yaml` (what the build is: names,
+Iron Bank project, modules to raise, notes, build arguments, a declarative smoke test) or
+its hook `scripts/buildhooks/<hook>.py` (the Python it needs); regenerate `build.yaml` with
+`python scripts/bb-build.py <name>` (`--all` for every build); the smoke test (the hook's,
+or the recipe's `smoke`) must cover the change. `builds.yml` builds on the PR and pushes on
+merge.
+
+### Add an image this repo builds
+A new `builds/<name>/` with a `Dockerfile` and a `recipe.yaml` (`scripts/bb-build.py`'s
+docstring lists the keys), and a hook in `scripts/buildhooks/` only if no existing one
+fits (`buildhooks/__init__.py` says what a hook has). Add `<name>` to `builds.yml`'s matrix
+and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
+`{build: <name>}` entry in `mapping.yaml`, and a row in docs/how-it-works.md's table.
 
 ## Traps already hit (don't rediscover them)
 

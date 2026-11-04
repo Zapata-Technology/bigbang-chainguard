@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build Big Bang's gitaly-init-cgroups image from Gitaly's source, FROM the org.
 
 Chainguard publishes no gitaly-init-cgroups image. It is GitLab's chart's init container
@@ -19,51 +18,36 @@ same module at the Gitaly release Big Bang's tag names:
      (GitLab's archive of one path, pinned by sha256) and read its go.mod (the Go line)
      and the tag's commit
   4. pin the org's build and runtime images by digest (bbbuild.go_images)
-  5. write builds/gitaly-init-cgroups/build.yaml
+  5. return builds/gitaly-init-cgroups/build.yaml
 
-The binary is static (as CNG builds it). FIPS as in bb-mattermost-operator.py. It runs as
-root, as CNG's (scratch, no USER) does and the chart requires (it chowns cgroup files).
-
-  bb-gitaly-init-cgroups.py [--org <org>]                     regenerate build.yaml
-  bb-gitaly-init-cgroups.py --build [--test] [--push]         also build both images
+The binary is static (as CNG builds it). FIPS as in the mattermost-operator hook. It runs
+as root, as CNG's (scratch, no USER) does and the chart requires (it chowns cgroup files).
 
 --test runs each image the way the chart does, against a pod cgroup tree made in a
 temporary directory: it must find the pod's slice by its uid, chown the slice and its
 cgroup.procs, cgroup.threads and cgroup.subtree_control to 1000:1000, and write the slice's
 path to OUTPUT_PATH; with an unknown pod uid it must fail. Then the user, and the build
 info (static, or the FIPS build; for -fips, OpenSSL fips=yes).
+
+Recipe keys: bigbang_image (the image Big Bang deploys: not Iron Bank's), gitlab, cng_raw
+({{tag}}, {{path}}), source ({{tag}}, {{module}}), license ({{tag}}), go_bumps, user, notes.
 """
 import hashlib
 import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import uuid
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import bbbuild  # noqa: E402
-
-NAME = "gitaly-init-cgroups"
-BB_IMAGE = "gitlab/gitlab-org/build/cng/gitaly-init-cgroups"
-IMAGE = "bigbang-gitaly-init-cgroups"
-GITLAB = "https://gitlab.com"
-CNG_RAW = GITLAB + "/gitlab-org/build/CNG/-/raw/{tag}/{path}"
-# GitLab's archive of one directory of the repository at a tag (deterministic: git archive).
-SOURCE = GITLAB + "/gitlab-org/gitaly/-/archive/{tag}/gitaly-{tag}.tar.gz?path={module}"
-LICENSE = GITLAB + "/gitlab-org/gitaly/-/raw/{tag}/LICENSE"
-RUN_USER = "0:0"
-# Modules raised past what the module's go.mod pins: none needed at 19.4.2 (grype finds no
-# fixable Critical); listed here as the other builders do, to raise one when it does.
-GO_BUMPS = []
+import bbbuild
 
 
 def gitaly_tag(bb_tag):
     """Big Bang's tag (v19.4.2-ubi) -> the Gitaly release (v19.4.2)."""
     m = re.fullmatch(r"(v\d+\.\d+\.\d+)(-ubi|-fips)*", bb_tag)
     if not m:
-        raise SystemExit(f"{BB_IMAGE}:{bb_tag} is not v<GitLab release>[-ubi]; update gitaly_tag()")
+        raise SystemExit(f"gitaly-init-cgroups:{bb_tag} is not v<GitLab release>[-ubi]; update gitaly_tag()")
     return m.group(1)
 
 
@@ -84,51 +68,38 @@ def recipe(init_dockerfile, gitaly_dockerfile):
     return {"binary": binary, "module": build.group(1)}
 
 
-def source(tag, module):
+def source(r, tag, module):
     """The module's directory at `tag` (url, sha256, Go line, commit) and Gitaly's LICENSE,
     which sits outside it (MIT: the image carries it)."""
-    src = bbbuild.go_source(SOURCE.format(tag=tag, module=module), gomod=f"{module}/go.mod")
-    license_url = LICENSE.format(tag=tag)
+    values = {**r, "tag": tag, "module": module}
+    src = bbbuild.go_source(bbbuild.fill(r["source"], values), gomod=f"{module}/go.mod")
+    license_url = bbbuild.fill(r["license"], values)
     return {"tag": tag, "source": src["source"], "sha256": src["sha256"], "go": src["go"], "commit": src["commit"],
-            "module": module, "go_get": [bbbuild.go_latest(m) for m in GO_BUMPS],
+            "module": module, "go_get": [bbbuild.go_latest(m) for m in r["go_bumps"]],
             "license": license_url, "license_sha256": hashlib.sha256(bbbuild.fetch(license_url)).hexdigest()}
 
 
-def generate(a):
-    bb_tag = bbbuild.bigbang_tag(BB_IMAGE)
+def generate(r, a):
+    bb_image = r["bigbang_image"]
+    bb_tag = bbbuild.bigbang_tag(bb_image)
     tag = gitaly_tag(bb_tag)
-    init_df = bbbuild.fetch(CNG_RAW.format(tag=tag, path="gitaly-init-cgroups/Dockerfile")).decode()
-    gitaly_df = bbbuild.fetch(CNG_RAW.format(tag=tag, path="gitaly/Dockerfile")).decode()
+    init_df = bbbuild.fetch(bbbuild.fill(r["cng_raw"], {**r, "tag": tag, "path": "gitaly-init-cgroups/Dockerfile"})).decode()
+    gitaly_df = bbbuild.fetch(bbbuild.fill(r["cng_raw"], {**r, "tag": tag, "path": "gitaly/Dockerfile"})).decode()
     cng = recipe(init_df, gitaly_df)
-    src = source(tag, cng["module"])
+    src = source(r, tag, cng["module"])
     images, repos = bbbuild.go_images(a.org, src["go"])
     spec = {
-        "cng": {"image": f"registry1.dso.mil/{BB_IMAGE}:{bb_tag}",
-                "source": f"{GITLAB}/gitlab-org/build/CNG/-/tree/{tag}/gitaly-init-cgroups", **cng},
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": bb_tag, **images[v]}
+        "cng": {"image": f"registry1.dso.mil/{bb_image}:{bb_tag}",
+                "source": f"{r['gitlab']}/gitlab-org/build/CNG/-/tree/{tag}/gitaly-init-cgroups", **cng},
+        "image": {v: {"name": bbbuild.image_name(r, v), "tag": bb_tag, **images[v]}
                   for v in ("standard", "fips")},
         "gitaly": src,
-        "user": RUN_USER,
-        "notes": [f"built from Gitaly {tag}'s {cng['module']} module as GitLab's CNG builds it (Chainguard has no "
-                  "gitaly-init-cgroups image; Iron Bank has no recipe); the tag keeps Big Bang's",
-                  "runs as root like CNG's: the chart runs it as root to chown the pod's cgroup to Gitaly's uid",
-                  "image.fips.fips: toolchain = cgo with the org's go-fips; native = the org has no go-fips image, so "
-                  "Wolfi's Go builds it against Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)"],
+        "user": r["user"],
+        "notes": [bbbuild.fill(n, {**r, "tag": tag, "module": cng["module"]}) for n in r["notes"]],
     }
-    bbbuild.write_spec(NAME, spec, "# GitLab's gitaly-init-cgroups built from Gitaly's source FROM the Chainguard\n"
-                                   "# org's images, following GitLab's CNG recipe (`cng.source`).\n")
     print(f"gitaly-init-cgroups {bb_tag} (Gitaly {tag}, FIPS: {spec['image']['fips']['fips']}): build in "
           f"{'/'.join(repos['build'].values())} -dev, run on {'/'.join(repos['run'].values())}, go.mod Go {src['go']}")
     return spec
-
-
-def build_args(spec, variant):
-    g = spec["gitaly"]
-    return {"GITALY_SOURCE": g["source"], "GITALY_SHA256": g["sha256"], "GITALY_MODULE": g["module"],
-            "GITALY_GO_GET": " ".join(g["go_get"]),
-            "GITALY_LICENSE": g["license"], "GITALY_LICENSE_SHA256": g["license_sha256"],
-            "GO_PACKAGE": spec["image"][variant].get("go_package", ""), "FIPS": spec["image"][variant].get("fips", ""),
-            "BINARY": spec["cng"]["binary"], "RUN_USER": spec["user"]}
 
 
 def docker(*args):
@@ -153,7 +124,7 @@ def run_like_the_chart(image, root, pod_uid):
                   "-e", "OUTPUT_PATH=/init-secrets/gitaly-pod-cgroup", image)
 
 
-def smoke_test(image, variant, spec):
+def smoke_test(image, variant, spec, r=None):
     failed = []
     root = tempfile.mkdtemp(prefix="gic-")
     try:
@@ -191,7 +162,3 @@ def smoke_test(image, variant, spec):
                                        spec["gitaly"]["go_get"])
     if failed:
         raise SystemExit(f"{image}: failed {', '.join(failed)}")
-
-
-if __name__ == "__main__":
-    bbbuild.run(NAME, __doc__, generate, build_args, smoke_test)

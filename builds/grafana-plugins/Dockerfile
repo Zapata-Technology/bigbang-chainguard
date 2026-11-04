@@ -1,5 +1,5 @@
 # Big Bang's grafana-plugins image, rebuilt FROM the Chainguard org's grafana or
-# grafana-fips image. scripts/bb-grafana-plugins.py passes every input from
+# grafana-fips image. scripts/bb-build.py grafana-plugins passes every input from
 # build.yaml, which it generates from Iron Bank's own hardening_manifest.yaml and
 # Dockerfile (repo1.dso.mil/dsop/big-bang/grafana/grafana-plugins):
 #

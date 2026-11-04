@@ -1,0 +1,107 @@
+# Weekly: run this repo against Big Bang's development branch (scripts/bb-preview.py), so
+# the next release's breaking changes show up as a list of work weeks before it ships.
+# Keeps one issue (label bigbang-preview) current: opened or updated while something would
+# break, closed when nothing does. It changes no file and opens no pull request.
+name: Big Bang preview - next release against this repo
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"   # Mondays
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Big Bang branch or tag
+        default: master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bigbang-preview
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    env:
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
+      BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            *.cgr.dev:443
+            *.r2.cloudflarestorage.com:443
+            api.github.com:443
+            cgr.dev:443
+            console-api.enforce.dev:443
+            dl.enforce.dev:443
+            files.pythonhosted.org:443
+            get.helm.sh:443
+            ghcr.io:443
+            github.com:443
+            issuer.enforce.dev:443
+            objects.githubusercontent.com:443
+            pipelines.actions.githubusercontent.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            repo1.dso.mil:443
+            results-receiver.actions.githubusercontent.com:443
+            token.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: v3.18.3
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Log into Chainguard
+        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
+        with:
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Run against Big Bang's next release
+        id: preview
+        run: |
+          python3 -m pip install --quiet -r requirements.txt
+          set +e
+          python3 scripts/bb-preview.py --ref "${{ inputs.ref || 'master' }}" \
+            --dir "$RUNNER_TEMP/preview" -o "$RUNNER_TEMP/report.md"
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Keep the preview issue current
+        if: always() && steps.preview.outputs.rc != ''
+        run: |
+          gh label create bigbang-preview --color FBCA04 \
+            --description "Big Bang's next release against this repo (bigbang-preview.yml)" 2>/dev/null || true
+          issue=$(gh issue list --label bigbang-preview --state open --json number --jq '.[0].number')
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          { cat "$RUNNER_TEMP/report.md" 2>/dev/null || echo "The preview produced no report: see the run."
+            echo; echo "Run: $run_url"; } > "$RUNNER_TEMP/body.md"
+          if [ "${{ steps.preview.outputs.rc }}" = 0 ]; then
+            [ -n "$issue" ] && gh issue close "$issue" --comment "Nothing would break any more ($run_url)."
+            exit 0
+          fi
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --label bigbang-preview \
+              --title "Big Bang's next release: what would break" --body-file "$RUNNER_TEMP/body.md"
+          fi

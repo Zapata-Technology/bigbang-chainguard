@@ -1,0 +1,41 @@
+# What builds/base is (hand-written). scripts/bb-build.py base reads it and its hook
+# (scripts/buildhooks/base.py) to generate build.yaml.
+description: Big Bang's job base image (bash, kubectl, yq, jq, curl), FROM the org's kubectl -dev images
+hook: base
+image: bigbang-base
+header: |-
+  Big Bang's base job image rebuilt FROM the Chainguard org's kubectl -dev images,
+  with the contents of Iron Bank's big-bang/base at `ironbank.commit`.
+ironbank:
+  image: ironbank/big-bang/base
+  project: big-bang/base
+org_images: {standard: kubectl, fips: kubectl-fips}
+# What UBI minimal ships that Big Bang's job scripts rely on (bash, curl-minimal, ...).
+ubi_userland: [bash, coreutils, curl, grep, sed, ca-certificates]
+# UBI package name -> Wolfi package name, where they differ. null: busybox in the -dev
+# image already provides it (Wolfi has no separate package).
+ubi_to_wolfi: {curl-minimal: curl, coreutils-single: coreutils, which: null}
+build_args:
+  PACKAGES: "{{packages}}"
+  USER_NAME: "{{user.name}}"
+  USER_ID: "{{user.id}}"
+smoke:
+  script:
+    - echo uid=$(id -u)
+    - |-
+      kubectl version --client -o json | grep -o '"gitVersion": *"[^"]*"'
+    - yq --version
+    - jq --version
+    - curl --version | head -1
+    - |-
+      for t in find which grep sed; do command -v $t >/dev/null || { echo missing $t; exit 1; }; done
+    - echo tools=ok
+    # UBI's sh is bash; Big Bang job scripts run as sh use bash features.
+    - |-
+      sh -c 'a=(x y); echo sh=${a[1]}'
+  checks:
+    "uid {{user.id}}": '^uid={{user.id}}$'
+    "kubectl {{ironbank.kubectl|line}}": '"v{{ironbank.kubectl|line|rx}}\.'
+    "yq {{ironbank.yq|line}}": 'version v?{{ironbank.yq|line|rx}}\.'
+    tools: '^tools=ok$'
+    sh is bash: '^sh=y$'

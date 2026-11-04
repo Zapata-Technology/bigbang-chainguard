@@ -1,7 +1,8 @@
 # Big Bang's MinIO Operator and its sidecar (Iron Bank opensource/minio/operator and
 # operator-sidecar, both archived) built from minio/operator's source FROM the org's
-# images: scripts/bb-minio-operator.py and bb-minio-operator-sidecar.py both build with
-# this file (scripts/bbminio.py). Chainguard publishes neither image. Inputs from build.yaml:
+# images: scripts/bb-build.py minio-operator and minio-operator-sidecar both build with
+# this file (their hook: scripts/buildhooks/minio.py). Chainguard publishes neither image.
+# Inputs from build.yaml:
 #
 #   DEV_IMAGE          the org's build image (go(-fips) -dev, or kubectl(-fips) -dev), by digest
 #   BASE_IMAGE         the org's runtime image (glibc-openssl(-fips), or kubectl(-fips)), by digest

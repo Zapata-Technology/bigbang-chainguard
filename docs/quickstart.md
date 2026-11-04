@@ -34,7 +34,7 @@ To use the project with your own images:
    `python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<your owner> --save`
    ([Use it with your org](../README.md#use-it-with-your-org)).
 4. Build and push the images this repo builds into your registry, with `builds.yml` in your
-   copy or the `bb-<name>.py --build --push` scripts. Without a build registry those few
+   copy or `scripts/bb-build.py --all --build --push`. Without a build registry those few
    images stay on Iron Bank.
 5. Install from your copy's own releases, using the steps below with your repository's name
    in place of `Zapata-Technology/bigbang-chainguard`.

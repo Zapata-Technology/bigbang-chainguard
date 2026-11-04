@@ -139,7 +139,7 @@ def test_docs_list_every_image_built_here():
 
 def test_mermaid_labels_with_brackets_are_quoted():
     """An unquoted node label holding ( ) [ ] { } is shape syntax to mermaid: GitHub shows
-    "Unable to render rich display" instead of the diagram (bb-minio-operator(-sidecar).py
+    "Unable to render rich display" instead of the diagram (a list of builder scripts
     in docs/architecture.md did). Quote such labels: X["a (b)"]."""
     node = re.compile(r"\b[A-Za-z][\w-]*(\[\(|\(\(|\[\[|\{\{|\[|\{|\()")
     closers = {"[(": ")]", "((": "))", "[[": "]]", "{{": "}}", "[": "]", "{": "}", "(": ")"}
