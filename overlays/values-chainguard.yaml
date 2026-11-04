@@ -831,6 +831,9 @@ packages:
             defaultRegistry: ''
             repository: cgr.dev/zapatatechnology.com/kyverno-reports-controller
             tag: 1.19.2
+          resources:
+            limits:
+              memory: 256Mi
         test:
           image:
             registry: cgr.dev/zapatatechnology.com

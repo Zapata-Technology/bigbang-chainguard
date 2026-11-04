@@ -332,6 +332,15 @@ overrides:
     upstream:
       podSecurityContext: {runAsUser: null, runAsGroup: null}
       securityContext: {runAsUser: null, runAsGroup: null}
+  kyverno:
+    # Kyverno's reports controller runs at the chart's 128Mi limit. Upgrading from Big Bang
+    # 3 to 4 replaces every ClusterPolicy with a CEL ValidatingPolicy, and the controller
+    # rebuilds every report at once: it was OOMKilled in 2 of 3 FIPS release-upgrade runs
+    # (compat/release-upgrade.yaml) and once on the FIPS kernel. Requests stay the chart's.
+    upstream:
+      reportsController:
+        resources:
+          limits: {memory: 256Mi}
   monitoring:
     # The SNMP exporter chart reads pull secrets from its top-level imagePullSecrets;
     # Big Bang sets snmpExporter.image.imagePullSecrets, which nothing reads, so the pod
