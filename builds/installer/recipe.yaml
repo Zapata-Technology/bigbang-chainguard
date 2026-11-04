@@ -1,0 +1,34 @@
+# What builds/installer is (hand-written). scripts/bb-build.py installer reads it and its
+# hook (scripts/buildhooks/installer.py) to generate build.yaml.
+description: bb-install.py with kubectl, helm, Python and the overlays, FROM the kubectl -dev images builds/base pins
+hook: installer
+image: bigbang-installer
+header: |-
+  The installer image: bb-install.py and its tools, FROM the kubectl -dev images
+  builds/base pins.
+after: [base]   # it pins base's kubectl -dev images
+packages: [bash, curl, git, helm-3, python-3.13, py3.13-pyyaml]   # helm-3: what CI tests (Wolfi's helm is 4)
+context: ..   # the repository root (.dockerignore): the image carries scripts/ and the overlays
+build_args:
+  PACKAGES: "{{packages}}"
+smoke:
+  script:
+    - echo uid=$(id -u)
+    - python3 /bigbang-chainguard/scripts/bb-install.py --help | head -3
+    - |-
+      python3 -c 'import yaml; print("pyyaml", yaml.__version__)'
+    - |-
+      kubectl version --client -o json | grep -o '"gitVersion": *"[^"]*"'
+    - helm version --short
+    - git --version
+    # The tag is <Big Bang version>-kubectl<version>; the chart is bundled for that Big Bang.
+    - |-
+      tag={{image.$variant.tag}}; test -f /bigbang-chainguard/work/charts/bigbang-${tag%%-kubectl*}/chart/Chart.yaml && echo chart=bundled
+  checks:
+    uid 65532: '^uid=65532$'
+    bb-install.py: 'usage: bb-install\.py'
+    pyyaml: '^pyyaml \d'
+    kubectl: '"gitVersion": *"v1\.'
+    helm: '^v3\.'
+    git: '^git version'
+    chart: '^chart=bundled$'

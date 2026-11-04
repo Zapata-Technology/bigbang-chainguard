@@ -34,7 +34,7 @@ To use the project with your own images:
    `python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<your owner> --save`
    ([Use it with your org](../README.md#use-it-with-your-org)).
 4. Build and push the images this repo builds into your registry, with `builds.yml` in your
-   copy or the `bb-<name>.py --build --push` scripts. Without a build registry those few
+   copy or `scripts/bb-build.py --all --build --push`. Without a build registry those few
    images stay on Iron Bank.
 5. Install from your copy's own releases, using the steps below with your repository's name
    in place of `Zapata-Technology/bigbang-chainguard`.
@@ -93,7 +93,7 @@ Don't install if `Verified OK` isn't printed.
 ## 3. Install
 
 ```bash
-pip install pyyaml
+pip install -r requirements.txt               # PyYAML, the version CI tests
 chainctl auth login                           # the installer makes a pull token with it
 python scripts/bb-install.py check            # tests every setting; changes nothing
 python scripts/bb-install.py install          # add --fips for FIPS images

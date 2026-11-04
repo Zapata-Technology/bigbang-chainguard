@@ -1,0 +1,16 @@
+# Tool settings only: this repo is not a Python package. Scripts run as
+# `python scripts/<name>.py`; their dependencies are pinned in requirements*.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+# The code wraps at about 120 columns; E501 isn't selected, so longer lines are allowed.
+line-length = 120
+target-version = "py312"
+extend-exclude = ["work", "dist"]
+
+[tool.ruff.lint]
+# Conservative: syntax errors (E9), statement checks (E7) and Pyflakes (F: unused or
+# undefined names, broken imports). Not a formatter: the code keeps its own style.
+select = ["E7", "E9", "F"]

@@ -79,7 +79,7 @@ jobs:
       - name: Run against Big Bang's next release
         id: preview
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           set +e
           python3 scripts/bb-preview.py --ref "${{ inputs.ref || 'master' }}" \
             --dir "$RUNNER_TEMP/preview" -o "$RUNNER_TEMP/report.md"

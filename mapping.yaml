@@ -67,13 +67,13 @@ images:
   ironbank/grafana/grafana-enterprise-logs: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner: {stays: "Grafana Enterprise Logs is licensed; no Chainguard image"}
   ironbank/opensource/grafana/tempo: tempo
-  # No Chainguard tempo-query image: scripts/bb-tempo-query.py builds it from grafana/tempo's
+  # No Chainguard tempo-query image: scripts/bb-build.py tempo-query builds it from grafana/tempo's
   # source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/grafana/tempo-query: {build: tempo-query}
   ironbank/opensource/grafana/mimir: grafana-mimir
   ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
   ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}
-  # Big Bang builds Grafana with plugins baked in. scripts/bb-grafana-plugins.py
+  # Big Bang builds Grafana with plugins baked in. scripts/bb-build.py grafana-plugins
   # rebuilds it FROM the org's grafana / grafana-fips images using Iron Bank's own
   # plugin list; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/big-bang/grafana/grafana-plugins: {build: grafana-plugins}
@@ -87,7 +87,7 @@ images:
   ironbank/opensource/prometheus/memcached-exporter: memcached-exporter
   # SonarQube's JMX init container runs sh -c "curl file:///opt/jmx_exporter/jmx_prometheus_javaagent-<v>.jar";
   # Chainguard's jmx-exporter-iamguarded has the Bitnami layout and no sh or curl, so
-  # scripts/bb-jmx-exporter.py rebuilds Iron Bank's recipe (that jar, by sha256, at that
+  # scripts/bb-build.py jmx-exporter rebuilds Iron Bank's recipe (that jar, by sha256, at that
   # path) FROM the org's busybox -dev images with curl; with BUILD_REGISTRY empty it stays.
   ironbank/opensource/prometheus/jmx-exporter: {build: jmx-exporter}
   ironbank/opensource/prometheus-operator/prometheus-operator: prometheus-operator
@@ -125,7 +125,7 @@ images:
   # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube-26.10.yaml).
   ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
   # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
-  # scripts/bb-vault.py adds it. Chainguard carries Vault 2.x only (Big Bang pins
+  # scripts/bb-build.py vault adds it. Chainguard carries Vault 2.x only (Big Bang pins
   # 1.21); tested on kind as a fresh install (compat/vault-2.yaml) and as an upgrade of
   # Iron Bank 1.21 data (compat/vault-upgrade.yaml, which needs an Iron Bank login).
   ironbank/hashicorp/vault: {build: vault}
@@ -148,7 +148,7 @@ images:
   ironbank/opensource/velero/velero: velero
   ironbank/opensource/velero/velero-plugin-for-aws: velero-plugin-for-aws
   ironbank/opensource/mattermost/mattermost: mattermost
-  # No Chainguard mattermost-operator image: scripts/bb-mattermost-operator.py builds it from
+  # No Chainguard mattermost-operator image: scripts/bb-build.py mattermost-operator builds it from
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
   ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
@@ -167,8 +167,8 @@ images:
   # org's newest release (docs/images.md flags it).
   ironbank/opensource/minio/minio: {cg: minio, version: "*"}
   ironbank/opensource/minio/mc: {cg: minio-client, version: "*"}
-  # No Chainguard MinIO Operator images: scripts/bb-minio-operator.py and
-  # bb-minio-operator-sidecar.py build both from minio/operator's source (archived upstream
+  # No Chainguard MinIO Operator images: scripts/bb-build.py minio-operator and
+  # minio-operator-sidecar build both from minio/operator's source (archived upstream
   # and on Iron Bank) FROM the org's images; with BUILD_REGISTRY empty they stay on Iron Bank.
   ironbank/opensource/minio/operator: {build: minio-operator}
   ironbank/opensource/minio/operator-sidecar: {build: minio-operator-sidecar}
@@ -190,7 +190,7 @@ images:
   ironbank/opensource/nginx/nginx: nginx
   ironbank/opensource/mysql/mysql8: mysql
   ironbank/afdco/docker/busybox: busybox
-  # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-base.py
+  # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-build.py base
   # rebuilds it FROM the org's kubectl -dev images; with BUILD_REGISTRY empty it stays.
   ironbank/big-bang/base: {build: base}
   ironbank/redhat/ubi/ubi9: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
@@ -198,7 +198,7 @@ images:
 
   # --- Big Bang CI test images (bbtests, disabled by default) ---
   ironbank/big-bang/cypress: {stays: "Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish"}
-  # scripts/bb-devops-tester.py rebuilds it FROM the org's kubectl -dev images.
+  # scripts/bb-build.py devops-tester rebuilds it FROM the org's kubectl -dev images.
   ironbank/big-bang/devops-tester: {build: devops-tester}
   ironbank/opensource/bats/bats: bats
 
@@ -229,7 +229,7 @@ images:
   gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-workhorse-ee}
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
   # No Chainguard gitaly-init-cgroups image (Gitaly's cgroups init container, off by
-  # default): scripts/bb-gitaly-init-cgroups.py builds it from Gitaly's source as GitLab's
+  # default): scripts/bb-build.py gitaly-init-cgroups builds it from Gitaly's source as GitLab's
   # CNG does, FROM the org's images; with BUILD_REGISTRY empty it stays on registry1.
   gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {build: gitaly-init-cgroups}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.

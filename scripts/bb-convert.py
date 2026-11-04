@@ -21,7 +21,7 @@ Writes:
 --org      Chainguard org to point the overlays at (cgr.dev/<org>); default
            $CHAINGUARD_ORG, else the CHAINGUARD_ORG file
 --build-registry
-           registry holding the images this repo builds (scripts/bb-grafana-plugins.py, bb-base.py);
+           registry holding the images this repo builds (scripts/bb-build.py, builds/<name>/);
            default $BUILD_REGISTRY, else the BUILD_REGISTRY file. Empty: they stay on Iron Bank
 """
 import argparse
@@ -96,9 +96,9 @@ class Converter:
             t = build_target(m, self.build_registry)
             if not t:
                 self.rows.append((release, ib, "Iron Bank", "Iron Bank",
-                                  f"built by scripts/bb-{m['build']}.py; set BUILD_REGISTRY to use it"))
+                                  f"built by scripts/bb-build.py {m['build']}; set BUILD_REGISTRY to use it"))
                 return None
-            note = f"built FROM the org's images by scripts/bb-{m['build']}.py"
+            note = f"built FROM the org's images by scripts/bb-build.py {m['build']}"
             tag = t[0].rsplit(":", 1)[1]
             if ib_tag and parse(tag) and parse(ib_tag) and parse(tag)[0][:2] != parse(ib_tag)[0][:2]:
                 note += f"; VERSION DIFFERS from Big Bang's {ib_tag}"

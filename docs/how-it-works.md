@@ -58,34 +58,35 @@ to Flux 2.10, the overlay goes back to Big Bang's `base/flux` with only the imag
 ## Images this repo builds
 
 Big Bang ships three images of its own that Chainguard doesn't publish. Instead of
-depending on anyone's custom build, a script converts **Iron Bank's own recipe**
+depending on anyone's custom build, `scripts/bb-build.py` converts **Iron Bank's own recipe**
 (`hardening_manifest.yaml` and Dockerfile, pinned to a repo1 commit) into a build FROM
 your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
-post-start hook needs curl, which the Chainguard image lacks, so `bb-vault.py` adds it.
+post-start hook needs curl, which the Chainguard image lacks, so the `vault` build adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
 sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
 The Mattermost Operator, tempo-query, the MinIO Operator with its sidecar, and GitLab's
 gitaly-init-cgroups are the sixth to tenth: Chainguard publishes no image of them, so
-`bb-mattermost-operator.py`, `bb-tempo-query.py`, `bb-minio-operator.py`,
-`bb-minio-operator-sidecar.py` and `bb-gitaly-init-cgroups.py` build them from upstream's
-source:
+their builds compile them from upstream's source. Each build is a directory
+`builds/<name>/`: a Dockerfile, a hand-written `recipe.yaml` (what the build is) and the
+generated `build.yaml`; the recipe names a hook in `scripts/buildhooks/` for the Python it
+needs (the two MinIO builds share one):
 
-| Iron Bank image | Script | Built FROM | Image |
+| Iron Bank image | Build (`builds/<name>`) | Built FROM | Image |
 |---|---|---|---|
-| `big-bang/grafana/grafana-plugins`: Grafana with plugins baked in | `bb-grafana-plugins.py` | `grafana`, `grafana-fips` | `bigbang-grafana-plugins` |
-| `big-bang/base`: bash, kubectl, yq and jq for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `bb-base.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base` |
-| `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `bb-devops-tester.py` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
-| `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `bb-vault.py` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
-| `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `bb-jmx-exporter.py` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
-| `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `bb-mattermost-operator.py` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
-| `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `bb-tempo-query.py` | as the Mattermost Operator | `bigbang-tempo-query` |
-| `opensource/minio/operator` and `operator-sidecar` (both archived on Iron Bank): no Chainguard images; built from minio/operator's source (archived upstream) at Big Bang's tags | `bb-minio-operator.py`, `bb-minio-operator-sidecar.py` | as the Mattermost Operator | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` |
-| `gitlab/gitlab-org/build/cng/gitaly-init-cgroups` (GitLab's CNG build on registry1; no Iron Bank recipe): Gitaly's cgroups init container, built from Gitaly's source as CNG builds it | `bb-gitaly-init-cgroups.py` | as the Mattermost Operator | `bigbang-gitaly-init-cgroups` |
+| `big-bang/grafana/grafana-plugins`: Grafana with plugins baked in | `grafana-plugins` | `grafana`, `grafana-fips` | `bigbang-grafana-plugins` |
+| `big-bang/base`: bash, kubectl, yq and jq for Big Bang's upgrade, init and test jobs (33 value paths in ~25 packages) | `base` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-base` |
+| `big-bang/devops-tester`: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc) | `devops-tester` | `kubectl-dev`, `kubectl-fips-dev` | `bigbang-devops-tester` |
+| `hashicorp/vault`: not Big Bang's own image, but its post-start hook needs curl, which Chainguard's vault lacks | `vault` | `vault-dev`, `vault-fips-dev` | `bigbang-vault` |
+| `opensource/prometheus/jmx-exporter`: SonarQube's init container copies its javaagent jar (`/opt/jmx_exporter`) with sh and curl | `jmx-exporter` | `busybox-dev`, `busybox-fips-dev` | `bigbang-jmx-exporter` |
+| `opensource/mattermost/mattermost-operator`: no Chainguard image; built from upstream's source at Iron Bank's tag | `mattermost-operator` | build: `go-dev`, `go-fips-dev` (else `kubectl(-fips)-dev` + Wolfi Go); run: `glibc-openssl(-fips)` (else `kubectl(-fips)`) | `bigbang-mattermost-operator` |
+| `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `tempo-query` | as the Mattermost Operator | `bigbang-tempo-query` |
+| `opensource/minio/operator` and `operator-sidecar` (both archived on Iron Bank): no Chainguard images; built from minio/operator's source (archived upstream) at Big Bang's tags | `minio-operator`, `minio-operator-sidecar` (one hook, `minio`) | as the Mattermost Operator | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` |
+| `gitlab/gitlab-org/build/cng/gitaly-init-cgroups` (GitLab's CNG build on registry1; no Iron Bank recipe): Gitaly's cgroups init container, built from Gitaly's source as CNG builds it | `gitaly-init-cgroups` | as the Mattermost Operator | `bigbang-gitaly-init-cgroups` |
 
 You don't run these to install: CI (`builds.yml`) builds, tests, signs and pushes the
 images when a change merges to main. The rest of this section is for maintainers.
 
-Each script:
+`scripts/bb-build.py <name>`, through the build's hook:
 
 1. reads the tag Big Bang deploys
 2. reads Iron Bank's recipe from [repo1](https://repo1.dso.mil/dsop):
@@ -96,10 +97,16 @@ Each script:
 4. writes `builds/<name>/build.yaml`, the input for the Dockerfile
 
 ```bash
-python scripts/bb-base.py                           # regenerate builds/base/build.yaml
-python scripts/bb-base.py --build --test            # build standard + FIPS, run the smoke test
-python scripts/bb-base.py --build --test --push     # and push to BUILD_REGISTRY
+python scripts/bb-build.py base                         # regenerate builds/base/build.yaml
+python scripts/bb-build.py base --build --test          # build standard + FIPS, run the smoke test
+python scripts/bb-build.py base --build --test --push   # and push to BUILD_REGISTRY
+python scripts/bb-build.py --all                        # regenerate every build (--list names them)
 ```
+
+Constants live in the recipe (the Iron Bank project, the org images, the modules to raise,
+the notes), and so do the build arguments and, for the images with a shell, the smoke
+test (`smoke`: commands and the regexes their output must match). Adding a build is a new
+`builds/<name>/` with a recipe, plus a hook only when no existing one fits.
 
 The smoke tests:
 
@@ -152,7 +159,7 @@ Differences from Iron Bank:
   Its smoke test runs `--help`, starts it with no cluster (it must log its Go version and
   stop at the missing kubeconfig) and reads the binary's build info (raised modules; for
   `-fips`, a cgo build with a FIPS crypto backend).
-- **tempo-query** is built the same way (shared helpers in `bbbuild.py`) from
+- **tempo-query** is built the same way (shared helpers in `scripts/bbbuild.py`) from
   grafana/tempo's source at the tag Big Bang deploys (2.10.5; Iron Bank's recipe has
   moved on to 3.x), `./cmd/tempo-query`, with `golang.org/x/net` (a Critical CVE),
   `x/text`, `grpc` and `thrift` raised to their newest releases. Iron Bank puts the binary
@@ -171,7 +178,7 @@ Differences from Iron Bank:
   Critical CVEs) and x/net v0.38.0 (Critical): the build drops the replace and raises
   both. Iron Bank sets no user (root); these run as 65532, and Big Bang's charts run them
   as their own non-root uids. Both share `builds/minio-operator/Dockerfile` (one final
-  stage per image, `build.yaml` `target`) and `scripts/bbminio.py`. MinIO Operator is
+  stage per image, `build.yaml` `target`) and the hook `scripts/buildhooks/minio.py`. MinIO Operator is
   AGPL-3.0; the images carry its LICENSE and CREDITS.
 - **gitaly-init-cgroups** has no Iron Bank recipe: Big Bang pulls GitLab's own CNG build
   from registry1. It is built as CNG builds it, from Gitaly's `tools/gitaly-init-cgroups`

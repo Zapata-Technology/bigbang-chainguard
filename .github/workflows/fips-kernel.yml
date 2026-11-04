@@ -134,7 +134,7 @@ jobs:
 
       - name: Python packages
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           test -d work/bigbang/chart
 
       - name: Deploy and check (FIPS overlay)

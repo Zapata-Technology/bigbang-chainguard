@@ -1,0 +1,3 @@
+# What the scripts need at runtime: the standard library and PyYAML (AGENTS.md rule 9).
+# CI installs exactly this (pip install -r requirements.txt); Dependabot proposes updates.
+PyYAML==6.0.3

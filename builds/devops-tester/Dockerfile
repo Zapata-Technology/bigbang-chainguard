@@ -1,5 +1,5 @@
 # Big Bang's test-runner image (Iron Bank big-bang/devops-tester) rebuilt FROM the
-# org's kubectl or kubectl-fips -dev image. scripts/bb-devops-tester.py passes every
+# org's kubectl or kubectl-fips -dev image. scripts/bb-build.py devops-tester passes every
 # input from build.yaml, which it generates from Iron Bank's own Dockerfile and
 # hardening_manifest.yaml (repo1.dso.mil/dsop/big-bang/devops-tester):
 #

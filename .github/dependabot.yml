@@ -1,5 +1,5 @@
 # Keep the SHA-pinned GitHub Actions current (Dependabot keeps the SHA pin and
-# updates the version comment).
+# updates the version comment), and the Python pins in requirements*.txt.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,4 +8,14 @@ updates:
       interval: weekly
     groups:
       actions:
+        patterns: ["*"]
+  # The pins in requirements*.txt: a release becomes a pull request once it is two weeks old.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    groups:
+      python:
         patterns: ["*"]

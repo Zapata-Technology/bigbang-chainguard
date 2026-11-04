@@ -18,9 +18,10 @@ pick a tag from the org, and write overlays. Diagrams: [docs/architecture.md](do
 | `mapping.yaml`: image map and every escape hatch | `overlays/*.yaml`, `flux/`, `flux-fips/` (`bb-convert.py`) |
 | `orgs/<org>.yaml`: one org's exceptions | `seaweedfs/`, `seaweedfs-fips/` (`bb-convert.py`, from `object-storage.yaml`) |
 | `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md`, `docs/version-differences.md` (`bb-convert.py`) |
-| `scripts/*.py`, `builds/*/Dockerfile` | `builds/*/build.yaml` (`bb-<name>.py`) |
+| `scripts/*.py`, `scripts/bbinstall/`, `builds/*/Dockerfile`, `builds/*/recipe.yaml` | `builds/*/build.yaml` (`bb-build.py <name>`) |
 | `compat/*.yaml`, `compat/support/*` | `discovery/images.json` (`bb-images.py`) |
-| `tests/`, docs other than the two above | |
+| `docs/test-results.json` `tests`: each kind test's description | `docs/testing.md`'s results table, between its `results:start`/`end` markers, and `docs/test-results.json` `results` (`test-results.py`, from compat.yml's result artifacts) |
+| `tests/`, docs other than the ones above (and the rest of `docs/testing.md`) | |
 
 Settings (`CHAINGUARD_ORG`, `BUILD_REGISTRY`, `OBJECT_STORAGE`) resolve flag > env or repo
 variable > the file of that name; the files are comment-only here, so the repo stays
@@ -46,14 +47,16 @@ org-neutral.
    host to `allowed-endpoints` when a new tool needs it). A VM test's downloads are pinned by
    SHA256 and its hosts allowed (`tests/test_repo_rules.py`).
 8. **Every `bb-scan.py` finding is reviewed** in `mapping.yaml` `scan_reviewed`.
-9. Python: standard library + PyYAML only; each script starts with a docstring saying what
+9. Python: standard library + PyYAML only (pinned in `requirements.txt`; pytest and ruff,
+   for CI only, in `requirements-dev.txt`); each script starts with a docstring saying what
    it does and how to run it; match the surrounding style (short functions, comments that
-   say *why*).
+   say *why*). `ruff check .` must pass (`pyproject.toml`: unused or undefined names,
+   statement errors; no formatter).
 
 ## Commands
 
 ```bash
-python scripts/check.py              # before every commit: unit tests (+ chart scan if work/ exists)
+python scripts/check.py              # before every commit: unit tests, ruff (+ chart scan if work/ exists)
 python scripts/check.py --online     # + overlays current + verify std/FIPS (chainctl, work/)
 python scripts/bb-run.py             # fetch, discover, scan, convert, verify: the whole pipeline
 python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml
@@ -66,6 +69,7 @@ python scripts/bb-install.py status                              # health of a d
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
 python scripts/bb-preview.py          # Big Bang's development branch against this repo: what would break
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/test-results.py update # docs/testing.md's results table (--from-main N: main's runs)
 python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
@@ -104,8 +108,9 @@ The loop, for a person or an agent picking the repo up:
    protection requires only `verify`, so check the rest yourself. The nightly bot PR merges
    itself (`automerge.yml`) unless it moves Big Bang or carries `hold`.
 6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
-   and, if a site must act, the README; a new trap goes below. Keep `docs/testing.md`'s
-   results current.
+   and, if a site must act, the README; a new trap goes below. `docs/testing.md`'s
+   results table is generated: the nightly bot PR brings main's newest compat.yml results
+   (`scripts/test-results.py update --from-main 20` does the same by hand).
 
 Parallel agents: give each its own worktree and its own files (one per `compat/*.yaml`
 test, say); keep shared files (the README, `docs/testing.md`, this file) with one agent.
@@ -189,11 +194,15 @@ compat test if it has one.
 ### Change how Big Bang is deployed
 The user-facing path is `scripts/bb-install.py`, and users never run the steps by hand:
 add a new step to the installer (and to `check` when it can fail before anything changes),
-not to the docs. `docs/install.md` describes the installer. Cluster helpers it shares with the kind harness live in
+not to the docs. `bb-install.py` is the command line (flags, help); the installer is the
+`scripts/bbinstall/` package, one module per concern (its `__init__.py` lists them):
+`install.py` runs the steps, `preflight.py` the checks they start with, `commands.py` the
+other commands. Tests patch a name in the module that looks it up (`credentials.read_secret`). `docs/install.md` describes the installer. Cluster helpers it shares with the kind harness live in
 `scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
 kind, then `check`, and `upgrade` of the same site file in Big Bang 3's keys; `tests/test_install.py` covers its decisions without a cluster. A new credential or
-generated value goes in the `bigbang/bb-install` Secret through `Credentials` (a pull token it
-makes with chainctl too: `chainctl_pull_token` captures the output), never on a
+generated value goes in the `bigbang/bb-install` Secret through `Credentials`
+(`bbinstall/credentials.py`; a pull token it makes with chainctl too: `chainctl_pull_token`
+captures the output), never on a
 command line or in output.
 
 ### Write a compat test
@@ -211,19 +220,32 @@ keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` a
 ### Disconnected sites
 `scripts/bb-airgap.py` writes the bundle (chart, rendered Flux, bare git clones, images.txt);
 `bb-install.py --git-mirror/--registry-mirror` installs from the site's copies
-(`mirrored_checkout` rewrites `cgr.dev/<org>` and the build registry, keeping headers). The
+(`bbinstall/checkout.py` `mirrored_checkout` rewrites `cgr.dev/<org>` and the build registry,
+keeping headers). The
 tooling never copies or pushes images: that is the site's step (repo rule 2).
 
 ### Add a cluster-side setting to the installer
-Settings applied after Big Bang (TLS, the signature policy) follow one pattern: a
-`*_choice` that reads the flag or the remembered value from `Credentials`, a manifest
-function, `apply_when_ready(docs, crd, namespace, check, wait)` (waits for the package's
-CRD and namespace and its admission webhook) and a `*_problem` that `status` reports.
+Settings applied after Big Bang (TLS, the signature policy) follow one pattern, a module
+each in `scripts/bbinstall/` (`tls.py`, `signatures.py`): a `*_choice` that reads the flag
+or the remembered value from `Credentials`, a manifest function,
+`apply_when_ready(docs, crd, namespace, check, wait)` (`common.py`: waits for the package's
+CRD and namespace and its admission webhook) and a `*_problem` that `status_report`
+(`status.py`) reports. `install.py` calls the first three; the flag goes in `bb-install.py`.
 
 ### Change an image this repo builds
-Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with
-`scripts/bb-<name>.py`; the smoke test in that script must cover the change. `builds.yml`
-builds on the PR and pushes on merge.
+Edit `builds/<name>/Dockerfile`, `builds/<name>/recipe.yaml` (what the build is: names,
+Iron Bank project, modules to raise, notes, build arguments, a declarative smoke test) or
+its hook `scripts/buildhooks/<hook>.py` (the Python it needs); regenerate `build.yaml` with
+`python scripts/bb-build.py <name>` (`--all` for every build); the smoke test (the hook's,
+or the recipe's `smoke`) must cover the change. `builds.yml` builds on the PR and pushes on
+merge.
+
+### Add an image this repo builds
+A new `builds/<name>/` with a `Dockerfile` and a `recipe.yaml` (`scripts/bb-build.py`'s
+docstring lists the keys), and a hook in `scripts/buildhooks/` only if no existing one
+fits (`buildhooks/__init__.py` says what a hook has). Add `<name>` to `builds.yml`'s matrix
+and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
+`{build: <name>}` entry in `mapping.yaml`, and a row in docs/how-it-works.md's table.
 
 ## Traps already hit (don't rediscover them)
 

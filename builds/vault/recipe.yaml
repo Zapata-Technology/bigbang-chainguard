@@ -1,0 +1,13 @@
+# What builds/vault is (hand-written). scripts/bb-build.py vault reads it and its hook
+# (scripts/buildhooks/vault.py) to generate build.yaml.
+description: Chainguard Vault plus curl, which Big Bang's vault post-start hook needs
+hook: vault
+image: bigbang-vault
+header: |-
+  Chainguard Vault plus curl for Big Bang's vault post-start hook.
+ironbank:
+  image: ironbank/hashicorp/vault
+org_images: {standard: vault, fips: vault-fips}
+packages: [curl]
+notes:
+  - Chainguard vault plus curl, which Big Bang's vault post-start hook needs

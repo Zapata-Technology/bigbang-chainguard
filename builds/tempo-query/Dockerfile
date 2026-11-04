@@ -1,7 +1,7 @@
 # Big Bang's tempo-query (Iron Bank opensource/grafana/tempo-query) built from
 # grafana/tempo's source FROM the org's images. Iron Bank puts the binary on its
 # jaeger-query image; Chainguard publishes no tempo-query image.
-# scripts/bb-tempo-query.py passes every input from build.yaml:
+# scripts/bb-build.py tempo-query passes every input from build.yaml:
 #
 #   DEV_IMAGE          the org's build image (go(-fips) -dev, or kubectl(-fips) -dev), by digest
 #   BASE_IMAGE         the org's runtime image (glibc-openssl(-fips), or kubectl(-fips)), by digest

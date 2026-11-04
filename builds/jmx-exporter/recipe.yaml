@@ -1,0 +1,37 @@
+# What builds/jmx-exporter is (hand-written). scripts/bb-build.py jmx-exporter reads it and
+# its hook (scripts/buildhooks/jmx_exporter.py) to generate build.yaml.
+description: the Prometheus JMX javaagent jar, sh and curl (SonarQube's init container), FROM the org's busybox -dev images
+hook: jmx_exporter
+image: bigbang-jmx-exporter
+header: |-
+  Iron Bank's jmx-exporter rebuilt FROM the Chainguard org's busybox -dev images:
+  the javaagent jar of Iron Bank's recipe at `ironbank.commit`, plus curl.
+ironbank:
+  image: ironbank/opensource/prometheus/jmx-exporter
+  project: opensource/prometheus/jmx-exporter
+org_images: {standard: busybox, fips: busybox-fips}
+packages: [curl]
+not_ported:
+  - >-
+    the standalone exporter (jmx_prometheus_standalone jar, Java and its entrypoint) and the
+    examples: Big Bang runs this image only as SonarQube's init container, which copies the
+    javaagent jar
+build_args:
+  PACKAGES: "{{packages}}"
+  JAR_URL: "{{jar.url}}"
+  JAR_SHA256: "{{jar.sha256}}"
+  JAR_DIR: "{{jar.dir}}"
+  JAR_NAME: "{{jar.name}}"
+  USER_ID: "{{user.id}}"
+# SonarQube's init container command, word for word (noCheckCertificate off), under its
+# init containers' security context; it copies the jar into its volume at /data.
+smoke:
+  shell: /bin/sh
+  docker_args: [--user, "1000:0", --read-only, --cap-drop, ALL, --security-opt, no-new-privileges,
+                --tmpfs, "/data:mode=1777"]
+  script:
+    - |-
+      curl -s '{{download_url}}'  --output /data/jmx_prometheus_javaagent.jar -v
+    - sha256sum /data/jmx_prometheus_javaagent.jar
+  checks:
+    "jar copied with Iron Bank's sha256": '^{{jar.sha256}}\s+/data/jmx_prometheus_javaagent\.jar$'

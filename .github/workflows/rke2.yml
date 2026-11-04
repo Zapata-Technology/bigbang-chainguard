@@ -117,7 +117,7 @@ jobs:
           python-version: '3.12'
 
       - name: Python packages
-        run: python -m pip install --quiet pyyaml
+        run: python -m pip install --quiet -r requirements.txt
 
       - name: Boot a VM with RKE2 (CIS profile)
         id: vm
