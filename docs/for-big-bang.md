@@ -25,10 +25,10 @@ built it and offers it to the Big Bang community under Apache-2.0.
   - vendor products (Twistlock, Anchore Enterprise, Fortify)
   - parts of the GitLab CNG set and Red Hat UBI bases its scripts expect
   - a few with no Chainguard image yet
-- Ten images Chainguard doesn't publish are built here FROM Chainguard images: Big Bang's
+- Eleven images Chainguard doesn't publish are built here FROM Chainguard images: Big Bang's
   own (`base`, `grafana-plugins`, `devops-tester`) from Iron Bank's recipes, and Vault, the
   JMX exporter, the Mattermost Operator, tempo-query, the MinIO Operator and its sidecar,
-  and GitLab's gitaly-init-cgroups from upstream source.
+  GitLab's gitaly-init-cgroups and NeuVector's registry adapter from upstream source.
 - Verified by rendering every package in standard and FIPS mode, and by running each
   package on kind in both modes (37 tests, each with a functional check), on each pull
   request that changes what clusters run (the two GitLab tests weekly). Upgrading from the newest 3.35.1 release to Big Bang 4 is one of those tests.

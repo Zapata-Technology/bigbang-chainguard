@@ -15,9 +15,9 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | newer major | 1 |
 | newer minor | 15 |
 | newer patch | 30 |
-| same | 70 |
+| same | 71 |
 | numbered differently | 7 |
-| stays on Iron Bank | 20 |
+| stays on Iron Bank | 19 |
 | **total** | **143** |
 
 ## Different version line (16)
@@ -76,7 +76,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/thanos/thanos:v0.42.4` | `thanos:0.42.5` | `thanos-fips:0.42.5` | Chainguard | newer patch | monitoring |
 
-## Same version (70)
+## Same version (71)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -137,6 +137,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/memcached/memcached:1.6.45` | `memcached:1.6.45` | `memcached-fips:1.6.45` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/minio/operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar-fips:v7.1.0` | built here | same | minio-operator |
 | `ironbank/opensource/minio/operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1` | built here | same | minio-operator |
+| `ironbank/opensource/neuvector/registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13` | built here | same | neuvector |
 | `ironbank/opensource/nginx/nginx:1.31.8` | `nginx:1.31.8` | `nginx-fips:1.31.8` | Chainguard | same | gitlab, harbor, mimir |
 | `ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1` | `gatekeeper:3.23.1` | `gatekeeper-fips:3.23.1` | Chainguard | same | gatekeeper |
 | `ironbank/opensource/postgres/postgresql:18.6` | `postgres:18.6` | `postgres-fips:18.6` | Chainguard | same | harbor, keycloak, mattermost |
@@ -163,7 +164,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/grafana/alloy-operator:1.14.3` | `grafana-alloy-operator:0.9` | `grafana-alloy-operator-fips:0.9` | Chainguard | numbered differently | alloy (pinned to the 0.9 line (Iron Bank's tag isn't this image's version)) |
 | `ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0` | `kubectl:1.34-dev` | `kubectl-fips:1.34-dev` | Chainguard | numbered differently | alloy (pinned to the 1.34 line (Iron Bank's tag isn't this image's version)) |
 
-## Stays on Iron Bank (20)
+## Stays on Iron Bank (19)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -181,7 +182,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/microfocus/fortify/ssc:26.2.2.0004` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | fortify |
 | `ironbank/opensource/go-gitea/gitea:28.2.0` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | renovate |
 | `ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | logging-loki, mattermost, minio |
-| `ironbank/opensource/neuvector/registry-adapter:v0.2.13` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | neuvector |
 | `ironbank/opensource/shellcheck/shellcheck:v0.11.0` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | argocd |
 | `ironbank/redhat/ubi/ubi9-minimal:9.8` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | external-secrets, fortify, grafana, monitoring |
 | `ironbank/redhat/ubi/ubi9:9.8` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | fortify, gitlab, gitlab-runner, sonarqube |

@@ -1273,6 +1273,11 @@ packages:
           image:
             repository: neuvector-controller
         cve:
+          adapter:
+            image:
+              registry: ghcr.io/zapata-technology
+              repository: bigbang-registry-adapter
+              tag: v0.2.13
           scanner:
             image:
               registry: ''

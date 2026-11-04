@@ -191,7 +191,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | neuvector | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | neuvector | ironbank/big-bang/cypress:16.2.0 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16) |
-| neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | Iron Bank | Iron Bank | no Chainguard neuvector-registry-adapter image |
+| neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13 | built FROM the org's images by scripts/bb-build.py registry-adapter |
 | neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -221,7 +221,7 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 | velero | ironbank/opensource/velero/velero:v1.18.4 | velero:1.18.4 | velero-fips:1.18.4 |  |
 | ztunnel | ironbank/opensource/istio/ztunnel:1.31.3 | ztunnel:1.31.3 | ztunnel-fips:1.31.3 |  |
 
-## Stays on Iron Bank (19)
+## Stays on Iron Bank (18)
 
 - `gitlab/gitlab-org/build/cng/gitlab-openbao`: GitLab's own OpenBao build; Chainguard's openbao is upstream's
 - `gitlab/gitlab-org/build/cng/gitlab-zoekt`: no Chainguard gitlab-zoekt image (code search, off by default)
@@ -236,7 +236,6 @@ Standard and FIPS names without a registry are in `cgr.dev/zapatatechnology.com`
 - `ironbank/microfocus/fortify/ssc`: Fortify SSC is proprietary; vendor image only
 - `ironbank/opensource/go-gitea/gitea`: org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)
 - `ironbank/opensource/minio/minio`: MinIO not used by Zapata; org minio repos removed 2026-10-27
-- `ironbank/opensource/neuvector/registry-adapter`: no Chainguard neuvector-registry-adapter image
 - `ironbank/opensource/shellcheck/shellcheck`: redis-ha's helm test image (helm test only)
 - `ironbank/redhat/ubi/ubi9`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland
 - `ironbank/redhat/ubi/ubi9-minimal`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland

@@ -12,6 +12,7 @@
 #   minio-operator, minio-operator-sidecar  the MinIO Operator and its Tenant sidecar,
 #                     built from upstream's (archived) source (Go)
 #   gitaly-init-cgroups  GitLab's Gitaly cgroups init container, built from Gitaly's source (Go)
+#   registry-adapter  NeuVector's Harbor scanner adapter built from upstream's source (Go, cgo)
 #
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
@@ -70,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, gitaly-init-cgroups, installer]
+        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, gitaly-init-cgroups, registry-adapter, installer]
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}

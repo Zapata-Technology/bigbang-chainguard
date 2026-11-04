@@ -1,0 +1,35 @@
+apiVersion: v1
+
+name: "opensource/neuvector/registry-adapter"
+
+tags:
+- "v0.2.13"
+- "latest"
+
+args:
+  BASE_IMAGE: "redhat/ubi/ubi9-minimal"
+  BASE_TAG: "9.8"
+
+labels:
+  org.opencontainers.image.title: "NeuVector Registry Adapter"
+  org.opencontainers.image.description: "NeuVector vulnerability scan adapter for the NeuVector Container Security Platform"
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/neuvector/registry-adapter"
+  org.opencontainers.image.vendor: "Iron Bank"
+  org.opencontainers.image.version: "v0.2.13"
+  mil.dso.ironbank.image.keywords: "adapter, scan, security"
+  mil.dso.ironbank.image.type: "opensource"
+  mil.dso.ironbank.product.name: "Neuvector"
+
+resources:
+- url: https://github.com/neuvector/registry-adapter/archive/refs/tags/v0.2.13.tar.gz
+  filename: registry-adapter.tar.gz
+  validation:
+    type: sha256
+    value: 392037d32818e4979a4f65cace2c2d18df56fe74ba53efc5e64bc1964a7ceebd
+
+maintainers:
+- email: "AFLCMC.HNCX.RC-Helpdesk@us.af.mil"
+  name: "Patrick Einheber"
+  username: "einheber"
+  cht_member: true

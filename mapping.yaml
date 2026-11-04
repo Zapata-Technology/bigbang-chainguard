@@ -115,7 +115,9 @@ images:
   ironbank/neuvector/neuvector/manager: neuvector-manager
   ironbank/neuvector/neuvector/scanner: neuvector-scanner
   ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
-  ironbank/opensource/neuvector/registry-adapter: {stays: "no Chainguard neuvector-registry-adapter image", until: neuvector-registry-adapter}
+  # No Chainguard registry-adapter image: scripts/bb-build.py registry-adapter builds it from
+  # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
+  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter}
   ironbank/twistlock/console/console: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/twistlock/defender/defender: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/anchore/enterprise/enterprise: {stays: "Anchore Enterprise is proprietary; vendor image only"}

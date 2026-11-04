@@ -125,12 +125,12 @@ jobs:
             if [ -n "$BUILD_REGISTRY" ]; then
               out="${RUNNER_TEMP}/builders"; mkdir -p "$out"
               start=$(date +%s)
-              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
+              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups registry-adapter; do
                 ( s=$(date +%s); python3 scripts/bb-build.py "$b" > "$out/$b.log" 2>&1 || true
                   echo "bb-build.py $b: $(( $(date +%s) - s )) s" >> "$out/$b.log" ) &
               done
               wait
-              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
+              for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups registry-adapter; do
                 cat "$out/$b.log"
               done
               echo "builders (in parallel): $(( $(date +%s) - start )) s"

@@ -1257,6 +1257,11 @@ packages:
           image:
             repository: neuvector-controller-fips
         cve:
+          adapter:
+            image:
+              registry: ghcr.io/zapata-technology
+              repository: bigbang-registry-adapter-fips
+              tag: v0.2.13
           scanner:
             image:
               registry: ''
