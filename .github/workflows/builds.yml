@@ -54,6 +54,13 @@ on:
         type: boolean
         default: false
 
+# A new push to a pull request cancels that pull request's older run (only the newest
+# commit's result matters, and every run costs runner minutes). Runs on
+# main and schedules each get their own group (run_id), so none is cancelled or queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -113,6 +120,14 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # grafana-plugins (standard and FIPS, each exported to a tarball for grype) filled the
+      # runner's disk: grype failed with "no space left on device". Drop preinstalled
+      # toolchains no build uses (~30 GB), as compat.yml does.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0

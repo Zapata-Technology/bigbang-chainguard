@@ -295,14 +295,19 @@ These are kind-on-GitHub-Actions limits, not image problems:
 A compat file with `large: true` (GitLab, GitLab Runner) needs more memory and time than
 the other tests (`timeout:` in seconds; the job gets 90 minutes). It runs in the weekly
 `compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes only that test's
-`compat/<test>.yaml` (`scripts/compat-plan.py` then runs just the changed tests), and by hand
+`compat/<test>.yaml`, and by hand
 from main: `gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`. A manual
 run from another branch fails at the Chainguard login: the CI identity trusts main and pull
 requests only.
 
-A pull request that changes only `compat/*.yaml` files runs just those tests; any other
-change that `compat.yml` watches (the mapping, overlays, the harness, `compat/support/`) runs
-every test that isn't large.
+A pull request runs only the tests its change reaches (`scripts/compat-plan.py`): a changed
+`compat/<test>.yaml` (both modes), the tests that enable a package whose overlay changed beyond
+its digests (in that overlay's mode), the tests that use a changed `compat/support/` file, the
+installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and two small smoke tests
+(`kyverno-enforce`, `metrics-server`) for harness, Flux, mapping and digest-only changes. Docs
+and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test; a new
+push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
+so the selection keeps a month's pull requests within the Actions allowance.
 
 MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which CI has
 no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server with
