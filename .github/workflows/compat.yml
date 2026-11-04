@@ -2,7 +2,9 @@
 # cluster, with a trial mapping from compat/<test>.yaml (e.g. Vault 2.x where Big
 # Bang pins 1.21), and check that it runs. One job per test and mode; nothing here
 # changes the overlays. Runs on pull requests that change a test, or by hand; the
-# results tell you whether to move an image from `stays` to the trial mapping.
+# results tell you whether to move an image from `stays` to the trial mapping. Each job
+# also records its result as JSON; the nightly update.yml turns main's into
+# docs/testing.md's results table (scripts/test-results.py).
 name: Compat - upgrade tests
 
 on:
@@ -170,6 +172,7 @@ jobs:
           test -d work/bigbang/chart
 
       - name: Deploy and check
+        id: deploy
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
@@ -226,4 +229,56 @@ jobs:
             ${{ runner.temp }}/diag
             ${{ runner.temp }}/compat.log
           retention-days: 14
+          if-no-files-found: ignore
+
+      # The job's result as JSON (test, mode, pass/fail/skipped, Big Bang version, date,
+      # run, commit): the nightly update.yml writes docs/testing.md's results table from
+      # these (scripts/test-results.py). A cancelled job or a failed setup step records
+      # `error`, which never replaces a real result.
+      - name: Record the result
+        if: always()
+        env:
+          OUTCOME: ${{ steps.deploy.outcome }}
+          TEST: ${{ matrix.test }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          python3 scripts/test-results.py record --test "$TEST" --mode "$MODE" --outcome "$OUTCOME" \
+            --log "${RUNNER_TEMP}/compat.log" --out "${RUNNER_TEMP}/result"
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: compat-result-${{ matrix.test }}-${{ matrix.mode }}
+          path: ${{ runner.temp }}/result
+          retention-days: 90
+          if-no-files-found: ignore
+          overwrite: true   # a re-run job replaces its earlier attempt's result
+
+  # Runs on main (the weekly schedule, manual runs): every job's result in one artifact,
+  # `compat-results`, and a table in the run's summary. Pull requests skip it; their
+  # results describe a branch, not main.
+  results:
+    needs: test
+    if: always() && github.event_name != 'pull_request' && needs.test.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read     # gh run download: this run's result artifacts
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Collect the results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" --pattern 'compat-result-*' -D results || true
+          {
+            echo "### Kind test results"
+            python3 scripts/test-results.py summary --results results
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: compat-results
+          path: results
+          retention-days: 90
           if-no-files-found: ignore
