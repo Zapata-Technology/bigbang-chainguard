@@ -128,14 +128,14 @@ gh run download <run id> -n compat-gitlab-standard -D gitlab-logs
 Run locally, the same files land in `<out>/diag` (the test prints the path), or in
 `$COMPAT_DIAG` when set.
 
-## Results (Big Bang 3.35.1, 2026-11-02)
+## Results (Big Bang 4.0.0, 2026-11-04)
 
 Every test in this table passes in standard and FIPS mode on main's latest runs, except where the notes say otherwise. Every test has a `check` that proves the package does its job, not only that its pods are Ready (`tests/test_compat_files.py` requires one). Large tests run weekly and on demand; the rest on every pull request that touches what clusters run.
 
 | Test | What runs | Notes |
 |---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data. Check: `vault status` initialized and unsealed; a KV v2 secret written and read back |
-| release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays | New. What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
+| release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays. On 4.0 the newest release was `3.35.1-cg.62`, so the test crosses the major: Big Bang 3's keys and ClusterPolicies first, then Big Bang 4's `packages.*` and CEL policies | What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
 | vault-upgrade (skipped) | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |
@@ -150,8 +150,8 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, config-reloader 0.94 | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`). Monitoring's k8s-sidecar belongs to kube-prometheus-stack's Grafana, which Big Bang turns off; the grafana and loki tests run it |
 | neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
 | renovate | renovate 44.190 | A CronJob. Check: one run of it completes on Renovate's `local` platform (no git platform token in CI) |
-| kyverno-enforce | `restrict-image-registries` in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them. Check: an org-image Pod is admitted and the same Pod from docker.io refused (server dry-run) |
-| object-storage | Tempo on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages (see README). Check: a span sent over OTLP is found by trace ID and flushed to a block in the bucket |
+| kyverno-enforce | `restrict-image-registries` (Big Bang 4: a CEL `ValidatingPolicy`) in Enforce with Headlamp and Grafana | Proves the overlay's allow list admits them. Check: an org-image Pod is admitted and the same Pod from docker.io refused (server dry-run) |
+| object-storage | Tempo 3 on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | Credentials only for enabled packages. Check: a span sent over OTLP is found by trace ID, and Tempo 3's live-store writes its block to the bucket (`max_block_duration` 30s; Tempo 3 has no `/flush`) |
 | keycloak | Keycloak 26.8 with Big Bang's PostgreSQL | Check: the master realm's OIDC discovery (under `/auth`) and JWKS; the admin logs in with kcadm in the pod |
 | external-secrets | External Secrets Operator 2.12 | Check: an ExternalSecret on ESO's `fake` provider syncs into a Secret |
 | fluentbit | Fluent Bit 5.1 shipping to Loki | Check: Loki has the streams Fluent Bit labels |
@@ -160,7 +160,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | thanos | Thanos 0.42 with Prometheus, blocks on SeaweedFS | Check: Query lists the sidecar and store gateway and answers `up` (found the DNS problem below) |
 | velero | Velero 1.18 and the AWS plugin, backups on SeaweedFS | Check: a backup of a test namespace to SeaweedFS reaches Completed |
 | istio-ambient | Istio CNI and ztunnel 1.31 | Check: traffic between two ambient pods goes through ztunnel over HBONE |
-| installer | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password |
+| installer | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | Generated S3 keys and Keycloak password. Then `check` passes on the cluster (render and every-image pull test), refuses the same site file in Big Bang 3's keys, and `upgrade` converts it to a plan that changes nothing |
 | installer-tls | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | HTTPS through the gateway verified against the CA |
 | installer-signatures | `--verify-signatures enforce` (the default): Kyverno policy for Chainguard's signatures and `builds.yml`'s | Policy Ready, a signed org image and a signed `bigbang-base` admitted, an unsigned tag refused |
 | installer-gitops | `install --gitops`: Big Bang as a Flux HelmRelease from repo1 git and ConfigMaps | The `bigbang` HelmRelease Ready; nothing secret in the directory |
