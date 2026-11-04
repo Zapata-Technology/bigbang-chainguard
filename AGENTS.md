@@ -20,7 +20,8 @@ pick a tag from the org, and write overlays. Diagrams: [docs/architecture.md](do
 | `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md`, `docs/version-differences.md` (`bb-convert.py`) |
 | `scripts/*.py`, `builds/*/Dockerfile`, `builds/*/recipe.yaml` | `builds/*/build.yaml` (`bb-build.py <name>`) |
 | `compat/*.yaml`, `compat/support/*` | `discovery/images.json` (`bb-images.py`) |
-| `tests/`, docs other than the two above | |
+| `docs/test-results.json` `tests`: each kind test's description | `docs/testing.md`'s results table, between its `results:start`/`end` markers, and `docs/test-results.json` `results` (`test-results.py`, from compat.yml's result artifacts) |
+| `tests/`, docs other than the ones above (and the rest of `docs/testing.md`) | |
 
 Settings (`CHAINGUARD_ORG`, `BUILD_REGISTRY`, `OBJECT_STORAGE`) resolve flag > env or repo
 variable > the file of that name; the files are comment-only here, so the repo stays
@@ -65,6 +66,7 @@ python scripts/bb-install.py status                              # health of a d
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
 python scripts/bb-preview.py          # Big Bang's development branch against this repo: what would break
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/test-results.py update # docs/testing.md's results table (--from-main N: main's runs)
 python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
@@ -102,8 +104,9 @@ The loop, for a person or an agent picking the repo up:
    protection requires only `verify`, so check the rest yourself. The nightly bot PR merges
    itself (`automerge.yml`) unless it moves Big Bang or carries `hold`.
 6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
-   and, if a site must act, the README; a new trap goes below. Keep `docs/testing.md`'s
-   results current.
+   and, if a site must act, the README; a new trap goes below. `docs/testing.md`'s
+   results table is generated: the nightly bot PR brings main's newest compat.yml results
+   (`scripts/test-results.py update --from-main 20` does the same by hand).
 
 Parallel agents: give each its own worktree and its own files (one per `compat/*.yaml`
 test, say); keep shared files (the README, `docs/testing.md`, this file) with one agent.
