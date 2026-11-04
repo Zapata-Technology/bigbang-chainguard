@@ -10,6 +10,7 @@ Writes:
   flux/kustomization.yaml, flux-fips/kustomization.yaml
   docs/images.md                        per-package table, including what stays on Iron Bank
   docs/required-images.md               Chainguard repositories an org needs (org-independent)
+  docs/version-differences.md           each image's version: Iron Bank's vs the one deployed
 
 --check    regenerate in memory; exit 1 on unmapped or untagged images, 3 if a
            file would change only (newer org patches since the last run)
@@ -34,7 +35,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bbcommon import build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
-from orgtags import REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
+from orgtags import _IB_SUFFIXES, REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
 import fluxrelease  # noqa: E402
 import objstore  # noqa: E402
 
@@ -504,6 +505,7 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
     for d, variant in (("flux", "standard"), ("flux-fips", "fips")):
         files[f"{d}/kustomization.yaml"] = flux_kustomization(flux[variant], bigbang_version, c, hdr, d)
     files["docs/images.md"] = report(c.rows, bigbang_version, c.cg)
+    files["docs/version-differences.md"] = version_report(c.rows, bigbang_version, c.cg, mapping["images"])
     return files, c
 
 
@@ -804,6 +806,98 @@ def report(rows, version, cg):
     lines += [f"- {rel}: `{ib}` -> `{std}` (built by this repo on a different version line)"
               for rel, ib, std in built]
     return "\n".join(lines) + "\n"
+
+
+# version_report's comparisons, most different first.
+DIFFERENCES = ["newer major", "older major", "newer minor", "older minor", "older patch", "newer patch",
+               "same", "no version to compare", "numbered differently", "stays on Iron Bank"]
+
+
+def version_difference(ib_tag, tag):
+    """How the deployed tag's version compares with Iron Bank's: one of DIFFERENCES."""
+    if tag is None:
+        return "stays on Iron Bank"
+    def version(t):
+        # A version after a prefix counts too: GitLab Runner's "ubi-fips-v19.2.2".
+        m = re.search(r"v?\d+\.\d+(\.\d+)*", t)
+        return parse(t) or (parse(m.group(0)) if m else None)
+    a, b = version(_IB_SUFFIXES.sub("", ib_tag)), version(tag)
+    if not a or not b:
+        return "no version to compare"
+    a, b = (a[0] + (0, 0, 0))[:3], (b[0] + (0, 0, 0))[:3]
+    for i, part in enumerate(("major", "minor", "patch")):
+        if a[i] != b[i]:
+            return f"{'newer' if b[i] > a[i] else 'older'} {part}"
+    return "same"
+
+
+def numbering(m):
+    """Why a mapping entry's tag isn't compared with Iron Bank's, or None: `version_from`
+    (another image's version, e.g. the GitLab release) or a pinned `version` (an image
+    Chainguard numbers by another release, e.g. alloy-operator's)."""
+    if not isinstance(m, dict):
+        return None
+    if m.get("version_from"):
+        return f"follows `{m['version_from']}`'s version"
+    if m.get("version") == "*":
+        return "newest release (Iron Bank's tag isn't this image's version)"
+    if m.get("version") is not None:
+        return f"pinned to the {m['version']} line (Iron Bank's tag isn't this image's version)"
+    return None
+
+
+def version_report(rows, version, cg, images_map=None):
+    """docs/version-differences.md: for each Iron Bank image Big Bang pins, the version the
+    overlays deploy instead (standard and FIPS), and how far it is from Iron Bank's."""
+    images = {}
+    for rel, ib, std, fips, _ in rows:
+        # Image rows only: not override notes ("override @repo:..."), nothing unresolved.
+        if " " in ib or ":" not in ib or std == "UNRESOLVED" or (std != "Iron Bank" and ":" not in std):
+            continue
+        entry = images.setdefault((ib, std, fips), set())
+        entry.add(rel)
+
+    def short(ref):
+        return ref.replace(f"{cg}/", "") if ref != "Iron Bank" else "Iron Bank"
+
+    out = []
+    for (ib, std, fips), rels in images.items():
+        ib_tag = ib.rsplit(":", 1)[1]
+        tag = None if std == "Iron Bank" else std.rsplit(":", 1)[1]
+        source = "Iron Bank" if tag is None else ("Chainguard" if std.startswith(cg + "/") or "/" not in std
+                                                  else "built here")
+        why = numbering((images_map or {}).get(split_ref(ib)[0])) if tag is not None else None
+        difference = "numbered differently" if why else version_difference(ib_tag, tag)
+        out.append((DIFFERENCES.index(difference), ib, short(std), short(fips), source,
+                    ", ".join(sorted(rels)) + (f" ({why})" if why else "")))
+    out.sort()
+    counts = {d: sum(1 for o in out if o[0] == i) for i, d in enumerate(DIFFERENCES)}
+    lines = [f"# Image versions: Iron Bank vs Chainguard (Big Bang {version})", "",
+             "Generated by `scripts/bb-convert.py`. For each image Big Bang "
+             f"{version} pins from Iron Bank, the image the overlays deploy instead and how its "
+             "version compares. Chainguard names are in "
+             f"`{cg}`; \"built here\" images are built by this repo FROM Chainguard images.", "",
+             "Tags are picked as the newest Chainguard patch on Iron Bank's MAJOR.MINOR line. An image",
+             "lands on a different minor or major only when the org has nothing on Iron Bank's line",
+             "(Chainguard keeps current release lines); `bb-convert.py --strict-versions` refuses those.",
+             "", "Counts are per Iron Bank image and tag: an image Big Bang pins at two tags counts twice.",
+             "", "## Summary", "", "| Compared with Iron Bank | Images |", "|---|---|"]
+    lines += [f"| {d} | {n} |" for d, n in counts.items() if n]
+    lines += [f"| **total** | **{len(out)}** |", ""]
+    for i, title in ((range(0, 5), "Different version line"), (range(5, 6), "Newer patch, same line"),
+                     (range(6, 7), "Same version"),
+                     (range(7, 9), "Not compared: numbered differently, or no version in the tag"),
+                     (range(9, 10), "Stays on Iron Bank")):
+        group = [o for o in out if o[0] in i]
+        if not group:
+            continue
+        lines += [f"## {title} ({len(group)})", "",
+                  "| Iron Bank image | Standard | FIPS | Source | Compared | Packages |",
+                  "|---|---|---|---|---|---|"]
+        lines += [f"| `{ib}` | `{std}` | `{fips}` | {src} | {DIFFERENCES[d]} | {rels} |"
+                  for d, ib, std, fips, src, rels in group]
+        lines.append("")
+    return "\n".join(lines)
 
 
 def main():

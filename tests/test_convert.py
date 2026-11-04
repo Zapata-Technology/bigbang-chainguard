@@ -395,3 +395,33 @@ def test_prefetch_changes_nothing_and_leaves_the_real_run_no_lookups(tmp_path, m
     rc2, fetched, lookups = _convert_repo(tmp_path, monkeypatch, with_prefetch=True)
     assert len(plain) >= 5 and fetched == plain and rc2 == rc
     assert lookups == []    # everything came from the parallel prefetch
+
+
+def test_version_difference_compares_major_minor_patch():
+    vd = convert.version_difference
+    assert vd("v1.20.3", "1.20.3") == "same"
+    assert vd("1.21.3-amd64", "1.21.3") == "same"                       # Iron Bank's arch suffix
+    assert vd("8.10.2", "8.10.3") == "newer patch"
+    assert vd("v1.9.4", "1.10.0") == "newer minor"
+    assert vd("1.21.4", "v2.2.1") == "newer major"
+    assert vd("1.14.3", "0.9") == "older major"
+    assert vd("RELEASE.2025-09-07T16-13-09Z", "7.1.1") == "no version to compare"
+    assert vd("ubi-fips-v19.2.2", "19.5.2") == "newer minor"                 # GitLab Runner's prefix
+    assert vd("1.0", None) == "stays on Iron Bank"
+
+
+def test_version_report_groups_and_explains_other_numbering():
+    rows = [("tempo", "ironbank/opensource/grafana/tempo:3.1.1", "cgr.dev/o/tempo:3.1.2", "cgr.dev/o/tempo-fips:3.1.2", ""),
+            ("flux", "ironbank/fluxcd/source-controller:v1.9.5", "cgr.dev/o/flux-source-controller:1.10.1",
+             "cgr.dev/o/flux-source-controller-fips:1.10.1", "MINOR AHEAD"),
+            ("gitlab", "gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi", "cgr.dev/o/gitlab-shell:19.5.3",
+             "cgr.dev/o/gitlab-shell-fips:19.5.3", ""),
+            ("twistlock", "ironbank/twistlock/console/console:34.05.168", "Iron Bank", "Iron Bank", "vendor"),
+            ("neuvector", "override @repo:neuvector-manager", "neuvector-manager", "neuvector-manager", "note")]
+    images = {"gitlab/gitlab-org/build/cng/gitlab-shell": {"cg": "gitlab-shell",
+                                                           "version_from": "gitlab/gitlab-org/build/cng/gitlab-base"}}
+    doc = convert.version_report(rows, "4.0.0", "cgr.dev/o", images)
+    assert "| newer minor | 1 |" in doc and "| newer patch | 1 |" in doc and "| **total** | **4** |" in doc
+    assert doc.index("## Different version line (1)") < doc.index("## Newer patch, same line (1)")
+    assert "numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version)" in doc
+    assert "## Stays on Iron Bank (1)" in doc and "override" not in doc

@@ -186,6 +186,8 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 - [Your own Chainguard org](docs/your-org.md): what your plan needs, and CI for your copy.
 - [How it works](docs/how-it-works.md): the conversion, version rules, the images this repo
   builds, releases.
+- [Image versions: Iron Bank vs Chainguard](docs/version-differences.md): every image's
+  version on each side, and which ones differ.
 - [Testing](docs/testing.md): what's tested and what the tests found.
 
 ## Contributing and support
