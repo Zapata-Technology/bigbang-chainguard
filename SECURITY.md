@@ -136,7 +136,7 @@ latest run's summary for current numbers.
 
 - **Sigstore's public log** records each release and image signature, with this
   repository's name and image names, even while the repository is private.
-- **Tag-only images** (Keycloak in Big Bang 3.35.1, custom resources) pick up a Chainguard
+- **Tag-only images** (Keycloak in Big Bang 4.0.0, custom resources) pick up a Chainguard
   rebuild without the nightly tests; the README's "Known gaps" lists them.
 - **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
   patch schedule, not Chainguard's.

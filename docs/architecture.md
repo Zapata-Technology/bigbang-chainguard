@@ -136,27 +136,38 @@ backend. The next build switches over once the org has those images.
 
 ## 4. Deploying: how the overlays layer
 
-`scripts/bb-install.py install [--fips]` (or `scripts/bb-docker.sh install`, the same from
-the installer image) does all of this in order:
+Three commands share one set of checks. `check` stops after them and changes nothing;
+`install` and `upgrade` go on only if every one passes. (`scripts/bb-docker.sh` runs the
+same commands from the installer image.)
 
 ```mermaid
 flowchart LR
-    SF[Site file<br/>my-site.yaml; written<br/>first if missing:<br/>--domain, --enable] --> CH[Chart<br/>repo1 git archive,<br/>no Iron Bank login]
-    CH --> PF[Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
-    PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>a token alone works;<br/>kept in bigbang/bb-install]
-    CR --> PC{Pull check<br/>cgr.dev, every bigbang-*<br/>image, the mirror}
-    PC -- refused --> CR
-    PC -- ok --> FX[Flux<br/>pull secret + flux/]
+    subgraph checks["Checks: bb-install.py check (nothing changes)"]
+        direction TB
+        SF[Site file<br/>my-site.yaml, written<br/>first if missing] --> PF[Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>package dependencies]
+        PF --> UP{Upgrade path<br/>from the running Big Bang:<br/>4 needs 3.35.1 first,<br/>never an older major}
+        UP --> RD[Render<br/>helm template of Big Bang<br/>with the overlays + site file:<br/>the chart's schema checks every key]
+        RD --> PC[Pull test<br/>every Chainguard and built<br/>image the packages deploy,<br/>with your logins]
+    end
+    MG[upgrade only:<br/>a Big Bang 3 site file<br/>converted to packages.*,<br/>original kept] --> SF
+    PC -- "install / upgrade" --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>kept in bigbang/bb-install]
+    CR --> FX[Flux<br/>pull secret + flux/]
     FX --> SW[SeaweedFS<br/>generated S3 keys,<br/>Secrets, buckets]
     SW --> BB[Big Bang<br/>helm upgrade -i with the overlays,<br/>or --gitops: a Flux HelmRelease]
-    BB --> TL[TLS<br/>cert-manager self-signed CA,<br/>your ClusterIssuer, or your cert]
+    BB --> TL[TLS<br/>self-signed CA, your<br/>ClusterIssuer, or your cert]
     TL --> SG[Image signatures<br/>Kyverno policy,<br/>enforce by default]
     SG --> W[Wait and report<br/>HelmReleases, pods,<br/>image policy, URLs]
 ```
 
-The pull check asks each registry for a manifest with the login it was given. A refused
-login is asked for again, up to three tries, before anything changes in the cluster.
-`--no-pull-check` skips it for a registry only the nodes can reach.
+- **The render** catches a misspelled key, a value of the wrong type, or a Big Bang 3 key
+  (`tempo:`, `addons.keycloak:`), with the chart's own error, before any HelmRelease fails.
+- **The pull test** asks each registry for every image's manifest with the login it was
+  given. A refused pull from the org is usually an image the Chainguard plan doesn't cover.
+  `check` uses a short-lived token from your chainctl login and stores nothing; `install`
+  asks again for a refused login, up to three tries. `--no-pull-check` skips it for a
+  registry only the nodes can reach.
+- **`upgrade`** also shows what will change (version, FIPS, packages, image tags) and asks
+  before it installs.
 
 The layering it uses:
 
@@ -176,8 +187,8 @@ flowchart TB
   installs the upstream Flux release they belong to, with Big Bang's patches. Big Bang's own
   CRDs would be too old for them.
 - **The FIPS switch is one extra file.** Leave out `values-chainguard-fips.yaml` for
-  standard images, and add it for FIPS. Switching an existing install is an in-place
-  `helm upgrade`.
+  standard images, and add it for FIPS. Switching an existing install is
+  `bb-install.py install --fips` (and back without it).
 - **Credentials live only in your site file:** `cgr.dev`, your build registry, and registry1
   for the images that stay on Iron Bank.
 

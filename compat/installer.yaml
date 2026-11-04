@@ -1,7 +1,8 @@
 # End to end with scripts/bb-install.py, the way a user installs: preflight, pull
 # secrets, Flux, SeaweedFS with generated S3 keys, Big Bang with the overlays, then
-# `status`. Tempo on SeaweedFS and Keycloak (generated admin password; FIPS needs 14+
-# characters) show the generated credentials work.
+# `status`, `check`, and `upgrade` of the same site file written in Big Bang 3's keys.
+# Tempo on SeaweedFS and Keycloak (generated admin password; FIPS needs 14+ characters)
+# show the generated credentials work.
 images: {}
 test:
   installer: true
@@ -12,5 +13,18 @@ test:
   check:
     # Re-running with the same files changes nothing, and --plan says so.
     - python3 scripts/bb-install.py --overlays "$COMPAT_OUT" install --site "$COMPAT_OUT/site.yaml" --yes --plan ${COMPAT_FIPS:+--fips} | tee /dev/stderr | grep -q "nothing changes"
+    # `check` passes on the installed cluster: preflight, the render of Big Bang with the
+    # site file, and a pull test of every image, with the logins install stored.
+    - python3 scripts/bb-install.py --overlays "$COMPAT_OUT" check --site "$COMPAT_OUT/site.yaml" --yes ${COMPAT_FIPS:+--fips} | tee /dev/stderr | grep -q "every check passed"
+    # The same site file in Big Bang 3's keys (tempo at the top, the rest under addons):
+    # `check` refuses it and names the keys; `upgrade` converts it (keeping the original),
+    # and the converted file deploys exactly what runs, so its plan changes nothing.
+    - |
+      python3 -c "import os, yaml; f = os.environ['COMPAT_OUT'] + '/site.yaml'; s = yaml.safe_load(open(f)); p = s.pop('packages'); s['tempo'] = p.pop('tempo'); s['addons'] = p; yaml.safe_dump(s, open(f[:-5] + '3.yaml', 'w'))" || exit 1
+      out=$(python3 scripts/bb-install.py --overlays "$COMPAT_OUT" check --site "$COMPAT_OUT/site3.yaml" --yes ${COMPAT_FIPS:+--fips} 2>&1)
+      echo "$out" | tail -4
+      echo "$out" | grep -q "Big Bang 3 keys" || { echo "check didn't refuse the Big Bang 3 site file"; exit 1; }
+      python3 scripts/bb-install.py --overlays "$COMPAT_OUT" upgrade --site "$COMPAT_OUT/site3.yaml" --yes --plan ${COMPAT_FIPS:+--fips} | tee /dev/stderr | grep -q "nothing changes" || exit 1
+      test -f "$COMPAT_OUT/site3.yaml.bigbang3" || { echo "no backup of the original"; exit 1; }
   debug:
     - "kubectl -n bigbang get secret bb-install -o jsonpath='{.data}' | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'"

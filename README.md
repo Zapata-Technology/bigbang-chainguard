@@ -3,16 +3,47 @@
 Run [Big Bang](https://repo1.dso.mil/big-bang/bigbang) with images from **your own
 Chainguard org** (`cgr.dev/<org>`) instead of Iron Bank, with FIPS as an option.
 
-Big Bang itself is not forked. This repo generates values overlays for the unmodified
-upstream chart, plus a Flux kustomization:
+Big Bang itself is not forked. This repo turns the unmodified upstream chart into a
+deployment on Chainguard images, tests it, and releases it; you install it with one tool.
 
-- It discovers every image Big Bang deploys.
-- It maps each image to its Chainguard equivalent.
-- It pins your org's tags.
-- It verifies the result by rendering Big Bang again.
+```mermaid
+flowchart LR
+    subgraph IN["What goes in"]
+        direction TB
+        BB["Big Bang<br/>unmodified upstream chart"]
+        CG["Your Chainguard org<br/>cgr.dev/&lt;org&gt;<br/>standard + FIPS images"]
+    end
 
-A nightly job keeps the overlays current with your org's patches and with new Big Bang
-releases.
+    subgraph REPO["This repo, every night"]
+        direction TB
+        D["Discover<br/>every image Big Bang deploys"] --> M["Map and pin<br/>each to its Chainguard image,<br/>by digest"]
+        M --> T["Test<br/>render + run every package<br/>on Kubernetes, standard and FIPS"]
+        T --> R["Release<br/>signed &lt;bigbang&gt;-cg.&lt;n&gt;"]
+    end
+
+    subgraph YOU["You"]
+        direction TB
+        C["bb-install.py check<br/>tests every setting"] --> I["bb-install.py install<br/>everything, in order"]
+        I --> K["Big Bang running on<br/>Chainguard images"]
+    end
+
+    BB --> D
+    CG --> M
+    R --> C
+
+    classDef input fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    classDef step fill:#ecfdf5,stroke:#10b981,color:#064e3b
+    classDef you fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    classDef done fill:#f97316,stroke:#c2410c,color:#ffffff
+    class BB,CG input
+    class D,M,T,R step
+    class C,I you
+    class K done
+```
+
+When Chainguard patches an image, the nightly run tests it and releases it on its own; a
+new Big Bang version gets the same pull request and tests, and a person merges it. Moving
+a cluster to a new release is `bb-install.py upgrade`.
 
 ## Install
 

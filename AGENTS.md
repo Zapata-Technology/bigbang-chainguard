@@ -57,7 +57,9 @@ python scripts/check.py --online     # + overlays current + verify std/FIPS (cha
 python scripts/bb-run.py             # fetch, discover, scan, convert, verify: the whole pipeline
 python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml
 python scripts/bb-compat.py compat/<test>.yaml [--fips]   # one package on a kind cluster
+python scripts/bb-install.py check --site my-site.yaml [--fips]     # every setting tested, nothing changed
 python scripts/bb-install.py install --site my-site.yaml [--fips]   # what a user runs to deploy
+python scripts/bb-install.py upgrade --site my-site.yaml [--fips]   # a running cluster; converts a Big Bang 3 site file
 scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
@@ -166,10 +168,11 @@ replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the 
 compat test if it has one.
 
 ### Change how Big Bang is deployed
-The user-facing path is `scripts/bb-install.py`; keep it and docs/install.md's "Doing it by hand"
-commands in step. Cluster helpers it shares with the kind harness live in
+The user-facing path is `scripts/bb-install.py`, and users never run the steps by hand:
+add a new step to the installer (and to `check` when it can fail before anything changes),
+not to the docs. `docs/install.md` describes the installer. Cluster helpers it shares with the kind harness live in
 `scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
-kind; `tests/test_install.py` covers its decisions without a cluster. A new credential or
+kind, then `check`, and `upgrade` of the same site file in Big Bang 3's keys; `tests/test_install.py` covers its decisions without a cluster. A new credential or
 generated value goes in the `bigbang/bb-install` Secret through `Credentials` (a pull token it
 makes with chainctl too: `chainctl_pull_token` captures the output), never on a
 command line or in output.
