@@ -133,8 +133,11 @@ refuses a new package's first push now and then). The provenance record
 
 The Go builds (the Mattermost Operator, tempo-query, the MinIO Operator) use the `go`/`glibc-openssl` images when the org has them. Without
 them it builds in `kubectl(-fips)-dev` with Wolfi's Go and runs on `kubectl(-fips)`, and the
-FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`'s OpenSSL
-backend. The next build switches over once the org has those images.
+FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`. The next
+build switches over once the org has those images. Chainguard's `go-fips` itself changed with
+Go 1.27: through 1.26 it uses an OpenSSL backend (`GOEXPERIMENT=systemcrypto`), from 1.27 Go's
+validated FIPS module with cgo (`GOFIPS140=v1.0.0-…`, `fips140=on`); the build's smoke test
+accepts either (`bbbuild.GO_FIPS_BUILDS`).
 
 ## 4. Deploying: how the overlays layer
 
