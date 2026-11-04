@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD[bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py<br/>bb-minio-operator(-sidecar).py<br/>bb-gitaly-init-cgroups.py]
+    IB --> BLD["bb-base.py<br/>bb-grafana-plugins.py<br/>bb-devops-tester.py<br/>bb-vault.py<br/>bb-jmx-exporter.py<br/>bb-mattermost-operator.py<br/>bb-tempo-query.py<br/>bb-minio-operator(-sidecar).py<br/>bb-gitaly-init-cgroups.py"]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
