@@ -27,9 +27,7 @@ flowchart TB
         I --> K["Big Bang running<br/>on Chainguard images"]
     end
 
-    BB --> D
-    CG --> M
-    R --> C
+    IN --> REPO --> YOU
 
     classDef input fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
     classDef step fill:#ecfdf5,stroke:#10b981,color:#064e3b
