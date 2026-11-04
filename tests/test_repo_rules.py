@@ -129,3 +129,30 @@ def test_docs_list_every_image_built_here():
         if name == "installer":
             continue   # the installer image is described with the installer (docs/install.md)
         assert f"`bigbang-{name}`" in doc, f"docs/how-it-works.md's 'Images this repo builds' has no bigbang-{name}"
+
+
+# --- mermaid diagrams GitHub can render ---
+
+def test_mermaid_labels_with_brackets_are_quoted():
+    """An unquoted node label holding ( ) [ ] { } is shape syntax to mermaid: GitHub shows
+    "Unable to render rich display" instead of the diagram (bb-minio-operator(-sidecar).py
+    in docs/architecture.md did). Quote such labels: X["a (b)"]."""
+    node = re.compile(r"\b[A-Za-z][\w-]*(\[\(|\(\(|\[\[|\{\{|\[|\{|\()")
+    closers = {"[(": ")]", "((": "))", "[[": "]]", "{{": "}}", "[": "]", "{": "}", "(": ")"}
+    bad = []
+    for path in DOCS:
+        inside = False
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            if line.strip().startswith("```"):
+                inside = line.strip() == "```mermaid"
+                continue
+            if not inside or line.lstrip().startswith(("%%", "classDef", "class ", "style ")):
+                continue
+            for m in node.finditer(line):
+                start = m.end()
+                if line[start:start + 1] == '"':
+                    continue
+                end = line.find(closers[m.group(1)], start)
+                if end > start and re.search(r"[()\[\]{}]", line[start:end]):
+                    bad.append(f"{os.path.relpath(path, ROOT)}:{n}: {line[m.start():end + 2].strip()}")
+    assert not bad, "quote these mermaid labels:\n" + "\n".join(bad)
