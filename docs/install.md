@@ -5,8 +5,10 @@ page has everything behind it: what each step does, the options, the logins, and
 do it by hand.
 
 The overlays in this repository were generated for `zapatatechnology.com` (each file's
-header says which org). For another org, generate them first
-([your own Chainguard org](your-org.md)).
+header says which org), and its releases point at Zapata's private org and build registry.
+For another org, generate them first ([your own Chainguard org](your-org.md); the quickstart's
+[Using this outside Zapata Technology](quickstart.md#using-this-outside-zapata-technology)
+has the steps).
 
 ## The installer
 
