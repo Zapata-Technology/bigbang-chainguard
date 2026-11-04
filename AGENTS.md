@@ -64,6 +64,8 @@ scripts/bb-docker.sh install                                       # the same, f
 python scripts/bb-install.py status                              # health of a deployed cluster
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
+python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
@@ -83,7 +85,8 @@ The loop, for a person or an agent picking the repo up:
 2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
    failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
    a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
-   (`--rerun-flakes`); a second failure is real. For FAILED, follow the playbook below that
+   (`--rerun-flakes`); a second failure is real. A job that `ci-triage.py --flakes` marks
+   FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, follow the playbook below that
    matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
    generated ones), `python scripts/check.py`, a PR. A change to one `compat/<test>.yaml`
@@ -146,8 +149,10 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 - Then add the finding's key to `scan_reviewed` with one line saying how it is handled.
 
 ### Add a repository to the org
-Big Bang orgs have a Chainguard license with unlimited repositories, so add what the
-conversion needs. For each name, standard and `-fips`:
+Add what the conversion needs, but check the plan first: per-image plans count images
+against a quota per tier (`python scripts/bb-org-repos.py --quota` shows each tier's room,
+what still needs adding and which counted images Big Bang doesn't use). For each name,
+standard and `-fips`:
 
 ```bash
 chainctl images catalog --name <name> -o json          # its id and catalog_tier
