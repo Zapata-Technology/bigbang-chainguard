@@ -12,6 +12,7 @@ flowchart TB
         direction LR
         BB["Big Bang<br/>unmodified upstream chart"]
         CG["Your Chainguard org<br/>standard + FIPS images"]
+        BB ~~~ CG
     end
 
     subgraph REPO["2 · This repo, every night"]
