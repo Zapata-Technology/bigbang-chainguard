@@ -62,12 +62,23 @@ GO_RUNTIME_IMAGES = [{"standard": "glibc-openssl", "fips": "glibc-openssl-fips"}
                      {"standard": "kubectl", "fips": "kubectl-fips"}]
 # Wolfi's Go, for a build image without it (the FIPS build then uses Go's own FIPS module).
 GO_PACKAGE = "go"
-# What each FIPS build records in the binary's build info.
+# What each FIPS build records in the binary's build info: any one of the mode's sets.
+# Chainguard's go-fips 1.26 uses an OpenSSL backend (GOEXPERIMENT=systemcrypto); go-fips 1.27
+# builds against Go's own validated FIPS 140-3 module instead (GOFIPS140=v1.0.0-..., the
+# fips140v1.0 tag, fips140=on), still with cgo. Both are FIPS builds.
 GO_FIPS_BUILDS = {
-    "toolchain": [r"^build\tCGO_ENABLED=1$",
-                  r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],
-    "native": [r"^build\tCGO_ENABLED=0$", r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"],
+    "toolchain": [[r"^build\tCGO_ENABLED=1$",
+                   r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],
+                  [r"^build\tCGO_ENABLED=1$", r"^build\tGOFIPS140=v\d\S*",
+                   r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"]],
+    "native": [[r"^build\tCGO_ENABLED=0$", r"^build\tGOFIPS140=\S+", r"^build\tDefaultGODEBUG=\S*fips140=(on|only)"]],
 }
+
+
+def fips_build_missing(mode, settings):
+    """[] if the build info matches one of the mode's sets, else what the closest set lacks."""
+    gaps = [[rx for rx in rules if not re.search(rx, settings, re.M)] for rules in GO_FIPS_BUILDS[mode]]
+    return [] if any(not g for g in gaps) else min(gaps, key=len)
 
 
 def go_line(gomod):
@@ -150,7 +161,7 @@ def go_build_problems(image, binary, variant, image_spec, go_get):
               if "dep\t{}\t{}".format(*m.split("@")) not in settings]
     if variant == "fips":
         mode = image_spec["fips"]
-        missing = [rx for rx in GO_FIPS_BUILDS[mode] if not re.search(rx, settings, re.M)]
+        missing = fips_build_missing(mode, settings)
         if missing:
             failed.append(f"FIPS Go build ({mode}): no {', '.join(missing)}")
         cnf = file_from(image, "/etc/ssl/openssl.cnf").decode(errors="replace")
