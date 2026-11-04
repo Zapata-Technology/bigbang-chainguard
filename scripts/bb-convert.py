@@ -587,7 +587,7 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
         resources = [f"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref={bigbang_version}"]
         images = [pin({"name": f"registry1.dso.mil/{ib_repo}", "newName": ref.rsplit(":", 1)[0],
                        "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
-        patches = None
+        patches = [fluxrelease.seccomp_patch()]
     else:
         versions = {name(ib_repo): ref.rsplit(":", 1)[1] for ib_repo, _, ref in controllers}
         found = fluxrelease.release_for(versions)
@@ -599,7 +599,8 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
         resources = [fluxrelease.INSTALL.format(tag=tag)]
         images = [pin({"name": f"ghcr.io/fluxcd/{name(ib_repo)}", "newName": ref.rsplit(":", 1)[0],
                        "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
-        patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work"))
+        patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work")) \
+            + [fluxrelease.seccomp_patch()]
         note = (f"# The org's Flux controllers ({', '.join(sorted(ahead))}) are newer than Big Bang {bigbang_version}'s,\n"
                 f"# whose CRDs are too old for them: this installs Flux {tag} (their release) with Big Bang's patches.\n")
     k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",

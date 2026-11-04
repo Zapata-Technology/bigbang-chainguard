@@ -17,6 +17,10 @@ def test_healthy_pods_and_finished_jobs_pass():
     assert check.pod_problems([pod("a"), pod("job-x", phase="Succeeded", ready=False)]) == []
 
 
+def test_a_job_that_retried_and_finished_passes():
+    assert check.pod_problems([pod("helm-install-x", phase="Succeeded", ready=False, restarts=1)]) == []
+
+
 def test_not_ready_pending_and_failed_pods_fail():
     problems = check.pod_problems([pod("a", ready=False), pod("b", phase="Pending"), pod("c", phase="Failed")])
     assert problems == ["ns/a is Running, not Ready", "ns/b is Pending, not Ready", "ns/c is Failed, not Ready"]
@@ -43,8 +47,8 @@ def test_admission_refusals_fail_and_recovered_pulls_are_notes():
     lines = "\n".join([
         "neuvector\tWarning\tFailedCreate\tDaemonSet/neuvector-enforcer-pod\terror creating: pods "
         "\"neuvector-enforcer-pod-x\" is forbidden: violates PodSecurity \"restricted:latest\": privileged",
-        "neuvector\tWarning\tFailedCreate\tDaemonSet/neuvector-enforcer-pod\terror creating: pods "
-        "\"neuvector-enforcer-pod-x\" is forbidden: violates PodSecurity \"restricted:latest\": privileged",
+        "neuvector\tWarning\tFailedCreate\tDaemonSet/neuvector-enforcer-pod\t(combined from similar events): "
+        "error creating: pods \"neuvector-enforcer-pod-y\" is forbidden: violates PodSecurity \"restricted:latest\": privileged",
         "app\tWarning\tFailedCreate\tReplicaSet/app-1\tadmission webhook \"validate.kyverno.svc-fail\" denied the request",
         "tempo\tWarning\tFailed\tPod/tempo-0\tFailed to pull image \"cgr.dev/org/tempo:2\": 503",
         "tempo\tNormal\tPulled\tPod/tempo-0\tSuccessfully pulled image",
@@ -54,7 +58,8 @@ def test_admission_refusals_fail_and_recovered_pulls_are_notes():
     assert len(events) == 5
     problems, notes = check.event_problems(events)
     assert len(problems) == 2   # the repeated refusal once
-    assert problems[0].startswith("neuvector/DaemonSet/neuvector-enforcer-pod refused admission (FailedCreate)")
+    assert problems[0].startswith("neuvector/DaemonSet/neuvector-enforcer-pod refused admission (FailedCreate) "
+                                  "[seen 2 times]: error creating: pods is forbidden")
     assert "kyverno" in problems[1]
     assert notes == ["tempo/Pod/tempo-0 pull failed at some point: Failed to pull image \"cgr.dev/org/tempo:2\": 503"]
 
@@ -63,3 +68,12 @@ def test_json_events_match_the_watched_lines():
     doc = {"items": [{"metadata": {"namespace": "ns"}, "type": "Warning", "reason": "FailedCreate",
                       "involvedObject": {"kind": "ReplicaSet", "name": "x"}, "message": "m"}]}
     assert check.json_events(doc) == [("ns", "Warning", "FailedCreate", "ReplicaSet/x", "m")]
+
+
+def test_one_deployment_refused_under_two_templates_is_one_problem():
+    msg = 'Error creating: pods "{}" is forbidden: violates PodSecurity "restricted:latest": seccompProfile'
+    events = [("flux-system", "Warning", "FailedCreate", f"ReplicaSet/helm-controller-{h}",
+               msg.format(f"helm-controller-{h}-x")) for h in ("6b69db45bf", "769c8f4f9f")]
+    problems, _ = check.event_problems(events)
+    assert problems == ["flux-system/ReplicaSet/helm-controller refused admission (FailedCreate) [seen 2 times]: "
+                        'Error creating: pods is forbidden: violates PodSecurity "restricted:latest": seccompProfile']

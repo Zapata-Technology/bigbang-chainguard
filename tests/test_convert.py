@@ -179,6 +179,21 @@ def test_flux_extras_are_deleted():
     assert len(patches) == 3 and all("$patch: delete" in p and "kind: Deployment" in p for p in patches)
 
 
+@pytest.mark.parametrize("d", ["flux", "flux-fips"])
+def test_flux_controllers_pass_pod_security_restricted(d):
+    """Big Bang's Flux patch replaces the container securityContext and with it Flux's
+    seccompProfile; PSA `restricted` (RKE2's CIS profile) refused every controller. The
+    generated kustomization ends with a patch putting RuntimeDefault on each pod."""
+    import yaml
+    import fluxrelease
+    patch = fluxrelease.seccomp_patch()
+    assert patch["target"] == {"kind": "Deployment"}
+    spec = yaml.safe_load(patch["patch"])["spec"]["template"]["spec"]
+    assert spec["securityContext"]["seccompProfile"] == {"type": "RuntimeDefault"}
+    generated = yaml.safe_load(open(os.path.join(ROOT, d, "kustomization.yaml"), encoding="utf-8"))
+    assert generated["patches"][-1] == patch, f"regenerate {d}/ (scripts/bb-convert.py)"
+
+
 def test_fips_override_keeps_standard_when_the_fips_repo_has_no_tags():
     c = convert.Converter({"images": {}}, FakeTags({"mgr": ["5.6", "5.6.2"], "mgr-fips": [], "ctl-fips": ["5.6"]}))
     assert c.overrides("neuvector", {"repo": "@repo:mgr", "tag": "@tag:ctl:5.6"}, True) == {"repo": "mgr", "tag": "5.6"}

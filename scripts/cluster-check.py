@@ -6,7 +6,8 @@ verdict of a whole-cluster test (.github/workflows/rke2.yml), after bb-install.p
 
 Across every namespace (Big Bang's, Flux's, SeaweedFS's and the cluster's own):
   - each pod Running with every container Ready, or Succeeded (a finished Job)
-  - no container restarted more than --max-restarts times
+  - no container restarted more than --max-restarts times (a finished Job's retries aside:
+    RKE2's own helm-install Jobs retry while the API settles)
   - no container waiting on an image it can't pull (ErrImagePull, ImagePullBackOff,
     InvalidImageName) or on its config (CreateContainerConfigError)
   - no pod refused by Pod Security Admission or an admission webhook (Kyverno), in the
@@ -42,6 +43,8 @@ def pod_problems(pods, max_restarts=0):
         containers = status.get("containerStatuses", [])
         statuses = containers + status.get("initContainerStatuses", [])
         for s in statuses:
+            if phase == "Succeeded":
+                continue
             waiting = s.get("state", {}).get("waiting", {}).get("reason")
             if waiting in STUCK_WAITING:
                 problems.append(f"{name} container {s['name']}: {waiting} "
@@ -75,19 +78,34 @@ def json_events(doc):
              e.get("message", "")) for e in doc.get("items", [])]
 
 
+def _same(obj, message):
+    """An event's object and message without what changes between retries: the pod's
+    random name, a ReplicaSet's template hash, the "combined from similar events" prefix."""
+    obj = re.sub(r"^(ReplicaSet/.+)-[0-9a-f]{6,10}$", r"\1", obj)
+    message = re.sub(r'pods "[^"]+"', "pods", message.replace("(combined from similar events): ", ""))
+    return obj, message[:200]
+
+
 def event_problems(events):
     """(problems, notes): each admission refusal is a problem; an image pull failure is a
-    note (the pod checks above fail one that never recovered). Repeats are reported once."""
-    problems, notes, seen = [], [], set()
+    note (the pod checks above fail one that never recovered). A controller retries a refused
+    pod every few seconds: each distinct refusal is reported once, with how often it was seen."""
+    counts, order = {}, []
     for ns, _type, reason, obj, message in events:
-        key = (ns, obj, message[:160])
-        if key in seen:
+        if not (REFUSED.search(message) or PULL_FAILED.search(message)):
             continue
-        seen.add(key)
+        key = (ns, reason, *_same(obj, message))
+        if key not in counts:
+            order.append(key)
+        counts[key] = counts.get(key, 0) + 1
+    problems, notes = [], []
+    for ns, reason, obj, message in order:
+        n = counts[(ns, reason, obj, message)]
+        seen = f" [seen {n} times]" if n > 1 else ""
         if REFUSED.search(message):
-            problems.append(f"{ns}/{obj} refused admission ({reason}): {message[:400]}")
-        elif PULL_FAILED.search(message):
-            notes.append(f"{ns}/{obj} pull failed at some point: {message[:300]}")
+            problems.append(f"{ns}/{obj} refused admission ({reason}){seen}: {message}")
+        else:
+            notes.append(f"{ns}/{obj} pull failed at some point{seen}: {message}")
     return problems, notes
 
 
