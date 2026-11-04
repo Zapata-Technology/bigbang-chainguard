@@ -7,24 +7,24 @@ Big Bang itself is not forked. This repo turns the unmodified upstream chart int
 deployment on Chainguard images, tests it, and releases it; you install it with one tool.
 
 ```mermaid
-flowchart LR
-    subgraph IN["What goes in"]
-        direction TB
+flowchart TB
+    subgraph IN["1 · What goes in"]
+        direction LR
         BB["Big Bang<br/>unmodified upstream chart"]
-        CG["Your Chainguard org<br/>cgr.dev/&lt;org&gt;<br/>standard + FIPS images"]
+        CG["Your Chainguard org<br/>standard + FIPS images"]
     end
 
-    subgraph REPO["This repo, every night"]
-        direction TB
-        D["Discover<br/>every image Big Bang deploys"] --> M["Map and pin<br/>each to its Chainguard image,<br/>by digest"]
-        M --> T["Test<br/>render + run every package<br/>on Kubernetes, standard and FIPS"]
-        T --> R["Release<br/>signed &lt;bigbang&gt;-cg.&lt;n&gt;"]
+    subgraph REPO["2 · This repo, every night"]
+        direction LR
+        D["Discover<br/>every image<br/>Big Bang deploys"] --> M["Map and pin<br/>each to its Chainguard<br/>image, by digest"]
+        M --> T["Test<br/>render + run every package,<br/>standard and FIPS"]
+        T --> R["Release<br/>signed, e.g. 4.0.0-cg.3"]
     end
 
-    subgraph YOU["You"]
-        direction TB
-        C["bb-install.py check<br/>tests every setting"] --> I["bb-install.py install<br/>everything, in order"]
-        I --> K["Big Bang running on<br/>Chainguard images"]
+    subgraph YOU["3 · You"]
+        direction LR
+        C["bb-install.py check<br/>tests every setting"] --> I["bb-install.py install<br/>does everything, in order"]
+        I --> K["Big Bang running<br/>on Chainguard images"]
     end
 
     BB --> D
