@@ -121,6 +121,14 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # grafana-plugins (standard and FIPS, each exported to a tarball for grype) filled the
+      # runner's disk: grype failed with "no space left on device". Drop preinstalled
+      # toolchains no build uses (~30 GB), as compat.yml does.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
