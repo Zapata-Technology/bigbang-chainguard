@@ -255,9 +255,12 @@ kernel. Nothing in the images broke; what a FIPS kernel did break was the test's
 One more thing to watch: in 1 of 4 kyverno-enforce runs on the FIPS kernel (run
 41529934922, passed on re-run), Kyverno's reports controller was OOMKilled at Big Bang's
 128Mi limit while the node had 2.4 GB free: its own cgroup ran out (about 110 MB anonymous
-plus 105 MB file pages), not the node. It has never happened on kind. A site on RHEL 9 nodes
-that sees the reports controller restart should raise
-`kyverno.values.upstream.reportsController.resources.limits.memory` in its site file.
+plus 105 MB file pages), not the node. It has never happened on kind. On Big Bang 4 it
+recurred in 2 of 3 FIPS runs of `compat/release-upgrade.yaml`, right after the upgrade from
+3.35.1, when Kyverno rebuilds every report for the new CEL policies. The overlays now set
+that limit to 256Mi (`overrides.kyverno` in mapping.yaml). A site that still sees the reports
+controller restart can raise
+`packages.kyverno.values.upstream.reportsController.resources.limits.memory` further.
 
 ## CI environment notes
 
