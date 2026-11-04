@@ -309,10 +309,22 @@ overrides:
     # MANIFEST.txt the new binary no longer matches. Grafana loads an unsigned plugin only
     # when allowed by id; this allows that one. Big Bang provisions Redis datasources
     # itself (Argo CD, AuthService, GitLab). With Iron Bank's signed image it changes nothing.
+    #
+    # k8s-sidecar 2.14 (Big Bang 4.0) starts a health server in each sidecar on HEALTH_PORT,
+    # default 8080. Grafana chart 14.2.0 sets HEALTH_PORT only on the init containers, so the
+    # dashboards and datasources sidecars share a pod and both bind 8080: the second logs
+    # "OSError: [Errno 98] Address already in use" and runs without a health server
+    # (compat/release-upgrade.yaml). The Iron Bank image is the same 2.14.1. These are the
+    # chart's own per-sidecar ports.
     upstream:
       grafana.ini:
         plugins:
           allow_loading_unsigned_plugins: redis-datasource
+      sidecar:
+        dashboards:
+          env: {HEALTH_PORT: "8084"}
+        datasources:
+          env: {HEALTH_PORT: "8082"}
   gitlab-runner:
     # The runner chart mounts its writable config directory at
     # /home/gitlab-runner/.gitlab-runner, the home of Iron Bank's gitlab-runner user. The

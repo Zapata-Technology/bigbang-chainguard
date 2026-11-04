@@ -21,3 +21,12 @@ test:
         i=$((i+1)); [ $i -lt 18 ] || { kubectl -n monitoring logs "$p" -c grafana-sc-dashboard --tail=20; exit 1; }
         sleep 10
       done
+    # Each sidecar answers on its own health port (mapping.yaml overrides.grafana: chart
+    # 14.2.0 gave both k8s-sidecar 2.14's default 8080, and the second couldn't bind it).
+    - |
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
+      for port in 8084 8082; do
+        kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:$port/proxy/healthz" || { echo "no health server on $port"; exit 1; }
+        echo " (port $port)"
+      done
+  forbid_log: "Address already in use"

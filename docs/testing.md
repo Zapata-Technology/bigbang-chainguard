@@ -140,7 +140,7 @@ Every test in this table passes in standard and FIPS mode on main's latest runs,
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |
 | argocd | dex 2.46, redis exporter 1.96 (`-iamguarded`) | Check: `/api/version`; the admin gets a session; the controller writes status on a probe Application |
-| grafana | k8s-sidecar 2.14 | Check: `/api/health` database ok; the dashboard sidecar picks up a labelled ConfigMap |
+| grafana | k8s-sidecar 2.14 | Check: `/api/health` database ok; the dashboard sidecar picks up a labelled ConfigMap; each sidecar's health server answers on its own port, and no pod logs `Address already in use` |
 | harbor | redis exporter 1.96 (`-iamguarded`) | Check: `/api/v2.0/health` lists every component healthy |
 | headlamp | headlamp 0.46, `kubectl-dev` wait job | Check: serves its UI and `/config`; reaches the API server through its cluster proxy |
 | kiali | kiali 2.34, Chainguard sidecars (`istio-init`, `istio-proxy`) | With Istio and a gateway. Check: `/kiali/api` reports Kiali running with the Istio API (port-forward: STRICT mTLS refuses the API server proxy) |
@@ -185,6 +185,7 @@ None of these showed up when rendering. All are fixed in the overlays:
 | kiali | The gateway wait job compares proxy tags with istiod's version label, which the chart sets to Big Bang's patch | A Flux post-renderer sets the label to the deployed patch |
 | argocd, harbor | Bitnami's Redis chart starts the exporter with `/bin/bash -ec redis_exporter` | `prometheus-redis-exporter-iamguarded` |
 | sonarqube | Its JMX init container needs Iron Bank's `/opt/jmx_exporter` jar, `sh` and `curl`, which Chainguard's `jmx-exporter-iamguarded` lacks | `bigbang-jmx-exporter`: the jar at Iron Bank's version on `busybox(-fips)-dev` |
+| release-upgrade | Big Bang 4's Grafana chart (14.2.0) gives the dashboards and datasources sidecars the same health port (k8s-sidecar 2.14's default 8080); the second logs `OSError: [Errno 98] Address already in use` and runs without a health server. Upstream: Iron Bank's image is the same 2.14.1 | `overrides.grafana` sets `HEALTH_PORT` 8084 and 8082, the chart's own ports |
 | kyverno-enforce | Kyverno policies' wait script is `#!/bin/sh` with bash arrays; busybox `sh` fails on it | `bash_wait_jobs`: a post-renderer runs it with bash |
 | kyverno-enforce | Big Bang's non-root policies render `preconditions.all: null` with no excluded containers | The test excludes a placeholder container (Istio normally supplies the list) |
 | object-storage | Tempo 2.10.10 refuses the chart's empty `opencensus` receiver, which Flux's render keeps even when our values set it to null | `overrides.tempo` replaces the chart's config template with a copy that omits it |
