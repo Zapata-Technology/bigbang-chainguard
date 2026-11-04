@@ -462,6 +462,19 @@ def _sig_args(**kw):
     return argparse.Namespace(**{"verify_signatures": None, "org_id": None, **kw})
 
 
+def test_signature_checks_let_kyverno_reach_sigstore_through_big_bangs_network_policies():
+    """RKE2's Canal enforces Big Bang's network policies, which let Kyverno's admission
+    controller reach only the API server and registry1: every verification timed out."""
+    egress = signatures.signature_egress_values()["packages"]["kyverno"]["values"]["bb-common"][
+        "networkPolicies"]["egress"]
+    rule = egress["definitions"]["signature-verification"]
+    assert rule["ports"] == [{"port": 443, "protocol": "TCP"}]
+    assert egress["from"]["kyverno-admission-controller"]["to"]["definition"] == {"signature-verification": True}
+    # install merges it only when signatures are checked
+    src = open(os.path.join(ROOT, "scripts", "bbinstall", "install.py"), encoding="utf-8").read()
+    assert 'if signatures != "off":\n            deep_merge(secret_values, signature_egress_values())' in src
+
+
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)

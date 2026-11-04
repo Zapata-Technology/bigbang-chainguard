@@ -20,7 +20,7 @@ from bbinstall.credentials import Credentials, pull_token_maker
 from bbinstall.gitops import GITOPS_SECRET, write_gitops
 from bbinstall.images import build_images, deployed_images, image_problems, pull_check
 from bbinstall.preflight import prepare
-from bbinstall.signatures import built_signer, cluster_signatures, signature_choice
+from bbinstall.signatures import built_signer, cluster_signatures, signature_choice, signature_egress_values
 from bbinstall.sitefile import package_values
 from bbinstall.status import deployed, plan_lines, status_report
 from bbinstall.tls import GATEWAY_CERT, gateway_tls, tls_choice
@@ -166,6 +166,8 @@ def install(a):
             deep_merge(secret_values, {"packages": {"keycloak": {"values": {
                 "upstream": {"database": {"password": keycloak_db_password}},
                 "postgresql": {"global": {"postgresql": {"auth": {"password": keycloak_db_password}}}}}}}})
+        if signatures != "off":
+            deep_merge(secret_values, signature_egress_values())   # Kyverno must reach Sigstore
         if a.git_mirror:
             deep_merge(secret_values, git_mirror_values(defaults, a.git_mirror))
         if tls == "own":

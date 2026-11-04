@@ -278,6 +278,15 @@ template_defaults:
 # @registry (cgr.dev/<org>)
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
+  # Istio's gateway chart gives its pods no seccomp profile, so Pod Security Admission's
+  # `restricted` level (RKE2's CIS profile) refused every gateway pod (rke2.yml). Setting
+  # securityContext replaces the chart's default, so the default's sysctl stays.
+  public-ingressgateway: &gateway-pod-security
+    upstream:
+      securityContext:
+        sysctls: [{name: net.ipv4.ip_unprivileged_port_start, value: "0"}]
+        seccompProfile: {type: RuntimeDefault}
+  passthrough-ingressgateway: *gateway-pod-security
   istiod:
     # Injected sidecars: istio-proxy uses proxy.image, istio-init uses proxy_init.image
     # (default "proxyv2", built as hub/proxyv2:tag), and both fall back to hub and tag.

@@ -180,6 +180,17 @@ def test_flux_extras_are_deleted():
 
 
 @pytest.mark.parametrize("overlay", ["values-chainguard.yaml", "values-chainguard-fips.yaml"])
+def test_istio_gateway_pods_pass_pod_security_restricted(overlay):
+    """Istio's gateway chart sets no seccomp profile; PSA `restricted` refused the gateways."""
+    import yaml
+    shared = yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8"))[
+        "packages"]["istioGateway"]["values"]["shared"]
+    sc = shared["upstream"]["securityContext"]
+    assert sc["seccompProfile"] == {"type": "RuntimeDefault"}
+    assert {"name": "net.ipv4.ip_unprivileged_port_start", "value": "0"} in sc["sysctls"]   # the chart's default
+
+
+@pytest.mark.parametrize("overlay", ["values-chainguard.yaml", "values-chainguard-fips.yaml"])
 def test_every_wait_job_gets_the_runtime_default_seccomp_profile(overlay):
     """template_defaults' `beside`: gluon's wait job sets no seccomp profile, and PSA
     `restricted` (RKE2's CIS profile) refused kyverno-policies' wait job."""
