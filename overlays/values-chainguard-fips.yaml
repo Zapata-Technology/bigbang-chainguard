@@ -563,6 +563,12 @@ packages:
             repository: grafana-image-renderer
             tag: 5.12.10
         sidecar:
+          dashboards:
+            env:
+              HEALTH_PORT: '8084'
+          datasources:
+            env:
+              HEALTH_PORT: '8082'
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: k8s-sidecar-fips
