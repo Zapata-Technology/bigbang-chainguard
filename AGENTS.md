@@ -64,7 +64,10 @@ python scripts/bb-install.py upgrade --site my-site.yaml [--fips]   # a running 
 scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
 python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
+python scripts/bb-preview.py          # Big Bang's development branch against this repo: what would break
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
+python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
@@ -73,7 +76,9 @@ when every check passed; not a new Big Bang release or a `hold` label), `release
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix), `fips-kernel.yml` (weekly: the FIPS overlay
 on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
-packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `codeql.yml` / `scorecard.yml` (public repo only).
+packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (weekly:
+`bb-preview.py` against Big Bang's development branch; keeps one `bigbang-preview` issue
+current), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Maintaining this repo with an AI agent
 
@@ -85,7 +90,8 @@ The loop, for a person or an agent picking the repo up:
 2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
    failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
    a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
-   (`--rerun-flakes`); a second failure is real. For FAILED, follow the playbook below that
+   (`--rerun-flakes`); a second failure is real. A job that `ci-triage.py --flakes` marks
+   FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, follow the playbook below that
    matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
    generated ones), `python scripts/check.py`, a PR. A change to one `compat/<test>.yaml`
@@ -118,6 +124,15 @@ A green bot PR merges itself (`automerge.yml`), so one still open has a failed c
    test fails.
 6. Push fixes to the bot branch or a new branch; never edit its generated files by hand.
 
+### The Big Bang preview issue (`bigbang-preview`)
+`bigbang-preview.yml` runs this repo against Big Bang's development branch every Monday and
+keeps one issue with what would break: a newer Kubernetes requirement, images added or
+removed, a package that doesn't render, unmapped images, new chart scan findings, and kind
+tests whose values the new charts refuse. Work it like a bot PR, ahead of time: each fix
+that is also right for the current release (a mapping, an override that both accept) can
+land now; the rest waits on a branch for the release. The issue closes itself when nothing
+would break. Run it locally with `python scripts/bb-preview.py [--ref <branch or tag>]`.
+
 ### Add or fix an image mapping
 Follow [docs/adding-a-package.md](docs/adding-a-package.md). In short: find the image in
 `discovery/images.json`, find the Chainguard name (`chainctl images catalog --name <n>`),
@@ -148,8 +163,10 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 - Then add the finding's key to `scan_reviewed` with one line saying how it is handled.
 
 ### Add a repository to the org
-Big Bang orgs have a Chainguard license with unlimited repositories, so add what the
-conversion needs. For each name, standard and `-fips`:
+Add what the conversion needs, but check the plan first: per-image plans count images
+against a quota per tier (`python scripts/bb-org-repos.py --quota` shows each tier's room,
+what still needs adding and which counted images Big Bang doesn't use). For each name,
+standard and `-fips`:
 
 ```bash
 chainctl images catalog --name <name> -o json          # its id and catalog_tier
