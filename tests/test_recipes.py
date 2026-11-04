@@ -1,20 +1,32 @@
-"""Parsing Iron Bank's own recipes (fixtures are copies of repo1.dso.mil/dsop/...).
+"""The builds this repo makes (builds/<name>/recipe.yaml + scripts/buildhooks/), and parsing
+Iron Bank's own recipes (fixtures are copies of repo1.dso.mil/dsop/...).
 
-If Iron Bank reshapes a Dockerfile, the builder fails loudly instead of building
+If Iron Bank reshapes a Dockerfile, the build fails loudly instead of building
 something different; these tests pin the shapes the parsers accept.
 """
+import glob
 import hashlib
 import json
+import os
+import re
 
 import pytest
 import yaml
 
-from conftest import fixture_text, load_script
+import bbbuild
+from conftest import ROOT, fixture_text, load_script
 
-base = load_script("bb-base")
-grafana = load_script("bb-grafana-plugins")
-tester = load_script("bb-devops-tester")
-jmx = load_script("bb-jmx-exporter")
+
+def build(name):
+    """(recipe, hook module) of builds/<name>."""
+    r = bbbuild.load_recipe(name)
+    return r, bbbuild.load_hook(r)
+
+
+BASE, base = build("base")
+GRAFANA, grafana = build("grafana-plugins")
+TESTER, tester = build("devops-tester")
+JMX, jmx = build("jmx-exporter")
 
 
 def recipe(name):
@@ -31,8 +43,9 @@ def test_base_recipe():
 
 
 def test_base_maps_ubi_packages_to_wolfi():
-    pkgs = {base.UBI_TO_WOLFI.get(p, p) for p in ["curl-minimal", "which", "jq"]} - {None}
-    assert pkgs == {"curl", "jq"}
+    pkgs = base.wolfi_packages(BASE, ["curl-minimal", "which", "jq"], "4.54.1")
+    assert "jq" in pkgs and "which" not in pkgs and "curl-minimal" not in pkgs
+    assert pkgs[-1] == "yq~4.54" and set(BASE["ubi_userland"]) <= set(pkgs)
 
 
 def test_grafana_plugin_layout():
@@ -71,13 +84,14 @@ def test_chainsaw_is_built_from_source(monkeypatch):
             return b'{"Version": "v0.62.0"}'
         assert url == "https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15"
         return b"tarball"
-    monkeypatch.setattr(tester.bbbuild, "fetch", fetch)
-    c = tester.chainsaw_source("0.2.15")
-    assert c["go_get"] == [f"{m}@v0.62.0" for m in tester.GO_BUMPS] and "golang.org/x/net@v0.62.0" in c["go_get"]
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    c = tester.chainsaw_source(TESTER["chainsaw"], "0.2.15")
+    assert c["go_get"] == [f"{m}@v0.62.0" for m in TESTER["chainsaw"]["go_bumps"]]
+    assert "golang.org/x/net@v0.62.0" in c["go_get"]
     assert c["sha256"] == hashlib.sha256(b"tarball").hexdigest()
     spec = {"chainsaw": c, "packages": ["bash"], "user": {"name": "u", "group": "g", "id": 1000},
             "image": {"standard": {"velero": "v", "kyverno": "k"}}}
-    args = tester.build_args(spec, "standard")
+    args = bbbuild.recipe_build_args(TESTER, spec, "standard")
     assert args["CHAINSAW_SOURCE"].endswith("/v0.2.15") and args["CHAINSAW_VERSION"] == "0.2.15"
     assert args["CHAINSAW_GO_GET"] == " ".join(c["go_get"]) and "CHAINSAW_IMAGE" not in args
 
@@ -88,9 +102,9 @@ def test_redis_datasource_backend_is_rebuilt(monkeypatch):
             return json.dumps({"Version": "v9.9.9"}).encode()
         assert url == "https://codeload.github.com/RedisGrafana/grafana-redis-datasource/tar.gz/refs/tags/v2.2.1"
         return b"source"
-    monkeypatch.setattr(grafana.bbbuild, "fetch", fetch)
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
     info = {"id": "redis-datasource", "backend": True, "executable": "redis-datasource", "info": {"version": "2.2.1"}}
-    r = grafana.rebuild(grafana.REBUILD["redis-datasource"], info)
+    r = grafana.rebuild(GRAFANA["rebuild"]["redis-datasource"], info)
     assert r["sha256"] == hashlib.sha256(b"source").hexdigest() and r["executable"] == "redis-datasource"
     assert "golang.org/x/net@v9.9.9" in r["go_get"]
     spec = {"plugins": [{"id": "a", "url": "u1", "sha256": "s1", "dir": "/d1"},
@@ -99,13 +113,11 @@ def test_redis_datasource_backend_is_rebuilt(monkeypatch):
     rebuilds = grafana.build_args(spec, "standard")["REBUILDS"].split(";")
     assert len(rebuilds) == 1 and rebuilds[0].startswith(f"/d2 {r['source']} {r['sha256']} redis-datasource patches/")
     with pytest.raises(SystemExit):   # REBUILD lists a frontend-only plugin
-        grafana.rebuild(grafana.REBUILD["redis-datasource"], {"id": "x", "info": {"version": "1"}})
+        grafana.rebuild(GRAFANA["rebuild"]["redis-datasource"], {"id": "x", "info": {"version": "1"}})
 
 
 def test_rebuild_patches_exist():
-    import os
-    from conftest import ROOT
-    for how in grafana.REBUILD.values():
+    for how in GRAFANA["rebuild"].values():
         assert os.path.exists(os.path.join(ROOT, "builds", "grafana-plugins", how["patch"]))
 
 
@@ -141,7 +153,7 @@ def test_jmx_exporter_recipe_fails_loudly():
 def test_jmx_exporter_finds_the_commit_that_builds_big_bangs_version(monkeypatch):
     manifest, dockerfile = recipe("jmx-exporter")
     newer = {"tags": ["1.7.0", "latest"]}
-    monkeypatch.setattr(jmx.bbbuild, "ironbank_recipe", lambda project, ref: ("c3", newer, "FROM x\n"))
+    monkeypatch.setattr(bbbuild, "ironbank_recipe", lambda project, ref: ("c3", newer, "FROM x\n"))
     manifests = {"c2": yaml.safe_dump(newer), "c1": yaml.safe_dump(manifest)}
 
     def fetch(url):
@@ -150,11 +162,12 @@ def test_jmx_exporter_finds_the_commit_that_builds_big_bangs_version(monkeypatch
             return json.dumps([{"id": "c2"}, {"id": "c1"}]).encode()
         commit, name = url.split("/-/raw/")[1].split("/")
         return (manifests[commit] if name == "hardening_manifest.yaml" else dockerfile).encode()
-    monkeypatch.setattr(jmx.bbbuild, "fetch", fetch)
-    commit, found, text = jmx.find_recipe("master", "1.6.0")
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    project = JMX["ironbank"]["project"]
+    commit, found, text = jmx.find_recipe(project, "master", "1.6.0")
     assert (commit, found["tags"][0], text) == ("c1", "1.6.0", dockerfile)
     with pytest.raises(SystemExit):
-        jmx.find_recipe("master", "1.5.0")
+        jmx.find_recipe(project, "master", "1.5.0")
 
 
 def jar_bytes(manifest):
@@ -176,13 +189,13 @@ def test_jmx_exporter_jar_is_checked(monkeypatch):
         if url != good:   # upstream tags its releases without the `v` Iron Bank's manifest has
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
         return agent
-    monkeypatch.setattr(jmx.bbbuild, "fetch", fetch)
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
     jar = {"url": ib_url, "sha256": hashlib.sha256(agent).hexdigest()}
     assert jmx.check_jar(jar) == good
     with pytest.raises(SystemExit):   # sha256 differs from Iron Bank's
         jmx.check_jar({**jar, "sha256": "0" * 64})
     plain = jar_bytes("Manifest-Version: 1.0\n")
-    monkeypatch.setattr(jmx.bbbuild, "fetch", lambda url, attempts=4: plain)
+    monkeypatch.setattr(bbbuild, "fetch", lambda url, attempts=4: plain)
     with pytest.raises(SystemExit):   # not a Java agent
         jmx.check_jar({"url": good, "sha256": hashlib.sha256(plain).hexdigest()})
 
@@ -192,27 +205,31 @@ def test_jmx_exporter_build_args_and_smoke_test(monkeypatch):
                     "name": "jmx_prometheus_javaagent-1.6.0.jar"},
             "download_url": "file:///opt/jmx_exporter/jmx_prometheus_javaagent-1.6.0.jar",
             "packages": ["curl"], "user": {"id": 1000}}
-    assert jmx.build_args(spec, "fips") == {
+    assert bbbuild.recipe_build_args(JMX, spec, "fips") == {
         "PACKAGES": "curl", "JAR_URL": "https://example/j.jar", "JAR_SHA256": "ab" * 32,
         "JAR_DIR": "/opt/jmx_exporter", "JAR_NAME": "jmx_prometheus_javaagent-1.6.0.jar", "USER_ID": "1000"}
     seen = {}
-    monkeypatch.setattr(jmx.bbbuild, "run_checks",
+    monkeypatch.setattr(bbbuild, "run_checks",
                         lambda image, script, checks, **kw: seen.update(script=script, checks=checks, **kw))
-    jmx.smoke_test("img", "fips", spec)
+    bbbuild.recipe_smoke_test(JMX, "img", "fips", spec)
     # SonarQube's init container command, run as its chart runs it.
     assert seen["script"].startswith("curl -s 'file:///opt/jmx_exporter/jmx_prometheus_javaagent-1.6.0.jar'  "
                                      "--output /data/jmx_prometheus_javaagent.jar -v")
     assert seen["shell"] == "/bin/sh" and "--read-only" in seen["docker_args"]
     assert seen["docker_args"][seen["docker_args"].index("--user") + 1] == "1000:0"
     assert set(seen["checks"]) == {"jar copied with Iron Bank's sha256", "openssl fips=yes"}
-operator = load_script("bb-mattermost-operator")
+    assert re.search(seen["checks"]["jar copied with Iron Bank's sha256"],
+                     "ab" * 32 + "  /data/jmx_prometheus_javaagent.jar", re.M)
+
+
+OPERATOR, operator = build("mattermost-operator")
 
 
 def test_mattermost_operator_recipe():
-    ib = operator.recipe(*recipe("mattermost-operator"))
+    ib = operator.recipe(*recipe("mattermost-operator"), OPERATOR["upstream"])
     assert ib == {"upstream": "v1.25.9", "binary": "/mattermost-operator", "user": "nonroot:nonroot"}
     with pytest.raises(SystemExit):
-        operator.recipe({"resources": []}, "FROM scratch\n")
+        operator.recipe({"resources": []}, "FROM scratch\n", OPERATOR["upstream"])
 
 
 def operator_tarball(gomod, commit="07a736bbb8d6c1e8cf76bdc935d1f08c47307a69"):
@@ -235,40 +252,40 @@ def test_mattermost_operator_is_built_from_source(monkeypatch):
             return b'{"Version": "v0.62.0"}'
         assert url == "https://codeload.github.com/mattermost/mattermost-operator/tar.gz/refs/tags/v1.25.9"
         return tarball
-    monkeypatch.setattr(operator.bbbuild, "fetch", fetch)
-    src = operator.source("v1.25.9")
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    src = operator.source(OPERATOR, "v1.25.9")
     assert src["go"] == "1.26.6" and src["go_get"] == ["golang.org/x/net@v0.62.0"]
     assert src["commit"] == "07a736bbb8d6c1e8cf76bdc935d1f08c47307a69" and src["build_time"] == "20260819.115314"
     assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
     spec = {"operator": src, "ironbank": {"binary": "/mattermost-operator"}, "user": "65532:65532",
             "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
-    std, fips = operator.build_args(spec, "standard"), operator.build_args(spec, "fips")
+    std, fips = bbbuild.recipe_build_args(OPERATOR, spec, "standard"), bbbuild.recipe_build_args(OPERATOR, spec, "fips")
     assert std["FIPS"] == "" and fips["FIPS"] == "native" and fips["GO_PACKAGE"] == "go"
     assert std["OPERATOR_GO_GET"] == "golang.org/x/net@v0.62.0" and std["RUN_USER"] == "65532:65532"
-    monkeypatch.setattr(operator.bbbuild, "fetch", lambda url: operator_tarball("go 1.26.6\n", commit=""))
+    monkeypatch.setattr(bbbuild, "fetch", lambda url: operator_tarball("go 1.26.6\n", commit=""))
     with pytest.raises(SystemExit):   # no commit id: the version ldflags would be empty
-        operator.source("v1.25.9")
+        operator.source(OPERATOR, "v1.25.9")
 
 
 def test_mattermost_operator_prefers_the_go_images():
     from conftest import FakeTags
     tags = FakeTags({"go": ["1.26.6"], "go-fips": ["1.26.6"], "kubectl": ["1.36.6"], "kubectl-fips": ["1.36.6"]})
-    assert operator.first_pair(tags, operator.BUILD_IMAGES) == {"standard": "go", "fips": "go-fips"}
+    assert bbbuild.first_pair(tags, bbbuild.GO_BUILD_IMAGES) == {"standard": "go", "fips": "go-fips"}
     # A pair counts only when the org has both: no go-fips means kubectl -dev plus Wolfi's Go.
     tags = FakeTags({"go": ["1.26.6"], "kubectl": ["1.36.6"], "kubectl-fips": ["1.36.6"]})
-    assert operator.first_pair(tags, operator.BUILD_IMAGES)["fips"] == "kubectl-fips"
+    assert bbbuild.first_pair(tags, bbbuild.GO_BUILD_IMAGES)["fips"] == "kubectl-fips"
     with pytest.raises(SystemExit):
-        operator.first_pair(FakeTags({}), operator.RUNTIME_IMAGES)
+        bbbuild.first_pair(FakeTags({}), bbbuild.GO_RUNTIME_IMAGES)
 
 
 def test_mattermost_operator_build_info():
     blob = b"\x00junk\npath\tgithub.com/mattermost/mattermost-operator\ndep\tgolang.org/x/net\tv0.62.0\th1:x=\n" \
            b"build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=systemcrypto\n\x00"
-    info = operator.build_info(blob)
+    info = bbbuild.build_info(blob)
     assert "dep\tgolang.org/x/net\tv0.62.0\th1:x=" in info
 
     def fips_build(mode, settings):
-        return all(operator.re.search(rx, settings, operator.re.M) for rx in operator.FIPS_BUILDS[mode])
+        return all(re.search(rx, settings, re.M) for rx in bbbuild.GO_FIPS_BUILDS[mode])
     assert fips_build("toolchain", "\n".join(info))
     assert not fips_build("toolchain", "build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=greenteagc")
     native = "build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0\nbuild\tDefaultGODEBUG=fips140=on,tracebacklabels=0"
@@ -276,7 +293,7 @@ def test_mattermost_operator_build_info():
     assert not fips_build("native", native.replace("fips140=on,", ""))   # module linked but not enabled
 
 
-tempo_query = load_script("bb-tempo-query")
+TEMPO, tempo_query = build("tempo-query")
 
 
 def test_tempo_query_recipe_both_shapes():
@@ -303,14 +320,14 @@ def test_tempo_query_is_built_from_source(monkeypatch):
             return json.dumps({"Version": latest[url.split("/", 3)[3].rsplit("/@", 1)[0]]}).encode()
         assert url == "https://codeload.github.com/grafana/tempo/tar.gz/refs/tags/v2.10.5"
         return tarball
-    monkeypatch.setattr(tempo_query.bbbuild, "fetch", fetch)
-    src = tempo_query.source("2.10.5")
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    src = tempo_query.source(TEMPO, "2.10.5")
     assert src["go"] == "1.26.2" and src["package"] == "./cmd/tempo-query"
     assert src["go_get"] == [f"{m}@{v}" for m, v in latest.items()]
     assert src["sha256"] == hashlib.sha256(tarball).hexdigest()
     spec = {"tempo": src, "ironbank": {"binary": "/tempo-query"}, "user": "10001:10001",
             "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
-    std, fips = tempo_query.build_args(spec, "standard"), tempo_query.build_args(spec, "fips")
+    std, fips = bbbuild.recipe_build_args(TEMPO, spec, "standard"), bbbuild.recipe_build_args(TEMPO, spec, "fips")
     assert std["FIPS"] == "" and fips["FIPS"] == "native" and std["RUN_USER"] == "10001:10001"
     assert std["TEMPO_GO_GET"].split() == src["go_get"] and std["TEMPO_PACKAGE"] == "./cmd/tempo-query"
 
@@ -326,8 +343,8 @@ def test_go_build_problems(monkeypatch):
                              b"build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0-c2097c7c\n"
                              b"build\tDefaultGODEBUG=fips140=on\n",
              "/etc/ssl/openssl.cnf": b"[algorithm_sect]\ndefault_properties = fips=yes\n"}
-    monkeypatch.setattr(tempo_query.bbbuild, "file_from", lambda image, path: blobs[path])
-    problems = tempo_query.bbbuild.go_build_problems
+    monkeypatch.setattr(bbbuild, "file_from", lambda image, path: blobs[path])
+    problems = bbbuild.go_build_problems
     assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.62.0"]) == []
     assert problems("img", "/tempo-query", "fips", {"fips": "native"}, ["golang.org/x/net@v0.62.0"]) == []
     assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.63.0"]) == \
@@ -335,8 +352,8 @@ def test_go_build_problems(monkeypatch):
     assert problems("img", "/tempo-query", "fips", {"fips": "toolchain"}, [])[0].startswith("FIPS Go build (toolchain)")
 
 
-minio_operator = load_script("bb-minio-operator")
-bbminio = minio_operator.bbminio
+MINIO, bbminio = build("minio-operator")
+SIDECAR, _ = build("minio-operator-sidecar")
 
 
 def test_minio_recipes():
@@ -369,36 +386,34 @@ def test_minio_sidecar_is_built_from_its_module(monkeypatch):
             return b'{"Version": "v0.58.0"}' if "crypto" in url else b'{"Version": "v0.62.0"}'
         assert url == "https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0"
         return minio_tarball()
-    monkeypatch.setattr(bbminio.bbbuild, "fetch", fetch)
-    src = bbminio.source("v7.1.0", "sidecar")
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    src = bbminio.source(SIDECAR, "v7.1.0")
     assert src["go"] == "1.24.0"   # the sidecar module's go.mod, not the root's
     assert src["module"] == "sidecar" and src["package"] == "./cmd/sidecar"
     assert src["drop_replace"] == ["golang.org/x/crypto"]
     assert src["go_get"] == ["golang.org/x/crypto@v0.58.0", "golang.org/x/net@v0.62.0"]
     assert "-X github.com/minio/operator/sidecar/pkg.Version=v7.1.0" in src["ldflags"]
     assert "sidecar/pkg.ReleaseTag=7.1.0 " in src["ldflags"] and "ShortCommitID=0037830" in src["ldflags"]
-    assert bbminio.source("v7.1.0", "operator")["go"] == "1.23.0"
+    assert bbminio.source(MINIO, "v7.1.0")["go"] == "1.23.0"
     spec = {"minio": src, "ironbank": {"binary": "/minio-operator-sidecar"}, "user": "65532:65532",
             "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
     args = bbminio.build_args(spec, "fips")
     assert args["MINIO_MODULE"] == "sidecar" and args["MINIO_DROP_REPLACE"] == "golang.org/x/crypto"
     assert args["FIPS"] == "native" and args["BINARY"] == "/minio-operator-sidecar"
     with pytest.raises(SystemExit):   # no such module in the tarball
-        bbminio.bbbuild.go_source("https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0",
+        bbbuild.go_source("https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0",
                                   gomod="nope/go.mod")
 
 
 def test_minio_builders_share_one_dockerfile():
-    import os
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    dockerfile = open(os.path.join(root, "builds", "minio-operator", "Dockerfile"), encoding="utf-8").read()
+    dockerfile = open(os.path.join(ROOT, "builds", "minio-operator", "Dockerfile"), encoding="utf-8").read()
     # One final stage per program (build.yaml's `target`), each with Iron Bank's entrypoint.
-    for program, binary in (("operator", "/minio-operator"), ("sidecar", "/minio-operator-sidecar")):
-        assert program in bbminio.PROGRAMS
-        assert f"FROM runtime AS {program}\nENTRYPOINT [\"{binary}\"]" in dockerfile
+    for r, binary in ((MINIO, "/minio-operator"), (SIDECAR, "/minio-operator-sidecar")):
+        assert r["hook"] == "minio" and r["dockerfile"] == "minio-operator"
+        assert f"FROM runtime AS {r['program']}\nENTRYPOINT [\"{binary}\"]" in dockerfile
 
 
-gitaly_init = load_script("bb-gitaly-init-cgroups")
+GITALY, gitaly_init = build("gitaly-init-cgroups")
 
 
 def test_gitaly_init_cgroups_recipe():
@@ -435,12 +450,114 @@ def test_gitaly_init_cgroups_source(monkeypatch):
         assert url == ("https://gitlab.com/gitlab-org/gitaly/-/archive/v19.4.2/gitaly-v19.4.2.tar.gz"
                        "?path=tools/gitaly-init-cgroups")
         return buf.getvalue()
-    monkeypatch.setattr(gitaly_init.bbbuild, "fetch", fetch)
-    src = gitaly_init.source("v19.4.2", "tools/gitaly-init-cgroups")
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    src = gitaly_init.source(GITALY, "v19.4.2", "tools/gitaly-init-cgroups")
     assert src["go"] == "1.25.0" and src["commit"] == "5" * 40 and src["go_get"] == []
     assert src["license_sha256"] == hashlib.sha256(b"The MIT License (MIT)\n").hexdigest()
     spec = {"gitaly": src, "cng": {"binary": "/setup_cgroups"}, "user": "0:0",
             "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
-    args = gitaly_init.build_args(spec, "standard")
+    args = bbbuild.recipe_build_args(GITALY, spec, "standard")
     assert args["GITALY_MODULE"] == "tools/gitaly-init-cgroups" and args["RUN_USER"] == "0:0"
     assert args["BINARY"] == "/setup_cgroups" and args["GITALY_LICENSE"].endswith("/v19.4.2/LICENSE")
+
+
+# --- every build has a recipe; the recipes, bb-build.py and the workflows agree ---
+
+BUILD_DIRS = sorted(os.path.basename(os.path.dirname(p)) for p in glob.glob(os.path.join(ROOT, "builds", "*", "")))
+RECIPES = bbbuild.recipe_names()
+bb_build = load_script("bb-build")
+
+
+def test_every_build_has_a_recipe_and_every_recipe_a_build():
+    assert BUILD_DIRS, "no builds/ directories"
+    assert sorted(RECIPES) == BUILD_DIRS, "each builds/<name>/ needs a recipe.yaml (and nothing else holds one)"
+    for name in RECIPES:
+        r, hook = build(name)
+        # Its Dockerfile is its own or another build's (`dockerfile`: the MinIO sidecar).
+        assert os.path.exists(os.path.join(ROOT, "builds", r.get("dockerfile", name), "Dockerfile")), name
+        assert callable(getattr(hook, "generate", None)), f"{name}: hook {r['hook']} has no generate()"
+        assert hasattr(hook, "smoke_test") or r.get("smoke"), f"{name}: no smoke test"
+        assert hasattr(hook, "build_args") or r.get("build_args") is not None or name == "installer", name
+
+
+def test_recipe_order_puts_the_installer_after_base():
+    assert RECIPES.index("base") < RECIPES.index("installer")
+
+
+def test_mapping_builds_have_recipes():
+    mapping = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8"))
+    used = {m["build"] for m in mapping["images"].values() if isinstance(m, dict) and m.get("build")}
+    assert used and used <= set(RECIPES)
+
+
+@pytest.mark.parametrize("name", [n for n in RECIPES])
+def test_recipe_templates_fill_from_the_committed_build_yaml(name):
+    """Every {{path}} in a recipe's header, build_args and smoke resolves (a typo fails here,
+    not in CI's docker build)."""
+    r = bbbuild.load_recipe(name)
+    assert bbbuild.header(r).startswith("# ") and "{{" not in bbbuild.header(r)
+    path = os.path.join(ROOT, "builds", name, "build.yaml")
+    if not os.path.exists(path):
+        return
+    spec = yaml.safe_load(open(path, encoding="utf-8"))
+    for variant in spec["image"]:
+        args = bbbuild.recipe_build_args(r, spec, variant)
+        assert all("{{" not in v for v in args.values())
+        for line in (r.get("smoke") or {}).get("script", []):
+            assert "{{" not in bbbuild.fill(line, spec, variant)
+        for label, rx in (r.get("smoke") or {}).get("checks", {}).items():
+            re.compile(bbbuild.fill(rx, spec, variant))
+            bbbuild.fill(label, spec, variant)
+
+
+def test_fill():
+    data = {"a": {"fips": {"v": "1.36.6"}}, "l": ["x", "y"], "n": 3}
+    assert bbbuild.fill("{{a.$variant.v|line}} {{ l }} {{n}}", data, "fips") == "1.36 x y 3"
+    assert bbbuild.fill("{{a.$variant.v|line|rx}}", data, "fips") == r"1\.36"
+    assert bbbuild.fill("[{{a.standard.v?}}]", data) == "[]"
+    with pytest.raises(SystemExit):
+        bbbuild.fill("{{a.standard.v}}", data)
+    assert bbbuild.fill("${a[1]} { x; }", data) == "${a[1]} { x; }"   # shell braces are not templates
+
+
+def test_recipe_smoke_adds_the_fips_check(monkeypatch):
+    seen = []
+    monkeypatch.setattr(bbbuild, "run_checks", lambda image, script, checks, **kw: seen.append((script, checks, kw)))
+    spec = yaml.safe_load(open(os.path.join(ROOT, "builds", "base", "build.yaml"), encoding="utf-8"))
+    bbbuild.recipe_smoke_test(BASE, "img", "standard", spec)
+    bbbuild.recipe_smoke_test(BASE, "img", "fips", spec)
+    (std, std_checks, kw), (_, fips_checks, _) = seen
+    assert std.endswith(bbbuild.FIPS_OPENSSL) and kw == {"shell": "bash", "docker_args": []}
+    assert "openssl fips=yes" in fips_checks and "openssl fips=yes" not in std_checks
+    kubectl = ".".join(spec["ironbank"]["kubectl"].split(".")[:2])
+    assert std_checks[f"kubectl {kubectl}"] == '"v' + re.escape(kubectl) + r"\."
+
+
+def test_bb_build_command_line(capsys):
+    with pytest.raises(SystemExit):
+        bb_build.parse_args([])                 # a name or --all
+    with pytest.raises(SystemExit):
+        bb_build.parse_args(["base", "--all"])
+    a = bb_build.parse_args(["base", "--no-generate", "--build", "--test", "--push"])
+    assert (a.name, a.no_generate, a.build, a.test, a.push) == ("base", True, True, True, True)
+    assert bb_build.main(["--list"]) == 0
+    assert capsys.readouterr().out.split() == RECIPES
+    with pytest.raises(SystemExit):
+        bb_build.main(["no-such-build"])
+
+
+def workflow(name):
+    return open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8").read()
+
+
+def test_builds_workflow_matrix_lists_every_recipe():
+    matrix = yaml.safe_load(workflow("builds.yml"))["jobs"]["build"]["strategy"]["matrix"]["name"]
+    assert sorted(matrix) == sorted(RECIPES)
+
+
+def test_update_workflow_regenerates_every_recipe_in_parallel():
+    loops = re.findall(r"^\s*for b in ([\w -]+); do$", workflow("update.yml"), re.M)
+    assert len(loops) == 2 and loops[0] == loops[1], "the run loop and the print loop must match"
+    # The installer reads base's build.yaml, so it can't run in the parallel loop.
+    assert sorted(loops[0].split()) == sorted(set(RECIPES) - {"installer"})
+    assert 'python3 scripts/bb-build.py "$b"' in workflow("update.yml")

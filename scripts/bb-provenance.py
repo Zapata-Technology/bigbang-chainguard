@@ -60,7 +60,7 @@ def predicate(name, image, spec, env):
                 "buildType": f"{server}/{repo}/{workflow}",
                 "externalParameters": {"workflow": {"repository": f"{server}/{repo}", "path": workflow,
                                                     "ref": env["GITHUB_REF"]},
-                                       "builder": f"scripts/bb-{name}.py", "variant": variant},
+                                       "builder": f"scripts/bb-build.py {name}", "variant": variant},
                 "resolvedDependencies": resolved},
             "runDetails": {"builder": {"id": f"{server}/actions/runner/github-hosted"},
                            "metadata": {"invocationId": run}}}

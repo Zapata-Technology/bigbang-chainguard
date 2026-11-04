@@ -115,18 +115,18 @@ jobs:
             --values discovery/render-inputs.yaml -o discovery/images.json
           {
             echo '```'
-            # The images this repo builds: re-read Iron Bank's recipes and re-pin the
-            # org images they build FROM (new kubectl/Grafana patches, new plugins).
-            # builds.yml builds them on this PR and pushes them once it merges. The
-            # builders are independent (each writes only its builds/<name>/build.yaml and
+            # The images this repo builds (builds/<name>/recipe.yaml): re-read Iron Bank's
+            # recipes and re-pin the org images they build FROM (new kubectl/Grafana patches,
+            # new plugins). builds.yml builds them on this PR and pushes them once it merges.
+            # The builds are independent (each writes only its builds/<name>/build.yaml and
             # mostly waits on the network), so they run in parallel; each one's output is
             # printed in order afterwards, with how long it took.
             if [ -n "$BUILD_REGISTRY" ]; then
               out="${RUNNER_TEMP}/builders"; mkdir -p "$out"
               start=$(date +%s)
               for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
-                ( s=$(date +%s); python3 "scripts/bb-$b.py" > "$out/$b.log" 2>&1 || true
-                  echo "bb-$b.py: $(( $(date +%s) - s )) s" >> "$out/$b.log" ) &
+                ( s=$(date +%s); python3 scripts/bb-build.py "$b" > "$out/$b.log" 2>&1 || true
+                  echo "bb-build.py $b: $(( $(date +%s) - s )) s" >> "$out/$b.log" ) &
               done
               wait
               for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do

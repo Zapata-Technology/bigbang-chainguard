@@ -18,7 +18,7 @@ pick a tag from the org, and write overlays. Diagrams: [docs/architecture.md](do
 | `mapping.yaml`: image map and every escape hatch | `overlays/*.yaml`, `flux/`, `flux-fips/` (`bb-convert.py`) |
 | `orgs/<org>.yaml`: one org's exceptions | `seaweedfs/`, `seaweedfs-fips/` (`bb-convert.py`, from `object-storage.yaml`) |
 | `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md`, `docs/version-differences.md` (`bb-convert.py`) |
-| `scripts/*.py`, `builds/*/Dockerfile` | `builds/*/build.yaml` (`bb-<name>.py`) |
+| `scripts/*.py`, `builds/*/Dockerfile`, `builds/*/recipe.yaml` | `builds/*/build.yaml` (`bb-build.py <name>`) |
 | `compat/*.yaml`, `compat/support/*` | `discovery/images.json` (`bb-images.py`) |
 | `tests/`, docs other than the two above | |
 
@@ -207,9 +207,19 @@ function, `apply_when_ready(docs, crd, namespace, check, wait)` (waits for the p
 CRD and namespace and its admission webhook) and a `*_problem` that `status` reports.
 
 ### Change an image this repo builds
-Edit `builds/<name>/Dockerfile` or `scripts/bb-<name>.py`; regenerate `build.yaml` with
-`scripts/bb-<name>.py`; the smoke test in that script must cover the change. `builds.yml`
-builds on the PR and pushes on merge.
+Edit `builds/<name>/Dockerfile`, `builds/<name>/recipe.yaml` (what the build is: names,
+Iron Bank project, modules to raise, notes, build arguments, a declarative smoke test) or
+its hook `scripts/buildhooks/<hook>.py` (the Python it needs); regenerate `build.yaml` with
+`python scripts/bb-build.py <name>` (`--all` for every build); the smoke test (the hook's,
+or the recipe's `smoke`) must cover the change. `builds.yml` builds on the PR and pushes on
+merge.
+
+### Add an image this repo builds
+A new `builds/<name>/` with a `Dockerfile` and a `recipe.yaml` (`scripts/bb-build.py`'s
+docstring lists the keys), and a hook in `scripts/buildhooks/` only if no existing one
+fits (`buildhooks/__init__.py` says what a hook has). Add `<name>` to `builds.yml`'s matrix
+and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
+`{build: <name>}` entry in `mapping.yaml`, and a row in docs/how-it-works.md's table.
 
 ## Traps already hit (don't rediscover them)
 

@@ -28,10 +28,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+from bbbuild import recipe_names  # noqa: E402
 from bbcommon import ROOT, build_registry  # noqa: E402
 from orgtags import org_name  # noqa: E402
-
-BUILDERS = ["grafana-plugins", "base", "devops-tester", "vault", "jmx-exporter", "mattermost-operator", "tempo-query", "minio-operator", "minio-operator-sidecar", "gitaly-init-cgroups", "installer"]   # installer reads base's
 
 
 def step(title, *args, ok=(0,)):
@@ -92,9 +91,9 @@ def main():
         raise SystemExit("\nThe org is missing repositories (listed above). Add them in the Chainguard console, or "
                          f"keep those images on Iron Bank with entries in orgs/{org}.yaml, then run again.")
     if registry:
-        for b in BUILDERS:
+        for b in recipe_names():   # every builds/<name>/recipe.yaml, the installer after base
             extra = ["--build", "--test"] if a.build or a.push else []
-            step(f"generate builds/{b}", os.path.join(HERE, f"bb-{b}.py"), *extra, *(["--push"] if a.push else []))
+            step(f"generate builds/{b}", os.path.join(HERE, "bb-build.py"), b, *extra, *(["--push"] if a.push else []))
     step("write the overlays", os.path.join(HERE, "bb-convert.py"), *strict)
     for mode in ([], ["--fips"]):
         step("verify " + ("FIPS" if mode else "standard"), os.path.join(HERE, "bb-verify.py"),

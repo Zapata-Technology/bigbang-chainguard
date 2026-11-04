@@ -1,7 +1,7 @@
 # Big Bang's mattermost-operator (Iron Bank opensource/mattermost/mattermost-operator)
 # built from upstream's source FROM the org's images. Iron Bank copies the binary out
 # of upstream's image onto distroless static; Chainguard publishes no such image.
-# scripts/bb-mattermost-operator.py passes every input from build.yaml:
+# scripts/bb-build.py mattermost-operator passes every input from build.yaml:
 #
 #   DEV_IMAGE          the org's build image (go(-fips) -dev, or kubectl(-fips) -dev), by digest
 #   BASE_IMAGE         the org's runtime image (glibc-openssl(-fips), or kubectl(-fips)), by digest

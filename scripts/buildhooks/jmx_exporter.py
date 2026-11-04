@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Rebuild Iron Bank's opensource/prometheus/jmx-exporter FROM the org's busybox.
 
 Big Bang uses this image only as SonarQube's `inject-prometheus-exporter` init
@@ -18,39 +17,26 @@ Bank's own recipe:
      Dockerfile (the jar's directory, the uid) from repo1.dso.mil at the newest commit
      that builds that version (master may already be on a newer jar)
   3. download the jar, check its sha256 and that it is a Java agent
-  4. pin cgr.dev/<org>/busybox and busybox-fips -dev images (the newest release) by
-     digest; their sh is busybox, and curl comes from Wolfi
-  5. write builds/jmx-exporter/build.yaml
+  4. pin cgr.dev/<org>/busybox and busybox-fips -dev images (the newest release, or the
+     line --version names) by digest; their sh is busybox, and curl comes from Wolfi
+  5. return builds/jmx-exporter/build.yaml
 
-  bb-jmx-exporter.py [--org <org>] [--ref master]       regenerate build.yaml
-  bb-jmx-exporter.py --build [--test] [--push]          also build both images
+The smoke test (recipe `smoke`) runs the init container's command as SonarQube's chart
+does (uid 1000, gid 0, read-only root, /data mounted) and checks the copied jar's sha256.
 
---test runs the init container's command as SonarQube's chart does (uid 1000, gid 0,
-read-only root, /data mounted) and checks the copied jar's sha256, and for -fips that
-OpenSSL defaults to fips=yes.
+Recipe keys: ironbank {image, project}, org_images, packages, not_ported.
 """
 import hashlib
 import io
 import json
-import os
 import re
-import sys
 import urllib.error
 import urllib.parse
 import zipfile
 
 import yaml
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import bbbuild  # noqa: E402
-
-NAME = "jmx-exporter"
-IB_IMAGE = "ironbank/opensource/prometheus/jmx-exporter"
-IB_PROJECT = "opensource/prometheus/jmx-exporter"
-IMAGE = "bigbang-jmx-exporter"
-PACKAGES = ["curl"]
-# Where SonarQube's init container copies the jar to (its volume, mounted at /data).
-INIT_OUTPUT = "/data/jmx_prometheus_javaagent.jar"
+import bbbuild
 
 
 def jar_name(version):
@@ -81,24 +67,24 @@ def recipe(manifest, dockerfile, version):
             "name": jar_name(version)}, int(user)
 
 
-def find_recipe(ref, version):
+def find_recipe(project, ref, version):
     """(commit, manifest, Dockerfile) of the newest Iron Bank commit on `ref` that builds `version`.
 
     Iron Bank's master moves to a new jar before Big Bang does, and the chart names the
     jar by Big Bang's version, so walk back through the manifest's history.
     """
-    commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, ref)
+    commit, manifest, dockerfile = bbbuild.ironbank_recipe(project, ref)
     if version in [str(t) for t in manifest.get("tags", [])]:
         return commit, manifest, dockerfile
-    quoted = urllib.parse.quote(f"dsop/{IB_PROJECT}", safe="")
+    quoted = urllib.parse.quote(f"dsop/{project}", safe="")
     history = json.loads(bbbuild.fetch(f"{bbbuild.REPO1}/api/v4/projects/{quoted}/repository/commits"
                                        f"?path=hardening_manifest.yaml&ref_name={urllib.parse.quote(ref)}&per_page=100"))
     for c in history:
-        raw = f"{bbbuild.REPO1}/dsop/{IB_PROJECT}/-/raw/{c['id']}"
+        raw = f"{bbbuild.REPO1}/dsop/{project}/-/raw/{c['id']}"
         manifest = yaml.safe_load(bbbuild.fetch(f"{raw}/hardening_manifest.yaml"))
         if version in [str(t) for t in manifest.get("tags", [])]:
             return c["id"], manifest, bbbuild.fetch(f"{raw}/Dockerfile").decode()
-    raise SystemExit(f"no commit of dsop/{IB_PROJECT} on {ref} builds {version}")
+    raise SystemExit(f"no commit of dsop/{project} on {ref} builds {version}")
 
 
 def candidate_urls(url):
@@ -128,56 +114,27 @@ def check_jar(jar):
     return url
 
 
-def generate(a):
-    bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
-    commit, manifest, dockerfile = find_recipe(a.ref, bb_tag)
+def generate(r, a):
+    ib_image, ib_project = r["ironbank"]["image"], r["ironbank"]["project"]
+    bb_tag = bbbuild.bigbang_tag(ib_image)
+    commit, manifest, dockerfile = find_recipe(ib_project, a.ref, bb_tag)
     jar, uid = recipe(manifest, dockerfile, bb_tag)
     jar["url"], ib_url = check_jar(jar), jar["url"]
-    images = bbbuild.org_images(a.org, {"standard": "busybox", "fips": "busybox-fips"}, a.version or "*")
+    images = bbbuild.org_images(a.org, r["org_images"], a.version or "*")
     spec = {
-        "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
+        "ironbank": {"image": f"{ib_image}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{ib_project}",
                      "commit": commit, "manifest_tags": manifest.get("tags", []), "jar_url": ib_url},
         # Tagged <Iron Bank tag>-busybox<version>, so a busybox release gets a new tag.
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""),
+        "image": {v: {"name": bbbuild.image_name(r, v),
                       "tag": f"{bb_tag}-busybox{img['tag'].removeprefix('v')}", "dev": img["dev"]}
                   for v, img in images.items()},
         "jar": jar,
         # What Big Bang's sonarqube chart sets as upstream.prometheusExporter.downloadURL.
         "download_url": f"file://{jar['dir']}/{jar['name']}",
-        "packages": PACKAGES,
+        "packages": r["packages"],
         "user": {"id": uid},
-        "not_ported": ["the standalone exporter (jmx_prometheus_standalone jar, Java and its entrypoint) and the "
-                       "examples: Big Bang runs this image only as SonarQube's init container, which copies the "
-                       "javaagent jar"],
+        "not_ported": r["not_ported"],
     }
-    bbbuild.write_spec(NAME, spec, "# Iron Bank's jmx-exporter rebuilt FROM the Chainguard org's busybox -dev images:\n"
-                                   "# the javaagent jar of Iron Bank's recipe at `ironbank.commit`, plus curl.\n")
     print(f"busybox {images['standard']['tag']} / fips {images['fips']['tag']}, "
           f"{jar['name']} (Iron Bank {commit[:12]})")
     return spec
-
-
-def build_args(spec, variant):
-    j = spec["jar"]
-    return {"PACKAGES": " ".join(spec["packages"]), "JAR_URL": j["url"], "JAR_SHA256": j["sha256"],
-            "JAR_DIR": j["dir"], "JAR_NAME": j["name"], "USER_ID": str(spec["user"]["id"])}
-
-
-def smoke_test(image, variant, spec):
-    # SonarQube's command, word for word (noCheckCertificate off), under its init
-    # containers' security context.
-    script = "; ".join([
-        f"curl -s '{spec['download_url']}'  --output {INIT_OUTPUT} -v",
-        f"sha256sum {INIT_OUTPUT}",
-        "grep -hE '^ *(default_)?properties *= *fips=yes' /etc/ssl/openssl.cnf || true",
-    ])
-    checks = {"jar copied with Iron Bank's sha256": rf"^{spec['jar']['sha256']}\s+{re.escape(INIT_OUTPUT)}$"}
-    if variant == "fips":
-        checks["openssl fips=yes"] = r"properties *= *fips=yes"
-    bbbuild.run_checks(image, script, checks, shell="/bin/sh",
-                       docker_args=["--user", "1000:0", "--read-only", "--cap-drop", "ALL",
-                                    "--security-opt", "no-new-privileges", "--tmpfs", "/data:mode=1777"])
-
-
-if __name__ == "__main__":
-    bbbuild.run(NAME, __doc__, generate, build_args, smoke_test)

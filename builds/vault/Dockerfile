@@ -1,4 +1,4 @@
-# Chainguard Vault plus curl, for Big Bang's vault package. scripts/bb-vault.py passes
+# Chainguard Vault plus curl, for Big Bang's vault package. scripts/bb-build.py vault passes
 # every input from build.yaml.
 #
 # Big Bang's vault chart runs a post-start hook (templates/bigbang/vault-post-start.yaml)
@@ -8,7 +8,7 @@
 #
 #   DEV_IMAGE   the org's vault(-fips) -dev image, pinned by digest
 #   PACKAGES    Wolfi packages to add (curl)
-#   RUN_USER    the user the vault image runs as (read from the image by bb-vault.py)
+#   RUN_USER    the user the vault image runs as (read from the image by bb-build.py vault)
 ARG DEV_IMAGE
 
 FROM ${DEV_IMAGE}
