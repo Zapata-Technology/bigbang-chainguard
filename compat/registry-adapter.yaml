@@ -10,15 +10,16 @@ test:
   namespaces: [neuvector]
   expect: [bigbang-registry-adapter]
   values:
-    neuvector:
-      values:
-        upstream:
-          cve:
-            adapter:
-              enabled: true
-              env:
-                - {name: HARBOR_BASIC_AUTH_USERNAME, value: compat}
-                - {name: HARBOR_BASIC_AUTH_PASSWORD, value: compatAdapterAB12cd34}
+    packages:
+      neuvector:
+        values:
+          upstream:
+            cve:
+              adapter:
+                enabled: true
+                env:
+                  - {name: HARBOR_BASIC_AUTH_USERNAME, value: compat}
+                  - {name: HARBOR_BASIC_AUTH_PASSWORD, value: compatAdapterAB12cd34}
   setup:
     - sh compat/support/watch.sh adapter "kubectl -n neuvector logs deploy/neuvector-registry-adapter-pod --tail=30"
   check:

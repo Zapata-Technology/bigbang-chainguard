@@ -106,3 +106,11 @@ def test_gate_tells_a_failed_scan_from_a_finding():
     assert cve.gate_result(0, json.dumps({"matches": []}), "") == ("ok", [])
     assert cve.gate_result(0, json.dumps(crit), "") == ("FIXABLE CRITICAL", ["CVE-1 x 1.1 (fixed in 1.2)"])
     assert cve.gate_result(1, "", "failed to pull: UNAUTHORIZED")[0] == "SCAN FAILED"
+
+
+def test_gate_skips_images_built_here(monkeypatch):
+    monkeypatch.setenv("BUILD_REGISTRY", "ghcr.io/example")
+    monkeypatch.setattr(cve, "new_refs", lambda old, new: ["ghcr.io/example/bigbang-x:1"])
+    monkeypatch.setattr(cve.subprocess, "run", lambda *a, **k: type("P", (), {"stdout": "", "returncode": 0})())
+    lines, failed = cve.gate("origin/main")
+    assert not failed and lines[1].startswith("skipped  ghcr.io/example/bigbang-x:1")
