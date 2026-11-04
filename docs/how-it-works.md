@@ -257,6 +257,9 @@ can't express, `mapping.yaml` has these escape hatches:
 - `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag).
 - `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job).
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
+- `chart_registry_builds`: images this repo builds in a chart that prefixes every image
+  with one chart-wide registry (NeuVector's registry adapter). A Flux post-renderer moves
+  `<org registry>/<built image>` to `BUILD_REGISTRY`.
 - `version_labels`: workload labels that must state the version actually deployed (istiod).
 - `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI
   images run `sh` as bash; Chainguard's `-dev` images run busybox `sh`. A Flux

@@ -1241,6 +1241,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter-fips
         - digest: sha256:e9bdc0fec431ea55077a96907c33d89ce3c3a9e4a530735667695d3f4ea3c3d4
           name: cgr.dev/zapatatechnology.com/neuvector-scanner-fips
+        - name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter-fips
+          newName: ghcr.io/zapata-technology/bigbang-registry-adapter-fips
+          newTag: v0.2.13
     values:
       bbtests:
         scripts:

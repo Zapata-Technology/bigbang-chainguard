@@ -1257,6 +1257,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
         - digest: sha256:8da06b0616184220fa2a6c751b7cd795e4f3ccce99780ac3a49d878562da4257
           name: cgr.dev/zapatatechnology.com/neuvector-scanner
+        - name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter
+          newName: ghcr.io/zapata-technology/bigbang-registry-adapter
+          newTag: v0.2.13
     values:
       bbtests:
         scripts:

@@ -401,6 +401,15 @@ bash_commands:
   packages.fortify:
     - {kind: Job, name: .*-keystore-job, container: containers/0}   # secret-creator: kubectl, REQUIRED_KEYS=( ... )
 
+# Images this repo builds in a chart that prefixes every image with one chart-wide
+# registry (Big Bang key: [Iron Bank repos]). NeuVector's registry-adapter template ignores
+# cve.adapter.image.registry and uses `registry`, which the overlay sets to the org's, so it
+# rendered cgr.dev/<org>/bigbang-registry-adapter (compat/registry-adapter.yaml).
+# bb-convert writes a Flux postRenderers kustomize rewrite to BUILD_REGISTRY.
+chart_registry_builds:
+  packages.neuvector:
+    - ironbank/opensource/neuvector/registry-adapter
+
 post_renderers:
   packages.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
