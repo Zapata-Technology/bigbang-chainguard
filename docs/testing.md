@@ -286,7 +286,9 @@ come from a real StorageClass. A package that needs a privilege PSA refuses pass
 test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
 
 1. boots AlmaLinux 9 under QEMU/KVM, as the FIPS test does (`.github/vm-lib.sh`, shared by
-   both VMs), with 8 vCPUs and 6 GB on the runner's 2 CPUs and 7 GB;
+   both VMs), with 8 vCPUs and 12 GB on the runner's 2 CPUs and 7 GB (backed by 12 GB of swap:
+   Big Bang's default packages request more memory than the runner has, and istiod stayed
+   Pending with "Insufficient memory" in a 6 GB VM);
 2. installs RKE2 `v1.35.9+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
    its release: the release's checksum file is pinned by SHA256 and vouches for the tarball
    and the airgap images (core and Canal, so nothing of RKE2's comes from Docker Hub);
@@ -301,7 +303,7 @@ test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
 5. writes a site file with Big Bang's defaults (`bb-install.py init`), runs
    `bb-install.py check`, then `bb-install.py install` (standard images; `--small-cluster`
    only lowers Flux's requests on the one node);
-6. `scripts/cluster-check.py`: fails on any pod in any namespace that isn't Ready (or a
+6. `scripts/cluster-check.py`: fails on any HelmRelease that isn't Ready, any pod in any namespace that isn't Ready (or a
    finished Job), any container restart, an image that can't be pulled, and any pod refused
    by PSA or an admission webhook. Events are kept for the whole run (the API server forgets
    them after an hour), since a controller whose pod was refused keeps retrying and the pod

@@ -84,12 +84,18 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      # The VM's disk grows on the runner's as Big Bang's images arrive.
-      - name: Free disk space
+      # The VM's disk grows on the runner's as Big Bang's images arrive. Big Bang's default
+      # packages request more memory than the runner's 7 GB (istiod stayed Pending with
+      # "Insufficient memory" in a 6 GB VM), so the VM gets 12 GB, backed by swap on the
+      # runner; Docker, unused here, gives its memory back.
+      - name: Free disk space and memory
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo systemctl stop docker.socket docker containerd || true
+          sudo fallocate -l 12G /rke2-swap && sudo chmod 600 /rke2-swap && sudo mkswap -q /rke2-swap && sudo swapon /rke2-swap
           df -h /
-          swapon --show || true
+          free -m
+          swapon --show
 
       # Without KVM a VM would be emulated (TCG), far too slow for Big Bang: stop here.
       - name: Check for KVM
@@ -127,6 +133,8 @@ jobs:
       - name: Boot a VM with RKE2 (CIS profile)
         id: vm
         timeout-minutes: 30
+        env:
+          VM_MEMORY: 12288
         run: |
           bash .github/rke2-vm.sh boot
           echo "KUBECONFIG=$RUNNER_TEMP/rke2-vm/kubeconfig" >> "$GITHUB_ENV"

@@ -15,8 +15,8 @@
 set -euo pipefail
 
 VM_NAME=rke2-vm
-# Big Bang's default packages on one node: more vCPUs than the runner's 2 CPUs (Kubernetes
-# schedules by requests), and as much of its 7 GB as the runner can spare.
+# Big Bang's default packages on one node: more vCPUs than the runner's 2 CPUs and more memory
+# than its 7 GB (Kubernetes schedules by requests; rke2.yml backs the memory with swap).
 VM_CPUS=${VM_CPUS:-8}
 VM_MEMORY=${VM_MEMORY:-6144}
 VM_DISK=${VM_DISK:-60G}

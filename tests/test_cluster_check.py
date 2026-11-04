@@ -64,6 +64,16 @@ def test_admission_refusals_fail_and_recovered_pulls_are_notes():
     assert notes == ["tempo/Pod/tempo-0 pull failed at some point: Failed to pull image \"cgr.dev/org/tempo:2\": 503"]
 
 
+def test_helmreleases_not_ready_fail_with_flux_s_reason():
+    def hr(name, status, msg=""):
+        return {"metadata": {"namespace": "bigbang", "name": name},
+                "status": {"conditions": [{"type": "Ready", "status": status, "message": msg}]}}
+    problems = check.helmrelease_problems([hr("kyverno", "True"), hr("istiod", "False", "timeout waiting for istiod"),
+                                           {"metadata": {"namespace": "bigbang", "name": "new"}}])
+    assert problems == ["HelmRelease bigbang/istiod not Ready: timeout waiting for istiod",
+                        "HelmRelease bigbang/new not Ready: no status yet"]
+
+
 def test_json_events_match_the_watched_lines():
     doc = {"items": [{"metadata": {"namespace": "ns"}, "type": "Warning", "reason": "FailedCreate",
                       "involvedObject": {"kind": "ReplicaSet", "name": "x"}, "message": "m"}]}

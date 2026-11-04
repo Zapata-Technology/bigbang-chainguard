@@ -4,7 +4,8 @@ verdict of a whole-cluster test (.github/workflows/rke2.yml), after bb-install.p
 
   cluster-check.py [--events FILE] [--max-restarts 0]
 
-Across every namespace (Big Bang's, Flux's, SeaweedFS's and the cluster's own):
+Every HelmRelease Ready (Flux uninstalls a release whose install failed, so its pods are
+gone by now), and across every namespace (Big Bang's, Flux's, SeaweedFS's and the cluster's own):
   - each pod Running with every container Ready, or Succeeded (a finished Job)
   - no container restarted more than --max-restarts times (a finished Job's retries aside:
     RKE2's own helm-install Jobs retry while the API settles)
@@ -58,6 +59,17 @@ def pod_problems(pods, max_restarts=0):
         if phase != "Running" or not containers or not all(s.get("ready") for s in containers):
             problems.append(f"{name} is {phase}, not Ready"
                             + (f": {status['reason']}" if status.get("reason") else ""))
+    return problems
+
+
+def helmrelease_problems(hrs):
+    """PROBLEM lines for HelmReleases that aren't Ready, with Flux's reason."""
+    problems = []
+    for hr in hrs:
+        ready = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}.get("Ready", {})
+        if ready.get("status") != "True":
+            problems.append(f"HelmRelease {hr['metadata']['namespace']}/{hr['metadata']['name']} not Ready: "
+                            f"{ready.get('message', 'no status yet')[:300]}")
     return problems
 
 
@@ -115,15 +127,16 @@ def main():
     ap.add_argument("--max-restarts", type=int, default=0, help="restarts a container may have (default 0)")
     a = ap.parse_args()
 
+    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json", check=False) or '{"items": []}')["items"]
     pods = json.loads(kubectl("get", "pod", "-A", "-o", "json"))["items"]
-    problems = pod_problems(pods, a.max_restarts)
+    problems = helmrelease_problems(hrs) + pod_problems(pods, a.max_restarts)
     events = json_events(json.loads(kubectl("get", "events", "-A", "-o", "json")))
     if a.events and os.path.exists(a.events):
         events += parse_event_lines(open(a.events, encoding="utf-8", errors="replace").read())
     refused, notes = event_problems(events)
     problems += refused
     namespaces = sorted({p["metadata"]["namespace"] for p in pods})
-    print(f"{len(pods)} pods in {len(namespaces)} namespaces ({', '.join(namespaces)}); {len(events)} events read")
+    print(f"{len(hrs)} HelmReleases; {len(pods)} pods in {len(namespaces)} namespaces ({', '.join(namespaces)}); {len(events)} events read")
     for n in notes:
         print("NOTE:", n)
     for p in problems:
