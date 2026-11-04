@@ -122,10 +122,10 @@ def test_readme_iron_bank_count_matches_docs_images():
     assert quoted and set(quoted) == {generated}, f"README says {quoted}, docs/images.md says {generated}"
 
 
-def test_readme_lists_every_image_built_here():
-    readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+def test_docs_list_every_image_built_here():
+    doc = open(os.path.join(ROOT, "docs", "how-it-works.md"), encoding="utf-8").read()
     for d in glob.glob(os.path.join(ROOT, "builds", "*", "Dockerfile")):
         name = os.path.basename(os.path.dirname(d))
         if name == "installer":
-            continue   # the installer image has its own README section
-        assert f"`bigbang-{name}`" in readme, f"README's 'Images this repo builds' has no bigbang-{name}"
+            continue   # the installer image is described with the installer (docs/install.md)
+        assert f"`bigbang-{name}`" in doc, f"docs/how-it-works.md's 'Images this repo builds' has no bigbang-{name}"

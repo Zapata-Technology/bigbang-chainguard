@@ -691,3 +691,57 @@ def test_built_signer_is_remembered(monkeypatch):
     assert pattern == install._build_registry(co) + "/bigbang-*" and "O/r" in subject
     assert c.values["build-signer"] == "O/r"
     assert "O/r" in install.built_signer(_sig_args(build_signer=None), c, co)[1]
+
+
+def test_upgrade_path_needs_3_35_1_before_big_bang_4():
+    assert install.upgrade_path_problem(None, "4.0.0") is None                   # fresh install
+    assert install.upgrade_path_problem("3.35.1", "4.0.0") is None
+    assert install.upgrade_path_problem("4.0.0", "4.1.0") is None
+    assert "3.35.1 only" in install.upgrade_path_problem("3.34.0", "4.0.0")
+    assert "older major" in install.upgrade_path_problem("4.0.0", "3.35.1")
+
+
+def test_a_big_bang_3_site_file_moves_to_packages():
+    defaults = {"packages": {"tempo": {}, "keycloak": {}, "mattermostOperator": {}, "istiod": {}},
+                "networkPolicies": {}}
+    site = {"domain": "d", "networkPolicies": {"enabled": True},
+            "tempo": {"enabled": True, "values": {"istio": {"enabled": True}, "upstream": {"x": 1}}},
+            "addons": {"keycloak": {"enabled": True, "values": {"routes": {"a": 1}}},
+                       "mattermostoperator": {"enabled": True}},
+            "packages": {"keycloak": {"values": {"bb-common": {"routes": {"a": 2}}}}, "myapp": {"git": {}}}}
+    new, changes = install.migrate_site(site, defaults)
+    assert install.legacy_keys(new, defaults) == []
+    assert new["domain"] == "d" and new["networkPolicies"] == {"enabled": True}
+    tempo = new["packages"]["tempo"]
+    assert tempo["values"] == {"upstream": {"x": 1}, "bb-common": {"istio": {"enabled": True}}}
+    # Big Bang 4's own place wins over the moved value; custom packages stay.
+    assert new["packages"]["keycloak"]["values"]["bb-common"]["routes"] == {"a": 2}
+    assert new["packages"]["mattermostOperator"] == {"enabled": True} and "myapp" in new["packages"]
+    assert "tempo -> packages.tempo" in changes and "addons.keycloak -> packages.keycloak" in changes
+    assert "tempo.values.istio -> packages.tempo.values.bb-common.istio" in changes
+    assert site["tempo"]["values"]["istio"] == {"enabled": True}                  # the input is untouched
+
+
+def test_render_problems_reports_what_helm_refuses(monkeypatch):
+    class P:
+        returncode, stderr = 1, "Error: values don't meet the specifications\n- (root): Additional property tempo\n"
+    seen = {}
+
+    def run(cmd, **kw):
+        seen["cmd"] = cmd
+        return P()
+    monkeypatch.setattr(install.subprocess, "run", run)
+    monkeypatch.setattr(install, "chart_ref", lambda a: ("chart-dir", []))
+    [problem] = install.render_problems(None, ["a.yaml", "site.yaml"], "1.35.0")
+    assert "Additional property tempo" in problem
+    assert seen["cmd"][:4] == ["helm", "template", "bigbang", "chart-dir"] and "--kube-version" in seen["cmd"]
+    P.returncode = 0
+    assert install.render_problems(None, ["a.yaml"], "1.35.0") == []
+
+
+def test_check_pulls_only_the_enabled_packages_images():
+    co = install.Checkout(ROOT)
+    every = install.deployed_images(co, False, co.registry)
+    tempo = install.deployed_images(co, False, co.registry, ["packages.tempo"])
+    assert tempo and set(tempo) < set(every)
+    assert any("/tempo:" in r for r in tempo) and not any("keycloak" in r for r in tempo)

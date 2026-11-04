@@ -37,7 +37,7 @@ def setting(name, arg=None):
 
 
 # mapping.yaml's sections and image-entry options. A key not listed here is a typo (or a
-# new feature that needs adding here, in bb-convert.py and in the README); load_mapping
+# new feature that needs adding here, in bb-convert.py and in docs/how-it-works.md); load_mapping
 # refuses it instead of silently ignoring it.
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
                     "bash_wait_jobs", "bash_commands", "post_renderers", "no_post_renderers", "unpinned", "ignore",

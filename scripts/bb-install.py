@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 """Install Big Bang on Chainguard images with one command, and look after it.
 
+  bb-install.py check [--site my-site.yaml] [--fips]
+                     test every setting and change nothing: tools, the cluster (Kubernetes
+                     version, StorageClass, the upgrade path from what runs now), the site
+                     file (Big Bang renders with it: a wrong or Big Bang 3 key fails here),
+                     and a pull of every image your packages deploy with your logins
+                     (which also proves your Chainguard plan covers them)
+  bb-install.py upgrade [--site my-site.yaml] [--fips]
+                     the install below for a cluster that already runs Big Bang: converts a
+                     Big Bang 3 site file to Big Bang 4's keys (keeping a backup), shows what
+                     will change, asks, then installs
   bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
                      write a starter site file (no credentials in it)
   bb-install.py install [--site my-site.yaml] [--fips]
-                     preflight checks (including a pull of each image built here), pull
+                     the checks above (stops before changing anything if one fails), pull
                      secrets, Flux, SeaweedFS (random S3 keys), Big Bang with the overlays in
                      the right order, then wait and report; writes the site file first (as
                      init does) when it doesn't exist
@@ -52,6 +62,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import time
 import urllib.error
 import urllib.parse
@@ -507,10 +518,13 @@ def preflight(a, co, site, defaults):
     legacy = legacy_keys(site, defaults) if is_bigbang4(defaults) else []
     if legacy:
         problems.append(f"the site file uses Big Bang 3 keys ({', '.join(legacy)}); Big Bang {co.version} reads "
-                        "packages.<name>. Convert it with Big Bang's scripts/migrate-values-3-to-4.sh --target 4 "
-                        "(README, \"Upgrading from Big Bang 3\")")
+                        "packages.<name>. `bb-install.py upgrade` converts it for you (keeping a backup)")
     files = co.overlays(a.fips) + [a.site]
     enabled = enabled_packages(merged_values(defaults, files))
+    if not legacy and not problems:
+        kube = f"{server.get('major')}.{re.sub(r'[^0-9]', '', server.get('minor', ''))}.0" if server else \
+            f"{MIN_KUBERNETES[0]}.{MIN_KUBERNETES[1]}.0"
+        problems += render_problems(a, files, kube)
     on = set(enabled)
     for needs in ("prometheusOperatorCRDs", "certManager"):
         # prometheusOperatorCRDs installs the CRDs and creates the monitoring namespace;
@@ -528,6 +542,187 @@ def preflight(a, co, site, defaults):
             notes.append("these enabled packages keep Iron Bank images, so registry1 credentials are needed: "
                          + ", ".join(f"{k} ({len(v)})" for k, v in sorted(left.items())))
     return enabled, problems, notes
+
+
+def render_problems(a, files, kube_version):
+    """Big Bang rendered with the overlays and the site file (helm template, nothing
+    applied): the chart's schema and templates check every setting, so a misspelled key, a
+    Big Bang 3 key or a bad value stops the install here instead of in a HelmRelease."""
+    ref, version = chart_ref(a)
+    p = subprocess.run(["helm", "template", "bigbang", ref, *version, "-n", NAMESPACE,
+                        *[x for f in files for x in ("-f", f)], "--kube-version", kube_version],
+                       capture_output=True, text=True)
+    if p.returncode == 0:
+        return []
+    lines = [ln.rstrip() for ln in p.stderr.splitlines() if ln.strip() and not ln.startswith("Use --debug")]
+    return ["Big Bang doesn't accept these settings (helm template):\n    " + "\n    ".join(lines[:20])]
+
+
+def upgrade_path_problem(running, target):
+    """Why Big Bang can't go from the `running` chart version to `target`, or None. Big Bang
+    4 supports upgrades from 3.35.1 only, and a chart never goes back a major version."""
+    if not running:
+        return None
+    major = lambda v: int(str(v).split(".")[0])   # noqa: E731
+    if major(target) < major(running):
+        return f"the cluster runs Big Bang {running}; {target} is an older major version (use rollback instead)"
+    if major(running) == 3 and major(target) >= 4 and running != "3.35.1":
+        return (f"the cluster runs Big Bang {running}; Big Bang {target} upgrades from 3.35.1 only. Install a "
+                "3.35.1-cg.<n> release first (its bb-install.py install), then upgrade to this one")
+    return None
+
+
+BB_COMMON = ("istio", "networkPolicies", "routes")
+
+
+def migrate_site(site, defaults):
+    """A Big Bang 3 site file in Big Bang 4's keys, and a line per change: each package from
+    <name> or addons.<name> to packages.<name>, and a package's values.istio,
+    values.networkPolicies and values.routes under values.bb-common (as Big Bang's
+    migrate-values-3-to-4.sh --target 4 does). Values already in Big Bang 4's place win."""
+    names = {k.split(".")[-1] for k in bigbang_packages(defaults)}
+    by_lower = {n.lower(): n for n in names}
+    new = {k: v for k, v in site.items() if k not in names and k != "addons"}
+    packages = dict(new.get("packages") or {})
+    changes = []
+    old = [(k, k, v) for k, v in site.items() if k in names]
+    old += [(f"addons.{k}", by_lower.get(k.lower(), k), v) for k, v in (site.get("addons") or {}).items()]
+    for path, name, pkg in old:
+        pkg = json.loads(json.dumps(pkg or {}))
+        values = pkg.get("values") if isinstance(pkg.get("values"), dict) else None
+        for key in BB_COMMON:
+            if values is not None and key in values:
+                flat, common = values.pop(key), values.setdefault("bb-common", {})
+                nested = common.get(key)
+                common[key] = deep_merge(flat, nested) if isinstance(flat, dict) and isinstance(nested, dict) \
+                    else (flat if nested is None else nested)
+                changes.append(f"{path}.values.{key} -> packages.{name}.values.bb-common.{key}")
+        packages[name] = deep_merge(pkg, packages.get(name) or {})
+        changes.append(f"{path} -> packages.{name}")
+    if packages:
+        new["packages"] = packages
+    return new, changes
+
+
+def image_problems(co, fips, enabled, logins):
+    """A pull test of every image the enabled packages deploy from cgr.dev/<org> and the
+    build registry, with `logins` ({registry host: (user, password) or None}). A refused pull
+    from the org is most often an image your Chainguard plan doesn't cover."""
+    refs = [(r, logins.get(r.split("/", 1)[0])) for prefix in (co.registry, _build_registry(co)) if prefix
+            for r in deployed_images(co, fips, prefix, enabled)]
+    with ThreadPoolExecutor(8) as pool:
+        found = list(pool.map(lambda r: pull_problem(*r), refs))
+    return len(refs), [p for p in found if p]
+
+
+def check_logins(co, site):
+    """{registry host: login or None} for the check, from the environment, the site file, the
+    cluster (an earlier install) or, for cgr.dev, a short-lived token from your chainctl
+    login. Nothing is stored or printed, and no pull token is made."""
+    stored = read_secret(NAMESPACE, STATE_SECRET) or {}
+    in_site = {r.get("registry"): r for r in site.get("registryCredentials") or [] if isinstance(r, dict)}
+
+    def first(host, key, env_user, env_pass, env_token=None):
+        if os.environ.get(env_user) and os.environ.get(env_pass):
+            return os.environ[env_user], os.environ[env_pass]
+        if env_token and os.environ.get(env_token):
+            return TOKEN_USER, os.environ[env_token]
+        if in_site.get(host, {}).get("username") and in_site[host].get("password"):
+            return in_site[host]["username"], in_site[host]["password"]
+        if stored.get(f"{key}-username") and stored.get(f"{key}-password"):
+            return stored[f"{key}-username"], stored[f"{key}-password"]
+        return None
+    logins = {"cgr.dev": first("cgr.dev", "cgr", "CGR_USERNAME", "CGR_PASSWORD")}
+    if not logins["cgr.dev"] and chainctl_logged_in():
+        p = subprocess.run(["chainctl", "auth", "token", "--audience", "cgr.dev"], capture_output=True, text=True)
+        if p.returncode == 0 and p.stdout.strip():
+            logins["cgr.dev"] = ("_token", p.stdout.strip())
+    build = _build_registry_host(co)
+    if build:
+        logins[build] = first(build, "build", "BUILD_REGISTRY_USERNAME", "BUILD_REGISTRY_PASSWORD",
+                              "BUILD_REGISTRY_TOKEN")
+    return logins
+
+
+def prepare(a):
+    """What check, install and upgrade all start with: the checkout, the site file (written
+    first when it doesn't exist), Big Bang's defaults and the preflight, printed."""
+    co = Checkout(a.overlays)
+    a.version = a.version or co.version
+    if not os.path.exists(a.site):
+        # A first install needs no separate `init`: ask for (or take --domain/--enable) and
+        # write the site file, then carry on.
+        say(f"{a.site} doesn't exist: writing it first (bb-install.py init)")
+        init(argparse.Namespace(cmd="install", site=a.site, domain=a.domain, enable=a.enable, force=False, yes=a.yes))
+    site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
+    stored = read_secret(NAMESPACE, STATE_SECRET) or {}
+    if a.git_mirror is None:   # remembered from an earlier run
+        a.git_mirror = stored.get("git-mirror") or None
+    if a.registry_mirror is None:
+        a.registry_mirror = stored.get("registry-mirror") or None
+    if a.registry_mirror:
+        co = mirrored_checkout(co, a.registry_mirror)
+    step("preflight")
+    defaults = chart_defaults(a)
+    enabled, problems, notes = preflight(a, co, site, defaults)
+    problem = upgrade_path_problem(deployed()[0], a.version) if shutil.which("helm") else None
+    if problem:
+        problems.append(problem)
+    say(f"Big Bang {a.version}{f' (release {co.release})' if co.release else ''}, images from {co.registry}, "
+        f"{'FIPS' if a.fips else 'standard'}; "
+        f"object storage: {'SeaweedFS in the cluster' if co.in_cluster_seaweedfs() else (co.s3 or {}).get('endpoint', 'MinIO (Big Bang)')}")
+    say(f"packages: {', '.join(enabled)}")
+    for n in notes:
+        say(f"note: {n}")
+    return co, site, defaults, enabled, problems, notes
+
+
+def check(a):
+    """Every setting tested, nothing changed; exit 1 if anything would stop the install."""
+    co, site, defaults, enabled, problems, notes = prepare(a)
+    if not problems and not a.registry_mirror and not a.no_pull_check:
+        step("images (a pull test of each, with your logins)")
+        logins = check_logins(co, site)
+        if not logins["cgr.dev"]:
+            problems.append("no cgr.dev login: run `chainctl auth login`, or set CGR_USERNAME and CGR_PASSWORD")
+        else:
+            count, failed = image_problems(co, a.fips, enabled, logins)
+            say(f"{count - len(failed)} of {count} images can be pulled")
+            problems += [f"{p} (an image your Chainguard plan doesn't cover is refused the same way; "
+                         "scripts/bb-org-repos.py names them)" if p.startswith("cgr.dev/") else p for p in failed]
+    if problems:
+        raise SystemExit("\nnot ready:\n  " + "\n  ".join(problems))
+    say("\nready: every check passed. Run the same command with `install` (or `upgrade`) to apply it")
+    return 0
+
+
+def upgrade(a):
+    """install for a cluster that runs Big Bang already: a Big Bang 3 site file converted
+    first (backup kept), then the plan, a question, and the install."""
+    a.version = a.version or Checkout(a.overlays).version
+    if os.path.exists(a.site):
+        site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
+        defaults = chart_defaults(a)
+        if is_bigbang4(defaults) and legacy_keys(site, defaults):
+            new, changes = migrate_site(site, defaults)
+            backup = a.site + ".bigbang3"
+            if not os.path.exists(backup):
+                shutil.copyfile(a.site, backup)
+            with open(a.site, "w", encoding="utf-8", newline="\n") as f:
+                f.write("# Converted to Big Bang 4's keys by bb-install.py upgrade; the original is "
+                        f"{os.path.basename(backup)}.\n")
+                yaml.safe_dump(new, f, sort_keys=False)
+            step(f"site file converted to Big Bang 4 (original kept as {backup})")
+            for c in changes:
+                say(f"  {c}")
+            say("Big Bang 4 also turns on Istio ambient mode (istio.ambient.enabled: false keeps sidecars) and "
+                "uses CEL Kyverno policies: custom policy settings follow Big Bang's "
+                "docs/migration/migrating-kyverno-policies-for-bb4.0.md")
+    if not a.plan:
+        install(argparse.Namespace(**{**vars(a), "plan": True}))
+        if sys.stdin.isatty() and not a.yes and not confirm("Apply this?", default=False):
+            raise SystemExit("not upgrading (--yes skips this question)")
+    return install(a)
 
 
 # ---------------------------------------------------------------- install
@@ -564,30 +759,7 @@ def object_storage_values(co, enabled, s3):
 
 
 def install(a):
-    co = Checkout(a.overlays)
-    a.version = a.version or co.version
-    if not os.path.exists(a.site):
-        # A first install needs no separate `init`: ask for (or take --domain/--enable) and
-        # write the site file, then carry on.
-        say(f"{a.site} doesn't exist: writing it first (bb-install.py init)")
-        init(argparse.Namespace(cmd="install", site=a.site, domain=a.domain, enable=a.enable, force=False, yes=a.yes))
-    site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
-    stored = read_secret(NAMESPACE, STATE_SECRET) or {}
-    if a.git_mirror is None:   # remembered from an earlier run
-        a.git_mirror = stored.get("git-mirror") or None
-    if a.registry_mirror is None:
-        a.registry_mirror = stored.get("registry-mirror") or None
-    if a.registry_mirror:
-        co = mirrored_checkout(co, a.registry_mirror)
-    step("preflight")
-    defaults = chart_defaults(a)
-    enabled, problems, notes = preflight(a, co, site, defaults)
-    say(f"Big Bang {a.version}{f' (release {co.release})' if co.release else ''}, images from {co.registry}, "
-        f"{'FIPS' if a.fips else 'standard'}; "
-        f"object storage: {'SeaweedFS in the cluster' if co.in_cluster_seaweedfs() else (co.s3 or {}).get('endpoint', 'MinIO (Big Bang)')}")
-    say(f"packages: {', '.join(enabled)}")
-    for n in notes:
-        say(f"note: {n}")
+    co, site, defaults, enabled, problems, notes = prepare(a)
     if problems:
         raise SystemExit("\nnot installing:\n  " + "\n  ".join(problems))
     if a.plan:
@@ -652,6 +824,14 @@ def install(a):
     tls = tls_choice(a, creds, site, enabled)
     signatures, org_id = signature_choice(a, creds, enabled)
     built = None if a.registry_mirror or signatures == "off" else built_signer(a, creds, co)
+    if checks and not a.registry_mirror:
+        # Each login was tried on one image above; now every image the packages deploy, as
+        # `check` does: an image the plan doesn't cover fails here, not as ImagePullBackOff.
+        count, failed = image_problems(co, a.fips, enabled, {host: (u, p) for host, u, p in registries})
+        if failed:
+            raise SystemExit("not installing: these images can't be pulled with your logins (an image your "
+                             "Chainguard plan doesn't cover is refused the same way):\n  " + "\n  ".join(failed))
+        say(f"all {count} images can be pulled")
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
@@ -1237,8 +1417,9 @@ def pull_check(refs):
     return lambda login: next((p for r in refs if (p := pull_problem(r, login))), None)
 
 
-def deployed_images(co, fips, prefix):
-    """Every image reference under `prefix` (host[/path]) the merged overlays deploy."""
+def deployed_images(co, fips, prefix, enabled=None):
+    """Every image reference under `prefix` (host[/path]) the merged overlays deploy; with
+    `enabled` (Big Bang keys, packages.<name>), only those packages'."""
     refs = set()
 
     def walk(node):
@@ -1255,7 +1436,10 @@ def deployed_images(co, fips, prefix):
                 walk(v)
         elif isinstance(node, str) and prefix and re.fullmatch(re.escape(prefix) + r"/[\w./-]+:[\w.-]+", node):
             refs.add(node)
-    walk(merged_values({}, co.overlays(fips)))   # what deploys: FIPS replaces the standard refs
+    values = merged_values({}, co.overlays(fips))   # what deploys: FIPS replaces the standard refs
+    if enabled is not None:
+        values = {k: v for k, v in (values.get("packages") or {}).items() if f"packages.{k}" in enabled}
+    walk(values)
     return sorted(refs)
 
 
@@ -1419,7 +1603,7 @@ def main():
     p.add_argument("--enable", help="comma-separated packages to turn on, e.g. keycloak,velero")
     p.add_argument("--force", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask anything")
-    p = sub.add_parser("install", help="install or upgrade")
+    p = argparse.ArgumentParser(add_help=False)   # check, install and upgrade share these
     p.add_argument("--site", default="my-site.yaml",
                    help="the site file (default my-site.yaml; written first, as by init, if it doesn't exist)")
     p.add_argument("--domain", help="for a new site file: the domain the packages are served under")
@@ -1464,6 +1648,10 @@ def main():
                         "registry, with their own identity: ECR, ACR, Artifact Registry)")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
+    common = p
+    sub.add_parser("check", parents=[common], help="test every setting; changes nothing")
+    sub.add_parser("install", parents=[common], help="install, or re-apply after a change")
+    sub.add_parser("upgrade", parents=[common], help="upgrade a running Big Bang (converts a Big Bang 3 site file)")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
     p.add_argument("--version", help="Big Bang version (default: the overlays')")
     sub.add_parser("status", help="what's running and what isn't")
@@ -1476,8 +1664,8 @@ def main():
     p.add_argument("--keep-flux", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     a = ap.parse_args()
-    return {"init": init, "install": install, "chart": chart, "status": status, "rollback": rollback,
-            "uninstall": uninstall}[a.cmd](a)
+    return {"init": init, "check": check, "install": install, "upgrade": upgrade, "chart": chart,
+            "status": status, "rollback": rollback, "uninstall": uninstall}[a.cmd](a)
 
 
 if __name__ == "__main__":

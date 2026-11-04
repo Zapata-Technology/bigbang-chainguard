@@ -37,7 +37,7 @@ org-neutral.
 4. **mapping.yaml is validated** (`bbcommon.validate_mapping`): an unknown section or
    option fails. A new option or section means adding it to `MAPPING_SECTIONS` /
    `IMAGE_OPTIONS` in `scripts/bbcommon.py`, implementing it in `bb-convert.py`, giving it a
-   commented block in `mapping.yaml`, a line in the README's escape-hatch list, and a test.
+   commented block in `mapping.yaml`, a line in docs/how-it-works.md's escape-hatch list, and a test.
 5. **Org-neutral shared files.** Anything true for one org only goes in `orgs/<org>.yaml`.
 6. **No secrets** in the repo, logs or test output. Pull credentials come from the site
    file (`registryCredentials`) or CI secrets.
@@ -166,7 +166,7 @@ replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the 
 compat test if it has one.
 
 ### Change how Big Bang is deployed
-The user-facing path is `scripts/bb-install.py`; keep it and the README's "Doing it by hand"
+The user-facing path is `scripts/bb-install.py`; keep it and docs/install.md's "Doing it by hand"
 commands in step. Cluster helpers it shares with the kind harness live in
 `scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
 kind; `tests/test_install.py` covers its decisions without a cluster. A new credential or
