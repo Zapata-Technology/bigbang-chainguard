@@ -1,0 +1,59 @@
+# What builds/devops-tester is (hand-written). scripts/bb-build.py devops-tester reads it
+# and its hook (scripts/buildhooks/devops_tester.py) to generate build.yaml.
+description: Big Bang's test runner (kubectl, velero, kyverno, chainsaw, mc), FROM the org's kubectl -dev images
+hook: devops_tester
+image: bigbang-devops-tester
+header: |-
+  Big Bang's devops-tester rebuilt FROM the Chainguard org's kubectl -dev images,
+  with the tools of Iron Bank's big-bang/devops-tester at `ironbank.commit`.
+ironbank:
+  image: ironbank/big-bang/devops-tester
+  project: big-bang/devops-tester
+org_images: {standard: kubectl, fips: kubectl-fips}
+# Tools copied in from the org's images, on the line of Iron Bank's stage of that name
+# (so the FIPS image gets FIPS builds).
+tool_images:
+  velero: {standard: velero, fips: velero-fips}
+  kyverno: {standard: kyverno-cli, fips: kyverno-cli-fips}
+chainsaw:
+  source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v{{version}}
+  # Modules raised past what chainsaw's go.mod pins: x/net v0.52.0 has GO-2026-6612 (Critical);
+  # grpc v1.79.3 and go-jose v4.1.4 have fixable Highs (GHSA-2v4p-qf9q-27wj, GHSA-mgcc-cww5-fp2q).
+  go_bumps: [golang.org/x/net, google.golang.org/grpc, github.com/go-jose/go-jose/v4]
+packages: [bash, curl, mc]
+notes:
+  - >-
+    chainsaw is built from upstream's source at Iron Bank's version (Chainguard has no chainsaw
+    package) with Wolfi's Go and `chainsaw.go_get` raised; the FIPS image's chainsaw is not
+    FIPS-built. `ironbank.chainsaw` is the upstream image Iron Bank copies instead
+build_args:
+  CHAINSAW_SOURCE: "{{chainsaw.source}}"
+  CHAINSAW_SHA256: "{{chainsaw.sha256}}"
+  CHAINSAW_VERSION: "{{chainsaw.version}}"
+  CHAINSAW_GO_GET: "{{chainsaw.go_get}}"
+  VELERO_IMAGE: "{{image.$variant.velero}}"
+  KYVERNO_IMAGE: "{{image.$variant.kyverno}}"
+  PACKAGES: "{{packages}}"
+  USER_NAME: "{{user.name}}"
+  GROUP_NAME: "{{user.group}}"
+  USER_ID: "{{user.id}}"
+smoke:
+  script:
+    - echo uid=$(id -u)
+    - |-
+      kubectl version --client -o json | grep -o '"gitVersion": *"[^"]*"'
+    - |-
+      echo velero=$(velero version --client-only | grep -o 'v[0-9.]*' | head -1)
+    - |-
+      echo kyverno=$(kyverno version | grep -o 'v\?[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+    - |-
+      echo chainsaw=$(chainsaw version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    - mc --version | head -1
+    - curl --version | head -1
+  checks:
+    "uid {{user.id}}": '^uid={{user.id}}$'
+    "kubectl {{ironbank.versions.kubectl|line}}": '"v{{ironbank.versions.kubectl|line|rx}}\.'
+    "velero {{ironbank.versions.velero|line}}": '^velero=v{{ironbank.versions.velero|line|rx}}\.'
+    "kyverno {{ironbank.versions.kyverno|line}}": '^kyverno=v?{{ironbank.versions.kyverno|line|rx}}\.'
+    "chainsaw {{ironbank.versions.chainsaw|line}}": '^chainsaw={{ironbank.versions.chainsaw|line|rx}}\.'
+    mc: '^mc version'

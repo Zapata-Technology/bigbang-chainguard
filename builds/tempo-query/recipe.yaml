@@ -1,0 +1,37 @@
+# What builds/tempo-query is (hand-written). scripts/bb-build.py tempo-query reads it and
+# its hook (scripts/buildhooks/tempo_query.py) to generate build.yaml.
+description: Tempo's Jaeger storage backend built from upstream's source (Go) FROM the org's images
+hook: tempo_query
+image: bigbang-tempo-query
+header: |-
+  Big Bang's tempo-query built from {{upstream}}'s source FROM the
+  Chainguard org's images, following Iron Bank's recipe at `ironbank.commit`.
+ironbank:
+  image: ironbank/opensource/grafana/tempo-query
+  project: opensource/grafana/tempo-query
+upstream: grafana/tempo
+source: https://codeload.github.com/{{upstream}}/tar.gz/refs/tags/v{{tag}}
+package: ./cmd/tempo-query
+# Modules raised past what upstream's go.mod pins. Tempo 2.10.5: x/net v0.52.0 has
+# GO-2026-6612 (Critical); grpc v1.80.0, thrift v0.22.0 and x/text v0.35.0 fixable Highs.
+# Iron Bank's own source build (Tempo 3.x) raises thrift and grpc too.
+go_bumps: [golang.org/x/net, golang.org/x/text, google.golang.org/grpc, github.com/apache/thrift]
+grpc_port: 7777
+notes:
+  - >-
+    built from {{upstream}} {{tag}}'s source ({{package}}; Chainguard has no tempo-query image) with
+    `tempo.go_get` raised; Iron Bank copies upstream's binary (2.x) or builds it (3.x) onto its
+    jaeger-query image, whose query service the /tempo-query entrypoint never starts
+  - "Tempo is AGPL-3.0: the image carries its LICENSE in /licenses; the source is the tarball above"
+  - >-
+    image.fips.fips: toolchain = cgo with the org's go-fips; native = the org has no go-fips image, so
+    Wolfi's Go builds it against Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)
+build_args:
+  TEMPO_SOURCE: "{{tempo.source}}"
+  TEMPO_SHA256: "{{tempo.sha256}}"
+  TEMPO_PACKAGE: "{{tempo.package}}"
+  TEMPO_GO_GET: "{{tempo.go_get}}"
+  GO_PACKAGE: "{{image.$variant.go_package?}}"
+  FIPS: "{{image.$variant.fips?}}"
+  BINARY: "{{ironbank.binary}}"
+  RUN_USER: "{{user}}"

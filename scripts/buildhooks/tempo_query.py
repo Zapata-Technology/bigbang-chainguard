@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build Big Bang's tempo-query image from upstream's source, FROM the org.
 
 Chainguard publishes no tempo-query image. tempo-query is Tempo's Jaeger storage
@@ -15,49 +14,34 @@ the binary from upstream's source at the tag Big Bang deploys:
      path, entrypoint and user) from repo1.dso.mil, pinned to a commit
   3. download grafana/tempo's source for that tag from GitHub (pinned by sha256) and read
      its go.mod (the Go line) and the tag's commit
-  4. pin the org's build and runtime images by digest, as bb-mattermost-operator.py does
-     (bbbuild.go_images: go / go-fips -dev, else kubectl / kubectl-fips -dev plus Wolfi's
-     Go; glibc-openssl(-fips), else kubectl(-fips))
-  5. raise GO_BUMPS to their newest release: Tempo 2.10.5's go.mod pins x/net v0.52.0,
-     which carries a Critical CVE (GO-2026-6612), and grpc, thrift and x/text with
-     fixable Highs
-  6. write builds/tempo-query/build.yaml
+  4. pin the org's build and runtime images by digest, as the mattermost-operator hook
+     does (bbbuild.go_images: go / go-fips -dev, else kubectl / kubectl-fips -dev plus
+     Wolfi's Go; glibc-openssl(-fips), else kubectl(-fips))
+  5. raise the recipe's go_bumps to their newest release: Tempo 2.10.5's go.mod pins x/net
+     v0.52.0, which carries a Critical CVE (GO-2026-6612), and grpc, thrift and x/text
+     with fixable Highs
+  6. return builds/tempo-query/build.yaml
 
-The standard binary is static (CGO_ENABLED=0), like upstream's. FIPS as in
-bb-mattermost-operator.py: "toolchain" with the org's go-fips (cgo, Chainguard's FIPS
+The standard binary is static (CGO_ENABLED=0), like upstream's. FIPS as in the
+mattermost-operator hook: "toolchain" with the org's go-fips (cgo, Chainguard's FIPS
 Go), else "native" (Wolfi's Go against Go's own FIPS 140-3 module, GOFIPS140, with
 GODEBUG fips140=on the binary's default).
-
-  bb-tempo-query.py [--org <org>] [--ref master]       regenerate build.yaml
-  bb-tempo-query.py --build [--test] [--push]          also build both images
 
 --test runs each image: -h lists the -config flag; started with no Tempo it serves gRPC
 on 7777 and its health service answers SERVING (a gRPC call with curl over HTTP/2); it
 runs as 10001; the binary's build info shows the raised modules and, for -fips, the
 FIPS build; and for -fips that OpenSSL defaults to fips=yes.
+
+Recipe keys: ironbank {image, project}, upstream, source ({{tag}}), package, go_bumps,
+grpc_port, notes.
 """
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import bbbuild  # noqa: E402
-
-NAME = "tempo-query"
-IB_IMAGE = "ironbank/opensource/grafana/tempo-query"
-IB_PROJECT = "opensource/grafana/tempo-query"
-IMAGE = "bigbang-tempo-query"
-UPSTREAM = "grafana/tempo"
-SOURCE = "https://codeload.github.com/" + UPSTREAM + "/tar.gz/refs/tags/v{tag}"
-PACKAGE = "./cmd/tempo-query"
-# Modules raised past what upstream's go.mod pins. Tempo 2.10.5: x/net v0.52.0 has
-# GO-2026-6612 (Critical); grpc v1.80.0, thrift v0.22.0 and x/text v0.35.0 fixable Highs.
-# Iron Bank's own source build (Tempo 3.x) raises thrift and grpc too.
-GO_BUMPS = ["golang.org/x/net", "golang.org/x/text", "google.golang.org/grpc", "github.com/apache/thrift"]
-GRPC_PORT = 7777
+import bbbuild
 
 
 def recipe(manifest, dockerfile):
@@ -92,48 +76,34 @@ def numeric_user(user, dockerfile):
     return f"{ident('useradd', '-u', name)}:{ident('groupadd', '-g', group)}"
 
 
-def source(tag):
+def source(r, tag):
     """grafana/tempo's source tarball for `tag`, with the modules to raise."""
-    src = bbbuild.go_source(SOURCE.format(tag=tag))
+    src = bbbuild.go_source(bbbuild.fill(r["source"], {**r, "tag": tag}))
     return {"tag": tag, "source": src["source"], "sha256": src["sha256"], "go": src["go"], "commit": src["commit"],
-            "package": PACKAGE, "go_get": [bbbuild.go_latest(m) for m in GO_BUMPS]}
+            "package": r["package"], "go_get": [bbbuild.go_latest(m) for m in r["go_bumps"]]}
 
 
-def generate(a):
-    bb_tag = bbbuild.bigbang_tag(IB_IMAGE)
-    commit, manifest, dockerfile = bbbuild.ironbank_recipe(IB_PROJECT, a.ref)
+def generate(r, a):
+    ib_image, ib_project = r["ironbank"]["image"], r["ironbank"]["project"]
+    bb_tag = bbbuild.bigbang_tag(ib_image)
+    commit, manifest, dockerfile = bbbuild.ironbank_recipe(ib_project, a.ref)
     ib = recipe(manifest, dockerfile)
     if ib["upstream"] != bb_tag:
         print(f"Iron Bank's recipe at {commit[:12]} is for {ib['upstream']}; Big Bang deploys {bb_tag}: building {bb_tag}")
-    src = source(bb_tag)
+    src = source(r, bb_tag)
     images, repos = bbbuild.go_images(a.org, src["go"])
     spec = {
-        "ironbank": {"image": f"{IB_IMAGE}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{IB_PROJECT}",
+        "ironbank": {"image": f"{ib_image}:{bb_tag}", "source": f"{bbbuild.REPO1}/dsop/{ib_project}",
                      "commit": commit, **ib},
-        "image": {v: {"name": IMAGE + ("-fips" if v == "fips" else ""), "tag": bb_tag, **images[v]}
+        "image": {v: {"name": bbbuild.image_name(r, v), "tag": bb_tag, **images[v]}
                   for v in ("standard", "fips")},
         "tempo": src,
         "user": ib["uid"],   # numeric, so runAsNonRoot can check it
-        "notes": [f"built from {UPSTREAM} {bb_tag}'s source ({PACKAGE}; Chainguard has no tempo-query image) with "
-                  "`tempo.go_get` raised; Iron Bank copies upstream's binary (2.x) or builds it (3.x) onto its "
-                  "jaeger-query image, whose query service the /tempo-query entrypoint never starts",
-                  "Tempo is AGPL-3.0: the image carries its LICENSE in /licenses; the source is the tarball above",
-                  "image.fips.fips: toolchain = cgo with the org's go-fips; native = the org has no go-fips image, so "
-                  "Wolfi's Go builds it against Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)"],
+        "notes": [bbbuild.fill(n, {**r, "tag": bb_tag}) for n in r["notes"]],
     }
-    bbbuild.write_spec(NAME, spec, f"# Big Bang's tempo-query built from {UPSTREAM}'s source FROM the\n"
-                                   "# Chainguard org's images, following Iron Bank's recipe at `ironbank.commit`.\n")
     print(f"tempo-query {bb_tag} (FIPS: {spec['image']['fips']['fips']}): build in {'/'.join(repos['build'].values())} "
           f"-dev, run on {'/'.join(repos['run'].values())}, go.mod Go {src['go']}, raised {' '.join(src['go_get'])}")
     return spec
-
-
-def build_args(spec, variant):
-    t = spec["tempo"]
-    return {"TEMPO_SOURCE": t["source"], "TEMPO_SHA256": t["sha256"], "TEMPO_PACKAGE": t["package"],
-            "TEMPO_GO_GET": " ".join(t["go_get"]),
-            "GO_PACKAGE": spec["image"][variant].get("go_package", ""), "FIPS": spec["image"][variant].get("fips", ""),
-            "BINARY": spec["ironbank"]["binary"], "RUN_USER": spec["user"]}
 
 
 def docker(*args, check=False):
@@ -161,9 +131,9 @@ def grpc_call(address, method, request):
         return p.stdout, headers
 
 
-def serves_grpc(image):
+def serves_grpc(image, port):
     """Start the image with no Tempo behind it; it must serve gRPC and report SERVING."""
-    cid = docker("run", "-d", "-p", f"127.0.0.1::{GRPC_PORT}", image, check=True).stdout.strip()
+    cid = docker("run", "-d", "-p", f"127.0.0.1::{port}", image, check=True).stdout.strip()
     failed = []
     try:
         for _ in range(30):
@@ -172,9 +142,9 @@ def serves_grpc(image):
                 break
             time.sleep(1)
         print("  start: " + out.strip()[-600:].replace("\n", "\n  "))
-        if not re.search(rf"Server starts serving.*:{GRPC_PORT}", out):
-            return [f"start (no 'Server starts serving' on :{GRPC_PORT})"]
-        address = docker("port", cid, f"{GRPC_PORT}/tcp").stdout.split()[0]
+        if not re.search(rf"Server starts serving.*:{port}", out):
+            return [f"start (no 'Server starts serving' on :{port})"]
+        address = docker("port", cid, f"{port}/tcp").stdout.split()[0]
         body, headers = grpc_call(address, "grpc.health.v1.Health/Check", HEALTH_REQUEST)
         print(f"  grpc.health.v1.Health/Check: {body.hex()} {' '.join(re.findall(r'grpc-status: *\S+', headers))}")
         if body != HEALTH_SERVING:
@@ -184,14 +154,14 @@ def serves_grpc(image):
     return failed
 
 
-def smoke_test(image, variant, spec):
+def smoke_test(image, variant, spec, r):
     failed = []
     helped = docker("run", "--rm", image, "-h")
     out = (helped.stdout + helped.stderr).strip()
     print("  -h: " + out.replace("\n", "\n  "))
     if not re.search(r"-config\b", out):
         failed.append(f"-h (exit {helped.returncode}, no -config flag)")
-    failed += serves_grpc(image)
+    failed += serves_grpc(image, r["grpc_port"])
     user = docker("image", "inspect", "--format", "{{.Config.User}}", image).stdout.strip()
     print(f"  user: {user}")
     if user != spec["user"]:
@@ -200,7 +170,3 @@ def smoke_test(image, variant, spec):
                                        spec["tempo"]["go_get"])
     if failed:
         raise SystemExit(f"{image}: failed {', '.join(failed)}")
-
-
-if __name__ == "__main__":
-    bbbuild.run(NAME, __doc__, generate, build_args, smoke_test)

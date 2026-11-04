@@ -1,0 +1,40 @@
+# What builds/minio-operator-sidecar is (hand-written). scripts/bb-build.py
+# minio-operator-sidecar reads it and its hook (scripts/buildhooks/minio.py, shared with
+# minio-operator) to generate build.yaml. It builds with builds/minio-operator/Dockerfile.
+description: the MinIO Operator's Tenant sidecar built from upstream's (archived) source (Go) FROM the org's images
+hook: minio
+image: bigbang-minio-operator-sidecar
+header: |-
+  Big Bang's MinIO {{program}} built from {{upstream}}'s source FROM the
+  Chainguard org's images, following Iron Bank's archived recipe at `ironbank.commit`.
+program: sidecar   # builds/minio-operator/Dockerfile's final stage
+dockerfile: minio-operator
+ironbank:
+  image: ironbank/opensource/minio/operator-sidecar
+  project: opensource/minio/operator-sidecar
+  group: iron-bank-archives/dsop-archives   # where Iron Bank moves recipes it no longer maintains
+upstream: minio/operator
+source: https://codeload.github.com/{{upstream}}/tar.gz/refs/tags/{{tag}}
+module: sidecar
+package: ./cmd/sidecar
+version_pkg: github.com/minio/operator/sidecar/pkg
+# As the operator's: drop the x/crypto replace, raise x/crypto and x/net.
+go_bumps: [golang.org/x/crypto, golang.org/x/net]
+drop_replace: [golang.org/x/crypto]
+user: "65532:65532"
+smoke_run:
+  help_args: [--help]
+  help_rx: '\bvalidate\b'
+  run_args: [validate, --tenant, smoke]
+  run_rx: 'in-cluster|KUBERNETES_SERVICE_HOST|kubeconfig'
+notes:
+  - >-
+    built from {{upstream}} {{tag}}'s source ({{package}} in {{module}}; Chainguard has no such image)
+    with `minio.go_get` raised and `minio.drop_replace` dropped; Iron Bank (archived) copies
+    upstream's binary onto UBI minimal
+  - "upstream archived minio/operator in 2026: no newer release will come"
+  - "MinIO Operator is AGPL-3.0: the image carries its LICENSE and CREDITS in /licenses"
+  - "user 65532: Iron Bank sets none (root); Big Bang's charts run it as their own non-root uid"
+  - >-
+    image.fips.fips: toolchain = cgo with the org's go-fips; native = the org has no go-fips image, so
+    Wolfi's Go builds it against Go's own FIPS 140-3 module (GOFIPS140, fips140=on by default)

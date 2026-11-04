@@ -3,7 +3,7 @@
 # That container runs `/bin/sh -c "curl -s 'file://<JAR_DIR>/<JAR_NAME>' --output
 # /data/jmx_prometheus_javaagent.jar -v"` as uid 1000 with a read-only root, so the
 # image needs sh (the -dev image's busybox), curl and the jar at Iron Bank's path.
-# scripts/bb-jmx-exporter.py passes every input from build.yaml, which it generates from
+# scripts/bb-build.py jmx-exporter passes every input from build.yaml, which it generates from
 # Iron Bank's own hardening_manifest.yaml and Dockerfile
 # (repo1.dso.mil/dsop/opensource/prometheus/jmx-exporter):
 #
