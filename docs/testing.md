@@ -180,6 +180,9 @@ None of these showed up when rendering. All are fixed in the overlays:
 | Found by | Problem | Fix |
 |---|---|---|
 | Every test (Flux) | Chainguard's Flux controllers are a minor ahead of Big Bang's Flux CRDs | `flux/` installs the Flux release the controllers belong to |
+| rke2 (Flux) | Pod Security Admission `restricted` (RKE2's CIS profile) refused every Flux controller: Big Bang's `base/flux` patch replaces the container `securityContext`, dropping Flux's own `seccompProfile` | `flux/` and `flux-fips/` end with a patch giving each controller pod `RuntimeDefault` (`fluxrelease.seccomp_patch`) |
+| rke2 (kyverno-policies) | PSA refused Big Bang's gluon wait job (no seccomp profile unless `waitJob.seccompProfile` is set), so the post-install hook timed out and every package behind Kyverno's policies waited | `template_defaults` `beside` sets `waitJob.seccompProfile: RuntimeDefault` for every package with a wait job; Istio's gateway chart's schema refuses that key, so it gets the same as a post-renderer patch |
+| rke2 (installer) | `bb-install.py status` judged every pod in `kube-system` (Istio's CNI agent goes there) and called RKE2's own CoreDNS, Canal and etcd images "not from the conversion" | `status` judges only the pods of Big Bang's releases in `kube-system` (workloads Flux labelled) |
 | vault-2 | Big Bang's post-start hook needs `curl`, which Chainguard's vault doesn't have | `bigbang-vault` adds it |
 | headlamp, alloy | Big Bang's jobs run `/bin/bash`, which Chainguard's `kubectl` doesn't have | `kubectl(-fips)-dev` |
 | kiali | `istio-init` was built from `hub` + `proxy_init.image`, so it still pulled Iron Bank's | Overrides set `hub`, `tag` and `proxy_init.image` |

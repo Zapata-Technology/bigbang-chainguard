@@ -74,6 +74,8 @@ packages:
         kubectlImage: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   argocd:
     postRenderers:
     - kustomize:
@@ -258,6 +260,8 @@ packages:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
         scripts:
           image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   externalSecrets:
     postRenderers:
     - kustomize:
@@ -324,6 +328,8 @@ packages:
             tag: 0.21.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   gatekeeper:
     postRenderers:
     - kustomize:
@@ -369,6 +375,8 @@ packages:
               tag: 1.37-dev
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   gitlab:
     postRenderers:
     - kustomize:
@@ -676,6 +684,8 @@ packages:
           tag: 0.46.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   istioCNI:
     postRenderers:
     - kustomize:
@@ -703,6 +713,11 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
           name: cgr.dev/zapatatechnology.com/kubectl-fips
+        patches:
+        - patch: '[{"op": "add", "path": "/spec/template/spec/securityContext/seccompProfile", "value": {"type": "RuntimeDefault"}}]'
+          target:
+            kind: Job
+            name: .*-wait-job
     values:
       shared:
         waitJob:
@@ -769,6 +784,8 @@ packages:
           tag: 2.33.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyverno:
     postRenderers:
     - kustomize:
@@ -844,6 +861,8 @@ packages:
             tag: 1.37-dev
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyvernoPolicies:
     postRenderers:
     - kustomize:
@@ -863,6 +882,8 @@ packages:
           image: ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyvernoReporter:
     postRenderers:
     - kustomize:
@@ -995,6 +1016,8 @@ packages:
           tag: '18.6'
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   mattermostOperator:
     values:
       image:
@@ -1076,6 +1099,8 @@ packages:
           tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   minioOperator:
     values:
       tenantPatchJob:
@@ -1366,6 +1391,8 @@ packages:
           tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl-fips:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   vault:
     postRenderers:
     - kustomize:

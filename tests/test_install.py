@@ -745,3 +745,20 @@ def test_check_pulls_only_the_enabled_packages_images():
     tempo = install.deployed_images(co, False, co.registry, ["packages.tempo"])
     assert tempo and set(tempo) < set(every)
     assert any("/tempo:" in r for r in tempo) and not any("keycloak" in r for r in tempo)
+
+
+def test_status_judges_only_big_bangs_pods_in_kube_system(monkeypatch):
+    """On RKE2, Istio's CNI agent runs in kube-system beside RKE2's own pods; status called
+    RKE2's CoreDNS and etcd images "not from the conversion"."""
+    import json
+
+    def pod(name, kind, owner):
+        return {"metadata": {"name": name, "ownerReferences": [{"kind": kind, "name": owner}]}}
+    pods = [pod("istio-cni-node-x", "DaemonSet", "istio-cni-node"),
+            pod("rke2-coredns-abc-1", "ReplicaSet", "rke2-coredns-abc"),
+            pod("etcd-node", "Node", "node")]
+    workloads = {"items": [{"kind": "DaemonSet", "metadata": {"name": "istio-cni-node"}}]}
+    monkeypatch.setattr(install, "kubectl", lambda *a, **k: json.dumps(workloads))
+    assert [p["metadata"]["name"] for p in install.release_pods("kube-system", pods)] == ["istio-cni-node-x"]
+    assert install.release_pods("kiali", pods) == pods
+    assert install.owner_workload(pods[1]) == ("Deployment", "rke2-coredns")

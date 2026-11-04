@@ -233,7 +233,10 @@ can't express, `mapping.yaml` has these escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
 - `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag).
-- `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job).
+- `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job);
+  `beside` sets values next to it in the same releases (the wait job's seccomp profile, which
+  Pod Security Admission's `restricted` level requires); `patch_keys` get `patch` as a
+  post-renderer instead, where the chart's schema refuses the values (Istio's gateway).
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
 - `version_labels`: workload labels that must state the version actually deployed (istiod).
 - `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI

@@ -179,6 +179,33 @@ def test_flux_extras_are_deleted():
     assert len(patches) == 3 and all("$patch: delete" in p and "kind: Deployment" in p for p in patches)
 
 
+@pytest.mark.parametrize("overlay", ["values-chainguard.yaml", "values-chainguard-fips.yaml"])
+def test_every_wait_job_gets_the_runtime_default_seccomp_profile(overlay):
+    """template_defaults' `beside`: gluon's wait job sets no seccomp profile, and PSA
+    `restricted` (RKE2's CIS profile) refused kyverno-policies' wait job."""
+    import yaml
+    found = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            if isinstance(node.get("waitJob"), dict) and "image" in node["waitJob"]:
+                found.append((".".join(path), node["waitJob"].get("seccompProfile")))
+            for k, v in node.items():
+                walk(v, path + [k])
+    walk(yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8")), [])
+    assert len(found) > 5
+    # The MinIO subcharts' wait jobs (Loki, Mattermost) take their image from a chart value,
+    # not template_defaults; with SeaweedFS for object storage they don't render.
+    missing = [p for p, s in found if s != {"type": "RuntimeDefault"} and not p.endswith(".minio")]
+    assert {"packages.kyvernoPolicies.values", "packages.kiali.values"} <= {p for p, _ in found}
+    # Istio's gateway chart refuses waitJob.seccompProfile: a post-renderer patch instead.
+    missing = [p for p in missing if p != "packages.istioGateway.values.shared"]
+    gateway = yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8"))["packages"]["istioGateway"]
+    patches = [p for pr in gateway.get("postRenderers", []) for p in pr.get("kustomize", {}).get("patches", [])]
+    assert any("seccompProfile" in p["patch"] and p["target"]["kind"] == "Job" for p in patches)
+    assert not missing, f"regenerate the overlays (scripts/bb-convert.py): {missing}"
+
+
 @pytest.mark.parametrize("d", ["flux", "flux-fips"])
 def test_flux_controllers_pass_pod_security_restricted(d):
     """Big Bang's Flux patch replaces the container securityContext and with it Flux's

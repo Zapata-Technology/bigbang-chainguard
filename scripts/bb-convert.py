@@ -337,6 +337,11 @@ class Converter:
                     if t:
                         set_path(std_vals, d["path"].split("."), t[0])
                         set_path(fips_vals, d["path"].split("."), t[1])
+                        if info.get("key") in d.get("patch_keys", []):
+                            continue   # generate() adds d["patch"] as a post-renderer instead
+                        for k, v in (d.get("beside") or {}).items():   # e.g. the wait job's seccompProfile
+                            for vals in (std_vals, fips_vals):
+                                set_path(vals, d["path"].split(".")[:-1] + [k], copy.deepcopy(v))
                     covered.add(ib_repo)
 
     def overrides(self, release, spec, fips, tag=None):
@@ -463,6 +468,17 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     "patch": json.dumps([{"op": "replace", "path": "/spec/template/spec/containers/0/command",
                                           "value": ["/bin/bash", "-c", BASH_WAIT]}])})
                 set_path(tree, key + ["postRenderers"], pr)
+        # template_defaults whose `beside` values this package's chart schema refuses: the
+        # same change as a post-renderer patch.
+        rendered = {split_ref(ref)[0] for ref in info["rendered"]}
+        for d in mapping.get("template_defaults", []):
+            if info["key"] in d.get("patch_keys", []) and d["image"] in rendered and d.get("patch"):
+                for tree in (std, fips):
+                    pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                    patches = pr[0]["kustomize"].setdefault("patches", [])
+                    if d["patch"] not in patches:   # one per Big Bang key (istioGateway renders two gateways)
+                        patches.append(copy.deepcopy(d["patch"]))
+                    set_path(tree, key + ["postRenderers"], pr)
         # Containers whose command is /bin/sh -c <bash script>: run it with /bin/bash.
         for ref in mapping.get("bash_commands", {}).get(info["key"], []):
             kind, name, container = ref["kind"], ref["name"], ref["container"]
