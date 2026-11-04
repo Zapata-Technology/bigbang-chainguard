@@ -81,17 +81,19 @@ Two more options change this per image:
   stay on one GitLab release.
 - `version_from:` matches another image's Iron Bank tag. GitLab's registry, shell and
   exporter use this, because Chainguard tags them with the GitLab release.
-- `min_version:` raises an end-of-life line to the newest release. kubectl uses `1.34`, the
-  oldest Kubernetes Big Bang supports, so Vault's kubectl 1.30 pin doesn't pull an
-  unmaintained image.
+- `min_version:` raises an end-of-life line to the newest release. kubectl uses `1.34`, so a
+  chart that pins an end-of-life kubectl (Vault's 1.30, in Big Bang 3) doesn't pull an
+  image Chainguard stopped rebuilding.
 
 ## 3. Images this repo builds
 
 Chainguard doesn't publish Big Bang's own images (base, grafana-plugins, devops-tester).
 For those, a script converts **Iron Bank's own recipe** into a build FROM your org's images.
-Three more get a build for what Chainguard's image lacks: Vault (the curl Big Bang's
-post-start hook needs), the JMX exporter (SonarQube's init container copies its jar with
-sh and curl) and the Mattermost Operator (no Chainguard image; built from upstream's source).
+Seven more get a build for what Chainguard's image lacks or doesn't publish: Vault (the
+curl Big Bang's post-start hook needs), the JMX exporter (SonarQube's init container copies
+its jar with sh and curl), and, built from upstream's source, the Mattermost Operator,
+tempo-query, the MinIO Operator and its sidecar, and GitLab's gitaly-init-cgroups. The table
+lists them all.
 
 ```mermaid
 flowchart LR
@@ -349,7 +351,7 @@ flowchart TD
     Q -->|"sh script needs bash, on an image we build"| B1["bigbang-base links sh to bash,<br/>as UBI does; smoke test checks it.<br/>Alloy upgrade job"]
     Q -->|"wait script is #35;!/bin/sh with arrays"| B2[bash_wait_jobs: a Flux post-renderer<br/>runs each script with bash.<br/>Kyverno policies]
     Q -->|"/bin/sh -c bash script on a Chainguard image"| B3["bash_commands: a post-renderer<br/>makes the command /bin/bash.<br/>Fortify keystore job"]
-    Q -->|"empty default written into the app config"| B4["overrides: the chart config<br/>template without it.<br/>Tempo opencensus receiver"]
+    Q -->|"empty default written into the app config"| B4["overrides: the chart's config<br/>without it. Tempo 2's opencensus<br/>receiver, until Big Bang 4"]
     B1 & B2 & B3 & B4 --> R["mapping.yaml scan_reviewed:<br/>each finding and how it is handled"]
     R --> CI{CI: any finding<br/>not reviewed?}
     CI -- yes --> FAIL[fail: review it]
@@ -357,5 +359,6 @@ flowchart TD
 ```
 
 A new Big Bang release that adds one of these fails CI on the nightly pull request, before
-any cluster runs it. The Tempo entry names the chart version its config template was copied
-from, so a new Tempo chart forces a fresh look at that copy.
+any cluster runs it. A finding that goes away is reported too (`gone`), so a workaround is
+removed when it isn't needed: Big Bang 4's Tempo 3 chart dropped the `opencensus` receiver,
+and the Tempo override went with it.
