@@ -215,7 +215,9 @@ already build. `orgs/zapatatechnology.com.yaml` is an example.
 ## Deploy
 
 The overlays in this repo were generated for `zapatatechnology.com` (each file's header says
-which org). Regenerate them for yours with `bb-run.py` before deploying.
+which org), and its releases point at Zapata's private org and build registry. Regenerate
+them for yours with `bb-run.py` before deploying
+([Using this outside Zapata Technology](docs/quickstart.md#using-this-outside-zapata-technology)).
 
 ### The installer (recommended)
 
