@@ -70,7 +70,7 @@ def render_package(chart, values, release, namespace):
             copy = os.path.join(tmp, "chart")
             shutil.copytree(chart, copy)
             ignore = os.path.join(copy, ".helmignore")
-            lines = [l for l in open(ignore).read().splitlines() if l.strip() != "/*.tgz"]
+            lines = [ln for ln in open(ignore).read().splitlines() if ln.strip() != "/*.tgz"]
             open(ignore, "w").write("\n".join(lines) + "\n")
             rc, out, err = helm_template(copy, values, release, namespace)
     return rc, out, err

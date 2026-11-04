@@ -1,16 +1,29 @@
 """bb-install.py decisions that don't need a cluster (kubectl/helm calls are stubbed)."""
+import argparse
+import getpass
 import os
+import shutil
+import subprocess
+import time
+import urllib.error
+import urllib.request
 
 import pytest
 import yaml
 
+from bbinstall import chart, checkout, commands, credentials, gitops, images, preflight, signatures, sitefile, \
+    status, tls
+from bbinstall import install as installer
 from conftest import ROOT, load_script
 
-install = load_script("bb-install")
+
+def test_the_command_line_loads():
+    # scripts/bb-install.py is the command line; the installer is the bbinstall package.
+    assert callable(load_script("bb-install").main)
 
 
 def test_checkout_reads_the_overlay_headers():
-    co = install.Checkout(ROOT)
+    co = checkout.Checkout(ROOT)
     assert co.registry.startswith("cgr.dev/") and co.org
     assert co.version.count(".") == 2
     if os.path.exists(co.object_storage):
@@ -23,7 +36,7 @@ def test_checkout_reads_the_overlay_headers():
 
 def test_checkout_without_overlays_says_how_to_make_them(tmp_path):
     with pytest.raises(SystemExit, match="bb-run.py"):
-        install.Checkout(str(tmp_path))
+        checkout.Checkout(str(tmp_path))
 
 
 def test_enabled_packages_counts_true_and_auto():
@@ -31,22 +44,22 @@ def test_enabled_packages_counts_true_and_auto():
               "packages": {"istiod": {"enabled": True}, "kiali": {"enabled": False},
                            "keycloak": {"enabled": True}, "metricsServer": {"enabled": "auto"},
                          "velero": {"enabled": False}}}
-    assert install.enabled_packages(values) == ["packages.istiod", "packages.keycloak", "packages.metricsServer"]
+    assert sitefile.enabled_packages(values) == ["packages.istiod", "packages.keycloak", "packages.metricsServer"]
 
 
 def test_merged_values_layers_files_in_order(tmp_path):
     a, b = tmp_path / "a.yaml", tmp_path / "b.yaml"
     a.write_text("tempo: {enabled: true}\naddons: {velero: {enabled: true}}\n")
     b.write_text("tempo: {enabled: false}\n")
-    merged = install.merged_values({"tempo": {"enabled": False}, "domain": "x"}, [str(a), str(b)])
+    merged = sitefile.merged_values({"tempo": {"enabled": False}, "domain": "x"}, [str(a), str(b)])
     assert merged["tempo"]["enabled"] is False and merged["addons"]["velero"]["enabled"] is True
 
 
 def test_object_storage_credentials_only_for_enabled_packages():
-    co = install.Checkout(ROOT)
+    co = checkout.Checkout(ROOT)
     if not co.s3:
         pytest.skip("this checkout uses MinIO")
-    vals = install.object_storage_values(co, ["packages.tempo", "packages.velero", "packages.istiod"], ("AK", "SK"))
+    vals = installer.object_storage_values(co, ["packages.tempo", "packages.velero", "packages.istiod"], ("AK", "SK"))
     pkgs = vals["packages"]
     assert pkgs["tempo"]["objectStorage"] == {"accessKey": "AK", "accessSecret": "SK"}
     assert "aws_access_key_id=AK" in pkgs["velero"]["values"]["upstream"]["credentials"]["secretContents"]["cloud"]
@@ -55,7 +68,7 @@ def test_object_storage_credentials_only_for_enabled_packages():
 
 class _Env:
     def __init__(self, monkeypatch, stored=None, env=None):
-        monkeypatch.setattr(install, "read_secret", lambda ns, name: dict(stored or {}))
+        monkeypatch.setattr(credentials, "read_secret", lambda ns, name: dict(stored or {}))
         for k in ("CGR_USERNAME", "CGR_PASSWORD", "S3_ACCESS_KEY", "S3_SECRET_KEY"):
             monkeypatch.delenv(k, raising=False)
         for k, v in (env or {}).items():
@@ -66,117 +79,117 @@ def test_credentials_prefer_environment_then_site_then_cluster(monkeypatch):
     stored = {"cgr-username": "stored-u", "cgr-password": "stored-p"}
     site = {"registryCredentials": [{"registry": "cgr.dev", "username": "site-u", "password": "site-p"}]}
     _Env(monkeypatch, stored, {"CGR_USERNAME": "env-u", "CGR_PASSWORD": "env-p"})
-    assert install.Credentials(site, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
+    assert credentials.Credentials(site, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
         == ("env-u", "env-p")
     _Env(monkeypatch, stored)
-    assert install.Credentials(site, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
+    assert credentials.Credentials(site, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
         == ("site-u", "site-p")
-    assert install.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
+    assert credentials.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x") \
         == ("stored-u", "stored-p")
 
 
 def test_missing_required_credentials_name_the_variables(monkeypatch):
     _Env(monkeypatch)
     with pytest.raises(SystemExit, match="CGR_USERNAME and CGR_PASSWORD"):
-        install.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why")
-    assert install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False) is None
+        credentials.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why")
+    assert credentials.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False) is None
 
 
 def test_s3_keys_are_generated_once_and_reused(monkeypatch):
     _Env(monkeypatch)
-    c = install.Credentials({}, False)
+    c = credentials.Credentials({}, False)
     access, secret = c.s3(generate=True)
     assert access.startswith("bb") and len(secret) >= 32
     _Env(monkeypatch, {"s3-access-key": access, "s3-secret-key": secret})
-    assert install.Credentials({}, False).s3(generate=True) == (access, secret)
+    assert credentials.Credentials({}, False).s3(generate=True) == (access, secret)
 
 
 def test_external_s3_needs_keys(monkeypatch):
     _Env(monkeypatch)
     with pytest.raises(SystemExit, match="S3_ACCESS_KEY"):
-        install.Credentials({}, False).s3(generate=False)
+        credentials.Credentials({}, False).s3(generate=False)
 
 
 def test_generated_values_are_kept(monkeypatch):
     _Env(monkeypatch, {"keycloak-admin-password": "kept-value-from-last-run"})
-    c = install.Credentials({}, False)
+    c = credentials.Credentials({}, False)
     assert c.generated("keycloak-admin-password", lambda: "new") == "kept-value-from-last-run"
     _Env(monkeypatch)
-    pw = install.Credentials({}, False).generated("keycloak-admin-password", lambda: "x" * 32)
+    pw = credentials.Credentials({}, False).generated("keycloak-admin-password", lambda: "x" * 32)
     assert len(pw) >= 14   # Keycloak FIPS minimum
 
 
 def test_site_keycloak_password_is_respected():
     site = {"packages": {"keycloak": {"values": {"upstream": {"secrets": {"env": {"stringData": {
         "KEYCLOAK_ADMIN_PASSWORD": "mine-and-long-enough"}}}}}}}}
-    assert install._site_sets_keycloak_password(site)
-    assert not install._site_sets_keycloak_password({"packages": {"keycloak": {"enabled": True}}})
+    assert installer._site_sets_keycloak_password(site)
+    assert not installer._site_sets_keycloak_password({"packages": {"keycloak": {"enabled": True}}})
 
 
 def test_init_writes_a_site_file_without_credentials(tmp_path, monkeypatch):
     site = tmp_path / "site.yaml"
-    args = install.argparse.Namespace(site=str(site), domain="bigbang.example.com", enable="keycloak,velero",
-                                      force=False, yes=True)
+    args = argparse.Namespace(site=str(site), domain="bigbang.example.com", enable="keycloak,velero",
+                              force=False, yes=True)
     monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
-    assert install.init(args) == 0
+    assert sitefile.init(args) == 0
     text = site.read_text()
     doc = yaml.safe_load(text)
     assert doc["domain"] == "bigbang.example.com"
     assert doc["packages"]["keycloak"]["enabled"] and doc["packages"]["velero"]["enabled"]
     assert "registryCredentials" not in doc and "password" not in text.lower().split("no credentials")[0]
     with pytest.raises(SystemExit, match="exists"):
-        install.init(args)
+        sitefile.init(args)
 
 
 def test_init_rejects_unknown_packages(tmp_path):
-    args = install.argparse.Namespace(site=str(tmp_path / "s.yaml"), domain="d", enable="not-a-package",
-                                      force=False, yes=True)
+    args = argparse.Namespace(site=str(tmp_path / "s.yaml"), domain="d", enable="not-a-package",
+                              force=False, yes=True)
     with pytest.raises(SystemExit, match="unknown packages"):
-        install.init(args)
+        sitefile.init(args)
 
 
 def test_site_files_with_big_bang_3_keys_are_named():
     defaults = {"packages": {"tempo": {}, "keycloak": {}}, "networkPolicies": {}}
     site = {"domain": "d", "tempo": {"enabled": True}, "addons": {"keycloak": {}}, "networkPolicies": {}}
-    assert install.legacy_keys(site, defaults) == ["addons.keycloak", "tempo"]
-    assert install.legacy_keys({"packages": {"tempo": {}}}, defaults) == []
+    assert sitefile.legacy_keys(site, defaults) == ["addons.keycloak", "tempo"]
+    assert sitefile.legacy_keys({"packages": {"tempo": {}}}, defaults) == []
 
 
 def test_build_registry_is_read_from_the_overlays():
-    co = install.Checkout(ROOT)
+    co = checkout.Checkout(ROOT)
     text = open(os.path.join(ROOT, "overlays", "values-chainguard.yaml"), encoding="utf-8").read()
     if "/bigbang-" in text:
-        assert install._build_registry(co) and install._build_registry_host(co) != "cgr.dev"
+        assert checkout._build_registry(co) and checkout._build_registry_host(co) != "cgr.dev"
 
 
 def test_status_says_when_the_cluster_is_behind(monkeypatch):
-    co = install.Checkout(ROOT)
+    co = checkout.Checkout(ROOT)
     import json as _json
 
     def fake_sh(*cmd, **kw):
         return _json.dumps([{"name": "bigbang", "chart": "bigbang-0.0.1"}])
-    monkeypatch.setattr(install, "sh", fake_sh)
-    assert "update available" in install.deployed_version_note(co) and co.version in install.deployed_version_note(co)
-    monkeypatch.setattr(install, "sh", lambda *c, **k: _json.dumps([{"name": "bigbang", "chart": f"bigbang-{co.version}"}]))
-    assert install.deployed_version_note(co) == ""
+    monkeypatch.setattr(status, "sh", fake_sh)
+    assert "update available" in status.deployed_version_note(co) and co.version in status.deployed_version_note(co)
+    monkeypatch.setattr(status, "sh", lambda *c, **k: _json.dumps([{"name": "bigbang", "chart": f"bigbang-{co.version}"}]))
+    assert status.deployed_version_note(co) == ""
 
 
 def test_keycloak_database_password_only_on_a_fresh_keycloak(monkeypatch):
     on = ["packages.keycloak"]
     _Env(monkeypatch)
-    monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
-    pw = install.keycloak_database_password(install.Credentials({}, False), {}, on)
+    monkeypatch.setattr(installer, "_keycloak_installed", lambda: False)
+    pw = installer.keycloak_database_password(credentials.Credentials({}, False), {}, on)
     assert pw and len(pw) >= 14                                        # fresh: generated, FIPS-long
     _Env(monkeypatch, {"keycloak-db-password": "kept-from-the-first-install"})
-    monkeypatch.setattr(install, "_keycloak_installed", lambda: True)
-    assert install.keycloak_database_password(install.Credentials({}, False), {}, on) == \
+    monkeypatch.setattr(installer, "_keycloak_installed", lambda: True)
+    assert installer.keycloak_database_password(credentials.Credentials({}, False), {}, on) == \
         "kept-from-the-first-install"                                  # re-run: the same one
     _Env(monkeypatch)
-    assert install.keycloak_database_password(install.Credentials({}, False), {}, on) is None  # running on the default
-    assert install.keycloak_database_password(install.Credentials({}, False), {}, []) is None  # Keycloak off
+    assert installer.keycloak_database_password(credentials.Credentials({}, False), {}, on) is None  # running on the default
+    assert installer.keycloak_database_password(credentials.Credentials({}, False), {}, []) is None  # Keycloak off
     external = {"packages": {"keycloak": {"database": {"host": "db.example.com"}}}}
-    monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
-    assert install.keycloak_database_password(install.Credentials({}, False), external, on) is None
+    monkeypatch.setattr(installer, "_keycloak_installed", lambda: False)
+    assert installer.keycloak_database_password(credentials.Credentials({}, False), external, on) is None
 
 
 def _chart_archive(version):
@@ -214,34 +227,34 @@ def test_chart_comes_from_repo1_without_a_login_and_is_cached(tmp_path, monkeypa
     def urlopen(url, timeout):
         calls.append(url)
         return _Response(_chart_archive("9.8.7"))
-    monkeypatch.setattr(install.urllib.request, "urlopen", urlopen)
-    chart = install.fetch_chart("9.8.7", cache=str(tmp_path))
-    assert os.path.exists(os.path.join(chart, "values.yaml"))
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    got = chart.fetch_chart("9.8.7", cache=str(tmp_path))
+    assert os.path.exists(os.path.join(got, "values.yaml"))
     assert calls == ["https://repo1.dso.mil/big-bang/bigbang/-/archive/9.8.7/bigbang-9.8.7.tar.gz?path=chart"]
     assert not (tmp_path / "evil").exists()                      # paths that climb out are skipped
-    assert install.fetch_chart("9.8.7", cache=str(tmp_path)) == chart and len(calls) == 1
+    assert chart.fetch_chart("9.8.7", cache=str(tmp_path)) == got and len(calls) == 1
 
 
 def test_chart_with_the_wrong_version_is_refused(tmp_path, monkeypatch):
-    monkeypatch.setattr(install.urllib.request, "urlopen", lambda url, timeout: _Response(_chart_archive("1.0.0")))
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout: _Response(_chart_archive("1.0.0")))
     with pytest.raises(SystemExit, match="holds chart version 1.0.0"):
-        install.fetch_chart("9.8.7", cache=str(tmp_path))
+        chart.fetch_chart("9.8.7", cache=str(tmp_path))
 
 
 def test_chart_ref_passes_oci_and_local_charts_through():
-    ns = install.argparse.Namespace
-    assert install.chart_ref(ns(chart="oci://r/bigbang", version="3.0.0")) == ("oci://r/bigbang", ["--version", "3.0.0"])
-    assert install.chart_ref(ns(chart="work/bigbang/chart", version="3.0.0")) == ("work/bigbang/chart", [])
+    ns = argparse.Namespace
+    assert chart.chart_ref(ns(chart="oci://r/bigbang", version="3.0.0")) == ("oci://r/bigbang", ["--version", "3.0.0"])
+    assert chart.chart_ref(ns(chart="work/bigbang/chart", version="3.0.0")) == ("work/bigbang/chart", [])
 
 
 def test_pull_token_is_made_when_none_is_given(monkeypatch):
     _Env(monkeypatch)
-    c = install.Credentials({}, False)
+    c = credentials.Credentials({}, False)
     assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x", make=lambda: ("id", "tok")) == ("id", "tok")
     assert c.values["cgr-created"]                                # so status can warn before it expires
     _Env(monkeypatch, {"cgr-username": "u", "cgr-password": "p", "cgr-created": "2026-01-01"},
          {"CGR_USERNAME": "env-u", "CGR_PASSWORD": "env-p"})
-    c = install.Credentials({}, False)
+    c = credentials.Credentials({}, False)
     made = []
     assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x",
                       make=lambda: made.append(1)) == ("env-u", "env-p")
@@ -250,7 +263,7 @@ def test_pull_token_is_made_when_none_is_given(monkeypatch):
 
 def test_new_pull_token_replaces_the_stored_one(monkeypatch):
     _Env(monkeypatch, {"cgr-username": "old", "cgr-password": "old", "cgr-created": "2026-01-01"})
-    c = install.Credentials({}, False)
+    c = credentials.Credentials({}, False)
     c.forget("cgr")
     assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "x", make=lambda: ("new", "new")) == ("new", "new")
 
@@ -260,37 +273,37 @@ def test_pull_token_output_is_parsed_not_printed(monkeypatch, capsys):
         returncode = 0
         stdout = '{"identity_id":"abc/123","token":"secret-token"}'
     seen = []
-    monkeypatch.setattr(install.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or P())
-    assert install.chainctl_pull_token("example.com") == ("abc/123", "secret-token")
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: seen.append(cmd) or P())
+    assert credentials.chainctl_pull_token("example.com") == ("abc/123", "secret-token")
     assert "--parent=example.com" in seen[0] and "--ttl=8760h" in seen[0]
     assert "secret-token" not in capsys.readouterr().out
 
 
 def test_pull_token_maker_asks_unless_told_not_to(monkeypatch):
-    monkeypatch.setattr(install, "chainctl_logged_in", lambda: True)
-    monkeypatch.setattr(install, "chainctl_pull_token", lambda org: ("id", "tok"))
-    assert install.pull_token_maker("o", interactive=False, ask=True)() is None   # can't ask: don't create
-    assert install.pull_token_maker("o", interactive=False, ask=False)() == ("id", "tok")
+    monkeypatch.setattr(credentials, "chainctl_logged_in", lambda: True)
+    monkeypatch.setattr(credentials, "chainctl_pull_token", lambda org: ("id", "tok"))
+    assert credentials.pull_token_maker("o", interactive=False, ask=True)() is None   # can't ask: don't create
+    assert credentials.pull_token_maker("o", interactive=False, ask=False)() == ("id", "tok")
     monkeypatch.setattr("builtins.input", lambda q: "n")
-    assert install.pull_token_maker("o", interactive=True, ask=True)() is None
-    monkeypatch.setattr(install, "chainctl_logged_in", lambda: False)
-    assert install.pull_token_maker("o", interactive=False, ask=False)() is None
+    assert credentials.pull_token_maker("o", interactive=True, ask=True)() is None
+    monkeypatch.setattr(credentials, "chainctl_logged_in", lambda: False)
+    assert credentials.pull_token_maker("o", interactive=False, ask=False)() is None
 
 
 def test_pull_token_expiry_note():
     day = 86400
-    start = install.time.mktime(install.time.strptime("2026-01-01", "%Y-%m-%d"))
+    start = time.mktime(time.strptime("2026-01-01", "%Y-%m-%d"))
     state = {"cgr-created": "2026-01-01"}
-    assert install.pull_token_note(state, today=start + 100 * day) == ""
-    assert "expires in 15 days" in install.pull_token_note(state, today=start + 350 * day)
-    assert "expired" in install.pull_token_note(state, today=start + 400 * day)
-    assert install.pull_token_note({}) == ""
+    assert credentials.pull_token_note(state, today=start + 100 * day) == ""
+    assert "expires in 15 days" in credentials.pull_token_note(state, today=start + 350 * day)
+    assert "expired" in credentials.pull_token_note(state, today=start + 400 * day)
+    assert credentials.pull_token_note({}) == ""
 
 
 def test_status_notes_a_cluster_that_only_audits_signatures():
-    assert "--verify-signatures enforce" in install.signature_note({"signatures": "audit"})
+    assert "--verify-signatures enforce" in signatures.signature_note({"signatures": "audit"})
     for state in ({"signatures": "enforce"}, {"signatures": "off"}, {}):
-        assert install.signature_note(state) == ""
+        assert signatures.signature_note(state) == ""
 
 
 def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
@@ -298,8 +311,8 @@ def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
     vs = {"items": [{"spec": {"hosts": ["grafana.example.com", "*.example.com"]}}]}
     svc = {"items": [{"metadata": {"name": "public-ingressgateway"}, "spec": {"type": "LoadBalancer"},
                       "status": {"loadBalancer": {"ingress": [{"ip": "203.0.113.5"}]}}}]}
-    monkeypatch.setattr(install, "kubectl", lambda *a, **k: _json.dumps(vs if "virtualservice" in a else svc))
-    install.access_report({"keycloak-admin-password": "never-shown"})
+    monkeypatch.setattr(status, "kubectl", lambda *a, **k: _json.dumps(vs if "virtualservice" in a else svc))
+    status.access_report({"keycloak-admin-password": "never-shown"})
     out = capsys.readouterr().out
     assert "https://grafana.example.com" in out and "203.0.113.5" in out and "*.example.com" not in out
     assert "never-shown" not in out and "keycloak-admin-password" in out
@@ -309,17 +322,17 @@ ISTIO = ["packages.certManager", "packages.istioGateway", "packages.istiod"]
 
 
 def _tls_args(**kw):
-    return install.argparse.Namespace(**{"tls_cert": None, "tls_key": None, "tls_issuer": None,
-                                         "tls_self_signed": False, **kw})
+    return argparse.Namespace(**{"tls_cert": None, "tls_key": None, "tls_issuer": None,
+                                 "tls_self_signed": False, **kw})
 
 
 def test_tls_defaults_to_self_signed_and_is_remembered(monkeypatch):
     _Env(monkeypatch)
-    c = install.Credentials({}, False)
-    assert install.tls_choice(_tls_args(), c, {}, ISTIO) == "self-signed"
+    c = credentials.Credentials({}, False)
+    assert tls.tls_choice(_tls_args(), c, {}, ISTIO) == "self-signed"
     _Env(monkeypatch, {"tls-mode": "issuer", "tls-issuer": "letsencrypt"})
-    c = install.Credentials({}, False)
-    assert install.tls_choice(_tls_args(), c, {}, ISTIO) == "issuer" and c.values["tls-issuer"] == "letsencrypt"
+    c = credentials.Credentials({}, False)
+    assert tls.tls_choice(_tls_args(), c, {}, ISTIO) == "issuer" and c.values["tls-issuer"] == "letsencrypt"
 
 
 def test_tls_own_certificate_goes_in_the_state_not_the_issuer(tmp_path, monkeypatch):
@@ -327,55 +340,55 @@ def test_tls_own_certificate_goes_in_the_state_not_the_issuer(tmp_path, monkeypa
     cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
     cert.write_text("CERT")
     key.write_text("KEY")
-    c = install.Credentials({}, False)
-    assert install.tls_choice(_tls_args(tls_cert=str(cert), tls_key=str(key)), c, {}, ISTIO) == "own"
+    c = credentials.Credentials({}, False)
+    assert tls.tls_choice(_tls_args(tls_cert=str(cert), tls_key=str(key)), c, {}, ISTIO) == "own"
     assert c.values["tls-cert"] == "CERT" and c.values["tls-key"] == "KEY" and "tls-issuer" not in c.values
     with pytest.raises(SystemExit, match="go together"):
-        install.tls_choice(_tls_args(tls_cert=str(cert)), c, {}, ISTIO)
+        tls.tls_choice(_tls_args(tls_cert=str(cert)), c, {}, ISTIO)
 
 
 def test_tls_is_skipped_without_a_gateway_and_respects_the_site_file(monkeypatch):
     _Env(monkeypatch)
-    assert install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["packages.tempo"]) is None
+    assert tls.tls_choice(_tls_args(), credentials.Credentials({}, False), {}, ["packages.tempo"]) is None
     site = {"packages": {"istioGateway": {"values": {"gateways": {"public": {
         "gatewayCerts": [{"name": "public-cert"}]}}}}}}
-    assert install.tls_choice(_tls_args(), install.Credentials({}, False), site, ISTIO) == "site"
+    assert tls.tls_choice(_tls_args(), credentials.Credentials({}, False), site, ISTIO) == "site"
 
 
 def test_tls_from_cert_manager_needs_cert_manager(monkeypatch):
     _Env(monkeypatch)
     with pytest.raises(SystemExit, match="certManager"):
-        install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["packages.istioGateway",
-                                                                               "packages.istiod"])
+        tls.tls_choice(_tls_args(), credentials.Credentials({}, False), {}, ["packages.istioGateway",
+                                                                             "packages.istiod"])
 
 
 def test_tls_manifests():
-    docs = install.tls_manifests("example.com", "self-signed")
+    docs = tls.tls_manifests("example.com", "self-signed")
     cert = docs[-1]
     assert cert["metadata"] == {"name": "public-cert", "namespace": "istio-gateway"}
     assert cert["spec"]["dnsNames"] == ["*.example.com", "example.com"]
     assert cert["spec"]["issuerRef"]["name"] == "bb-install-ca"
     assert [d["kind"] for d in docs] == ["ClusterIssuer", "Certificate", "ClusterIssuer", "Certificate"]
-    [only] = install.tls_manifests("example.com", "issuer", "letsencrypt")
+    [only] = tls.tls_manifests("example.com", "issuer", "letsencrypt")
     assert only["spec"]["issuerRef"] == {"name": "letsencrypt", "kind": "ClusterIssuer"}
 
 
 def test_tls_problem_reports_an_unissued_certificate(monkeypatch):
     import json as _json
-    status = {"status": {"conditions": [{"type": "Ready", "status": "False", "message": "Issuing"}]}}
-    monkeypatch.setattr(install, "kubectl", lambda *a, **k: _json.dumps(status))
-    assert "Issuing" in install.tls_problem({"tls-mode": "self-signed"})
-    assert install.tls_problem({"tls-mode": "own"}) == ""
-    status["status"]["conditions"][0]["status"] = "True"
-    assert install.tls_problem({"tls-mode": "issuer"}) == ""
+    cert = {"status": {"conditions": [{"type": "Ready", "status": "False", "message": "Issuing"}]}}
+    monkeypatch.setattr(tls, "kubectl", lambda *a, **k: _json.dumps(cert))
+    assert "Issuing" in tls.tls_problem({"tls-mode": "self-signed"})
+    assert tls.tls_problem({"tls-mode": "own"}) == ""
+    cert["status"]["conditions"][0]["status"] = "True"
+    assert tls.tls_problem({"tls-mode": "issuer"}) == ""
 
 
 def test_gitops_directory_layers_values_like_the_helm_path(tmp_path):
-    co = install.Checkout(ROOT)
+    co = checkout.Checkout(ROOT)
     site = tmp_path / "my-site.yaml"
     site.write_text("domain: example.com\n")
     out = tmp_path / "gitops"
-    install.write_gitops(str(out), co, True, str(site))
+    gitops.write_gitops(str(out), co, True, str(site))
     kust = yaml.safe_load((out / "kustomization.yaml").read_text())
     files = [g["files"][0].split("=", 1)[1] for g in kust["configMapGenerator"]]
     expected = [os.path.basename(f) for f in co.overlays(True)] + ["my-site.yaml"]
@@ -395,15 +408,15 @@ def test_git_mirror_moves_every_repo1_package():
         "istiod": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/istiod.git"}},
         "kiali": {"git": {"repo": "https://other.example.com/kiali.git"}},
         "keycloak": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/keycloak.git"}}}}
-    vals = install.git_mirror_values(defaults, "https://git.example.com/bb/")
+    vals = chart.git_mirror_values(defaults, "https://git.example.com/bb/")
     assert vals == {"packages": {
         "istiod": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/istiod.git"}},
         "keycloak": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/keycloak.git"}}}}
-    assert install.mirrored("https://repo1.dso.mil/big-bang/bigbang.git", None) == "https://repo1.dso.mil/big-bang/bigbang.git"
+    assert chart.mirrored("https://repo1.dso.mil/big-bang/bigbang.git", None) == "https://repo1.dso.mil/big-bang/bigbang.git"
 
 
 def test_gitops_uses_the_mirror_for_big_bang():
-    repo, _ = install.gitops_manifests("3.0.0", ["v0"], "https://git.example.com")
+    repo, _ = gitops.gitops_manifests("3.0.0", ["v0"], "https://git.example.com")
     assert repo["spec"]["url"] == "https://git.example.com/big-bang/bigbang.git"
 
 
@@ -413,20 +426,20 @@ def test_plan_lists_changes_without_secrets():
            "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.0"}}}
     new = {"packages": {"velero": {"enabled": True}}, "registryCredentials": [{"password": "other"}],
            "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.1"}}}
-    lines = install.plan_lines("3.0.0", old, "3.1.0", new, defaults, {"mode": "standard"}, "fips")
+    lines = status.plan_lines("3.0.0", old, "3.1.0", new, defaults, {"mode": "standard"}, "fips")
     assert lines == ["Big Bang 3.0.0 -> 3.1.0", "images standard -> fips", "turn on packages.velero",
                      "turn off packages.tempo",
                      "image `cgr.dev/o/tempo`: 2.8.0 → 2.8.1"]
     assert not any("s3cret" in ln or "other" in ln for ln in lines)
-    assert install.plan_lines("3.0.0", old, "3.0.0", old, defaults, {"mode": "fips"}, "fips") == []
-    assert install.plan_lines(None, {}, "3.0.0", {"packages": {"tempo": {"enabled": True}}}, defaults, {},
-                              "standard") == ["fresh install of Big Bang 3.0.0 (standard): packages.tempo"]
+    assert status.plan_lines("3.0.0", old, "3.0.0", old, defaults, {"mode": "fips"}, "fips") == []
+    assert status.plan_lines(None, {}, "3.0.0", {"packages": {"tempo": {"enabled": True}}}, defaults, {},
+                             "standard") == ["fresh install of Big Bang 3.0.0 (standard): packages.tempo"]
 
 
 def test_rollback_refuses_a_gitops_install(monkeypatch):
-    monkeypatch.setattr(install, "kubectl", lambda *a, **k: "helmrelease.helm.toolkit.fluxcd.io/bigbang")
+    monkeypatch.setattr(commands, "kubectl", lambda *a, **k: "helmrelease.helm.toolkit.fluxcd.io/bigbang")
     with pytest.raises(SystemExit, match="git repository"):
-        install.rollback(install.argparse.Namespace(overlays=ROOT, to=None, yes=True, timeout=1))
+        commands.rollback(argparse.Namespace(overlays=ROOT, to=None, yes=True, timeout=1))
 
 
 def test_sources_that_cant_fetch_are_named_and_retried(monkeypatch):
@@ -446,46 +459,46 @@ def test_sources_that_cant_fetch_are_named_and_retried(monkeypatch):
 
 
 def _sig_args(**kw):
-    return install.argparse.Namespace(**{"verify_signatures": None, "org_id": None, **kw})
+    return argparse.Namespace(**{"verify_signatures": None, "org_id": None, **kw})
 
 
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.kyverno"]) == ("enforce", None)
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.istiod"])[0] == "off"
-    assert install.signature_choice(_sig_args(registry_mirror="r.site/bb"), install.Credentials({}, False),
-                                    ["packages.kyverno"])[0] == "off"            # disconnected: no Sigstore
-    c = install.Credentials({}, False)
-    assert install.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["packages.kyverno"]) == \
+    assert signatures.signature_choice(_sig_args(), credentials.Credentials({}, False), ["packages.kyverno"]) == ("enforce", None)
+    assert signatures.signature_choice(_sig_args(), credentials.Credentials({}, False), ["packages.istiod"])[0] == "off"
+    assert signatures.signature_choice(_sig_args(registry_mirror="r.site/bb"), credentials.Credentials({}, False),
+                                       ["packages.kyverno"])[0] == "off"            # disconnected: no Sigstore
+    c = credentials.Credentials({}, False)
+    assert signatures.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["packages.kyverno"]) == \
         ("enforce", "abc")
     _Env(monkeypatch, {"signatures": "audit"})
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.kyverno"])[0] == "audit"
+    assert signatures.signature_choice(_sig_args(), credentials.Credentials({}, False), ["packages.kyverno"])[0] == "audit"
     with pytest.raises(SystemExit, match="Kyverno"):
-        install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.istiod"])
+        signatures.signature_choice(_sig_args(), credentials.Credentials({}, False), ["packages.istiod"])
 
 
 def test_signature_policy_matches_what_ci_checks():
     bbcommon = load_script("bbcommon")
-    pol = install.signature_policy("example.com", "0123abc", "enforce")
+    pol = signatures.signature_policy("example.com", "0123abc", "enforce")
     [rule] = pol["spec"]["rules"]
     [verify] = rule["verifyImages"]
     assert verify["imageReferences"] == ["cgr.dev/example.com/*"] and verify["failureAction"] == "Enforce"
     keyless = verify["attestors"][0]["entries"][0]["keyless"]
     assert keyless["issuerRegExp"] == bbcommon.SIGNATURE_ISSUERS
     assert keyless["subjectRegExp"] == bbcommon.signature_identity("0123abc")
-    assert install.signature_policy("example.com", None, "audit")["spec"]["rules"][0]["verifyImages"][0][
+    assert signatures.signature_policy("example.com", None, "audit")["spec"]["rules"][0]["verifyImages"][0][
         "failureAction"] == "Audit"
 
 
 def test_registry_mirror_rewrites_images_not_headers(tmp_path):
-    co = install.Checkout(ROOT)
-    m = install.mirrored_checkout(co, "registry.site.example/bb/")
+    co = checkout.Checkout(ROOT)
+    m = checkout.mirrored_checkout(co, "registry.site.example/bb/")
     text = open(m.overlays(False)[0], encoding="utf-8").read()
     assert f"cgr.dev/{co.org}/" not in text and "registry.site.example/bb/" in text
     assert m.org == co.org and m.version == co.version                       # header kept
     assert "- registry.site.example/bb\n" in text                             # Kyverno allow list
-    build = install._build_registry(co)
+    build = checkout._build_registry(co)
     if build:
         assert build + "/" not in text
     flux = open(os.path.join(m.root, "flux", "kustomization.yaml"), encoding="utf-8").read()
@@ -494,8 +507,8 @@ def test_registry_mirror_rewrites_images_not_headers(tmp_path):
 
 def test_install_writes_the_site_file_first(tmp_path, monkeypatch):
     site = tmp_path / "my-site.yaml"
-    args = install.argparse.Namespace(overlays=ROOT, version=None, site=str(site), domain="bb.example.com",
-                                      enable="keycloak", yes=True)
+    args = argparse.Namespace(overlays=ROOT, version=None, site=str(site), domain="bb.example.com",
+                              enable="keycloak", yes=True)
     monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
 
     class Stop(Exception):
@@ -503,19 +516,19 @@ def test_install_writes_the_site_file_first(tmp_path, monkeypatch):
 
     def stop(*a, **kw):
         raise Stop
-    monkeypatch.setattr(install, "read_secret", stop)    # the first cluster call: the site file is written by then
+    monkeypatch.setattr(preflight, "read_secret", stop)    # the first cluster call: the site file is written by then
     with pytest.raises(Stop):
-        install.install(args)
+        installer.install(args)
     doc = yaml.safe_load(site.read_text())
     assert doc["domain"] == "bb.example.com" and doc["packages"]["keycloak"]["enabled"]
 
 
 def test_build_images_are_the_deployed_refs():
-    co = install.Checkout(ROOT)
-    prefix = install._build_registry(co)
+    co = checkout.Checkout(ROOT)
+    prefix = checkout._build_registry(co)
     if not prefix:
         pytest.skip("these overlays use no images built here")
-    std, fips = install.build_images(co, False), install.build_images(co, True)
+    std, fips = images.build_images(co, False), images.build_images(co, True)
     assert std and all(r.startswith(prefix + "/bigbang-") and ":" in r.rsplit("/", 1)[1] for r in std)
     assert all("-fips:" in r for r in fips)          # FIPS replaces the standard refs
 
@@ -537,20 +550,20 @@ def _registry(monkeypatch, token_code=200, manifest_code=200):
         auth = req.headers.get("Authorization", "")
         if "/token?" in req.full_url:
             if token_code != 200:
-                raise install.urllib.error.HTTPError(req.full_url, token_code, "no", {}, None)
+                raise urllib.error.HTTPError(req.full_url, token_code, "no", {}, None)
             return _Reply()
         if auth.startswith("Bearer ") and manifest_code == 200:
             return _Reply()
         code = manifest_code if auth else 401
         hdrs = {"WWW-Authenticate": 'Bearer realm="https://r.example/token",service="r.example"'}
-        raise install.urllib.error.HTTPError(req.full_url, code, "no", hdrs, None)
-    monkeypatch.setattr(install.urllib.request, "urlopen", urlopen)
+        raise urllib.error.HTTPError(req.full_url, code, "no", hdrs, None)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     return seen
 
 
 def test_pull_problem_follows_the_token_flow(monkeypatch):
     seen = _registry(monkeypatch)
-    assert install.pull_problem("r.example/o/bigbang-base:1", ("u", "p")) is None
+    assert images.pull_problem("r.example/o/bigbang-base:1", ("u", "p")) is None
     token = [r for r in seen if "/token?" in r.full_url][0]
     assert "scope=repository%3Ao%2Fbigbang-base%3Apull" in token.full_url
     assert token.headers["Authorization"].startswith("Basic ")
@@ -558,20 +571,20 @@ def test_pull_problem_follows_the_token_flow(monkeypatch):
 
 def test_pull_problem_says_what_is_wrong(monkeypatch):
     _registry(monkeypatch, token_code=401)
-    assert "needs a login" in install.pull_problem("r.example/o/bigbang-base:1")
-    assert "refused this login" in install.pull_problem("r.example/o/bigbang-base:1", ("u", "bad"))
+    assert "needs a login" in images.pull_problem("r.example/o/bigbang-base:1")
+    assert "refused this login" in images.pull_problem("r.example/o/bigbang-base:1", ("u", "bad"))
     _registry(monkeypatch, manifest_code=404)
-    assert "not found" in install.pull_problem("r.example/o/bigbang-base:1", ("u", "p"))
+    assert "not found" in images.pull_problem("r.example/o/bigbang-base:1", ("u", "p"))
 
 
 def test_pull_problem_ignores_an_unreachable_registry(monkeypatch):
     def down(*a, **kw):
-        raise install.urllib.error.URLError("no route")
-    monkeypatch.setattr(install.urllib.request, "urlopen", down)
-    assert install.pull_problem("r.example/o/bigbang-base:1") is None
+        raise urllib.error.URLError("no route")
+    monkeypatch.setattr(urllib.request, "urlopen", down)
+    assert images.pull_problem("r.example/o/bigbang-base:1") is None
 
 
-@pytest.mark.skipif(os.name == "nt" or not install.shutil.which("bash"), reason="needs a POSIX bash")
+@pytest.mark.skipif(os.name == "nt" or not shutil.which("bash"), reason="needs a POSIX bash")
 def test_docker_wrapper_runs_this_checkouts_installer_image(tmp_path):
     import subprocess
     shim = tmp_path / "docker"
@@ -591,15 +604,17 @@ def test_docker_wrapper_runs_this_checkouts_installer_image(tmp_path):
 def _prompts(monkeypatch, answers):
     """Feed the hidden prompt and the username prompt from one list, in order."""
     it = iter(answers)
-    monkeypatch.setattr(install.getpass, "getpass", lambda q: next(it))
+    monkeypatch.setattr(getpass, "getpass", lambda q: next(it))
     monkeypatch.setattr("builtins.input", lambda q: next(it))
 
 
 def test_a_typed_login_is_tested_and_asked_again(monkeypatch, capsys):
     _Env(monkeypatch)
     _prompts(monkeypatch, ["bad", "u", "good", "u"])            # password, then username, per try
-    check = lambda login: None if login == ("u", "good") else "denied"
-    c = install.Credentials({}, True)
+
+    def check(login):
+        return None if login == ("u", "good") else "denied"
+    c = credentials.Credentials({}, True)
     assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check) == ("u", "good")
     out = capsys.readouterr().out
     assert "can't pull: denied" in out and "2 tries left" in out and "login works" in out
@@ -608,10 +623,10 @@ def test_a_typed_login_is_tested_and_asked_again(monkeypatch, capsys):
 
 def test_a_typed_login_gives_up_after_the_tries(monkeypatch):
     _Env(monkeypatch)
-    _prompts(monkeypatch, ["p", "u"] * install.TRIES)
+    _prompts(monkeypatch, ["p", "u"] * credentials.TRIES)
     with pytest.raises(SystemExit, match="after 3 tries"):
-        install.Credentials({}, True).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why",
-                                               check=lambda login: "denied")
+        credentials.Credentials({}, True).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why",
+                                                   check=lambda login: "denied")
 
 
 def test_a_token_alone_gets_the_token_username(monkeypatch):
@@ -619,23 +634,25 @@ def test_a_token_alone_gets_the_token_username(monkeypatch):
     monkeypatch.delenv("B_U", raising=False)
     monkeypatch.setenv("B_T", "tok")
     seen = []
-    got = install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
-                                                  env_token="B_T", check=lambda login: seen.append(login))
-    assert got == (install.TOKEN_USER, "tok") and seen == [got]
+    got = credentials.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                      env_token="B_T", check=lambda login: seen.append(login))
+    assert got == (credentials.TOKEN_USER, "tok") and seen == [got]
     monkeypatch.delenv("B_T")
     _prompts(monkeypatch, ["tok2", ""])                           # Enter for the username: the token alone
-    assert install.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
-                                                  env_token="B_T") == (install.TOKEN_USER, "tok2")
+    assert credentials.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                      env_token="B_T") == (credentials.TOKEN_USER, "tok2")
 
 
 def test_a_stored_login_that_fails_stops_or_asks(monkeypatch):
     stored = {"cgr-username": "old", "cgr-password": "expired"}
-    check = lambda login: "denied" if login == ("old", "expired") else None
+
+    def check(login):
+        return "denied" if login == ("old", "expired") else None
     _Env(monkeypatch, stored)
     with pytest.raises(SystemExit, match="stored .*can't pull: denied\n.*CGR_USERNAME"):
-        install.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check)
+        credentials.Credentials({}, False).registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check)
     _prompts(monkeypatch, ["new", "u"])
-    c = install.Credentials({}, True)
+    c = credentials.Credentials({}, True)
     assert c.registry("cgr", "cgr.dev", "CGR_USERNAME", "CGR_PASSWORD", "why", check=check) == ("u", "new")
     assert c.values["cgr-password"] == "new"
 
@@ -643,19 +660,19 @@ def test_a_stored_login_that_fails_stops_or_asks(monkeypatch):
 def test_public_images_need_no_login_and_private_ones_do(monkeypatch):
     _Env(monkeypatch)
     asked = []
-    monkeypatch.setattr(install.getpass, "getpass", lambda q: asked.append(q) or "")
-    assert install.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
-                                                  check=lambda login: None) is None
+    monkeypatch.setattr(getpass, "getpass", lambda q: asked.append(q) or "")
+    assert credentials.Credentials({}, True).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                      check=lambda login: None) is None
     assert asked == []                                            # anonymous pull works: no prompt
     with pytest.raises(SystemExit, match="without a login can't pull"):
-        install.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
-                                                check=lambda login: None if login else "needs a login")
+        credentials.Credentials({}, False).registry("b", "ghcr.io", "B_U", "B_P", "why", required=False,
+                                                    check=lambda login: None if login else "needs a login")
 
 
 def test_signature_policy_checks_the_images_built_here():
     bbcommon = load_script("bbcommon")
     subject = bbcommon.build_signature_identity("ghcr.io/o", "O/r")
-    pol = install.signature_policy("example.com", None, "enforce", ("ghcr.io/o/bigbang-*", subject))
+    pol = signatures.signature_policy("example.com", None, "enforce", ("ghcr.io/o/bigbang-*", subject))
     org, built = pol["spec"]["rules"]
     [verify] = built["verifyImages"]
     assert verify["imageReferences"] == ["ghcr.io/o/bigbang-*"] and verify["failureAction"] == "Enforce"
@@ -683,22 +700,22 @@ def test_built_signer_is_remembered(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("BUILD_SIGNER", raising=False)
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
-    co = install.Checkout(ROOT)
-    if not install._build_registry(co):
+    co = checkout.Checkout(ROOT)
+    if not checkout._build_registry(co):
         pytest.skip("these overlays use no images built here")
-    c = install.Credentials({}, False)
-    pattern, subject = install.built_signer(_sig_args(build_signer="O/r"), c, co)
-    assert pattern == install._build_registry(co) + "/bigbang-*" and "O/r" in subject
+    c = credentials.Credentials({}, False)
+    pattern, subject = signatures.built_signer(_sig_args(build_signer="O/r"), c, co)
+    assert pattern == checkout._build_registry(co) + "/bigbang-*" and "O/r" in subject
     assert c.values["build-signer"] == "O/r"
-    assert "O/r" in install.built_signer(_sig_args(build_signer=None), c, co)[1]
+    assert "O/r" in signatures.built_signer(_sig_args(build_signer=None), c, co)[1]
 
 
 def test_upgrade_path_needs_3_35_1_before_big_bang_4():
-    assert install.upgrade_path_problem(None, "4.0.0") is None                   # fresh install
-    assert install.upgrade_path_problem("3.35.1", "4.0.0") is None
-    assert install.upgrade_path_problem("4.0.0", "4.1.0") is None
-    assert "3.35.1 only" in install.upgrade_path_problem("3.34.0", "4.0.0")
-    assert "older major" in install.upgrade_path_problem("4.0.0", "3.35.1")
+    assert preflight.upgrade_path_problem(None, "4.0.0") is None                   # fresh install
+    assert preflight.upgrade_path_problem("3.35.1", "4.0.0") is None
+    assert preflight.upgrade_path_problem("4.0.0", "4.1.0") is None
+    assert "3.35.1 only" in preflight.upgrade_path_problem("3.34.0", "4.0.0")
+    assert "older major" in preflight.upgrade_path_problem("4.0.0", "3.35.1")
 
 
 def test_a_big_bang_3_site_file_moves_to_packages():
@@ -709,8 +726,8 @@ def test_a_big_bang_3_site_file_moves_to_packages():
             "addons": {"keycloak": {"enabled": True, "values": {"routes": {"a": 1}}},
                        "mattermostoperator": {"enabled": True}},
             "packages": {"keycloak": {"values": {"bb-common": {"routes": {"a": 2}}}}, "myapp": {"git": {}}}}
-    new, changes = install.migrate_site(site, defaults)
-    assert install.legacy_keys(new, defaults) == []
+    new, changes = sitefile.migrate_site(site, defaults)
+    assert sitefile.legacy_keys(new, defaults) == []
     assert new["domain"] == "d" and new["networkPolicies"] == {"enabled": True}
     tempo = new["packages"]["tempo"]
     assert tempo["values"] == {"upstream": {"x": 1}, "bb-common": {"istio": {"enabled": True}}}
@@ -730,18 +747,18 @@ def test_render_problems_reports_what_helm_refuses(monkeypatch):
     def run(cmd, **kw):
         seen["cmd"] = cmd
         return P()
-    monkeypatch.setattr(install.subprocess, "run", run)
-    monkeypatch.setattr(install, "chart_ref", lambda a: ("chart-dir", []))
-    [problem] = install.render_problems(None, ["a.yaml", "site.yaml"], "1.35.0")
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(preflight, "chart_ref", lambda a: ("chart-dir", []))
+    [problem] = preflight.render_problems(None, ["a.yaml", "site.yaml"], "1.35.0")
     assert "Additional property tempo" in problem
     assert seen["cmd"][:4] == ["helm", "template", "bigbang", "chart-dir"] and "--kube-version" in seen["cmd"]
     P.returncode = 0
-    assert install.render_problems(None, ["a.yaml"], "1.35.0") == []
+    assert preflight.render_problems(None, ["a.yaml"], "1.35.0") == []
 
 
 def test_check_pulls_only_the_enabled_packages_images():
-    co = install.Checkout(ROOT)
-    every = install.deployed_images(co, False, co.registry)
-    tempo = install.deployed_images(co, False, co.registry, ["packages.tempo"])
+    co = checkout.Checkout(ROOT)
+    every = images.deployed_images(co, False, co.registry)
+    tempo = images.deployed_images(co, False, co.registry, ["packages.tempo"])
     assert tempo and set(tempo) < set(every)
     assert any("/tempo:" in r for r in tempo) and not any("keycloak" in r for r in tempo)

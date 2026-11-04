@@ -69,5 +69,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           python3 scripts/release.py
