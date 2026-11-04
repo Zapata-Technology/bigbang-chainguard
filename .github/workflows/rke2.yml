@@ -1,0 +1,213 @@
+# Big Bang's default packages on RKE2 with the CIS profile, installed the way a site installs
+# (scripts/bb-install.py check, then install). Most Big Bang sites run RKE2 hardened to CIS:
+# Pod Security Admission enforcing `restricted`, etcd as its own user, the kubelet refusing
+# unsafe kernel settings, real persistent volumes. kind (compat.yml) and k3s (fips-kernel.yml)
+# have none of that, so a package that needs a privilege PSA refuses, or a volume, passes
+# there and fails at a site. Each run boots an AlmaLinux 9 VM under KVM, installs a pinned
+# RKE2 in it (.github/rke2-vm.sh), installs Big Bang with the standard overlays, and fails on
+# any pod not Ready, any restart, an image that can't be pulled, or an admission refusal.
+name: RKE2 - Big Bang on RKE2 with the CIS profile
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/rke2.yml
+      - .github/rke2-vm.sh
+      - .github/vm-lib.sh
+      - scripts/cluster-check.py
+  schedule:
+    - cron: "0 11 * * 0"   # weekly, after compat.yml's and fips-kernel.yml's Sunday runs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rke2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    name: default packages (RKE2, CIS profile)
+    env:
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
+      BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      GITHUB_TOKEN: ${{ github.token }}
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      # Block every outbound call not listed: the runner's own downloads (packages, the VM
+      # image, Helm, chainctl), and the VM's, which leave through the runner (RKE2's release,
+      # local-path-provisioner from Docker Hub, the org's images, Big Bang's charts on repo1).
+      # A blocked host shows up as a failed download or pull: add it here if it is expected.
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            *.cgr.dev:443
+            *.r2.cloudflarestorage.com:443
+            api.github.com:443
+            archive.ubuntu.com:80
+            auth.docker.io:443
+            azure.archive.ubuntu.com:80
+            cgr.dev:443
+            codeload.github.com:443
+            console-api.enforce.dev:443
+            dl.enforce.dev:443
+            files.pythonhosted.org:443
+            get.helm.sh:443
+            ghcr.io:443
+            github.com:443
+            issuer.enforce.dev:443
+            objects.githubusercontent.com:443
+            packages.microsoft.com:443
+            pipelines.actions.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            registry-1.docker.io:443
+            registry1.dso.mil:443
+            release-assets.githubusercontent.com:443
+            repo.almalinux.org:443
+            repo1.dso.mil:443
+            results-receiver.actions.githubusercontent.com:443
+            security.ubuntu.com:80
+            token.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # The VM's disk grows on the runner's as Big Bang's images arrive.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+          swapon --show || true
+
+      # Without KVM a VM would be emulated (TCG), far too slow for Big Bang: stop here.
+      - name: Check for KVM
+        run: |
+          echo "CPUs: $(nproc); memory: $(free -m | awk '/^Mem:/ {print $2}') MB"
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::no /dev/kvm on this runner: nested virtualization isn't available"
+            exit 1
+          fi
+          # GitHub's documented way to let the runner user open /dev/kvm.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: v3.18.3
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Python packages
+        run: python -m pip install --quiet pyyaml
+
+      - name: Boot a VM with RKE2 (CIS profile)
+        id: vm
+        timeout-minutes: 30
+        run: |
+          bash .github/rke2-vm.sh boot
+          echo "KUBECONFIG=$RUNNER_TEMP/rke2-vm/kubeconfig" >> "$GITHUB_ENV"
+
+      # The API server keeps events for an hour; an admission refusal early in the install
+      # must still count at the end.
+      - name: Keep every event
+        run: bash .github/rke2-vm.sh events
+
+      - name: Log into Chainguard
+        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
+        with:
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      # What a site runs: a site file with Big Bang's defaults, `check` (nothing changes),
+      # then `install`. --small-cluster only lowers Flux's requests on the one-node VM.
+      - name: bb-install.py check, then install (standard images)
+        env:
+          BUILD_REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY1_USERNAME: ${{ secrets.REGISTRY1_USERNAME }}
+          REGISTRY1_PASSWORD: ${{ secrets.REGISTRY1_PASSWORD }}
+        run: |
+          set -o pipefail
+          SITE=$RUNNER_TEMP/site.yaml
+          CGR_PASSWORD=$(chainctl auth token --audience cgr.dev)
+          echo "::add-mask::$CGR_PASSWORD"
+          export CGR_USERNAME=_token CGR_PASSWORD
+          python scripts/bb-install.py init --site "$SITE" --domain bigbang.test --yes
+          cat "$SITE"
+          python scripts/bb-install.py check --site "$SITE" --yes 2>&1 | tee "$RUNNER_TEMP/check.log"
+          python scripts/bb-install.py install --site "$SITE" --yes --small-cluster --timeout 3600 2>&1 \
+            | tee "$RUNNER_TEMP/install.log"
+
+      # Run even when the install failed: it names every unhealthy pod and refused admission.
+      - name: Every pod Ready, no restarts, no pull errors, no admission refusals
+        if: always() && steps.vm.outcome == 'success'
+        run: |
+          set -o pipefail
+          python scripts/cluster-check.py --events "$RUNNER_TEMP/rke2-vm/logs/events.log" 2>&1             | tee "$RUNNER_TEMP/cluster-check.log"
+
+      # Checked again after the install: a pass must mean Big Bang ran under the CIS profile.
+      - name: The CIS profile was in effect throughout
+        if: always() && steps.vm.outcome == 'success'
+        run: bash .github/rke2-vm.sh assert
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Big Bang default packages on RKE2 (CIS profile)"
+            echo '```'
+            grep -E "^(RESULT|PROBLEM|NOTE|HEALTHY|NOT HEALTHY|not ready|not installing|ready:)|^  (OK  |FAIL)" \
+              "$RUNNER_TEMP/check.log" "$RUNNER_TEMP/install.log" "$RUNNER_TEMP/cluster-check.log" 2>/dev/null | head -120 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cluster state and VM logs
+        if: always() && steps.vm.outcome != 'skipped'
+        run: |
+          bash .github/rke2-vm.sh logs
+          d=$RUNNER_TEMP/diag; mkdir -p "$d"
+          kubectl get nodes -o wide > "$d/nodes.txt" 2>&1 || true
+          kubectl describe nodes >> "$d/nodes.txt" 2>&1 || true
+          kubectl get pods -A -o wide > "$d/pods.txt" 2>&1 || true
+          kubectl get helmreleases -A > "$d/helmreleases.txt" 2>&1 || true
+          kubectl get events -A --sort-by=.lastTimestamp > "$d/events.txt" 2>&1 || true
+          kubectl get pvc -A > "$d/pvc.txt" 2>&1 || true
+          for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+            for p in $(kubectl -n "$ns" get pod -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+              mkdir -p "$d/logs/$ns"
+              kubectl -n "$ns" logs "$p" --all-containers --tail=500 > "$d/logs/$ns/$p.log" 2>&1 || true
+              kubectl -n "$ns" logs "$p" --all-containers --previous --tail=500 > "$d/logs/$ns/$p.previous.log" 2>/dev/null \
+                || rm -f "$d/logs/$ns/$p.previous.log"
+            done
+          done
+
+      - name: Upload logs and cluster state
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: rke2-default-packages
+          path: |
+            ${{ runner.temp }}/diag
+            ${{ runner.temp }}/check.log
+            ${{ runner.temp }}/install.log
+            ${{ runner.temp }}/cluster-check.log
+            ${{ runner.temp }}/rke2-vm/logs
+          retention-days: 14
+          if-no-files-found: ignore

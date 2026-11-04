@@ -10,89 +10,27 @@
 #   .github/fips-vm.sh logs     # the VM's journal for k3s and the kernel, into $VM_DIR
 set -euo pipefail
 
-# AlmaLinux 9 GenericCloud, pinned by build and checksum (from CHECKSUM beside the image).
-# RHEL 9's FIPS mode is what fips-mode-setup turns on, and AlmaLinux ships the same kernel.
-IMAGE=AlmaLinux-9-GenericCloud-9.8-20261005.x86_64.qcow2
-IMAGE_URL=https://repo.almalinux.org/almalinux/9.8/cloud/x86_64/images/$IMAGE
-IMAGE_SHA256=25942b554efaac077e2f60d6bb27bd3332c171454cc21bbd33e5f79244d7570f
+VM_NAME=fips-vm
+# shellcheck source=vm-lib.sh
+. "$(dirname "$0")/vm-lib.sh"   # the AlmaLinux 9 image, vm, vm_start, wait_boot, vm_logs
+
 # k3s on the Kubernetes minor kind runs in compat.yml; binary and installer by checksum.
 K3S_VERSION=v1.35.9+k3s1
 K3S_SHA256=897acb21cca57d477a211102251a6591450ce767344a9faaa121a1007ca9fa9a
 K3S_INSTALL_SHA256=8598e002e61d658fed7b7542fc6d2c66d8da6eae69e088830105d2ee1ffb6d91
 
-VM_DIR=${VM_DIR:-${RUNNER_TEMP:-/tmp}/fips-vm}
-# The runner has 2 CPUs and 7 GB; leave the runner itself (kubectl, the harness) about 1.5 GB.
-# 4 vCPUs on the 2 CPUs: Kubernetes schedules by requests, and one 2-CPU node couldn't fit
-# Kyverno with Headlamp and Grafana ("Insufficient cpu"). kind's four nodes share the same
-# 2 CPUs the same way, so the tests' requests fit as they do there.
-VM_CPUS=${VM_CPUS:-4}
-VM_MEMORY=${VM_MEMORY:-5632}
-SSH_PORT=2222
-
-vm() {
-  ssh -i "$VM_DIR/id" -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-    -o LogLevel=ERROR -o ConnectTimeout=10 -o BatchMode=yes ci@127.0.0.1 "$@"
-}
-
-# Wait until ssh answers with a boot id other than $2 (empty: any), at most $1 seconds.
-wait_boot() {
-  local end=$((SECONDS + $1)) id
-  while :; do
-    id=$(vm cat /proc/sys/kernel/random/boot_id 2>/dev/null || true)
-    [ -n "$id" ] && [ "$id" != "${2:-}" ] && { echo "$id"; return 0; }
-    if [ $SECONDS -ge $end ]; then
-      echo "the VM did not boot in $1 s; its console:" >&2
-      tail -60 "$VM_DIR/console.log" >&2 || true
-      return 1
-    fi
-    sleep 5
-  done
-}
-
 boot() {
-  [ -w /dev/kvm ] || { echo "::error::/dev/kvm is missing or not writable: no hardware virtualization on this runner"; exit 1; }
-  mkdir -p "$VM_DIR"
+  local t0 boot1
+  boot1=$(vm_start)
   cd "$VM_DIR"
-
-  echo "== image $IMAGE"
-  curl -fsSL --retry 5 -o "$IMAGE" "$IMAGE_URL"
-  echo "$IMAGE_SHA256  $IMAGE" | sha256sum -c -
-  # A copy-on-write disk over the image, with room for the packages' images.
-  qemu-img create -q -f qcow2 -F qcow2 -b "$IMAGE" disk.qcow2 40G
-
-  # A key for this run only; the VM is gone when the job ends. ECDSA P-384, not Ed25519: once
-  # the VM is in FIPS mode its sshd refuses Ed25519 keys, and the login after the reboot failed.
-  ssh-keygen -q -t ecdsa -b 384 -N "" -f id
-  cat > user-data <<EOF
-#cloud-config
-users:
-  - name: ci
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    ssh_authorized_keys: ["$(cat id.pub)"]
-EOF
-  printf 'instance-id: fips-vm\nlocal-hostname: fips-vm\n' > meta-data
-  cloud-localds seed.img user-data meta-data
-
-  # User-mode networking: the VM reaches the internet through the runner, and the runner
-  # reaches the VM's ssh and the Kubernetes API on localhost.
-  qemu-system-x86_64 -enable-kvm -cpu host -smp "$VM_CPUS" -m "$VM_MEMORY" \
-    -drive file=disk.qcow2,if=virtio -drive file=seed.img,if=virtio,format=raw \
-    -netdev user,id=n0,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22,hostfwd=tcp:127.0.0.1:6443-:6443 \
-    -device virtio-net-pci,netdev=n0 \
-    -display none -serial "file:$VM_DIR/console.log" -daemonize -pidfile "$VM_DIR/qemu.pid"
-  local t0=$SECONDS boot1
-  boot1=$(wait_boot 600)
-  echo "== booted in $((SECONDS - t0)) s: $(vm uname -r)"
 
   # FIPS mode the way RHEL documents it for an installed system: fips-mode-setup sets the
   # FIPS crypto policy, adds fips=1 to the kernel command line and rebuilds the initramfs
   # with the FIPS self-tests; it takes effect on the next boot.
   vm 'command -v fips-mode-setup >/dev/null || sudo dnf -y -q install crypto-policies-scripts'
   vm sudo fips-mode-setup --enable
-  # SELinux permissive: k3s's SELinux policy is an extra RPM repository, and SELinux is not
-  # what this test is about. The FIPS behaviour under test comes from the kernel and the
-  # images' own crypto modules.
-  vm "sudo setenforce 0; sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config"
+  # The FIPS behaviour under test comes from the kernel and the images' own crypto modules.
+  vm_selinux_permissive
   vm sudo systemctl reboot || true
   t0=$SECONDS
   wait_boot 600 "$boot1" >/dev/null
@@ -105,8 +43,7 @@ EOF
   curl -fsSL --retry 5 -o k3s-install.sh "https://raw.githubusercontent.com/k3s-io/k3s/${K3S_VERSION/+/%2B}/install.sh"
   echo "$K3S_SHA256  k3s" | sha256sum -c -
   echo "$K3S_INSTALL_SHA256  k3s-install.sh" | sha256sum -c -
-  scp -q -i id -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-    k3s k3s-install.sh ci@127.0.0.1:
+  vm_copy k3s k3s-install.sh
   # No Traefik, ServiceLB or metrics-server: Big Bang brings what a test needs, and the VM's
   # memory goes to the packages.
   vm 'sudo install -m 755 k3s /usr/local/bin/k3s && sudo env INSTALL_K3S_SKIP_DOWNLOAD=true \
@@ -118,7 +55,7 @@ EOF
   vm 'for i in $(seq 100); do sudo /usr/local/bin/k3s kubectl get node >/dev/null 2>&1 && exit 0; sleep 3; done
       echo "k3s API not up in 300 s" >&2; sudo journalctl -u k3s --no-pager | tail -40 >&2; exit 1'
   vm sudo /usr/local/bin/k3s kubectl wait --for=condition=Ready node --all --timeout=300s
-  # The kubeconfig names https://127.0.0.1:6443, which the port forward above serves.
+  # The kubeconfig names https://127.0.0.1:6443, which the port forward serves.
   vm sudo cat /etc/rancher/k3s/k3s.yaml > kubeconfig
   chmod 600 kubeconfig
   KUBECONFIG=$VM_DIR/kubeconfig kubectl get nodes -o wide
@@ -137,17 +74,9 @@ assert() {
   fi
 }
 
-logs() {
-  mkdir -p "$VM_DIR/logs"
-  vm sudo journalctl -k --no-pager > "$VM_DIR/logs/kernel.log" 2>&1 || true
-  vm sudo journalctl -u k3s --no-pager > "$VM_DIR/logs/k3s.log" 2>&1 || true
-  vm free -m > "$VM_DIR/logs/memory.txt" 2>&1 || true
-  cp "$VM_DIR/console.log" "$VM_DIR/logs/" 2>/dev/null || true
-}
-
 case "${1:-}" in
   boot) boot ;;
   assert) assert ;;
-  logs) logs ;;
+  logs) vm_logs k3s ;;
   *) echo "usage: $0 boot|assert|logs" >&2; exit 2 ;;
 esac

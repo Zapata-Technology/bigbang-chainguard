@@ -27,6 +27,7 @@ flowchart LR
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
 | **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
+| **RKE2, CIS profile** (`rke2.yml`) | weekly, PRs that touch it, or by hand | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. See below |
 
 ## Running packages on kind
 
@@ -262,6 +263,52 @@ recurred in 2 of 3 FIPS runs of `compat/release-upgrade.yaml`, right after the u
 that limit to 256Mi (`overrides.kyverno` in mapping.yaml). A site that still sees the reports
 controller restart can raise
 `packages.kyverno.values.upstream.reportsController.resources.limits.memory` further.
+
+## Big Bang on RKE2 with the CIS profile
+
+Most Big Bang sites run RKE2 hardened to CIS. That cluster refuses what kind and k3s allow:
+Pod Security Admission (PSA) enforces `restricted` in every namespace not exempted, the
+kubelet refuses to start on unsafe kernel settings, etcd runs as its own user, and volumes
+come from a real StorageClass. A package that needs a privilege PSA refuses passes every kind
+test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
+
+1. boots AlmaLinux 9 under QEMU/KVM, as the FIPS test does (`.github/vm-lib.sh`, shared by
+   both VMs), with 8 vCPUs and 6 GB on the runner's 2 CPUs and 7 GB;
+2. installs RKE2 `v1.35.9+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
+   its release: the release's checksum file is pinned by SHA256 and vouches for the tarball
+   and the airgap images (core and Canal, so nothing of RKE2's comes from Docker Hub);
+   `install.sh` from the same tag, also by SHA256 (`.github/rke2-vm.sh`);
+3. configures `profile: cis` with what RKE2's CIS guide requires (the `etcd` user,
+   `rke2-cis-sysctl.conf`), RKE2's own CIS PSA configuration (`restricted`, enforced) with
+   the exemptions listed below, and local-path-provisioner (manifest by SHA256, images by
+   digest) as the default StorageClass; RKE2's ingress-nginx is off (Big Bang brings Istio's
+   gateway), its metrics-server stays, as at a site;
+4. checks the profile is in effect (etcd runs as `etcd`; PSA refuses a privileged pod in
+   `default`) before the install and again after it;
+5. writes a site file with Big Bang's defaults (`bb-install.py init`), runs
+   `bb-install.py check`, then `bb-install.py install` (standard images; `--small-cluster`
+   only lowers Flux's requests on the one node);
+6. `scripts/cluster-check.py`: fails on any pod in any namespace that isn't Ready (or a
+   finished Job), any container restart, an image that can't be pulled, and any pod refused
+   by PSA or an admission webhook. Events are kept for the whole run (the API server forgets
+   them after an hour), since a controller whose pod was refused keeps retrying and the pod
+   never shows up as failing.
+
+The PSA exemptions are what a site on RKE2's CIS profile has to configure for Big Bang's
+default packages, because their node agents need the host, which `restricted` and `baseline`
+forbid: `istio-system` (ztunnel), `neuvector` (the enforcer is privileged), `monitoring`
+(node-exporter: host network, PID and filesystem), `alloy` (reads pod logs from the host),
+plus RKE2's defaults (`kube-system`, which holds Istio's CNI agent, `cis-operator-system`,
+`tigera-operator`) and `local-path-storage`. Every other namespace (Flux, SeaweedFS, Kyverno,
+Loki, Tempo, Grafana, Kiali, cert-manager, the gateway) must pass `restricted`.
+
+It runs weekly (Sunday 11:00 UTC), on pull requests that change it, and by hand from main
+(`gh workflow run rke2.yml --ref main`; from another branch the Chainguard login fails, as
+for the kind tests). The harden-runner egress policy blocks every host it doesn't list, the
+VM's traffic included (it leaves through the runner). The artifact `rke2-default-packages`
+holds the `check`, `install` and `cluster-check` logs, every pod's log, the events, and the
+VM's RKE2, kubelet, audit and kernel logs. Not covered: SELinux (permissive in the VM;
+`rke2-selinux` is another package repository), several nodes, and the FIPS overlay on RKE2.
 
 ## CI environment notes
 
