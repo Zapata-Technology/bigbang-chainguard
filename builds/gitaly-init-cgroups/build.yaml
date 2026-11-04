@@ -10,16 +10,16 @@ image:
   standard:
     name: bigbang-gitaly-init-cgroups
     tag: v19.5.1-ubi
-    dev: cgr.dev/zapatatechnology.com/kubectl:v1.37.2-dev@sha256:cabe7d401028fa1a5c1b46f7707d16cb9d6ab882c04c02b8ad4a89cc6d100c17
-    base: cgr.dev/zapatatechnology.com/kubectl:v1.37.2@sha256:d5857eec32e39f5e21a81879697c6e7b22d56a9e2c035c566130ec3fcf0faee8
-    go_package: go
+    dev: cgr.dev/zapatatechnology.com/go:1.26.10-dev@sha256:10939cefc13483c8bf4ed2a28415c66afc9bd2a38a41f2fdf3dcbe8537ec0c64
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:78264c81f34ca5163739d2017778048939930781a3e2bfdda6e5b67d6da1377b
+    go_package: ''
   fips:
     name: bigbang-gitaly-init-cgroups-fips
     tag: v19.5.1-ubi
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:v1.37.2-dev@sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
-    base: cgr.dev/zapatatechnology.com/kubectl-fips:v1.37.2@sha256:82a64a4297a07379367ad23e3c7d446cc562aec57907e83e390e4cb777c56ff7
-    go_package: go
-    fips: native
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.10.1-dev@sha256:423cae2a8e990e0f30b143339f48bf2ee0cda49f88c953e002f00bea19f298ed
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:b9d7ea5b5fb0498d611fbffb0036a2c99c0eb10b0816a0cb1c2849ae837e9925
+    go_package: ''
+    fips: toolchain
 gitaly:
   tag: v19.5.1
   source: https://gitlab.com/gitlab-org/gitaly/-/archive/v19.5.1/gitaly-v19.5.1.tar.gz?path=tools/gitaly-init-cgroups
