@@ -12,6 +12,9 @@ from conftest import ROOT
 
 import bbcommon
 
+# The scripts and the installer's package (scripts/bbinstall/, behind bb-install.py).
+SCRIPTS = sorted(glob.glob(os.path.join(ROOT, "scripts", "*.py")) +
+                 glob.glob(os.path.join(ROOT, "scripts", "bbinstall", "*.py")))
 
 # --- mapping.yaml is validated, so a typo fails instead of silently doing nothing ---
 
@@ -37,7 +40,7 @@ def test_validate_mapping_rejects(bad, message):
 
 def test_every_mapping_section_is_documented_in_mapping_yaml_and_used_by_code():
     mapping_text = open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8").read()
-    code = "\n".join(open(p, encoding="utf-8").read() for p in glob.glob(os.path.join(ROOT, "scripts", "*.py")))
+    code = "\n".join(open(p, encoding="utf-8").read() for p in SCRIPTS)
     for section in bbcommon.MAPPING_SECTIONS:
         assert re.search(rf"^{section}:", mapping_text, re.M), f"{section} has no block in mapping.yaml"
         assert f'"{section}"' in code.replace(f'"{section}"}}', f'"{section}"'), f"no script reads {section}"
@@ -100,7 +103,7 @@ def test_workflows_parse_and_declare_permissions(path):
 
 # --- scripts explain themselves ---
 
-@pytest.mark.parametrize("path", sorted(glob.glob(os.path.join(ROOT, "scripts", "*.py"))), ids=os.path.basename)
+@pytest.mark.parametrize("path", SCRIPTS, ids=lambda p: os.path.relpath(p, ROOT))
 def test_every_script_has_a_module_docstring(path):
     tree = ast.parse(open(path, encoding="utf-8").read())
     doc = ast.get_docstring(tree)

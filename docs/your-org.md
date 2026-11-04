@@ -30,7 +30,7 @@ that, installing and upgrading are the same three commands as in the
 ## Generate the overlays for your org
 
 ```bash
-pip install pyyaml
+pip install -r requirements.txt               # PyYAML, the version CI tests
 chainctl auth login --audience cgr.dev        # a login that can pull from your org
 python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --save
 ```

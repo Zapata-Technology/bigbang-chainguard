@@ -24,6 +24,7 @@ on:
       - scripts/bb-compat.py
       - scripts/compat-plan.py
       - scripts/bb-install.py
+      - scripts/bbinstall/**
       - scripts/bbcluster.py
       - .github/workflows/compat.yml
   schedule:
@@ -168,7 +169,7 @@ jobs:
 
       - name: Python packages
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           test -d work/bigbang/chart
 
       - name: Deploy and check

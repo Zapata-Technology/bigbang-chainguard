@@ -110,7 +110,7 @@ jobs:
       - name: Discover, convert, verify
         id: run
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           python3 scripts/bb-fetch.py
           python3 scripts/bb-images.py --bigbang work/bigbang --pkgs work/pkgs \
             --values discovery/render-inputs.yaml -o discovery/images.json

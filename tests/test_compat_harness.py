@@ -51,9 +51,10 @@ def test_registry1_credentials_reach_the_cluster_pull_secret(monkeypatch):
 
 def test_only_started_containers_count_as_exercised():
     started_images = load_script("bbcluster").started_images
-    pod = lambda status: {"spec": {"initContainers": [{"name": "init", "image": "org/init:1"}],
-                                   "containers": [{"name": "app", "image": "org/app:1"}]},
-                          "status": status}
+    def pod(status):
+        return {"spec": {"initContainers": [{"name": "init", "image": "org/init:1"}],
+                         "containers": [{"name": "app", "image": "org/app:1"}]},
+                "status": status}
     assert started_images(pod({"phase": "Pending"})) == set()
     waiting = {"name": "app", "image": "org/app:1", "state": {"waiting": {"reason": "ImagePullBackOff"}}}
     failed_init = {"name": "init", "image": "org/init:1", "state": {"terminated": {"exitCode": 1}}}

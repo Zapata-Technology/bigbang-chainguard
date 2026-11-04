@@ -93,7 +93,7 @@ Don't install if `Verified OK` isn't printed.
 ## 3. Install
 
 ```bash
-pip install pyyaml
+pip install -r requirements.txt               # PyYAML, the version CI tests
 chainctl auth login                           # the installer makes a pull token with it
 python scripts/bb-install.py check            # tests every setting; changes nothing
 python scripts/bb-install.py install          # add --fips for FIPS images

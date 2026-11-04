@@ -2,7 +2,9 @@
 """Run every check this repo has, in the order CI runs them, and print one summary.
 
   check.py            offline: unit tests (which include mapping validation and the
-                      repo rules), and the chart scan when work/ has the charts
+                      repo rules), ruff (pyproject.toml's rules; skipped when ruff isn't
+                      installed: pip install -r requirements-dev.txt), and the chart scan
+                      when work/ has the charts
   check.py --online   also what needs Chainguard and the Big Bang charts: the overlays
                       are current (bb-convert --check) and render-verify, standard and
                       FIPS. Needs chainctl logged in and work/ from bb-fetch.py.
@@ -11,6 +13,7 @@ Run it before every commit. Exit 0 only if every check that ran passed; a check 
 can't run (no work/, no chainctl) is reported as skipped, not passed.
 """
 import argparse
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -25,6 +28,9 @@ def checks(online):
     have_charts = os.path.isdir(os.path.join(WORK, "pkgs")) and os.path.isdir(os.path.join(WORK, "bigbang"))
     no_charts = "no work/ (run scripts/bb-fetch.py)"
     yield "unit tests", [PY, "-m", "pytest", "-q", "tests"], None
+    ruff = [PY, "-m", "ruff"] if importlib.util.find_spec("ruff") else ["ruff"] if shutil.which("ruff") else None
+    yield "lint (ruff)", [*(ruff or ["ruff"]), "check", "."], \
+        None if ruff else "ruff not installed (pip install -r requirements-dev.txt)"
     yield "chart scan", [PY, "scripts/bb-scan.py", "--pkgs", "work/pkgs", "--bigbang", "work/bigbang"], \
         None if have_charts else no_charts
     if not online:

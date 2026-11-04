@@ -29,6 +29,7 @@ on:
       - scripts/bbbuild.py
       - scripts/buildhooks/**
       - scripts/bb-install.py
+      - scripts/bbinstall/**
       - .dockerignore
       - .github/workflows/builds.yml
   push:
@@ -39,6 +40,7 @@ on:
       - scripts/bbbuild.py
       - scripts/buildhooks/**
       - scripts/bb-install.py
+      - scripts/bbinstall/**
       - .dockerignore
       - .github/workflows/builds.yml
   workflow_dispatch:
@@ -134,7 +136,7 @@ jobs:
       - name: Build and smoke-test (standard and FIPS)
         id: build
         run: |
-          python3 -m pip install --quiet pyyaml
+          python3 -m pip install --quiet -r requirements.txt
           args=(--build --test --built-file "${RUNNER_TEMP}/built.txt")
           # A new builder has no build.yaml until update.yml on main writes it together with
           # the overlays that use it (committed alone, bb-verify fails: the mapping says
