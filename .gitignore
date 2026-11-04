@@ -1,4 +1,5 @@
 /work/
+/work-preview/
 __pycache__/
 .tags.json
 .pytest_cache/
