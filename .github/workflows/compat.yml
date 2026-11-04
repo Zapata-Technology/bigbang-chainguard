@@ -10,8 +10,9 @@ name: Compat - upgrade tests
 on:
   pull_request:
     paths:
-      # What a cluster runs changes: the nightly pull request's new tags and digests are
-      # tested on kind before they merge, not only rendered.
+      # What a cluster runs changes. scripts/compat-plan.py then picks only the tests the
+      # change reaches: a package's new tag runs that package's tests; digest-only, Flux and
+      # harness changes run two small smoke tests; the weekly run covers everything.
       - BIGBANG_VERSION
       - mapping.yaml
       - orgs/**
@@ -39,6 +40,13 @@ on:
         type: boolean
         default: true
 
+# A new push to a pull request cancels that pull request's older run (only the newest
+# commit's result matters, and every run costs runner minutes). Runs on
+# main and schedules each get their own group (run_id), so none is cancelled or queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -47,13 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
+      count: ${{ steps.m.outputs.count }}
       bigbang-key: ${{ steps.bb.outputs.key }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0   # the pull request's changed files
-      # Which tests: a pull request that changes only compat/<test>.yaml files runs just
-      # those (large ones too); see scripts/compat-plan.py.
+      # Which tests: a pull request runs only those its change reaches (a changed
+      # compat/<test>.yaml, a package whose overlay changed, ...); see scripts/compat-plan.py.
       - id: m
         env:
           TESTS: ${{ inputs.tests }}
@@ -92,6 +101,8 @@ jobs:
 
   test:
     needs: plan
+    # A pull request whose change reaches no kind test (docs, unit tests) runs none.
+    if: needs.plan.outputs.count != '0'
     runs-on: ubuntu-latest
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
