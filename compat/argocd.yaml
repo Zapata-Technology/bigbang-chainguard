@@ -3,10 +3,10 @@
 # whole monitoring stack, which overloaded the CI runner.
 images: {}
 test:
-  enable: [addons.argocd, prometheusOperatorCRDs]
+  enable: [argocd, prometheusOperatorCRDs]
   expect: [dex, prometheus-redis-exporter-iamguarded]
   values:
-    addons: {argocd: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
+    packages: {argocd: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
   check:
     # argocd-server's API answers (Big Bang runs it insecure: plain HTTP on port 80 behind
     # Istio), through the API server's service proxy.

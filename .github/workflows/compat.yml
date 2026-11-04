@@ -146,7 +146,8 @@ jobs:
         uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
         with:
           cluster_name: compat
-          node_image: kindest/node:v1.34.0
+          # Big Bang 4 requires Kubernetes 1.35+; the image kind v0.33.0 (kind-action's default) lists.
+          node_image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0
           config: .github/kind-compat.yaml
           # kind-action's cleanup tries to remove a registry container it never created.
           ignore_failed_clean: true

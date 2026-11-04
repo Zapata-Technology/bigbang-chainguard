@@ -7,10 +7,10 @@
 images:
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
 test:
-  enable: [addons.mattermostOperator, addons.mattermost]
+  enable: [mattermostOperator, mattermost]
   namespaces: [mattermost-operator, mattermost, mattermost-deps]
   values:
-    addons:
+    packages:
       mattermost:
         # The chart requests 2 CPUs and 4 GiB for the server, more than any node of a
         # 4-CPU runner's kind cluster has free ("Insufficient cpu"); its install waits for

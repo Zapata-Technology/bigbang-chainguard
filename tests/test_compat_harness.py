@@ -355,3 +355,27 @@ def test_a_pod_left_on_the_old_releases_digest_is_stale(tmp_path):
     running = {f"cgr.dev/o/x:1@{a}", f"cgr.dev/o/y:1@{b}", f"cgr.dev/o/z:2@{c}"}
     stale, retired = compat.stale_images(running, [old / "overlays"], [new / "overlays"])
     assert stale == [f"cgr.dev/o/y:1@{b}"] and retired == 1
+
+
+def test_test_values_turn_off_defaults_and_ambient_without_istiod():
+    chart = {"networkPolicies": {"enabled": True}, "istio": {"ambient": {"enabled": True}},
+             "packages": {"istiod": {"enabled": True}, "kyverno": {"enabled": True},
+                          "headlamp": {"enabled": False}, "metricsServer": {"enabled": "auto"}}}
+    v = compat.test_values(chart, ["kyverno", "headlamp"])
+    assert v["packages"] == {"istiod": {"enabled": False}, "kyverno": {"enabled": True},
+                             "metricsServer": {"enabled": False}, "headlamp": {"enabled": True}}
+    assert v["istio"] == {"ambient": {"enabled": False}} and v["networkPolicies"] == {"enabled": False}
+    assert "istio" not in compat.test_values(chart, ["istiod", "kiali"])   # Big Bang 4's default: ambient
+
+
+def test_a_release_on_big_bang_3_installs_with_its_keys():
+    # Big Bang 3 had `packages:` too, for custom packages; `addons:` is what marks it.
+    old = {"kyverno": {"git": {"repo": "r"}, "enabled": True}, "networkPolicies": {"enabled": True},
+           "addons": {"headlamp": {"git": {"repo": "r"}, "enabled": False}}, "packages": {}}
+    v = compat.test_values(old, ["kyverno", "headlamp"])
+    assert v["kyverno"] == {"enabled": True} and v["addons"] == {"headlamp": {"enabled": True}} and "istio" not in v
+    legacy = compat.legacy_values({"domain": "d", "packages": {"kyvernoPolicies": {"values": {"x": 1}},
+                                                               "headlamp": {"values": {"y": 2}}}},
+                                  dict(old, kyvernoPolicies={"git": {"repo": "r"}}))
+    assert legacy == {"domain": "d", "kyvernoPolicies": {"values": {"x": 1}}, "addons": {"headlamp": {"values": {"y": 2}}}}
+    assert compat.legacy_values({"packages": {}}, {"packages": {}}) == {"packages": {}}

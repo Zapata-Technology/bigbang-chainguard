@@ -142,7 +142,7 @@ the installer image) does all of this in order:
 ```mermaid
 flowchart LR
     SF[Site file<br/>my-site.yaml; written<br/>first if missing:<br/>--domain, --enable] --> CH[Chart<br/>repo1 git archive,<br/>no Iron Bank login]
-    CH --> PF[Preflight<br/>tools, Kubernetes 1.34+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
+    CH --> PF[Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>Iron Bank needs, context]
     PF --> CR[Credentials<br/>env, site, cluster, or a<br/>chainctl pull token;<br/>a token alone works;<br/>kept in bigbang/bb-install]
     CR --> PC{Pull check<br/>cgr.dev, every bigbang-*<br/>image, the mirror}
     PC -- refused --> CR

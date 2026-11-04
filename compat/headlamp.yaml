@@ -3,7 +3,7 @@
 # kubectl -dev, which mapping.yaml now uses for every kubectl image.
 images: {}
 test:
-  enable: [addons.headlamp]
+  enable: [headlamp]
   expect: [headlamp, kubectl]
   check:
     # Headlamp serves its UI and its config, and its backend reaches the API server: the

@@ -13,7 +13,7 @@ COMPAT_OUT, COMPAT_DOCKERCFG and COMPAT_FIPS:
      secret and one Deployment + Service each for PostgreSQL (and Redis), on the org
      images the overlays map Big Bang's own PostgreSQL and Redis to (docs/images.md of
      this run), -fips in FIPS
-  2. write $COMPAT_OUT/site-<app>.yaml: Big Bang's addons.<app>.database (and redis)
+  2. write $COMPAT_OUT/site-<app>.yaml: Big Bang's packages.<app>.database (and redis)
      settings pointing at them, with throwaway test passwords (14+ characters for FIPS)
 """
 import os
@@ -69,10 +69,10 @@ def site_values(app, ns):
     db = {"host": f"postgres.{ns}.svc.cluster.local", "port": 5432, "database": app,
           "username": app, "password": DB_PASSWORD.format(app=app)}
     if app == "gitlab":
-        return {"addons": {"gitlab": {
+        return {"packages": {"gitlab": {
             "database": db, "redis": {"password": REDIS_PASSWORD.format(app=app)},
             "values": {"global": {"redis": {"host": f"redis.{ns}.svc.cluster.local", "port": 6379}}}}}}
-    return {"addons": {app: {"database": dict(db, ssl_mode="disable")}}}
+    return {"packages": {app: {"database": dict(db, ssl_mode="disable")}}}
 
 
 def main():

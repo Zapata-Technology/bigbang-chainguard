@@ -2,10 +2,10 @@
 # (redis-bb.upstream.metrics) instead of deploying the whole monitoring stack.
 images: {}
 test:
-  enable: [addons.harbor, prometheusOperatorCRDs]
+  enable: [harbor, prometheusOperatorCRDs]
   expect: [prometheus-redis-exporter-iamguarded]
   values:
-    addons: {harbor: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
+    packages: {harbor: {values: {redis-bb: {upstream: {metrics: {enabled: true}}}}}}
   check:
     # Harbor's health API (core, database, redis, registry, registryctl, jobservice,
     # portal): overall healthy and no component unhealthy. Through the API server's service

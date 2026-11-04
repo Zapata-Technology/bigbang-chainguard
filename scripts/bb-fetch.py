@@ -3,17 +3,21 @@
 
   bb-fetch.py [--version X.Y.Z] [--dir work]
 
-Result: <dir>/bigbang and <dir>/pkgs/<values key> (e.g. pkgs/addons.argocd).
+Result: <dir>/bigbang and <dir>/pkgs/<values key> (e.g. pkgs/packages.argocd).
 Shallow clones from repo1.dso.mil; no credentials needed.
 """
 import argparse
 import os
 import shutil
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import yaml
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bbcommon import bigbang_packages  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIGBANG = "https://repo1.dso.mil/big-bang/bigbang.git"
@@ -37,15 +41,10 @@ def clone(url, tag, dest, attempts=4):
 
 
 def packages(values):
-    """(values key, git repo, tag) for every package, including addons."""
-    for k, x in values.items():
-        if k == "wrapper":
-            continue
-        if isinstance(x, dict) and isinstance(x.get("git"), dict) and "repo" in x["git"]:
+    """(values key, git repo, tag) for every package."""
+    for k, x in bigbang_packages(values).items():
+        if (x.get("git") or {}).get("repo"):
             yield k, x["git"]["repo"], x["git"]["tag"]
-    for k, x in (values.get("addons") or {}).items():
-        if isinstance(x, dict) and isinstance(x.get("git"), dict) and "repo" in x["git"]:
-            yield f"addons.{k}", x["git"]["repo"], x["git"]["tag"]
 
 
 def main():

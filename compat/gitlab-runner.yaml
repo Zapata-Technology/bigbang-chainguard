@@ -6,10 +6,10 @@ test:
   # Big Bang hands the runner GitLab's registration token through a Kyverno policy
   # (gitlab-runner's autoRegister needs Kyverno, on by default in Big Bang); without it
   # the runner starts with no token and never registers.
-  enable: [kyverno, addons.gitlab, addons.gitlabRunner]
+  enable: [kyverno, gitlab, gitlabRunner]
   namespaces: [gitlab, gitlab-runner, gitlab-deps, kyverno]
   values:
-    addons:
+    packages:
       gitlab:
         # The runner's kind cluster has 2 CPUs and 7 GB in all, and the chart requests
         # more than that (the toolbox alone: 2 CPUs, 3.5 Gi), so pods stayed Pending:
@@ -61,7 +61,7 @@ test:
     - python3 compat/support/app-deps.py gitlab
     # The migrations take ~10 minutes here; Deployments waiting on them would pass
     # Kubernetes' 10-minute progress deadline and Helm would stop the install.
-    - python3 compat/support/progress-deadline.py addons.gitlab 2400
+    - python3 compat/support/progress-deadline.py packages.gitlab 2400
     # Crash-looping pods restart before the report reads them: keep their last output.
     - sh compat/support/watch.sh gitaly "kubectl -n gitlab logs -l app=gitaly --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitaly --all-containers --tail=60"
     - sh compat/support/watch.sh shell "kubectl -n gitlab logs -l app=gitlab-shell --all-containers --previous --tail=60 || kubectl -n gitlab logs -l app=gitlab-shell --all-containers --tail=60"

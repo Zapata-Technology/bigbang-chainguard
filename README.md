@@ -246,7 +246,7 @@ machine).
 1. **Chart:** Big Bang's chart at the overlays' version, from repo1's public git archive
    (registry1's OCI copy needs an Iron Bank login). `--chart` takes a local chart or an
    `oci://` ref instead.
-2. **Preflight:** kubectl and helm, Kubernetes 1.34+, a default StorageClass for SeaweedFS,
+2. **Preflight:** kubectl and helm, Kubernetes 1.35+, a default StorageClass for SeaweedFS,
    the site file's domain, and which of your packages still need Iron Bank credentials. On a
    first install it shows the kubectl context and asks before touching it.
 3. **Credentials:** the pull token from the environment, the site file, or the cluster (a
@@ -283,7 +283,7 @@ Big Bang doesn't create on its own. The installer picks one way and remembers it
 | `gatewayCerts` in the site file | Left alone. |
 
 **Releases.** Each change to what gets deployed is released as `<Big Bang version>-cg.<n>`
-(for example `3.35.1-cg.2`) with an archive to install from and notes listing the image
+(for example `4.0.0-cg.2`) with an archive to install from and notes listing the image
 changes. Install from a release rather than `main` to know exactly what you run; `install`
 prints the release it deploys. Each archive is signed keylessly by the release workflow; the
 release notes show the `cosign verify-blob` command that checks it.
@@ -478,7 +478,7 @@ The overlay also adds `cgr.dev/<org>` and your `BUILD_REGISTRY` to Big Bang's Ky
 - The FIPS overlay swaps each image for its `-fips` twin. Images with no FIPS variant keep
   the standard image, and `docs/images.md` lists them.
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
-  keystores. Set those in the site's `addons.keycloak.values` before switching.
+  keystores. Set those in the site's `packages.keycloak.values` before switching.
 - Switching an existing deployment is an in-place `helm upgrade` with the FIPS overlay added.
 
 ### GitLab and GitLab Runner notes
@@ -499,7 +499,7 @@ The kind tests found these; each applies to a real cluster too.
   rollout deadline, and Rails longer than the liveness probe's ~3 minutes to boot. If
   Helm stops with `failed early due to stalled resources` or the probe keeps restarting
   webservice and sidekiq, raise `progressDeadlineSeconds` (through
-  `addons.gitlab.postRenderers`, after the overlays' digest pins) and
+  `packages.gitlab.postRenderers`, after the overlays' digest pins) and
   `upstream.gitlab.webservice.deployment.livenessProbe` /
   `upstream.gitlab.sidekiq.livenessProbe` `failureThreshold`, as `compat/gitlab.yaml` does.
 
@@ -603,7 +603,7 @@ conversion and you decide case by case.
 
 ### Flux runs a newer release than Big Bang's
 
-Big Bang 3.35.1 installs Flux 2.9 from Iron Bank. That release pins notification-controller
+Big Bang 4.0.0, like 3.35.1, installs Flux 2.9 from Iron Bank. That release pins notification-controller
 v1.9.4, source-controller and kustomize-controller v1.9.5, and helm-controller v1.6.4.
 Chainguard builds only Flux's current release line, so the org has no 1.9.x tags. The oldest
 it has are 1.10.x, and 1.7.x for helm-controller (`docs/images.md` lists them as
@@ -632,7 +632,7 @@ writes `UNRESOLVED` and CI fails. It doesn't ship a mismatched set.
 
 Every kind test, the release-upgrade test and the FIPS-kernel test install Flux this way, so
 Big Bang's GitRepositories and HelmReleases are tested on it. The cost is
-that sites run a Flux newer than the one Big Bang 3.35.1 was released with. When Big Bang moves
+that sites run a Flux newer than the one Big Bang 4.0.0 was released with. When Big Bang moves
 to Flux 2.10, the overlay goes back to Big Bang's `base/flux` with only the images swapped.
 
 ## Images this repo builds
@@ -821,7 +821,7 @@ can't express, `mapping.yaml` has these escape hatches:
 - `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
   a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
-  (Keycloak in 3.35.1); their images stay on tags instead of digests.
+  (Keycloak in 4.0.0); their images stay on tags instead of digests.
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
   (kubectl `1.34`: Vault pins the end-of-life 1.30).
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
@@ -845,14 +845,52 @@ repo has tags, so you know when to switch it over.
 - **CI** (`ci.yml`): unit tests, then discovery, conversion and verification for both modes.
 - **Releases** (`release.yml`): every merge that changes what you deploy (overlays, Flux,
   SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>`, for example
-  `3.35.1-cg.40`; `n` starts again at 1 with each Big Bang version. A release holds the
+  `4.0.0-cg.40`; `n` starts again at 1 with each Big Bang version. A release holds the
   install archive, its sha256, a Sigstore signature and notes listing the image changes
   since the previous release (configuration changes are in its list of merged pull
   requests). Nightly digest re-pins make releases frequent.
-- **Upgrading a cluster:** run `bb-install.py install` again from the newer release.
+- **Upgrading a cluster:** run `bb-install.py install` again from the newer release
+  (from Big Bang 3, follow [Upgrading from Big Bang 3](#upgrading-from-big-bang-3) first).
   `install --plan` shows what would change (version, FIPS, packages, images) without
   changing anything, `status` says when the cluster is behind the release you run it
   from, and `rollback` returns Big Bang to an earlier revision.
+
+### Upgrading from Big Bang 3
+
+Big Bang 4.0 is a breaking release, and this repo follows it: `main` and every `4.0.0-cg.<n>`
+release are for Big Bang 4. Releases `3.35.1-cg.<n>` stay on the Releases page for clusters
+still on Big Bang 3.
+
+What changed for a site:
+
+- **Site file keys.** Every package moved under `packages:`. `tempo:` is now
+  `packages.tempo:`, `addons.keycloak:` is `packages.keycloak:`, and so on. Big Bang 4's
+  chart refuses the old keys, and the installer's preflight names any it finds. Convert a
+  site file with Big Bang's own script, from a checkout of the 4.0.0 tag:
+  `scripts/migrate-values-3-to-4.sh --target 4 --output my-site-4.yaml my-site.yaml`. It also
+  moves a package's `values.istio`, `values.networkPolicies` and `values.routes` under
+  `values.bb-common`.
+- **Kubernetes 1.35 or newer.** The chart won't install on an older cluster.
+- **Istio ambient mode is the default.** Big Bang 4 turns on ztunnel, Istio CNI and the
+  Gateway API with istiod, instead of sidecars. The overlays convert those images like the
+  rest. To keep sidecars, set `istio.ambient.enabled: false` in the site file.
+- **Kyverno policies are CEL policies** (`ValidatingPolicy`, `kubectl get
+  validatingpolicies.policies.kyverno.io`), not `ClusterPolicy`. The overlays' registry allow
+  list is at the same value path. Custom policy settings need Big Bang's
+  `docs/migration/migrating-kyverno-policies-for-bb4.0.md`.
+- **Tempo 3.** Big Bang 4 deploys Tempo 3.x. The Tempo 2 workaround for the `opencensus`
+  receiver is gone with it: the Tempo 3 chart no longer lists that receiver.
+
+The order Big Bang requires:
+
+1. Upgrade the cluster to Big Bang 3.35.1 with a `3.35.1-cg.<n>` release
+   (`bb-install.py install`), and check it.
+2. Convert the site file as above, and set Kubernetes to 1.35 or newer.
+3. Run `bb-install.py install` from a `4.0.0-cg.<n>` release with the converted site file.
+   Big Bang moves to 4.0 with Ambient on, and Flux rolls each package.
+
+`compat/release-upgrade.yaml` goes through steps 1 and 3 on kind for every pull request: it
+installs the newest 3.35.1 release with Big Bang 3's keys, then upgrades to this tree.
 
 `discovery/render-inputs.yaml` holds render-only placeholders (fake database and Redis
 endpoints) so that GitLab and Anchore render during discovery. Never deploy with it.
@@ -863,9 +901,9 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 | Gap | Why | What closes it |
 |---|---|---|
-| 23 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
+| 19 images stay on Iron Bank (none in the default packages) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
 | Release-to-release upgrades are tested for a few packages only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; other packages' upgrades rely on Flux and Helm rolling new digests, which that test checks | More packages in that test as kind's runner allows; a staging cluster that follows releases |
-| Keycloak's images stay on tags, not digests | Big Bang 3.35.1's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
+| Keycloak's images stay on tags, not digests | Big Bang 4.0.0's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
 | Iron Bank's side of the weekly CVE report is empty, and the Vault 1.21 to 2.x upgrade test (`compat/vault-upgrade.yaml`) is skipped | Both need an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |

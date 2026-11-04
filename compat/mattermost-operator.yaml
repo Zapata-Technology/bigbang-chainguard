@@ -5,7 +5,7 @@
 images:
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
 test:
-  enable: [addons.mattermostOperator]
+  enable: [mattermostOperator]
   namespaces: [mattermost-operator]
   expect: [bigbang-mattermost-operator]
   setup:
@@ -17,7 +17,7 @@ test:
     # when the operator made the Deployment and reports the installation stable.
     - |
       kubectl wait crd/mattermosts.installation.mattermost.com --for=condition=Established --timeout=60s || exit 1
-      img=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/values-chainguard.yaml'))['addons']['mattermost']['values']['image']; print(v['name'], v['tag'])") || exit 1
+      img=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/values-chainguard.yaml'))['packages']['mattermost']['values']['image']; print(v['name'], v['tag'])") || exit 1
       set -- $img
       kubectl create namespace compat-mm --dry-run=client -o yaml | kubectl apply -f -
       kubectl -n compat-mm create secret generic compat-db --from-literal=DB_CONNECTION_STRING=postgres://compat:unused@compat-db.invalid:5432/mattermost --dry-run=client -o yaml | kubectl apply -f -

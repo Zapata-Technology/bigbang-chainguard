@@ -1,7 +1,7 @@
 # Render-only placeholders. Some Big Bang packages refuse to render until their
 # external dependencies are configured. These fake endpoints only let discovery
 # and verification see every image. Never deploy with this file.
-addons:
+packages:
   gitlab:
     database: {host: postgres.example.invalid, password: render-only}
     objectStorage: {type: s3, endpoint: https://s3.example.invalid, region: us-east-1, accessKey: render-only, accessSecret: render-only}

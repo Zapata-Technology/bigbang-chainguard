@@ -2,7 +2,7 @@
 # Big Bang's grafana-plugins image rebuilt FROM the Chainguard org's grafana images,
 # with the plugin set from Iron Bank's hardening_manifest.yaml at `ironbank.commit`.
 ironbank:
-  image: ironbank/big-bang/grafana/grafana-plugins:13.2.1
+  image: ironbank/big-bang/grafana/grafana-plugins:13.3.0
   source: https://repo1.dso.mil/dsop/big-bang/grafana/grafana-plugins
   commit: 56072031815d54f64d333f35cad21f9d69315e3e
   manifest_tags:
@@ -11,14 +11,14 @@ ironbank:
 image:
   standard:
     name: bigbang-grafana-plugins
-    tag: 13.2.5
-    base: cgr.dev/zapatatechnology.com/grafana:13.2.5@sha256:7281c2fd3736d89c1b8925bc2cb6307bde142a492facb20672717bb1b499e9b2
-    dev: cgr.dev/zapatatechnology.com/grafana:13.2.5-dev@sha256:8cbde28e130c7642f3cb8fcc7fea7f7f97844519c5cc926919e0f724347d1662
+    tag: 13.3.0
+    base: cgr.dev/zapatatechnology.com/grafana:13.3.0@sha256:8637e80f24abb962b512c1e626623eafe7f6dfd3ed4a4815eb80b58cecd8b75f
+    dev: cgr.dev/zapatatechnology.com/grafana:13.3.0-dev@sha256:792f96b9ffa641bc210f7335c8cb538dd9304c653568396c87aee5c14b5da023
   fips:
     name: bigbang-grafana-plugins-fips
-    tag: 13.2.5
-    base: cgr.dev/zapatatechnology.com/grafana-fips:13.2.5@sha256:dc2a46c2efbe83baa4c833aaec4b70b087492da4541998ed425412b4cc7bfce7
-    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.2.5-dev@sha256:01cd2ed868e6d327a6fb077c3f0cf5b0cb31304b263f2e8131ba93806160b899
+    tag: 13.3.0
+    base: cgr.dev/zapatatechnology.com/grafana-fips:13.3.0@sha256:160a7fef44567f388a2716fa057598e3d61506b22dd25b5159e96f56fbeffe23
+    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.3.0-dev@sha256:d104d3b6b31e867cc4a7b83cd5101aac1436a8f48c20b7cfdb1c8664fa1e0a2b
 plugins:
 - id: grafana-polystat-panel
   url: https://github.com/grafana/grafana-polystat-panel/releases/download/v2.1.16/grafana-polystat-panel-2.1.16.zip

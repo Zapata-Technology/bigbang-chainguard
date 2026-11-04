@@ -8,14 +8,15 @@
 # images, so a registry the upgrade adds without the allow list catches it here.
 images: {}
 test:
-  enable: [kyverno, kyvernoPolicies, addons.headlamp, grafana]
+  enable: [kyverno, kyvernoPolicies, headlamp, grafana]
   expect: [kyverno, headlamp, grafana]
-  values:
-    # As in kyverno-enforce.yaml: with Istio off, nothing supplies the non-root policies'
-    # excluded containers, and they render `preconditions.all: null`.
-    kyvernoPolicies: {values: {excludeContainers: [compat-none]}}
   upgrade_from:
     release: previous
+    # Big Bang 3's ClusterPolicies render require-non-root-*'s preconditions.all: null
+    # (rejected by Kyverno) unless some container is excluded; Istio, which usually
+    # supplies that list, is off. Big Bang 4's CEL policies don't need it, and its chart
+    # refuses this key.
+    values: {kyvernoPolicies: {values: {excludeContainers: [compat-none]}}}
     check:
       - sh compat/support/kyverno-admission.sh headlamp
   check:

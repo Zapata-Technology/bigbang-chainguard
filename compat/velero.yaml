@@ -1,7 +1,7 @@
 # Velero with the AWS plugin, backup storage location on SeaweedFS (object-storage overlay).
 images: {}
 test:
-  enable: [addons.velero]
+  enable: [velero]
   setup:
     - python3 compat/support/seaweedfs.py velero
   values_files:

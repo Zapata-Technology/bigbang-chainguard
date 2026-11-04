@@ -11,22 +11,23 @@ test:
   enable: [neuvector, prometheusOperatorCRDs]
   expect: [neuvector-prometheus-exporter]
   values:
-    neuvector:
-      dependsOn: [{name: prometheus-operator-crds, namespace: bigbang}]
-      values:
-        monitoring: {enabled: true}
-        upstream:
-          controller:
-            secret:
-              enabled: true
-              data:
-                userinitcfg.yaml:
-                  always_reload: true
-                  users:
-                    - {username: metrics, password: compatMetricsAB12cd34, role: reader, fullname: metrics}
-        monitor:
-          install: true
-          exporter: {enabled: true, CTRL_USERNAME: metrics, CTRL_PASSWORD: compatMetricsAB12cd34}
+    packages:
+      neuvector:
+        dependsOn: [{name: prometheus-operator-crds, namespace: bigbang}]
+        values:
+          monitoring: {enabled: true}
+          upstream:
+            controller:
+              secret:
+                enabled: true
+                data:
+                  userinitcfg.yaml:
+                    always_reload: true
+                    users:
+                      - {username: metrics, password: compatMetricsAB12cd34, role: reader, fullname: metrics}
+          monitor:
+            install: true
+            exporter: {enabled: true, CTRL_USERNAME: metrics, CTRL_PASSWORD: compatMetricsAB12cd34}
   check:
     # The exporter logged into the controller's API and serves NeuVector metrics.
     - >-

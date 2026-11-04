@@ -16,9 +16,9 @@ IMAGE=AlmaLinux-9-GenericCloud-9.8-20261005.x86_64.qcow2
 IMAGE_URL=https://repo.almalinux.org/almalinux/9.8/cloud/x86_64/images/$IMAGE
 IMAGE_SHA256=25942b554efaac077e2f60d6bb27bd3332c171454cc21bbd33e5f79244d7570f
 # k3s on the Kubernetes minor kind runs in compat.yml; binary and installer by checksum.
-K3S_VERSION=v1.34.12+k3s1
-K3S_SHA256=ef1df26b26276c0f6d962391c94e12f9362d1f1e30ec7a7926e9ddb84b0d66ce
-K3S_INSTALL_SHA256=40b487f0d8ef4f5d1bf422e7bb6228cc7789c40ecc66c5ab067d396bbee9816e
+K3S_VERSION=v1.35.9+k3s1
+K3S_SHA256=897acb21cca57d477a211102251a6591450ce767344a9faaa121a1007ca9fa9a
+K3S_INSTALL_SHA256=8598e002e61d658fed7b7542fc6d2c66d8da6eae69e088830105d2ee1ffb6d91
 
 VM_DIR=${VM_DIR:-${RUNNER_TEMP:-/tmp}/fips-vm}
 # The runner has 2 CPUs and 7 GB; leave the runner itself (kubectl, the harness) about 1.5 GB.

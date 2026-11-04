@@ -5,7 +5,7 @@
 images: {}
 test:
   installer: true
-  enable: [tempo, addons.keycloak]
+  enable: [tempo, keycloak]
   namespaces: [tempo, keycloak, seaweedfs]
   expect: [tempo, keycloak, seaweedfs]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"

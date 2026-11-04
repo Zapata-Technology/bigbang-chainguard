@@ -96,8 +96,9 @@ def test_both_registry_policies_admit_the_org_builds_and_iron_bank():
     policies = convert.registry_policies(MAPPING, "cgr.dev/example.com", "ghcr.io/me")
     expected = ["registry1.dso.mil", "registry.dso.mil", "cgr.dev/example.com", "ghcr.io/me"]
     assert policies == {
-        ("kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"): expected,
-        ("gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"): expected,
+        ("packages", "kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"):
+            expected,
+        ("packages", "gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"): expected,
     }
 
 

@@ -2,7 +2,7 @@
 # S3 object storage at http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333 instead of MinIO, for: tempo, thanos, mimir, mattermost, gitlab, velero.
 # Layer it after the Chainguard overlays; credentials go in the site file:
 # ... -f overlays/values-chainguard.yaml -f overlays/values-object-storage.yaml -f <site>.yaml
-addons:
+packages:
   gitlab:
     objectStorage:
       bucketPrefix: bigbang
@@ -31,6 +31,12 @@ addons:
     enabled: false
   minioOperator:
     enabled: false
+  tempo:
+    objectStorage:
+      bucket: bigbang-tempo
+      endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
+      insecure: true
+      region: us-east-1
   thanos:
     objectStorage:
       bucket: bigbang-thanos
@@ -38,8 +44,9 @@ addons:
       insecure: true
       region: us-east-1
     values:
-      minio:
-        enabled: false
+      upstream:
+        minio:
+          enabled: false
   velero:
     values:
       upstream:
@@ -53,9 +60,3 @@ addons:
             name: default
             provider: aws
           volumeSnapshotLocation: []
-tempo:
-  objectStorage:
-    bucket: bigbang-tempo
-    endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
-    insecure: true
-    region: us-east-1

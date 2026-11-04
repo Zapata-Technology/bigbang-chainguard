@@ -27,10 +27,11 @@ def test_checkout_without_overlays_says_how_to_make_them(tmp_path):
 
 
 def test_enabled_packages_counts_true_and_auto():
-    values = {"istiod": {"enabled": True}, "kiali": {"enabled": False}, "networkPolicies": {"enabled": True},
-              "addons": {"keycloak": {"enabled": True}, "metricsServer": {"enabled": "auto"},
+    values = {"networkPolicies": {"enabled": True},
+              "packages": {"istiod": {"enabled": True}, "kiali": {"enabled": False},
+                           "keycloak": {"enabled": True}, "metricsServer": {"enabled": "auto"},
                          "velero": {"enabled": False}}}
-    assert install.enabled_packages(values) == ["addons.keycloak", "addons.metricsServer", "istiod"]
+    assert install.enabled_packages(values) == ["packages.istiod", "packages.keycloak", "packages.metricsServer"]
 
 
 def test_merged_values_layers_files_in_order(tmp_path):
@@ -45,10 +46,11 @@ def test_object_storage_credentials_only_for_enabled_packages():
     co = install.Checkout(ROOT)
     if not co.s3:
         pytest.skip("this checkout uses MinIO")
-    vals = install.object_storage_values(co, ["tempo", "addons.velero", "istiod"], ("AK", "SK"))
-    assert vals["tempo"]["objectStorage"] == {"accessKey": "AK", "accessSecret": "SK"}
-    assert "aws_access_key_id=AK" in vals["addons"]["velero"]["values"]["upstream"]["credentials"]["secretContents"]["cloud"]
-    assert "mimir" not in vals.get("addons", {})   # Big Bang creates Mimir's Secret whenever keys are set
+    vals = install.object_storage_values(co, ["packages.tempo", "packages.velero", "packages.istiod"], ("AK", "SK"))
+    pkgs = vals["packages"]
+    assert pkgs["tempo"]["objectStorage"] == {"accessKey": "AK", "accessSecret": "SK"}
+    assert "aws_access_key_id=AK" in pkgs["velero"]["values"]["upstream"]["credentials"]["secretContents"]["cloud"]
+    assert "mimir" not in pkgs   # Big Bang creates Mimir's Secret whenever keys are set
 
 
 class _Env:
@@ -105,10 +107,10 @@ def test_generated_values_are_kept(monkeypatch):
 
 
 def test_site_keycloak_password_is_respected():
-    site = {"addons": {"keycloak": {"values": {"upstream": {"secrets": {"env": {"stringData": {
+    site = {"packages": {"keycloak": {"values": {"upstream": {"secrets": {"env": {"stringData": {
         "KEYCLOAK_ADMIN_PASSWORD": "mine-and-long-enough"}}}}}}}}
     assert install._site_sets_keycloak_password(site)
-    assert not install._site_sets_keycloak_password({"addons": {"keycloak": {"enabled": True}}})
+    assert not install._site_sets_keycloak_password({"packages": {"keycloak": {"enabled": True}}})
 
 
 def test_init_writes_a_site_file_without_credentials(tmp_path, monkeypatch):
@@ -120,7 +122,7 @@ def test_init_writes_a_site_file_without_credentials(tmp_path, monkeypatch):
     text = site.read_text()
     doc = yaml.safe_load(text)
     assert doc["domain"] == "bigbang.example.com"
-    assert doc["addons"]["keycloak"]["enabled"] and doc["addons"]["velero"]["enabled"]
+    assert doc["packages"]["keycloak"]["enabled"] and doc["packages"]["velero"]["enabled"]
     assert "registryCredentials" not in doc and "password" not in text.lower().split("no credentials")[0]
     with pytest.raises(SystemExit, match="exists"):
         install.init(args)
@@ -131,6 +133,13 @@ def test_init_rejects_unknown_packages(tmp_path):
                                       force=False, yes=True)
     with pytest.raises(SystemExit, match="unknown packages"):
         install.init(args)
+
+
+def test_site_files_with_big_bang_3_keys_are_named():
+    defaults = {"packages": {"tempo": {}, "keycloak": {}}, "networkPolicies": {}}
+    site = {"domain": "d", "tempo": {"enabled": True}, "addons": {"keycloak": {}}, "networkPolicies": {}}
+    assert install.legacy_keys(site, defaults) == ["addons.keycloak", "tempo"]
+    assert install.legacy_keys({"packages": {"tempo": {}}}, defaults) == []
 
 
 def test_build_registry_is_read_from_the_overlays():
@@ -153,7 +162,7 @@ def test_status_says_when_the_cluster_is_behind(monkeypatch):
 
 
 def test_keycloak_database_password_only_on_a_fresh_keycloak(monkeypatch):
-    on = ["addons.keycloak"]
+    on = ["packages.keycloak"]
     _Env(monkeypatch)
     monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
     pw = install.keycloak_database_password(install.Credentials({}, False), {}, on)
@@ -165,7 +174,7 @@ def test_keycloak_database_password_only_on_a_fresh_keycloak(monkeypatch):
     _Env(monkeypatch)
     assert install.keycloak_database_password(install.Credentials({}, False), {}, on) is None  # running on the default
     assert install.keycloak_database_password(install.Credentials({}, False), {}, []) is None  # Keycloak off
-    external = {"addons": {"keycloak": {"database": {"host": "db.example.com"}}}}
+    external = {"packages": {"keycloak": {"database": {"host": "db.example.com"}}}}
     monkeypatch.setattr(install, "_keycloak_installed", lambda: False)
     assert install.keycloak_database_password(install.Credentials({}, False), external, on) is None
 
@@ -296,7 +305,7 @@ def test_access_report_lists_hosts_and_gateways(monkeypatch, capsys):
     assert "never-shown" not in out and "keycloak-admin-password" in out
 
 
-ISTIO = ["certManager", "istioGateway", "istiod"]
+ISTIO = ["packages.certManager", "packages.istioGateway", "packages.istiod"]
 
 
 def _tls_args(**kw):
@@ -327,15 +336,17 @@ def test_tls_own_certificate_goes_in_the_state_not_the_issuer(tmp_path, monkeypa
 
 def test_tls_is_skipped_without_a_gateway_and_respects_the_site_file(monkeypatch):
     _Env(monkeypatch)
-    assert install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["tempo"]) is None
-    site = {"istioGateway": {"values": {"gateways": {"public": {"gatewayCerts": [{"name": "public-cert"}]}}}}}
+    assert install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["packages.tempo"]) is None
+    site = {"packages": {"istioGateway": {"values": {"gateways": {"public": {
+        "gatewayCerts": [{"name": "public-cert"}]}}}}}}
     assert install.tls_choice(_tls_args(), install.Credentials({}, False), site, ISTIO) == "site"
 
 
 def test_tls_from_cert_manager_needs_cert_manager(monkeypatch):
     _Env(monkeypatch)
     with pytest.raises(SystemExit, match="certManager"):
-        install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["istioGateway", "istiod"])
+        install.tls_choice(_tls_args(), install.Credentials({}, False), {}, ["packages.istioGateway",
+                                                                               "packages.istiod"])
 
 
 def test_tls_manifests():
@@ -380,13 +391,14 @@ def test_gitops_directory_layers_values_like_the_helm_path(tmp_path):
 
 
 def test_git_mirror_moves_every_repo1_package():
-    defaults = {"istiod": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/istiod.git"}},
-                "kiali": {"git": {"repo": "https://other.example.com/kiali.git"}},
-                "addons": {"keycloak": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/keycloak.git"}}}}
+    defaults = {"packages": {
+        "istiod": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/istiod.git"}},
+        "kiali": {"git": {"repo": "https://other.example.com/kiali.git"}},
+        "keycloak": {"git": {"repo": "https://repo1.dso.mil/big-bang/product/packages/keycloak.git"}}}}
     vals = install.git_mirror_values(defaults, "https://git.example.com/bb/")
-    assert vals == {"istiod": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/istiod.git"}},
-                    "addons": {"keycloak": {"git": {"repo":
-                                                    "https://git.example.com/bb/big-bang/product/packages/keycloak.git"}}}}
+    assert vals == {"packages": {
+        "istiod": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/istiod.git"}},
+        "keycloak": {"git": {"repo": "https://git.example.com/bb/big-bang/product/packages/keycloak.git"}}}}
     assert install.mirrored("https://repo1.dso.mil/big-bang/bigbang.git", None) == "https://repo1.dso.mil/big-bang/bigbang.git"
 
 
@@ -396,18 +408,19 @@ def test_gitops_uses_the_mirror_for_big_bang():
 
 
 def test_plan_lists_changes_without_secrets():
-    defaults = {"tempo": {"enabled": False}, "addons": {"velero": {"enabled": False}}}
-    old = {"tempo": {"enabled": True}, "registryCredentials": [{"password": "s3cret"}],
+    defaults = {"packages": {"tempo": {"enabled": False}, "velero": {"enabled": False}}}
+    old = {"packages": {"tempo": {"enabled": True}}, "registryCredentials": [{"password": "s3cret"}],
            "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.0"}}}
-    new = {"addons": {"velero": {"enabled": True}}, "registryCredentials": [{"password": "other"}],
+    new = {"packages": {"velero": {"enabled": True}}, "registryCredentials": [{"password": "other"}],
            "x": {"image": {"repository": "cgr.dev/o/tempo", "tag": "2.8.1"}}}
     lines = install.plan_lines("3.0.0", old, "3.1.0", new, defaults, {"mode": "standard"}, "fips")
-    assert lines == ["Big Bang 3.0.0 -> 3.1.0", "images standard -> fips", "turn on addons.velero", "turn off tempo",
+    assert lines == ["Big Bang 3.0.0 -> 3.1.0", "images standard -> fips", "turn on packages.velero",
+                     "turn off packages.tempo",
                      "image `cgr.dev/o/tempo`: 2.8.0 → 2.8.1"]
     assert not any("s3cret" in ln or "other" in ln for ln in lines)
     assert install.plan_lines("3.0.0", old, "3.0.0", old, defaults, {"mode": "fips"}, "fips") == []
-    assert install.plan_lines(None, {}, "3.0.0", {"tempo": {"enabled": True}}, defaults, {}, "standard") == \
-        ["fresh install of Big Bang 3.0.0 (standard): tempo"]
+    assert install.plan_lines(None, {}, "3.0.0", {"packages": {"tempo": {"enabled": True}}}, defaults, {},
+                              "standard") == ["fresh install of Big Bang 3.0.0 (standard): packages.tempo"]
 
 
 def test_rollback_refuses_a_gitops_install(monkeypatch):
@@ -439,17 +452,17 @@ def _sig_args(**kw):
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"]) == ("enforce", None)
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["istiod"])[0] == "off"
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.kyverno"]) == ("enforce", None)
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.istiod"])[0] == "off"
     assert install.signature_choice(_sig_args(registry_mirror="r.site/bb"), install.Credentials({}, False),
-                                    ["kyverno"])[0] == "off"            # disconnected: no Sigstore
+                                    ["packages.kyverno"])[0] == "off"            # disconnected: no Sigstore
     c = install.Credentials({}, False)
-    assert install.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["kyverno"]) == \
+    assert install.signature_choice(_sig_args(verify_signatures="enforce", org_id="abc"), c, ["packages.kyverno"]) == \
         ("enforce", "abc")
     _Env(monkeypatch, {"signatures": "audit"})
-    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["kyverno"])[0] == "audit"
+    assert install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.kyverno"])[0] == "audit"
     with pytest.raises(SystemExit, match="Kyverno"):
-        install.signature_choice(_sig_args(), install.Credentials({}, False), ["istiod"])
+        install.signature_choice(_sig_args(), install.Credentials({}, False), ["packages.istiod"])
 
 
 def test_signature_policy_matches_what_ci_checks():
@@ -494,7 +507,7 @@ def test_install_writes_the_site_file_first(tmp_path, monkeypatch):
     with pytest.raises(Stop):
         install.install(args)
     doc = yaml.safe_load(site.read_text())
-    assert doc["domain"] == "bb.example.com" and doc["addons"]["keycloak"]["enabled"]
+    assert doc["domain"] == "bb.example.com" and doc["packages"]["keycloak"]["enabled"]
 
 
 def test_build_images_are_the_deployed_refs():

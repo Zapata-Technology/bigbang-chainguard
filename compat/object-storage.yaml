@@ -9,6 +9,10 @@ test:
     - python3 compat/support/seaweedfs.py tempo
     - sh compat/support/watch.sh tempo "kubectl -n tempo logs tempo-tempo-0 --previous --tail=40 || kubectl -n tempo logs tempo-tempo-0 --tail=40"
     - sh compat/support/watch.sh tempo-config "kubectl -n tempo get configmap tempo -o yaml | grep -B2 -A30 'receivers:'"
+  values:
+    # Tempo 3's live-store (Tempo 2's ingester) cuts a block every max_block_duration and
+    # writes it to object storage; Tempo 3 has no /flush. 30 s keeps the check short.
+    packages: {tempo: {values: {upstream: {tempo: {liveStore: {max_block_duration: 30s}}}}}}
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
@@ -18,8 +22,8 @@ test:
     # Tempo takes a trace and finds it: send one span with a unique trace ID to the OTLP
     # HTTP receiver (JSON, with curl through a port-forward: `kubectl create --raw` sends
     # no JSON content type), then read the trace back through Tempo's API.
-    # Then /flush cuts the ingester's block, which Tempo writes to its SeaweedFS bucket
-    # (<prefix>-tempo/single-tenant/<block id>/).
+    # Then the live-store cuts its block (max_block_duration above) and writes it to its
+    # SeaweedFS bucket (<prefix>-tempo/single-tenant/<block id>/).
     - |
       pod=/api/v1/namespaces/tempo/pods/tempo-tempo-0
       kubectl -n tempo port-forward pod/tempo-tempo-0 14318:4318 > "$COMPAT_OUT/pf-tempo.log" 2>&1 &
@@ -38,13 +42,12 @@ test:
         sleep 10
       done
       echo "trace $id: $out" | cut -c1-600
-      kubectl get --raw "$pod:3200/proxy/flush" || exit 1
       wsh() { echo "$1" | kubectl -n seaweedfs exec -i deploy/seaweedfs -- weed shell -master=localhost:9333 -filer=localhost:8888 2>&1; }
       b=$(wsh 'fs.ls /buckets' | grep -o '[A-Za-z0-9.-]*-tempo' | head -1)
       [ -n "$b" ] || { echo "no tempo bucket: $(wsh 'fs.ls /buckets')"; exit 1; }
       i=0
       until out=$(wsh "fs.ls /buckets/$b/single-tenant") && echo "$out" | grep -q '[0-9a-f]\{8\}-[0-9a-f]\{4\}-'; do
-        i=$((i+1)); [ $i -lt 18 ] || { echo "no Tempo block in $b: $out"; exit 1; }
+        i=$((i+1)); [ $i -lt 36 ] || { echo "no Tempo block in $b: $out"; exit 1; }
         sleep 10
       done
       echo "blocks in $b: $out"
