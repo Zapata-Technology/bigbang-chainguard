@@ -318,7 +318,9 @@ Loki, Tempo, Grafana, Kiali, cert-manager, the gateway) must pass `restricted`.
 It runs weekly (Sunday 11:00 UTC), on pull requests that change it, and by hand from main
 (`gh workflow run rke2.yml --ref main`; from another branch the Chainguard login fails, as
 for the kind tests). The harden-runner egress policy blocks every host it doesn't list, the
-VM's traffic included (it leaves through the runner). The artifact `rke2-default-packages`
+VM's traffic included (it leaves through the runner): Sigstore's hosts are on the list because
+Kyverno fetches its trust roots to check each image's signature for the installer's signature
+policy; blocked, every Deployment timed out in Kyverno's webhook. The artifact `rke2-default-packages`
 holds the `check`, `install` and `cluster-check` logs, every pod's log, the events, and the
 VM's RKE2, kubelet, audit and kernel logs. Not covered: SELinux (permissive in the VM;
 `rke2-selinux` is another package repository), several nodes, and the FIPS overlay on RKE2.

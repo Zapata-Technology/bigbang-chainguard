@@ -38,7 +38,9 @@ jobs:
     steps:
       # Block every outbound call not listed: the runner's own downloads (packages, the VM
       # image, Helm, chainctl), and the VM's, which leave through the runner (RKE2's release,
-      # local-path-provisioner from Docker Hub, the org's images, Big Bang's charts on repo1).
+      # local-path-provisioner from Docker Hub, the org's images, Big Bang's charts on repo1,
+      # and Sigstore, which Kyverno asks to verify each image's signature for the installer's
+      # signature policy: blocked, every Deployment timed out in Kyverno's webhook).
       # A blocked host shows up as a failed download or pull: add it here if it is expected.
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
@@ -57,6 +59,7 @@ jobs:
             console-api.enforce.dev:443
             dl.enforce.dev:443
             files.pythonhosted.org:443
+            fulcio.sigstore.dev:443
             get.helm.sh:443
             ghcr.io:443
             github.com:443
@@ -70,12 +73,14 @@ jobs:
             raw.githubusercontent.com:443
             registry-1.docker.io:443
             registry1.dso.mil:443
+            rekor.sigstore.dev:443
             release-assets.githubusercontent.com:443
             repo.almalinux.org:443
             repo1.dso.mil:443
             results-receiver.actions.githubusercontent.com:443
             security.ubuntu.com:80
             token.actions.githubusercontent.com:443
+            tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
