@@ -304,6 +304,9 @@ source:
 | `opensource/minio/operator` and `operator-sidecar` (both archived on Iron Bank): no Chainguard images; built from minio/operator's source (archived upstream) at Big Bang's tags | `bb-minio-operator.py`, `bb-minio-operator-sidecar.py` | as the Mattermost Operator | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` |
 | `gitlab/gitlab-org/build/cng/gitaly-init-cgroups` (GitLab's CNG build on registry1; no Iron Bank recipe): Gitaly's cgroups init container, built from Gitaly's source as CNG builds it | `bb-gitaly-init-cgroups.py` | as the Mattermost Operator | `bigbang-gitaly-init-cgroups` |
 
+You don't run these to install: CI (`builds.yml`) builds, tests, signs and pushes the
+images when a change merges to main. The rest of this section is for maintainers.
+
 Each script:
 
 1. reads the tag Big Bang deploys

@@ -45,13 +45,11 @@ python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --sav
 6. verifies them, standard and FIPS
 
 `--save` writes the org and registry into the `CHAINGUARD_ORG` and `BUILD_REGISTRY` files,
-so later runs need no flags. Then build and push this repo's images:
+so later runs need no flags.
 
-```bash
-for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups; do
-  python scripts/bb-$b.py --no-generate --build --test --push
-done
-```
+**The images this repo builds** are built, tested, signed and pushed by your copy's CI
+(`builds.yml`) when the change merges to main; there is nothing to run. To push them from
+your machine instead, `docker login` to your registry and add `--push` to the same command.
 
 Each setting is read in this order: the command-line flag (`--org`, `--build-registry`),
 then the environment variable or GitHub repository variable (`CHAINGUARD_ORG`,
