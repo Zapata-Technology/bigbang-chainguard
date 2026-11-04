@@ -17,7 +17,7 @@ pick a tag from the org, and write overlays. Diagrams: [docs/architecture.md](do
 |---|---|
 | `mapping.yaml`: image map and every escape hatch | `overlays/*.yaml`, `flux/`, `flux-fips/` (`bb-convert.py`) |
 | `orgs/<org>.yaml`: one org's exceptions | `seaweedfs/`, `seaweedfs-fips/` (`bb-convert.py`, from `object-storage.yaml`) |
-| `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md` (`bb-convert.py`) |
+| `object-storage.yaml`: S3 settings per package | `docs/images.md`, `docs/required-images.md`, `docs/version-differences.md` (`bb-convert.py`) |
 | `scripts/*.py`, `builds/*/Dockerfile` | `builds/*/build.yaml` (`bb-<name>.py`) |
 | `compat/*.yaml`, `compat/support/*` | `discovery/images.json` (`bb-images.py`) |
 | `tests/`, docs other than the two above | |

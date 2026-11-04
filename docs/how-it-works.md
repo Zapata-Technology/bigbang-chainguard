@@ -14,7 +14,9 @@ the org has nothing on Big Bang's line:
   never tested that combination.
 - **Newest release.** Images Iron Bank tags by date (MinIO) have no version line to match.
 
-`docs/images.md` ends with a **Version differences** section listing every such image.
+`docs/images.md` ends with a **Version differences** section listing every such image, and
+[`docs/version-differences.md`](version-differences.md) compares every image's version with
+Iron Bank's, newest-line changes first.
 Test those packages before production, or run with `--strict-versions` (on `bb-run.py`
 or `bb-convert.py`). Strict mode never moves to a newer minor; those images then fail
 conversion and you decide case by case.

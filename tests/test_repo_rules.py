@@ -47,7 +47,8 @@ def test_every_mapping_section_is_documented_in_mapping_yaml_and_used_by_code():
 
 GENERATED = ["overlays/values-chainguard.yaml", "overlays/values-chainguard-fips.yaml",
              "overlays/values-object-storage.yaml", "flux/kustomization.yaml", "flux-fips/kustomization.yaml",
-             "docs/images.md", "docs/required-images.md", "seaweedfs/kustomization.yaml",
+             "docs/images.md", "docs/required-images.md", "docs/version-differences.md",
+             "seaweedfs/kustomization.yaml",
              "seaweedfs-fips/kustomization.yaml"] + \
             [os.path.relpath(p, ROOT).replace(os.sep, "/") for p in glob.glob(os.path.join(ROOT, "builds", "*", "build.yaml"))]
 
