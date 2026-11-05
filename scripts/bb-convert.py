@@ -34,7 +34,7 @@ import sys
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
+from bbcommon import IRONBANK_HOSTS, build_registry, build_target, ironbank_refs, load_build, load_mapping, split_ref  # noqa: E402
 from orgtags import _IB_SUFFIXES, REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
 import fluxrelease  # noqa: E402
 import objstore  # noqa: E402
@@ -405,7 +405,9 @@ def chart_registry_builds(mapping, c, bb_key, variant):
     """Kustomize image rewrites for images this repo builds in a chart that prefixes every
     image with one chart-wide registry (mapping chart_registry_builds): the overlay sets that
     registry to the org's, so the chart renders <org registry>/<built image name>; this
-    moves it to BUILD_REGISTRY."""
+    moves it to BUILD_REGISTRY. With no BUILD_REGISTRY the image stays on Iron Bank, and the
+    chart renders <org registry>/<Iron Bank repository> (cgr.dev/<org>/ironbank/...), which
+    does not exist: this moves it back to registry1, at the chart's own tag."""
     out = []
     for ib_repo in mapping.get("chart_registry_builds", {}).get(bb_key, []):
         m = c.images.get(ib_repo)
@@ -413,6 +415,8 @@ def chart_registry_builds(mapping, c, bb_key, variant):
         if t:
             name, tag = t[variant == "fips"].rsplit(":", 1)
             out.append({"name": f"{c.cg}/{name.rsplit('/', 1)[1]}", "newName": name, "newTag": tag})
+        else:
+            out.append({"name": f"{c.cg}/{ib_repo}", "newName": f"{IRONBANK_HOSTS[0]}/{ib_repo}"})
     return out
 
 

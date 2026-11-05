@@ -405,7 +405,8 @@ bash_commands:
 # registry (Big Bang key: [Iron Bank repos]). NeuVector's registry-adapter template ignores
 # cve.adapter.image.registry and uses `registry`, which the overlay sets to the org's, so it
 # rendered cgr.dev/<org>/bigbang-registry-adapter (compat/registry-adapter.yaml).
-# bb-convert writes a Flux postRenderers kustomize rewrite to BUILD_REGISTRY.
+# bb-convert writes a Flux postRenderers kustomize rewrite to BUILD_REGISTRY, or, with no
+# BUILD_REGISTRY (the image stays on Iron Bank), from cgr.dev/<org>/ironbank/... back to registry1.
 chart_registry_builds:
   packages.neuvector:
     - ironbank/opensource/neuvector/registry-adapter
