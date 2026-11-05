@@ -169,7 +169,7 @@
     {
       "test": "registry-adapter",
       "runs": "`bigbang-registry-adapter` (built and loaded by the test), the chart's `cve.adapter` turned on, beside NeuVector",
-      "notes": "Check: Harbor's `GET /api/v1/metadata` with basic auth names NeuVector with the scanner's version, which the adapter has only after reaching the controller over its internal gRPC; wrong credentials get 401"
+      "notes": "Check: Harbor's `GET /endpoint/api/v1/metadata` with basic auth names NeuVector with the scanner's version, which the adapter has only after reaching the controller over its internal gRPC; wrong credentials get 401"
     },
     {
       "test": "minio-operator",
