@@ -179,6 +179,59 @@ def test_flux_extras_are_deleted():
     assert len(patches) == 3 and all("$patch: delete" in p and "kind: Deployment" in p for p in patches)
 
 
+@pytest.mark.parametrize("overlay", ["values-chainguard.yaml", "values-chainguard-fips.yaml"])
+def test_istio_gateway_pods_pass_pod_security_restricted(overlay):
+    """Istio's gateway chart sets no seccomp profile; PSA `restricted` refused the gateways."""
+    import yaml
+    shared = yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8"))[
+        "packages"]["istioGateway"]["values"]["shared"]
+    sc = shared["upstream"]["securityContext"]
+    assert sc["seccompProfile"] == {"type": "RuntimeDefault"}
+    assert {"name": "net.ipv4.ip_unprivileged_port_start", "value": "0"} in sc["sysctls"]   # the chart's default
+
+
+@pytest.mark.parametrize("overlay", ["values-chainguard.yaml", "values-chainguard-fips.yaml"])
+def test_every_wait_job_gets_the_runtime_default_seccomp_profile(overlay):
+    """template_defaults' `beside`: gluon's wait job sets no seccomp profile, and PSA
+    `restricted` (RKE2's CIS profile) refused kyverno-policies' wait job."""
+    import yaml
+    found = []
+
+    def walk(node, path):
+        if isinstance(node, dict):
+            if isinstance(node.get("waitJob"), dict) and "image" in node["waitJob"]:
+                found.append((".".join(path), node["waitJob"].get("seccompProfile")))
+            for k, v in node.items():
+                walk(v, path + [k])
+    walk(yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8")), [])
+    assert len(found) > 5
+    # The MinIO subcharts' wait jobs (Loki, Mattermost) take their image from a chart value,
+    # not template_defaults; with SeaweedFS for object storage they don't render.
+    missing = [p for p, s in found if s != {"type": "RuntimeDefault"} and not p.endswith(".minio")]
+    assert {"packages.kyvernoPolicies.values", "packages.kiali.values"} <= {p for p, _ in found}
+    # Istio's gateway chart refuses waitJob.seccompProfile: a post-renderer patch instead.
+    missing = [p for p in missing if p != "packages.istioGateway.values.shared"]
+    gateway = yaml.safe_load(open(os.path.join(ROOT, "overlays", overlay), encoding="utf-8"))["packages"]["istioGateway"]
+    patches = [p for pr in gateway.get("postRenderers", []) for p in pr.get("kustomize", {}).get("patches", [])]
+    assert any("seccompProfile" in p["patch"] and p["target"]["kind"] == "Job" for p in patches)
+    assert not missing, f"regenerate the overlays (scripts/bb-convert.py): {missing}"
+
+
+@pytest.mark.parametrize("d", ["flux", "flux-fips"])
+def test_flux_controllers_pass_pod_security_restricted(d):
+    """Big Bang's Flux patch replaces the container securityContext and with it Flux's
+    seccompProfile; PSA `restricted` (RKE2's CIS profile) refused every controller. The
+    generated kustomization ends with a patch putting RuntimeDefault on each pod."""
+    import yaml
+    import fluxrelease
+    patch = fluxrelease.seccomp_patch()
+    assert patch["target"] == {"kind": "Deployment"}
+    spec = yaml.safe_load(patch["patch"])["spec"]["template"]["spec"]
+    assert spec["securityContext"]["seccompProfile"] == {"type": "RuntimeDefault"}
+    generated = yaml.safe_load(open(os.path.join(ROOT, d, "kustomization.yaml"), encoding="utf-8"))
+    assert generated["patches"][-1] == patch, f"regenerate {d}/ (scripts/bb-convert.py)"
+
+
 def test_fips_override_keeps_standard_when_the_fips_repo_has_no_tags():
     c = convert.Converter({"images": {}}, FakeTags({"mgr": ["5.6", "5.6.2"], "mgr-fips": [], "ctl-fips": ["5.6"]}))
     assert c.overrides("neuvector", {"repo": "@repo:mgr", "tag": "@tag:ctl:5.6"}, True) == {"repo": "mgr", "tag": "5.6"}

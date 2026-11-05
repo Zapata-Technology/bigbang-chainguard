@@ -462,6 +462,19 @@ def _sig_args(**kw):
     return argparse.Namespace(**{"verify_signatures": None, "org_id": None, **kw})
 
 
+def test_signature_checks_let_kyverno_reach_sigstore_through_big_bangs_network_policies():
+    """RKE2's Canal enforces Big Bang's network policies, which let Kyverno's admission
+    controller reach only the API server and registry1: every verification timed out."""
+    egress = signatures.signature_egress_values()["packages"]["kyverno"]["values"]["bb-common"][
+        "networkPolicies"]["egress"]
+    rule = egress["definitions"]["signature-verification"]
+    assert rule["ports"] == [{"port": 443, "protocol": "TCP"}]
+    assert egress["from"]["kyverno-admission-controller"]["to"]["definition"] == {"signature-verification": True}
+    # install merges it only when signatures are checked
+    src = open(os.path.join(ROOT, "scripts", "bbinstall", "install.py"), encoding="utf-8").read()
+    assert 'if signatures != "off":\n            deep_merge(secret_values, signature_egress_values())' in src
+
+
 def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
     _Env(monkeypatch)
     monkeypatch.delenv("CHAINGUARD_ORG_ID", raising=False)
@@ -762,3 +775,20 @@ def test_check_pulls_only_the_enabled_packages_images():
     tempo = images.deployed_images(co, False, co.registry, ["packages.tempo"])
     assert tempo and set(tempo) < set(every)
     assert any("/tempo:" in r for r in tempo) and not any("keycloak" in r for r in tempo)
+
+
+def test_status_judges_only_big_bangs_pods_in_kube_system(monkeypatch):
+    """On RKE2, Istio's CNI agent runs in kube-system beside RKE2's own pods; status called
+    RKE2's CoreDNS and etcd images "not from the conversion"."""
+    import json
+
+    def pod(name, kind, owner):
+        return {"metadata": {"name": name, "ownerReferences": [{"kind": kind, "name": owner}]}}
+    pods = [pod("istio-cni-node-x", "DaemonSet", "istio-cni-node"),
+            pod("rke2-coredns-abc-1", "ReplicaSet", "rke2-coredns-abc"),
+            pod("etcd-node", "Node", "node")]
+    workloads = {"items": [{"kind": "DaemonSet", "metadata": {"name": "istio-cni-node"}}]}
+    monkeypatch.setattr(status, "kubectl", lambda *a, **k: json.dumps(workloads))
+    assert [p["metadata"]["name"] for p in status.release_pods("kube-system", pods)] == ["istio-cni-node-x"]
+    assert status.release_pods("kiali", pods) == pods
+    assert status.owner_workload(pods[1]) == ("Deployment", "rke2-coredns")

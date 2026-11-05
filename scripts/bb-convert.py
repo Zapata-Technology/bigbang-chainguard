@@ -337,6 +337,11 @@ class Converter:
                     if t:
                         set_path(std_vals, d["path"].split("."), t[0])
                         set_path(fips_vals, d["path"].split("."), t[1])
+                        if info.get("key") in d.get("patch_keys", []):
+                            continue   # generate() adds d["patch"] as a post-renderer instead
+                        for k, v in (d.get("beside") or {}).items():   # e.g. the wait job's seccompProfile
+                            for vals in (std_vals, fips_vals):
+                                set_path(vals, d["path"].split(".")[:-1] + [k], copy.deepcopy(v))
                     covered.add(ib_repo)
 
     def overrides(self, release, spec, fips, tag=None):
@@ -478,6 +483,17 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     "patch": json.dumps([{"op": "replace", "path": "/spec/template/spec/containers/0/command",
                                           "value": ["/bin/bash", "-c", BASH_WAIT]}])})
                 set_path(tree, key + ["postRenderers"], pr)
+        # template_defaults whose `beside` values this package's chart schema refuses: the
+        # same change as a post-renderer patch.
+        rendered = {split_ref(ref)[0] for ref in info["rendered"]}
+        for d in mapping.get("template_defaults", []):
+            if info["key"] in d.get("patch_keys", []) and d["image"] in rendered and d.get("patch"):
+                for tree in (std, fips):
+                    pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                    patches = pr[0]["kustomize"].setdefault("patches", [])
+                    if d["patch"] not in patches:   # one per Big Bang key (istioGateway renders two gateways)
+                        patches.append(copy.deepcopy(d["patch"]))
+                    set_path(tree, key + ["postRenderers"], pr)
         # Containers whose command is /bin/sh -c <bash script>: run it with /bin/bash.
         for ref in mapping.get("bash_commands", {}).get(info["key"], []):
             kind, name, container = ref["kind"], ref["name"], ref["container"]
@@ -602,7 +618,7 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
         resources = [f"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref={bigbang_version}"]
         images = [pin({"name": f"registry1.dso.mil/{ib_repo}", "newName": ref.rsplit(":", 1)[0],
                        "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
-        patches = None
+        patches = [fluxrelease.seccomp_patch()]
     else:
         versions = {name(ib_repo): ref.rsplit(":", 1)[1] for ib_repo, _, ref in controllers}
         found = fluxrelease.release_for(versions)
@@ -614,7 +630,8 @@ def flux_kustomization(controllers, bigbang_version, c, hdr, d):
         resources = [fluxrelease.INSTALL.format(tag=tag)]
         images = [pin({"name": f"ghcr.io/fluxcd/{name(ib_repo)}", "newName": ref.rsplit(":", 1)[0],
                        "newTag": ref.rsplit(":", 1)[1]}) for ib_repo, _, ref in controllers]
-        patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work"))
+        patches = fluxrelease.remove_extras() + fluxrelease.bigbang_patches(bigbang_version, os.path.join(ROOT, "work")) \
+            + [fluxrelease.seccomp_patch()]
         note = (f"# The org's Flux controllers ({', '.join(sorted(ahead))}) are newer than Big Bang {bigbang_version}'s,\n"
                 f"# whose CRDs are too old for them: this installs Flux {tag} (their release) with Big Bang's patches.\n")
     k = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
