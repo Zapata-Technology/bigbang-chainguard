@@ -94,7 +94,17 @@ def build(spec, t, extra):
             set_dotted(overlay, dotted, fill(v, t))
         creds += pkg.get("credentials", [])
         buckets += [f"{t['prefix']}-{b}" for b in pkg.get("buckets", [])]
+        if t["endpoint"] == DEFAULT_ENDPOINT:
+            set_dotted(overlay, f"packages.{name}.values.bb-common.networkPolicies.egress.from",
+                       seaweedfs_egress())
     return overlay, creds, buckets, chosen
+
+
+def seaweedfs_egress():
+    """bb-common egress letting every pod of a package reach the in-cluster SeaweedFS. Big
+    Bang's network policies know only MinIO, so on a CNI that enforces them (RKE2's Canal)
+    Tempo's S3 calls timed out and it never became ready (rke2.yml; kind doesn't enforce them)."""
+    return {"*": {"to": {"k8s": {f"{NAMESPACE}/seaweedfs:8333": True}}}}
 
 
 def package_of(path):

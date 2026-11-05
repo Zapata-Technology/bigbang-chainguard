@@ -174,6 +174,18 @@ jobs:
           echo "::add-mask::$CGR_PASSWORD"
           export CGR_USERNAME=_token CGR_PASSWORD
           python scripts/bb-install.py init --site "$SITE" --domain bigbang.test --yes
+          # The VM's storage is local-path-provisioner, which creates each volume with a helper
+          # pod that mounts a host path. Big Bang's Kyverno policies refused it (restrict-volume-types,
+          # restrict-image-registries), so Loki's volume was never made. A site excludes its
+          # storage provisioner's namespace the same way.
+          python - "$SITE" <<'PY'
+          import sys, yaml
+          site = yaml.safe_load(open(sys.argv[1])) or {}
+          policies = site.setdefault("packages", {}).setdefault("kyvernoPolicies", {}) \
+              .setdefault("values", {}).setdefault("policies", {})
+          policies["excludeNamespaces"] = sorted(set(policies.get("excludeNamespaces", [])) | {"local-path-storage"})
+          yaml.safe_dump(site, open(sys.argv[1], "w"), sort_keys=False)
+          PY
           cat "$SITE"
           python scripts/bb-install.py check --site "$SITE" --yes 2>&1 | tee "$RUNNER_TEMP/check.log"
           python scripts/bb-install.py install --site "$SITE" --yes --small-cluster --timeout 3600 2>&1 \

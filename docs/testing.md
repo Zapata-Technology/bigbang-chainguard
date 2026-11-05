@@ -353,6 +353,16 @@ remained:
   to the controller meanwhile. **A Big Bang node needs `fs.inotify.max_user_instances=8192`
   and `fs.inotify.max_user_watches=524288`**; the VM sets them (`.github/rke2-vm.sh`).
 
+**Second run (run 42047840509):** Kiali and NeuVector came up; 16 of 19 HelmReleases Ready.
+- Tempo's S3 calls to the in-cluster SeaweedFS timed out: Canal enforces Big Bang's network
+  policies (kind's CNI doesn't), and they allow object storage only at MinIO. The object
+  storage overlay now gives each package using SeaweedFS egress to it
+  (`objstore.seaweedfs_egress`).
+- Loki's volume was never created: Big Bang's Kyverno policies refused local-path's helper
+  pod (a host path, an image outside the allowed registries). The test excludes
+  `local-path-storage` (`kyvernoPolicies.values.policies.excludeNamespaces`); a site does
+  the same for its storage provisioner's namespace.
+
 ## CI environment notes
 
 These are kind-on-GitHub-Actions limits, not image problems:
