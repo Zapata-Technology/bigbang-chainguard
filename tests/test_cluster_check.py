@@ -52,6 +52,16 @@ def test_startup_restarts_then_settled_are_notes():
     assert check.pod_problems([p], now=now, notes=[])
 
 
+def test_settling_waits_for_startup_restarts_only():
+    now = check.datetime.datetime(2026, 11, 5, 16, 30, tzinfo=check.datetime.timezone.utc)
+    p = pod("exporter", restarts=4)
+    p["status"]["containerStatuses"][0]["state"] = {"running": {"startedAt": "2026-11-05T16:28:00Z"}}
+    assert check.settling([p], now=now) == check.SETTLED - 120
+    assert check.settling([pod("calm")], now=now) == 0
+    p["status"]["containerStatuses"][0]["restartCount"] = 9      # a crash loop: no waiting for it
+    assert check.settling([p], now=now) == 0
+
+
 def test_image_pull_errors_fail():
     problems = check.pod_problems([pod("a", phase="Pending", ready=False, waiting="ImagePullBackOff")])
     assert problems[0] == "ns/a container app: ImagePullBackOff (pull access denied)"

@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -47,6 +48,20 @@ def settled(s, now):
         return False
     since = now - datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
     return since.total_seconds() >= SETTLED
+
+
+def settling(pods, max_restarts=0, now=None):
+    """Seconds until every container that restarted only while starting (Ready now, at most
+    STARTUP_RESTARTS) has run SETTLED seconds since; 0 when none is still settling."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    wait = 0
+    for p in pods:
+        for s in p.get("status", {}).get("containerStatuses", []):
+            started = s.get("state", {}).get("running", {}).get("startedAt")
+            if (started and s.get("ready") and max_restarts < s.get("restartCount", 0) <= STARTUP_RESTARTS):
+                since = now - datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
+                wait = max(wait, SETTLED - since.total_seconds())
+    return max(0, int(wait))
 
 
 def pod_problems(pods, max_restarts=0, now=None, notes=None):
@@ -148,8 +163,13 @@ def main():
     ap.add_argument("--max-restarts", type=int, default=0, help="restarts a container may have (default 0)")
     a = ap.parse_args()
 
-    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json", check=False) or '{"items": []}')["items"]
     pods = json.loads(kubectl("get", "pod", "-A", "-o", "json"))["items"]
+    wait = settling(pods, a.max_restarts)
+    if wait:   # a container that restarted while starting: judge it once it has run SETTLED s
+        print(f"waiting {wait} s for containers that restarted while starting to run {SETTLED} s")
+        time.sleep(wait + 5)
+        pods = json.loads(kubectl("get", "pod", "-A", "-o", "json"))["items"]
+    hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json", check=False) or '{"items": []}')["items"]
     startup = []
     problems = helmrelease_problems(hrs) + pod_problems(pods, a.max_restarts, notes=startup)
     events = json_events(json.loads(kubectl("get", "events", "-A", "-o", "json")))

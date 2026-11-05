@@ -369,8 +369,12 @@ remained:
   makes `local` volumes (`defaultVolumeType: local`). At a site, use storage that doesn't
   make hostPath PVs, or exclude them from that policy.
 - NeuVector's exporter restarted 4 times in its first minute, until the controller
-  answered, then ran for 20. `cluster-check.py` reports a few restarts followed by 10 Ready
-  minutes as a note, not a failure.
+  answered, then ran for 20. `cluster-check.py` waits until such a container (Ready, at
+  most 5 restarts) has run 10 minutes, then reports its restarts as a note, not a failure.
+
+**Fourth run (run 42066570084):** all 19 HelmReleases Ready on RKE2's CIS profile. The one
+problem left was the exporter's startup restarts, judged before it had run 10 minutes:
+`cluster-check.py` now waits for that.
 
 ## CI environment notes
 
