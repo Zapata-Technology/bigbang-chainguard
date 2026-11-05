@@ -45,6 +45,34 @@ def plan_lines(old_version, old_values, new_version, new_values, defaults, old_s
     return lines
 
 
+# Namespaces Big Bang installs into but doesn't own (Istio's CNI agent goes to kube-system):
+# only the pods of Big Bang's releases there are judged, not the cluster's own (RKE2's
+# CoreDNS, Canal, etcd), whose images were never the conversion's.
+SHARED_NAMESPACES = {"kube-system"}
+FLUX_RELEASE_LABEL = "helm.toolkit.fluxcd.io/name"     # Flux labels every object a release renders
+
+
+def owner_workload(pod):
+    """(kind, name) of the workload behind a pod: its DaemonSet or StatefulSet, or the
+    Deployment of its ReplicaSet (the ReplicaSet's name less its template hash)."""
+    for ref in pod["metadata"].get("ownerReferences", []):
+        if ref["kind"] == "ReplicaSet":
+            return "Deployment", ref["name"].rsplit("-", 1)[0]
+        return ref["kind"], ref["name"]
+    return None
+
+
+def release_pods(ns, pods):
+    """The pods to judge in a namespace: all of them, or in a shared one only those whose
+    workload a Big Bang release (Flux) created."""
+    if ns not in SHARED_NAMESPACES:
+        return pods
+    out = kubectl("get", "deployment,daemonset,statefulset", "-n", ns, "-l", FLUX_RELEASE_LABEL, "-o", "json",
+                  check=False)
+    ours = {(w["kind"], w["metadata"]["name"]) for w in (json.loads(out)["items"] if out else [])}
+    return [p for p in pods if owner_workload(p) in ours]
+
+
 def status_report(co, fips, problems=(), failed=False):
     hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json", check=False) or '{"items": []}')["items"]
     step(f"HelmReleases ({len(hrs)})")
@@ -59,7 +87,7 @@ def status_report(co, fips, problems=(), failed=False):
     images, unhealthy = set(), []
     for ns in namespaces:
         out = kubectl("get", "pod", "-n", ns, "-o", "json", check=False)
-        for p in json.loads(out)["items"] if out else []:
+        for p in release_pods(ns, json.loads(out)["items"] if out else []):
             images |= {c["image"] for c in p["spec"].get("initContainers", []) + p["spec"]["containers"]}
             if p["status"].get("phase") == "Succeeded":
                 continue

@@ -62,6 +62,18 @@ def signature_policy(org, org_id, mode, built=None):
             "spec": {"background": False, "webhookTimeoutSeconds": 30, "rules": rules}}
 
 
+def signature_egress_values():
+    """Big Bang values letting Kyverno's admission controller reach Sigstore and the registry
+    on 443. Big Bang's network policies allow it only the API server and registry1, so on a
+    CNI that enforces them (RKE2's Canal) every verification timed out fetching Sigstore's
+    trust root and Enforce refused every Pod (rke2.yml). The hosts sit behind CDNs, so no
+    narrower block than port 443."""
+    return {"packages": {"kyverno": {"values": {"bb-common": {"networkPolicies": {"egress": {
+        "definitions": {"signature-verification": {"to": [{"ipBlock": {"cidr": "0.0.0.0/0"}}],
+                                                   "ports": [{"port": 443, "protocol": "TCP"}]}},
+        "from": {"kyverno-admission-controller": {"to": {"definition": {"signature-verification": True}}}}}}}}}}}
+
+
 def _verify_rule(name, pattern, action, issuer, subject):
     return {"name": name, "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
             "verifyImages": [{

@@ -70,6 +70,17 @@ def remove_extras():
             for n in NOT_IN_BIGBANG]
 
 
+def seccomp_patch():
+    """A kustomize patch giving every Flux controller the RuntimeDefault seccomp profile.
+    Big Bang's patch replaces the container securityContext, which drops Flux's own
+    seccompProfile, and Pod Security Admission's `restricted` level (RKE2's CIS profile
+    enforces it) then refuses every controller pod. Set on the pod, after Big Bang's patch."""
+    return {"patch": yaml.safe_dump({"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "all"},
+                                     "spec": {"template": {"spec": {"securityContext": {
+                                         "seccompProfile": {"type": "RuntimeDefault"}}}}}}),
+            "target": {"kind": "Deployment"}}
+
+
 def bigbang_patches(bigbang_version, work=None):
     """Big Bang's base/flux patches (pull secret, security context, resources)."""
     local = os.path.join(work, "bigbang", "base", "flux", "kustomization.yaml") if work else None

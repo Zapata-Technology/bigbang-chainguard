@@ -260,9 +260,19 @@ value_roots:
 
 # Images that a package template hardcodes as a default (no value in values.yaml),
 # with the value path that overrides it. Applied to any release that renders one.
+# `beside`: values set next to that path in the same releases. `patch_keys`: Big Bang keys
+# whose chart schema refuses those values; they get `patch` (a Flux post-renderer) instead.
 template_defaults:
   - image: ironbank/opensource/kubernetes/kubectl
     path: waitJob.image          # Big Bang gluon bb-wait job: dig "image" ... .Values.waitJob
+    # gluon sets no seccomp profile on the wait job unless asked, so Pod Security Admission's
+    # `restricted` level (RKE2's CIS profile) refused it and kyverno-policies never finished
+    # installing (rke2.yml). Every package with a wait job gets RuntimeDefault.
+    beside: {seccompProfile: {type: RuntimeDefault}}
+    patch_keys: [packages.istioGateway]   # its values.schema.json allows only waitJob.enabled/image/permissions
+    patch:
+      target: {kind: Job, name: .*-wait-job}
+      patch: '[{"op": "add", "path": "/spec/template/spec/securityContext/seccompProfile", "value": {"type": "RuntimeDefault"}}]'
 
 # Hand-written values for packages whose image settings the generic rules can't
 # express. Merged over the generated overrides. Tokens are resolved against live
@@ -270,6 +280,15 @@ template_defaults:
 # @registry (cgr.dev/<org>)
 # (FIPS overlay: <name> becomes <name>-fips).
 overrides:
+  # Istio's gateway chart gives its pods no seccomp profile, so Pod Security Admission's
+  # `restricted` level (RKE2's CIS profile) refused every gateway pod (rke2.yml). Setting
+  # securityContext replaces the chart's default, so the default's sysctl stays.
+  public-ingressgateway: &gateway-pod-security
+    upstream:
+      securityContext:
+        sysctls: [{name: net.ipv4.ip_unprivileged_port_start, value: "0"}]
+        seccompProfile: {type: RuntimeDefault}
+  passthrough-ingressgateway: *gateway-pod-security
   istiod:
     # Injected sidecars: istio-proxy uses proxy.image, istio-init uses proxy_init.image
     # (default "proxyv2", built as hub/proxyv2:tag), and both fall back to hub and tag.
