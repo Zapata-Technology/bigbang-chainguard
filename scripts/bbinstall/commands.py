@@ -19,6 +19,7 @@ from bbinstall.common import NAMESPACE, STATE_SECRET, confirm, say, step
 from bbinstall.credentials import check_logins
 from bbinstall.images import image_problems
 from bbinstall.install import install
+from bbinstall.nodes import INOTIFY, inotify_problems, node_inotify, probe_image
 from bbinstall.preflight import prepare
 from bbinstall.sitefile import legacy_keys, migrate_site
 from bbinstall.status import status_report
@@ -29,8 +30,10 @@ def chart(a):
 
 
 def check(a):
-    """Every setting tested, nothing changed; exit 1 if anything would stop the install."""
+    """Every setting tested, nothing changed (the node check's pods are deleted); exit 1 if
+    anything would stop the install."""
     co, site, defaults, enabled, problems, notes = prepare(a)
+    logins = {}
     if not problems and not a.registry_mirror and not a.no_pull_check:
         step("images (a pull test of each, with your logins)")
         logins = check_logins(co, site)
@@ -41,10 +44,29 @@ def check(a):
             say(f"{count - len(failed)} of {count} images can be pulled")
             problems += [f"{p} (an image your Chainguard plan doesn't cover is refused the same way; "
                          "scripts/bb-org-repos.py names them)" if p.startswith("cgr.dev/") else p for p in failed]
+    if not problems and "packages.neuvector" in enabled and not a.no_node_check:
+        problems += node_problems(co, a.fips, logins.get("cgr.dev"))
     if problems:
         raise SystemExit("\nnot ready:\n  " + "\n  ".join(problems))
     say("\nready: every check passed. Run the same command with `install` (or `upgrade`) to apply it")
     return 0
+
+
+def node_problems(co, fips, login):
+    """The nodes' inotify limits, which NeuVector's enforcer needs raised (bbinstall.nodes).
+    A node that can't be read is a note: the limits stay the site's to set."""
+    image = probe_image(co, fips)
+    if not image:
+        return []
+    step("nodes (inotify limits for NeuVector, a short-lived pod on each)")
+    # With a registry mirror the nodes pull with their own identity; otherwise the cgr.dev login.
+    readings, unread = node_inotify(image, login if image.startswith("cgr.dev/") else None)
+    if readings:
+        say(f"{len(readings)} node(s) read")
+    if unread:
+        say(f"note: couldn't read the inotify limits on {', '.join(unread)} (the probe pod didn't run): "
+            "make sure each node has " + " and ".join(f"fs.inotify.{k}={v}" for k, v in INOTIFY.items()))
+    return inotify_problems(readings)
 
 
 def upgrade(a):

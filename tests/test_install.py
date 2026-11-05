@@ -792,3 +792,60 @@ def test_status_judges_only_big_bangs_pods_in_kube_system(monkeypatch):
     assert [p["metadata"]["name"] for p in status.release_pods("kube-system", pods)] == ["istio-cni-node-x"]
     assert status.release_pods("kiali", pods) == pods
     assert status.owner_workload(pods[1]) == ("Deployment", "rke2-coredns")
+
+
+def test_inotify_limits_below_neuvectors_needs_are_problems():
+    from bbinstall import nodes
+    assert nodes.parse_output("8192\n524288\n") == {"max_user_instances": 8192, "max_user_watches": 524288}
+    assert nodes.parse_output("cat: can't open") is None
+    lines = nodes.inotify_problems({"a": {"max_user_instances": 128, "max_user_watches": 524288},
+                                    "b": {"max_user_instances": 8192, "max_user_watches": 1048576}})
+    assert len(lines) == 1 and "node a" in lines[0] and "max_user_instances=128" in lines[0]
+
+
+def test_the_inotify_probe_passes_pod_security_restricted():
+    from bbinstall import nodes
+    pod = nodes.probe_pod("inotify-0", "node-1", "cgr.dev/org/busybox:1.38.0")
+    spec, c = pod["spec"], pod["spec"]["containers"][0]
+    assert spec["nodeName"] == "node-1" and spec["securityContext"]["runAsNonRoot"]
+    assert spec["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
+    assert c["securityContext"]["capabilities"]["drop"] == ["ALL"] and not c["securityContext"]["allowPrivilegeEscalation"]
+    assert c["resources"]["limits"] and spec["imagePullSecrets"]
+    assert "imagePullSecrets" not in nodes.probe_pod("p", "n", "mirror/busybox:1", pull_secret=False)["spec"]
+
+
+def test_the_inotify_probe_uses_the_overlays_busybox():
+    from bbinstall import nodes
+    co = checkout.Checkout(ROOT)
+    std, fips = nodes.probe_image(co, False), nodes.probe_image(co, True)
+    assert "/busybox:" in std and "/busybox-fips:" in fips
+    assert std.split(":")[-1] != "latest"
+
+
+def test_node_inotify_reads_each_node_and_deletes_its_namespace(monkeypatch):
+    import json as _json
+    from bbinstall import nodes
+    calls = []
+    logs = {"inotify-0": "128\n8192\n", "inotify-1": "8192\n524288\n"}
+
+    def kubectl(*args, check=True):
+        calls.append(args)
+        if args[:2] == ("get", "node"):
+            return _json.dumps({"items": [{"metadata": {"name": "n0"}}, {"metadata": {"name": "n1"}},
+                                          {"metadata": {"name": "n2"}}]})
+        if "get" in args and "pod" in args:
+            return _json.dumps({"items": [{"metadata": {"annotations": {"bb-install/node": n}},
+                                           "status": {"phase": "Succeeded"}} for n in ("n0", "n1")]})
+        if "logs" in args:
+            return logs.get(args[-1])
+        return ""
+    monkeypatch.setattr(nodes, "kubectl", kubectl)
+    monkeypatch.setattr(nodes, "sh", lambda *a, **k: "")
+    monkeypatch.setattr(nodes, "apply_secret", lambda *a: calls.append(("secret",) + a))
+    t = iter(range(0, 1000, 100))
+    readings, unread = nodes.node_inotify("cgr.dev/org/busybox:1", ("u", "p"), wait=150,
+                                          clock=lambda: next(t), sleep=lambda s: None)
+    assert readings["n0"]["max_user_instances"] == 128 and readings["n1"]["max_user_watches"] == 524288
+    assert unread == ["n2"]                       # never finished: a note, not a problem
+    assert any(c[0] == "secret" for c in calls)
+    assert calls[-1][:3] == ("delete", "namespace", nodes.PROBE_NAMESPACE)

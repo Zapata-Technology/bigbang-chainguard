@@ -32,7 +32,12 @@ python scripts/bb-install.py upgrade         # a newer release: shows the change
 - images: a pull test of every image the enabled packages deploy from your Chainguard org
   and the build registry, with your logins (the environment, the site file, an earlier
   install's, or a short-lived token from your chainctl login; none is stored). A refused
-  pull from the org is usually an image your Chainguard plan doesn't cover.
+  pull from the org is usually an image your Chainguard plan doesn't cover;
+- the nodes, when NeuVector is on: each node's inotify limits (`fs.inotify.max_user_instances`
+  8192 and `fs.inotify.max_user_watches` 524288 or more; NeuVector's enforcer exits at the
+  common default of 128 instances). Nothing in the Kubernetes API shows them, so a pod on each
+  node, in a `bb-install-check` namespace the check deletes after, reads them with the org's
+  busybox image. A node it can't read is a note, not a problem; `--no-node-check` skips it.
 
 It exits non-zero and lists each problem, so it also works in a pipeline. `install` runs
 the same checks before it changes anything.

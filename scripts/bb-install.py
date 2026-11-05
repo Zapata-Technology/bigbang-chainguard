@@ -121,10 +121,14 @@ def main():
     p.add_argument("--no-pull-check", action="store_true",
                    help="don't test each registry login with a pull (when only the nodes can reach a "
                         "registry, with their own identity: ECR, ACR, Artifact Registry)")
+    p.add_argument("--no-node-check", action="store_true",
+                   help="check: don't read each node's inotify limits (NeuVector needs them raised; the "
+                        "check runs a short-lived pod on each node to read them)")
     p.add_argument("--new-pull-token", action="store_true",
                    help="replace the stored cgr.dev pull token with a new one from chainctl")
     common = p
-    sub.add_parser("check", parents=[common], help="test every setting; changes nothing")
+    sub.add_parser("check", parents=[common], help="test every setting; changes nothing (a short-lived pod "
+                                                      "per node reads its inotify limits, then is deleted)")
     sub.add_parser("install", parents=[common], help="install, or re-apply after a change")
     sub.add_parser("upgrade", parents=[common], help="upgrade a running Big Bang (converts a Big Bang 3 site file)")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")

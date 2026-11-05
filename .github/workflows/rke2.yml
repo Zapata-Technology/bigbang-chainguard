@@ -15,6 +15,7 @@ on:
       - .github/rke2-vm.sh
       - .github/vm-lib.sh
       - scripts/cluster-check.py
+      - scripts/bbinstall/nodes.py
   schedule:
     - cron: "0 11 * * 0"   # weekly, after compat.yml's and fips-kernel.yml's Sunday runs
   workflow_dispatch:
@@ -188,6 +189,9 @@ jobs:
           PY
           cat "$SITE"
           python scripts/bb-install.py check --site "$SITE" --yes 2>&1 | tee "$RUNNER_TEMP/check.log"
+          # check's node probe (bbinstall/nodes.py) must run under PSA restricted and read the
+          # VM's raised inotify limits, not fall back to a note.
+          grep -q "node(s) read" "$RUNNER_TEMP/check.log" || { echo "check didn't read the nodes' inotify limits"; exit 1; }
           python scripts/bb-install.py install --site "$SITE" --yes --small-cluster --timeout 3600 2>&1 \
             | tee "$RUNNER_TEMP/install.log"
 
