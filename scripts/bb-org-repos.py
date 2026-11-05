@@ -117,16 +117,30 @@ def used_by_bigbang(mapping, texts):
 
 def quota_report(summary, used, needed):
     """(lines, blocked) from `chainctl images entitlements summary -o json`, the names this
-    repo uses, and {needed name: catalog tier}. blocked: needed names whose tier is full."""
+    repo uses, and {needed name: catalog tier}. blocked: needed names whose tier is full.
+
+    A CATALOG plan entitles every image in its activeTiers: Chainguard still returns the
+    per-tier counts from the old per-image plan, but they no longer limit anything, so
+    those tiers are unlimited and a tier outside activeTiers is not entitled. A tier with
+    an empty quota ({}) or a negative max has no limit either."""
     quota = summary.get("quota") or {}
     active = summary.get("activeImages") or []
+    catalog = summary.get("plan") == "CATALOG"
+    tiers = set(summary.get("activeTiers") or [])
     lines = [f"Chainguard plan: {summary.get('plan', '?')}"
-             + (f" (swap quota {summary['swapQuota']})" if summary.get("swapQuota") is not None else "")]
+             + (f" (swap quota {summary['swapQuota']})"
+                if summary.get("swapQuota") is not None and summary["swapQuota"] >= 0 else "")]
+    if catalog:
+        lines.append("  every image in these tiers is entitled: " + (", ".join(sorted(tiers)) or "(none)"))
     free = {}
-    for tier in sorted(quota):
-        q = quota[tier]
-        cur, top = q.get("current", 0), q.get("max", 0)
-        unlimited = top is None or top < 0
+    for tier in sorted(set(quota) | (tiers if catalog else set())):
+        q = quota.get(tier) or {}
+        cur, top = q.get("current", 0), q.get("max")
+        unlimited = catalog or top is None or top < 0
+        if catalog and tier not in tiers:
+            free[tier] = 0
+            lines.append(f"  {tier:12} not entitled")
+            continue
         free[tier] = None if unlimited else top - cur
         state = "unlimited" if unlimited else ("FULL" if cur >= top else f"{top - cur} free")
         lines.append(f"  {tier:12} {cur}/{'-' if unlimited else top}  {state}")
@@ -134,7 +148,7 @@ def quota_report(summary, used, needed):
     for img in active:
         if img.get("name") not in used:
             unused.setdefault(img.get("catalogTier", "?"), []).append(img.get("name"))
-    if unused:
+    if unused and not catalog:
         lines.append("Counted, but not used by Big Bang (another project may use them):")
         for tier in sorted(unused):
             lines.append(f"  {tier}: {', '.join(sorted(unused[tier]))}")
@@ -144,8 +158,10 @@ def quota_report(summary, used, needed):
         want = {}
         for name, tier in sorted(needed.items()):
             want[tier] = want.get(tier, 0) + 1
-            room = free.get(tier, None) if tier in free else None
-            if tier in free and room is not None and want[tier] > room:
+            if catalog and tier not in tiers:
+                blocked.append(name)
+                note = f"{tier or '?'} not in the plan"
+            elif tier in free and free[tier] is not None and want[tier] > free[tier]:
                 blocked.append(name)
                 note = f"no room in {tier}"
             else:
@@ -154,8 +170,8 @@ def quota_report(summary, used, needed):
     else:
         lines.append("Needed by this repo and not in the org: (none)")
     if blocked:
-        lines.append(f"{len(blocked)} needed image(s) don't fit the plan: ask Chainguard to raise the quota, "
-                     "or to swap out a counted image nothing uses.")
+        lines.append(f"{len(blocked)} needed image(s) don't fit the plan: ask Chainguard to raise the quota "
+                     "or add the tier" + ("." if catalog else ", or to swap out a counted image nothing uses."))
     return lines, blocked
 
 

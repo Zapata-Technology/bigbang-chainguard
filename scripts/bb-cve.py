@@ -22,6 +22,8 @@ current branch: the image Big Bang deploys has at least those vulnerabilities an
 
 --changed-from <git ref>: only the Chainguard images (standard and FIPS) that docs/images.md
 names now and didn't at <ref>, scanned for fixable Critical CVEs; exit 1 if any has one or can't be scanned.
+Images this repo builds (under BUILD_REGISTRY) are skipped: builds.yml scans each one the same
+way before it is pushed, and a pull request that adds a build has nothing pushed yet to scan.
 ci.yml runs it on pull requests, so the nightly update can't move to an image with a
 known, already-fixed critical vulnerability without someone deciding to.
 """
@@ -34,7 +36,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import ROOT  # noqa: E402
+from bbcommon import ROOT, build_registry  # noqa: E402
 import bbbuild  # noqa: E402
 
 SEVERITIES = ["Critical", "High", "Medium", "Low"]
@@ -76,7 +78,11 @@ def gate(base):
     old = subprocess.run(["git", "show", f"{base}:docs/images.md"], cwd=ROOT, capture_output=True, text=True).stdout
     refs = new_refs(old, open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read())
     lines, failed = [f"{len(refs)} image(s) new since {base}"], False
+    built = build_registry()
     for ref in refs:
+        if built and ref.startswith(built + "/"):
+            lines.append(f"skipped  {ref}  (built here: builds.yml scans it before pushing)")
+            continue
         p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "-o", "json"], capture_output=True, text=True)
         status, detail = gate_result(p.returncode, p.stdout, p.stderr)
         failed |= status != "ok"

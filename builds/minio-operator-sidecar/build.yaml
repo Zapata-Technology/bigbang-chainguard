@@ -12,16 +12,16 @@ image:
   standard:
     name: bigbang-minio-operator-sidecar
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/kubectl:v1.37.2-dev@sha256:cabe7d401028fa1a5c1b46f7707d16cb9d6ab882c04c02b8ad4a89cc6d100c17
-    base: cgr.dev/zapatatechnology.com/kubectl:v1.37.2@sha256:d5857eec32e39f5e21a81879697c6e7b22d56a9e2c035c566130ec3fcf0faee8
-    go_package: go
+    dev: cgr.dev/zapatatechnology.com/go:1.27.3-dev@sha256:d65f52544fd5d80507f2ca89607f3f38a6043b613100d5f4d98b4ca6d6b6162a
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:78264c81f34ca5163739d2017778048939930781a3e2bfdda6e5b67d6da1377b
+    go_package: ''
   fips:
     name: bigbang-minio-operator-sidecar-fips
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:v1.37.2-dev@sha256:4b9866345f4cfbd9dfc81794e4757f41d5d5e4015f206481aae61e554fdd1534
-    base: cgr.dev/zapatatechnology.com/kubectl-fips:v1.37.2@sha256:82a64a4297a07379367ad23e3c7d446cc562aec57907e83e390e4cb777c56ff7
-    go_package: go
-    fips: native
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.3-dev@sha256:ac13b4456045dc456b6f6ec36530ac09ea7a0f5dfa4604f95ec28367ab52b5b0
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:b9d7ea5b5fb0498d611fbffb0036a2c99c0eb10b0816a0cb1c2849ae837e9925
+    go_package: ''
+    fips: toolchain
 minio:
   tag: v7.1.0
   source: https://codeload.github.com/minio/operator/tar.gz/refs/tags/v7.1.0

@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD["bb-build.py &lt;name&gt;<br/>builds/*/recipe.yaml<br/>+ scripts/buildhooks/<br/>(base, grafana-plugins, devops-tester,<br/>vault, jmx-exporter, mattermost-operator,<br/>tempo-query, minio-operator(-sidecar),<br/>gitaly-init-cgroups, installer)"]
+    IB --> BLD["bb-build.py &lt;name&gt;<br/>builds/*/recipe.yaml<br/>+ scripts/buildhooks/<br/>(base, grafana-plugins, devops-tester,<br/>vault, jmx-exporter, mattermost-operator,<br/>tempo-query, minio-operator(-sidecar),<br/>gitaly-init-cgroups, registry-adapter, installer)"]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -89,10 +89,11 @@ Two more options change this per image:
 
 Chainguard doesn't publish Big Bang's own images (base, grafana-plugins, devops-tester).
 For those, a script converts **Iron Bank's own recipe** into a build FROM your org's images.
-Seven more get a build for what Chainguard's image lacks or doesn't publish: Vault (the
+Eight more get a build for what Chainguard's image lacks or doesn't publish: Vault (the
 curl Big Bang's post-start hook needs), the JMX exporter (SonarQube's init container copies
 its jar with sh and curl), and, built from upstream's source, the Mattermost Operator,
-tempo-query, the MinIO Operator and its sidecar, and GitLab's gitaly-init-cgroups. The table
+tempo-query, the MinIO Operator and its sidecar, GitLab's gitaly-init-cgroups and NeuVector's
+registry adapter. The table
 lists them all.
 
 ```mermaid
@@ -129,12 +130,16 @@ refuses a new package's first push now and then). The provenance record
 | `bigbang-tempo-query` | `opensource/grafana/tempo-query` (built from upstream's source) | as the Mattermost Operator |
 | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` | `opensource/minio/operator`, `operator-sidecar` (archived; built from upstream's archived source) | as the Mattermost Operator |
 | `bigbang-gitaly-init-cgroups` | none: GitLab's CNG `gitaly-init-cgroups` (built from Gitaly's source as CNG builds it) | as the Mattermost Operator |
+| `bigbang-registry-adapter` | `opensource/neuvector/registry-adapter` (built from upstream's source, cgo) | as the Mattermost Operator |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 The Go builds (the Mattermost Operator, tempo-query, the MinIO Operator) use the `go`/`glibc-openssl` images when the org has them. Without
 them it builds in `kubectl(-fips)-dev` with Wolfi's Go and runs on `kubectl(-fips)`, and the
-FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`'s OpenSSL
-backend. The next build switches over once the org has those images.
+FIPS image uses Go's own FIPS 140-3 module (`GOFIPS140`) instead of `go-fips`. The next
+build switches over once the org has those images. Chainguard's `go-fips` itself changed with
+Go 1.27: through 1.26 it uses an OpenSSL backend (`GOEXPERIMENT=systemcrypto`), from 1.27 Go's
+validated FIPS module with cgo (`GOFIPS140=v1.0.0-…`, `fips140=on`); the build's smoke test
+accepts either (`bbbuild.GO_FIPS_BUILDS`).
 
 ## 4. Deploying: how the overlays layer
 

@@ -64,8 +64,9 @@ your org's images. Vault is the fourth: Chainguard publishes it, but Big Bang's
 post-start hook needs curl, which the Chainguard image lacks, so the `vault` build adds it.
 The JMX exporter is the fifth: SonarQube's init container copies Iron Bank's jar with
 sh and curl, and Chainguard's `jmx-exporter-iamguarded` has neither (Bitnami layout).
-The Mattermost Operator, tempo-query, the MinIO Operator with its sidecar, and GitLab's
-gitaly-init-cgroups are the sixth to tenth: Chainguard publishes no image of them, so
+The Mattermost Operator, tempo-query, the MinIO Operator with its sidecar, GitLab's
+gitaly-init-cgroups and NeuVector's registry adapter are the sixth to eleventh: Chainguard
+publishes no image of them, so
 their builds compile them from upstream's source. Each build is a directory
 `builds/<name>/`: a Dockerfile, a hand-written `recipe.yaml` (what the build is) and the
 generated `build.yaml`; the recipe names a hook in `scripts/buildhooks/` for the Python it
@@ -82,6 +83,7 @@ needs (the two MinIO builds share one):
 | `opensource/grafana/tempo-query`: no Chainguard image; Tempo's Jaeger storage backend, built from grafana/tempo's source at Big Bang's tag | `tempo-query` | as the Mattermost Operator | `bigbang-tempo-query` |
 | `opensource/minio/operator` and `operator-sidecar` (both archived on Iron Bank): no Chainguard images; built from minio/operator's source (archived upstream) at Big Bang's tags | `minio-operator`, `minio-operator-sidecar` (one hook, `minio`) | as the Mattermost Operator | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` |
 | `gitlab/gitlab-org/build/cng/gitaly-init-cgroups` (GitLab's CNG build on registry1; no Iron Bank recipe): Gitaly's cgroups init container, built from Gitaly's source as CNG builds it | `gitaly-init-cgroups` | as the Mattermost Operator | `bigbang-gitaly-init-cgroups` |
+| `opensource/neuvector/registry-adapter`: no Chainguard image; NeuVector's Harbor scanner adapter, built from upstream's source at Big Bang's tag | `registry-adapter` | as the Mattermost Operator | `bigbang-registry-adapter` |
 
 You don't run these to install: CI (`builds.yml`) builds, tests, signs and pushes the
 images when a change merges to main. The rest of this section is for maintainers.
@@ -188,6 +190,19 @@ Differences from Iron Bank:
   (GitLab's archive of the module's directory, pinned by sha256). It runs only with
   `gitlab.gitaly.cgroups.enabled` (off in Big Bang). Its smoke test runs it as the chart
   does against a pod cgroup tree in a temporary directory.
+- **registry-adapter** (NeuVector's Harbor scanner adapter) is built as Iron Bank builds
+  it, with upstream's `make build` at the tag Big Bang deploys (v0.2.13), the tag stamped
+  into `version.go`, and `golang.org/x/net` (a Critical CVE) and go-jose raised. It needs
+  cgo (NeuVector's shared system package), so both binaries link the runtime image's
+  glibc; the FIPS one uses the same FIPS modes as the Go builds above
+  (`go_build_problems(..., cgo=True)` checks a cgo build). It runs
+  `/usr/local/bin/adapter` as 65534 (Iron Bank's `nobody`). Big Bang leaves the chart's
+  `cve.adapter` off; turn it on with `neuvector.values.upstream.cve.adapter.enabled` and
+  give it Harbor's credentials in a Secret named by `cve.adapter.harbor.secretName` (keys
+  `username`, `password`); not `cve.adapter.env`, which NeuVector core 2.11.4 renders
+  into invalid YAML. Its smoke test starts it
+  with no cluster (it must log its version and stop at the missing internal certificate)
+  and reads the build info.
 
 **`BUILD_REGISTRY`** can't be `cgr.dev`, because Chainguard registries don't accept pushes.
 **Leave it empty to keep Iron Bank's images.** The overlays then leave those values alone,
@@ -245,6 +260,11 @@ can't express, `mapping.yaml` has these escape hatches:
   Pod Security Admission's `restricted` level requires); `patch_keys` get `patch` as a
   post-renderer instead, where the chart's schema refuses the values (Istio's gateway).
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
+- `chart_registry_builds`: images this repo builds in a chart that prefixes every image
+  with one chart-wide registry (NeuVector's registry adapter). A Flux post-renderer moves
+  `<org registry>/<built image>` to `BUILD_REGISTRY`, or, with no `BUILD_REGISTRY`,
+  `<org registry>/ironbank/...` back to registry1. `bb-verify.py` fails on any nested path
+  under the org (org repositories are flat).
 - `version_labels`: workload labels that must state the version actually deployed (istiod).
 - `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI
   images run `sh` as bash; Chainguard's `-dev` images run busybox `sh`. A Flux

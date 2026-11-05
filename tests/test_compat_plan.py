@@ -3,13 +3,30 @@ from conftest import load_script
 
 plan_mod = load_script("compat-plan")
 
+D1 = "sha256:" + "1" * 64
+D2 = "sha256:" + "2" * 64
+
 
 def _root(tmp_path):
     (tmp_path / "compat").mkdir()
     (tmp_path / "compat" / "loki.yaml").write_text("test:\n  enable: [loki]\n")
     (tmp_path / "compat" / "keycloak.yaml").write_text("test:\n  enable: [addons.keycloak]\n")
     (tmp_path / "compat" / "gitlab.yaml").write_text("test:\n  large: true\n  enable: [addons.gitlab]\n")
+    (tmp_path / "compat" / "kyverno-enforce.yaml").write_text(
+        "test:\n  enable: [kyverno, kyvernoPolicies]\n  setup:\n    - sh compat/support/kyverno-admission.sh\n")
+    (tmp_path / "compat" / "metrics-server.yaml").write_text("test:\n  enable: [metricsServer]\n")
+    (tmp_path / "compat" / "installer.yaml").write_text("test:\n  installer: true\n  enable: [tempo]\n")
+    (tmp_path / "compat" / "velero.yaml").write_text("test:\n  enable: [velero]\n  values_files:\n    - x\n")
     return str(tmp_path)
+
+
+def _overlay(loki_tag, loki_digest, keycloak="26.1"):
+    return (f"# GENERATED\npackages:\n  keycloak:\n    image: {keycloak}\n"
+            f"  loki:\n    tag: {loki_tag}\n    digest: {loki_digest}\n")
+
+
+def _tests(jobs):
+    return [(t, m) for t, m, _ in jobs]
 
 
 def test_a_pull_request_that_changes_one_test_runs_only_that_test_in_both_modes(tmp_path):
@@ -23,20 +40,68 @@ def test_a_changed_large_test_runs_on_its_pull_request(tmp_path):
     assert plan_mod.plan("pull_request", [], ["compat/gitlab.yaml"], False, root) == [("gitlab", "standard", 90)]
 
 
-def test_any_other_change_runs_every_test_that_is_not_large(tmp_path):
+def test_docs_and_unit_tests_run_nothing(tmp_path):
     root = _root(tmp_path)
-    for changed in (["compat/loki.yaml", "mapping.yaml"], ["compat/support/app-deps.py"], ["overlays/x.yaml"], []):
-        assert [t for t, _, _ in plan_mod.plan("pull_request", [], changed, False, root)] == ["keycloak", "loki"]
+    assert plan_mod.plan("pull_request", [], ["README.md", "docs/testing.md", "tests/test_x.py"], True, root) == []
+    # ...and don't widen a test file's change to every test.
+    assert _tests(plan_mod.plan("pull_request", [], ["compat/loki.yaml", "AGENTS.md"], False, root)) == [
+        ("loki", "standard")]
 
 
-def test_a_deleted_test_file_alone_falls_back_to_every_test(tmp_path):
+def test_an_overlay_tag_change_runs_that_packages_tests_in_that_overlays_mode(tmp_path):
     root = _root(tmp_path)
-    assert [t for t, _, _ in plan_mod.plan("pull_request", [], ["compat/removed.yaml"], False, root)] == [
-        "keycloak", "loki"]
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard-fips.yaml").write_text(_overlay("3.6", D2))
+    old = {"overlays/values-chainguard-fips.yaml": _overlay("3.5", D1)}
+    jobs = plan_mod.plan("pull_request", [], list(old), True, root, read_base=old.get)
+    assert _tests(jobs) == [("loki", "fips")]
+
+
+def test_a_digest_only_overlay_change_runs_the_smoke_tests(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(_overlay("3.5", D2))
+    old = {"overlays/values-chainguard.yaml": _overlay("3.5", D1)}
+    jobs = plan_mod.plan("pull_request", [], list(old), True, root, read_base=old.get)
+    assert _tests(jobs) == [("kyverno-enforce", "standard"), ("metrics-server", "standard")]
+
+
+def test_harness_flux_and_mapping_changes_run_the_smoke_tests_standard_only(tmp_path):
+    root = _root(tmp_path)
+    for changed in (["scripts/bb-compat.py"], ["flux/kustomization.yaml"], ["mapping.yaml"],
+                    [".github/workflows/compat.yml"]):
+        assert _tests(plan_mod.plan("pull_request", [], changed, True, root)) == [
+            ("kyverno-enforce", "standard"), ("metrics-server", "standard")], changed
+
+
+def test_installer_support_file_and_object_storage_changes(tmp_path):
+    root = _root(tmp_path)
+    assert _tests(plan_mod.plan("pull_request", [], ["scripts/bbinstall/tls.py"], True, root)) == [
+        ("installer", "standard")]
+    assert _tests(plan_mod.plan("pull_request", [], ["compat/support/kyverno-admission.sh"], True, root)) == [
+        ("kyverno-enforce", "standard")]
+    assert _tests(plan_mod.plan("pull_request", [], ["object-storage.yaml"], True, root)) == [("velero", "standard")]
+
+
+def test_a_new_big_bang_runs_every_test_that_is_not_large_in_both_modes(tmp_path):
+    root = _root(tmp_path)
+    jobs = plan_mod.plan("pull_request", [], ["BIGBANG_VERSION"], True, root)
+    assert len(jobs) == 12 and "gitlab" not in {t for t, _, _ in jobs}
+
+
+def test_a_deleted_test_file_alone_runs_nothing(tmp_path):
+    root = _root(tmp_path)
+    assert plan_mod.plan("pull_request", [], ["compat/removed.yaml"], False, root) == []
+
+
+def test_package_sections_split_a_generated_overlay():
+    real, digests = plan_mod.changed_packages(_overlay("3.5", D1), _overlay("3.5", D2, keycloak="26.2"))
+    assert real == {"keycloak"} and digests == {"loki"}
 
 
 def test_named_tests_and_the_schedule(tmp_path):
     root = _root(tmp_path)
     assert plan_mod.plan("workflow_dispatch", ["gitlab"], [], True, root) == [
         ("gitlab", "standard", 90), ("gitlab", "fips", 90)]
-    assert [t for t, _, _ in plan_mod.plan("schedule", [], [], False, root)] == ["gitlab", "keycloak", "loki"]
+    assert [t for t, _, _ in plan_mod.plan("schedule", [], [], False, root)] == [
+        "gitlab", "installer", "keycloak", "kyverno-enforce", "loki", "metrics-server", "velero"]

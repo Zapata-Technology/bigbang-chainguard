@@ -285,9 +285,14 @@ def test_mattermost_operator_build_info():
     assert "dep\tgolang.org/x/net\tv0.62.0\th1:x=" in info
 
     def fips_build(mode, settings):
-        return all(re.search(rx, settings, re.M) for rx in bbbuild.GO_FIPS_BUILDS[mode])
+        return not bbbuild.fips_build_missing(mode, settings)
     assert fips_build("toolchain", "\n".join(info))
     assert not fips_build("toolchain", "build\tCGO_ENABLED=1\nbuild\tGOEXPERIMENT=greenteagc")
+    # go-fips 1.27: Go's own FIPS 140-3 module, with cgo.
+    module = "build\tCGO_ENABLED=1\nbuild\tDefaultGODEBUG=fips140=on,fips140ems=0\nbuild\tGOFIPS140=v1.0.0-c2097c7c"
+    assert fips_build("toolchain", module)
+    assert not fips_build("toolchain", module.replace("fips140=on,", ""))   # module linked but not enabled
+    assert not fips_build("toolchain", module.replace("GOFIPS140=v1.0.0-c2097c7c", "GOFIPS140=off"))
     native = "build\tCGO_ENABLED=0\nbuild\tGOFIPS140=v1.0.0\nbuild\tDefaultGODEBUG=fips140=on,tracebacklabels=0"
     assert fips_build("native", native)
     assert not fips_build("native", native.replace("fips140=on,", ""))   # module linked but not enabled
@@ -350,6 +355,47 @@ def test_go_build_problems(monkeypatch):
     assert problems("img", "/tempo-query", "standard", {}, ["golang.org/x/net@v0.63.0"]) == \
         ["golang.org/x/net is not v0.63.0"]
     assert problems("img", "/tempo-query", "fips", {"fips": "toolchain"}, [])[0].startswith("FIPS Go build (toolchain)")
+    # A cgo program (the registry adapter): the standard and native builds must be cgo builds.
+    assert problems("img", "/tempo-query", "standard", {}, [], cgo=True) == ["cgo build (CGO_ENABLED=1)"]
+    assert "CGO_ENABLED=1" in problems("img", "/tempo-query", "fips", {"fips": "native"}, [], cgo=True)[0]
+    blobs["/tempo-query"] = blobs["/tempo-query"].replace(b"CGO_ENABLED=0", b"CGO_ENABLED=1")
+    assert problems("img", "/tempo-query", "fips", {"fips": "native"}, [], cgo=True) == []
+    assert problems("img", "/tempo-query", "standard", {}, [], cgo=True) == []
+
+
+ADAPTER, adapter = build("registry-adapter")
+
+
+def test_registry_adapter_recipe():
+    users = ADAPTER["users"]
+    ib = adapter.recipe(*recipe("registry-adapter"), users)
+    assert ib == {"upstream": "v0.2.13", "binary": "/usr/local/bin/adapter", "user": "nobody", "uid": "65534:65534"}
+    manifest, dockerfile = recipe("registry-adapter")
+    with pytest.raises(SystemExit):   # a user with no known uid
+        adapter.recipe(manifest, dockerfile.replace("USER nobody", "USER adapter"), users)
+    with pytest.raises(SystemExit):   # no longer upstream's make build
+        adapter.recipe(manifest, dockerfile.replace("make build", "go build ./..."), users)
+    with pytest.raises(SystemExit):   # copied somewhere the entrypoint doesn't run
+        adapter.recipe(manifest, dockerfile.replace("/usr/local/bin/\n", "/opt/\n"), users)
+
+
+def test_registry_adapter_is_built_from_source(monkeypatch):
+    tarball = operator_tarball("module github.com/neuvector/registry-adapter\n\ngo 1.27.0\n")
+
+    def fetch(url):
+        if url.endswith("/@latest"):
+            return b'{"Version": "v4.1.8"}' if "go-jose" in url else b'{"Version": "v0.62.0"}'
+        assert url == "https://codeload.github.com/neuvector/registry-adapter/tar.gz/refs/tags/v0.2.13"
+        return tarball
+    monkeypatch.setattr(bbbuild, "fetch", fetch)
+    src = adapter.source(ADAPTER, "v0.2.13")
+    assert src["go"] == "1.27.0" and src["go_get"] == ["golang.org/x/net@v0.62.0", "github.com/go-jose/go-jose/v4@v4.1.8"]
+    spec = {"adapter": src, "ironbank": {"binary": "/usr/local/bin/adapter"}, "user": "65534:65534",
+            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
+    std = bbbuild.recipe_build_args(ADAPTER, spec, "standard")
+    fips = bbbuild.recipe_build_args(ADAPTER, spec, "fips")
+    assert std["ADAPTER_VERSION"] == "v0.2.13" and fips["FIPS"] == "native" and std["RUN_USER"] == "65534:65534"
+    assert std["ADAPTER_GO_GET"].split() == src["go_get"] and std["BINARY"] == "/usr/local/bin/adapter"
 
 
 MINIO, bbminio = build("minio-operator")

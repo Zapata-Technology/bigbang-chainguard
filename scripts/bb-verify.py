@@ -117,6 +117,12 @@ def main():
     counts = {"ours": 0, "ironbank": 0}
     for rel, info in sorted(found["packages"].items()):
         for img in info["rendered"]:
+            in_org = img.removeprefix(f"{REGISTRY}/{org}/")
+            if in_org != img and "/" in in_org:
+                # Org repositories are flat: a nested path is a chart putting the org's
+                # registry in front of another registry's repository (mapping chart_registry_builds).
+                problems.append(f"{rel}: {img} is not an org repository (org repositories are flat)")
+                continue
             if img.startswith(ours):
                 counts["ours"] += 1
                 name = img.split("/")[-1].split(":")[0].split("@")[0]

@@ -17,6 +17,13 @@ on:
     - cron: "0 9 * * 0"   # weekly, after compat.yml's Sunday run
   workflow_dispatch:
 
+# A new push to a pull request cancels that pull request's older run (only the newest
+# commit's result matters, and every run costs runner minutes). Runs on
+# main and schedules each get their own group (run_id), so none is cancelled or queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

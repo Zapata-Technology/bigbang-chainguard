@@ -45,7 +45,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: seaweedfs
-        image: cgr.dev/zapatatechnology.com/seaweedfs:v4.51@sha256:af3728746d63f3e8183b28a68caeb3938f90123e57a139ca6495610f369532a8
+        image: cgr.dev/zapatatechnology.com/seaweedfs:v4.52@sha256:fb766a416265c8aa39d0bb6305032c678706143665c561d778af9950fa770a5d
         args:
         - server
         - -dir=/data
@@ -143,7 +143,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: buckets
-        image: cgr.dev/zapatatechnology.com/seaweedfs:v4.51-dev@sha256:a0cb74e3294afba5c51b335f52289f095c1514391088199e1130107cea54449c
+        image: cgr.dev/zapatatechnology.com/seaweedfs:v4.52-dev@sha256:f9f9a9950ed3fe1e1344ae69636d01bc53f73e288f738cbdcf4f761bdc7f5ecd
         command:
         - /bin/sh
         - -c

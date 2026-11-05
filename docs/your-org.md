@@ -16,9 +16,9 @@ that, installing and upgrading are the same three commands as in the
     `scripts/bb-org-repos.py` adds them. Check your **entitlement** first; see
     [Chainguard entitlements](#chainguard-entitlements).
 - **A registry you can push to** (e.g. `ghcr.io/<owner>`). Three of Big Bang's images are
-  Big Bang's own builds, and seven more need what Chainguard's image lacks or has no image
+  Big Bang's own builds, and eight more need what Chainguard's image lacks or has no image
   of (Vault, the JMX exporter, the Mattermost Operator, tempo-query, the MinIO Operator and
-  its sidecar, GitLab's gitaly-init-cgroups); this repo builds
+  its sidecar, GitLab's gitaly-init-cgroups, NeuVector's registry adapter); this repo builds
   those FROM your Chainguard images; see
   [Images this repo builds](how-it-works.md#images-this-repo-builds). This is optional: without a
   registry, those images stay on Iron Bank.
@@ -77,6 +77,8 @@ start:
    against it. An "unlimited" plan can still count **base images** (toolchains and runtimes:
    `go`, `glibc-openssl`, `jdk`, `node`, `python`) against a small per-tier quota, and FIPS
    images are often a separate entitlement. A full tier means Chainguard must raise it.
+   A `CATALOG` plan entitles every image in its `activeTiers`; the per-tier counts it still
+   shows are left over from a per-image plan and don't limit anything.
 
    `python scripts/bb-org-repos.py --org <your org> --quota` reads the same summary and
    adds what matters here: each tier's room, the counted images Big Bang doesn't use, and

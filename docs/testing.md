@@ -177,6 +177,7 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | istio-egress-gateway | Istio egress gateway beside istiod | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | Check: the egress waypoint is Programmed and its Envoy ready with config from istiod (the gateway renders only in ambient mode) |
 | mattermost-operator | `bigbang-mattermost-operator` (built and loaded by the test) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | Starts, takes its leader lease, watches its CRDs. Check: the operator takes a zero-replica Mattermost to `stable` and creates its Deployment |
 | tempo-query | `bigbang-tempo-query` (built and loaded by the test) beside Tempo, the chart's `tempoQuery` turned on | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | Check: a span sent to Tempo over OTLP comes back through tempo-query's Jaeger `SpanReaderPlugin/GetTrace` (one gRPC call by hand, curl over HTTP/2) |
+| registry-adapter | `bigbang-registry-adapter` (built and loaded by the test), the chart's `cve.adapter` turned on, beside NeuVector | no run recorded | no run recorded | Check: Harbor's `GET /endpoint/api/v1/metadata` with basic auth names NeuVector with the scanner's version, which the adapter has only after reaching the controller over its internal gRPC; wrong credentials get 401 |
 | minio-operator | `bigbang-minio-operator` and `bigbang-minio-operator-sidecar` (built and loaded by the test) reconciling a small Tenant the test makes (one server, four volumes) in its own namespace | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | Check: the Tenant's pool is initialized, and its pod's `validate-arguments` init container completed and `sidecar` container runs on the built sidecar image. The MinIO server isn't checked: an org without `minio` (Zapata's, `orgs/`) keeps Iron Bank's, which CI can't pull, and a Big Bang minio package pod that never starts fails the test, so the package stays off |
 | mattermost | Mattermost 11.11 (`mattermost`, `mattermost-fips`) run by `bigbang-mattermost-operator`, PostgreSQL on the org's image, files on SeaweedFS | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | **PASS** on 4.0.0, 2026-11-04 ([run 41768213339](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41768213339)) | No bundled PostgreSQL or MinIO; `/api/v4/system/ping` answers OK. The test lowers the server's 2-CPU request to fit kind |
 | gitlab (large) | GitLab (webservice, sidekiq, Gitaly, Shell, registry, KAS, toolbox) with PostgreSQL and Redis on the org images (its chart needs external ones since v10), objects on SeaweedFS | **PASS** on 4.0.0, 2026-11-04 ([run 41770338111](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41770338111)) | **PASS** on 4.0.0, 2026-11-04 ([run 41770338111](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/41770338111)) | GitLab chart 10.5.1 on Big Bang 4.0.0; it passed on 3.35.1 since 2026-11-01. It needed the sizing values under `upstream:`, PostgreSQL's `max_locks_per_transaction` at 256, a 40-minute Deployment progress deadline and 15 minutes before the liveness probe restarts Rails: see the findings below and the README's GitLab notes. Check: `/-/readiness?all=1` ok with the database and Gitaly checks; the sign-in page renders |
@@ -365,14 +366,19 @@ These are kind-on-GitHub-Actions limits, not image problems:
 A compat file with `large: true` (GitLab, GitLab Runner) needs more memory and time than
 the other tests (`timeout:` in seconds; the job gets 90 minutes). It runs in the weekly
 `compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes only that test's
-`compat/<test>.yaml` (`scripts/compat-plan.py` then runs just the changed tests), and by hand
+`compat/<test>.yaml`, and by hand
 from main: `gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`. A manual
 run from another branch fails at the Chainguard login: the CI identity trusts main and pull
 requests only.
 
-A pull request that changes only `compat/*.yaml` files runs just those tests; any other
-change that `compat.yml` watches (the mapping, overlays, the harness, `compat/support/`) runs
-every test that isn't large.
+A pull request runs only the tests its change reaches (`scripts/compat-plan.py`): a changed
+`compat/<test>.yaml` (both modes), the tests that enable a package whose overlay changed beyond
+its digests (in that overlay's mode), the tests that use a changed `compat/support/` file, the
+installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and two small smoke tests
+(`kyverno-enforce`, `metrics-server`) for harness, Flux, mapping and digest-only changes. Docs
+and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test; a new
+push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
+so the selection keeps a month's pull requests within the Actions allowance.
 
 MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which CI has
 no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server with

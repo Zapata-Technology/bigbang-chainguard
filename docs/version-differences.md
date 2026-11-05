@@ -14,10 +14,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | newer minor | 15 |
-| newer patch | 25 |
-| same | 75 |
+| newer patch | 30 |
+| same | 71 |
 | numbered differently | 7 |
-| stays on Iron Bank | 20 |
+| stays on Iron Bank | 19 |
 | **total** | **143** |
 
 ## Different version line (16)
@@ -32,7 +32,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.96.0` | `prometheus-redis-exporter-iamguarded-fips:1.96.0` | Chainguard | newer minor | argocd |
 | `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.96.0` | `prometheus-redis-exporter-iamguarded-fips:1.96.0` | Chainguard | newer minor | anchore-enterprise |
 | `ironbank/bitnami/analytics/redis-exporter:v1.93.0` | `prometheus-redis-exporter-iamguarded:1.96.0` | `prometheus-redis-exporter-iamguarded-fips:1.96.0` | Chainguard | newer minor | authservice, harbor |
-| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.198.2` | `renovate-fips:44.198.2` | Chainguard | newer minor | renovate |
+| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.210.0` | `renovate-fips:44.210.0` | Chainguard | newer minor | renovate |
 | `ironbank/fluxcd/helm-controller:v1.6.4` | `flux-helm-controller:1.7.1` | `flux-helm-controller-fips:1.7.1` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/kustomize-controller:v1.9.5` | `flux-kustomize-controller:1.10.1` | `flux-kustomize-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.0` | `flux-notification-controller-fips:1.10.0` | Chainguard | newer minor | flux |
@@ -41,7 +41,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/prometheus/memcached-exporter:v0.17.0` | `memcached-exporter:0.18.0` | `memcached-exporter-fips:0.18.0` | Chainguard | newer minor | logging-loki, mimir |
 | `ironbank/opensource/prometheus/snmp_exporter:v0.30.1` | `prometheus-snmp-exporter:0.31.0` | `prometheus-snmp-exporter:0.31.0` | Chainguard | newer minor | monitoring |
 
-## Newer patch, same line (25)
+## Newer patch, same line (30)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -56,9 +56,14 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.1-ubi` | `commercial-gitlab-toolbox-ee:19.5.3` | `commercial-gitlab-toolbox-ee-fips:19.5.3` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.1-ubi` | `commercial-gitlab-webservice-ee:19.5.3` | `commercial-gitlab-webservice-ee-fips:19.5.3` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.1-ubi` | `commercial-gitlab-workhorse-ee:19.5.3` | `commercial-gitlab-workhorse-ee-fips:19.5.3` | Chainguard | newer patch | gitlab |
+| `ironbank/big-bang/argocd:v3.5.6` | `argocd:3.5.7` | `argocd-fips:3.5.7` | Chainguard | newer patch | argocd |
+| `ironbank/elastic/elasticsearch/elasticsearch:9.5.5` | `elasticsearch:9.5.6` | `elasticsearch-fips:9.5.6` | Chainguard | newer patch | ek |
+| `ironbank/elastic/kibana/kibana:9.5.5` | `kibana:9.5.6` | `kibana-fips:9.5.6` | Chainguard | newer patch | ek |
 | `ironbank/hashicorp/vault/vault-k8s:v1.7.6` | `vault-k8s:1.7.7` | `vault-k8s-fips:1.7.7` | Chainguard | newer patch | vault |
+| `ironbank/kiwigrid/k8s-sidecar:2.14.1` | `k8s-sidecar:2.14.3` | `k8s-sidecar-fips:2.14.3` | Chainguard | newer patch | grafana, logging-loki, monitoring |
 | `ironbank/opensource/grafana/alloy:v1.21.2` | `grafana-alloy:1.21.3` | `grafana-alloy-fips:1.21.3` | Chainguard | newer patch | alloy |
 | `ironbank/opensource/grafana/grafana-image-renderer:v5.12.9` | `grafana-image-renderer:5.12.10` | `grafana-image-renderer:5.12.10` | Chainguard | newer patch | grafana |
+| `ironbank/opensource/grafana/mimir:3.2.3` | `grafana-mimir:3.2.4` | `grafana-mimir-fips:3.2.4` | Chainguard | newer patch | mimir |
 | `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.17` | `haproxy:3.3.17` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/keycloak/keycloak:26.8.0` | `keycloak:26.8.1` | `keycloak-fips:26.8.1` | Chainguard | newer patch | keycloak |
 | `ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0` | `metrics-server:0.9.1` | `metrics-server-fips:0.9.1` | Chainguard | newer patch | metrics-server |
@@ -71,27 +76,23 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/thanos/thanos:v0.42.4` | `thanos:0.42.5` | `thanos-fips:0.42.5` | Chainguard | newer patch | monitoring |
 
-## Same version (75)
+## Same version (71)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
 | `gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.1-ubi` | `ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.1-ubi` | `ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.1-ubi` | built here | same | gitlab |
 | `ironbank/afdco/docker/busybox:1.38.0` | `busybox:1.38.0` | `busybox-fips:1.38.0` | Chainguard | same | argocd, gitlab |
-| `ironbank/big-bang/argocd:v3.5.6` | `argocd:3.5.6` | `argocd-fips:3.5.6` | Chainguard | same | argocd |
 | `ironbank/big-bang/base:2.1.0` | `ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6` | `ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6` | built here | same | alloy, anchore-enterprise, argocd, authservice, eck-operator, ek, external-secrets, fluentbit, gatekeeper, grafana, harbor, keycloak, logging-loki, mattermost, mimir, minio, minio-operator, monitoring, neuvector, sonarqube, tempo, twistlock, velero |
 | `ironbank/big-bang/devops-tester:1.4` | `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2` | `ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2` | built here | same | argocd, gitlab, harbor, kyverno-policies, logging-loki, mattermost, minio, renovate, velero |
 | `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.0` | built here | same | grafana |
 | `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.9` | `loki-canary-fips:3.7.9` | Chainguard | same | logging-loki |
 | `ironbank/bitnami/analytics/redis-exporter:v1.96.0` | `prometheus-redis-exporter-iamguarded:1.96.0` | `prometheus-redis-exporter-iamguarded-fips:1.96.0` | Chainguard | same | argocd |
 | `ironbank/elastic/eck-operator/eck-operator:3.5.0` | `eck-operator:3.5.0` | `eck-operator-fips:3.5.0` | Chainguard | same | eck-operator |
-| `ironbank/elastic/elasticsearch/elasticsearch:9.5.5` | `elasticsearch:9.5.5` | `elasticsearch-fips:9.5.5` | Chainguard | same | ek |
-| `ironbank/elastic/kibana/kibana:9.5.5` | `kibana:9.5.5` | `kibana-fips:9.5.5` | Chainguard | same | ek |
 | `ironbank/hashicorp/vault-csi-provider:v1.7.4` | `vault-csi-provider:1.7.4` | `vault-csi-provider-fips:1.7.4` | Chainguard | same | vault |
 | `ironbank/istio-ecosystem/authservice:1.1.8` | `authservice:1.1.8` | `authservice-fips:1.1.8` | Chainguard | same | authservice |
 | `ironbank/jetstack/cert-manager-cainjector:v1.21.3` | `cert-manager-cainjector:1.21.3` | `cert-manager-cainjector-fips:1.21.3` | Chainguard | same | cert-manager |
 | `ironbank/jetstack/cert-manager-controller:v1.21.3` | `cert-manager-controller:1.21.3` | `cert-manager-controller-fips:1.21.3` | Chainguard | same | cert-manager |
 | `ironbank/jetstack/cert-manager-webhook:v1.21.3` | `cert-manager-webhook:1.21.3` | `cert-manager-webhook-fips:1.21.3` | Chainguard | same | cert-manager |
-| `ironbank/kiwigrid/k8s-sidecar:2.14.1` | `k8s-sidecar:2.14.1` | `k8s-sidecar-fips:2.14.1` | Chainguard | same | grafana, logging-loki, monitoring |
 | `ironbank/nirmata/policy-reporter/policy-reporter-ui:2.9.1` | `kyverno-policy-reporter-ui:2.9.1` | `kyverno-policy-reporter-ui-fips:2.9.1` | Chainguard | same | kyverno-reporter |
 | `ironbank/opensource/apache/kafka-native:4.3.2` | `kafka-native:4.3.2` | `kafka-native:4.3.2` | Chainguard | same | mimir |
 | `ironbank/opensource/bats/bats:1.14.0` | `bats:1.14.0` | `bats-fips:1.14.0` | Chainguard | same | grafana, monitoring |
@@ -108,7 +109,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/goharbor/registry:v2.15.4` | `harbor-registry:2.15.4` | `harbor-registry-fips:2.15.4` | Chainguard | same | harbor |
 | `ironbank/opensource/goharbor/trivy-adapter:v2.15.4` | `harbor-trivy-adapter:2.15.4` | `harbor-trivy-adapter-fips:2.15.4` | Chainguard | same | harbor |
 | `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.9` | `loki-fips:3.7.9` | Chainguard | same | logging-loki |
-| `ironbank/opensource/grafana/mimir:3.2.3` | `grafana-mimir:3.2.3` | `grafana-mimir-fips:3.2.3` | Chainguard | same | mimir |
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:0.41.1` | `grafana-rollout-operator-fips:0.41.1` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/grafana/tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1` | built here | same | tempo |
 | `ironbank/opensource/grafana/tempo:3.1.1` | `tempo:3.1.1` | `tempo-fips:3.1.1` | Chainguard | same | tempo |
@@ -137,6 +137,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/memcached/memcached:1.6.45` | `memcached:1.6.45` | `memcached-fips:1.6.45` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/minio/operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar-fips:v7.1.0` | built here | same | minio-operator |
 | `ironbank/opensource/minio/operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1` | built here | same | minio-operator |
+| `ironbank/opensource/neuvector/registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13` | built here | same | neuvector |
 | `ironbank/opensource/nginx/nginx:1.31.8` | `nginx:1.31.8` | `nginx-fips:1.31.8` | Chainguard | same | gitlab, harbor, mimir |
 | `ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1` | `gatekeeper:3.23.1` | `gatekeeper-fips:3.23.1` | Chainguard | same | gatekeeper |
 | `ironbank/opensource/postgres/postgresql:18.6` | `postgres:18.6` | `postgres-fips:18.6` | Chainguard | same | harbor, keycloak, mattermost |
@@ -163,7 +164,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/grafana/alloy-operator:1.14.3` | `grafana-alloy-operator:0.9` | `grafana-alloy-operator-fips:0.9` | Chainguard | numbered differently | alloy (pinned to the 0.9 line (Iron Bank's tag isn't this image's version)) |
 | `ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0` | `kubectl:1.34-dev` | `kubectl-fips:1.34-dev` | Chainguard | numbered differently | alloy (pinned to the 1.34 line (Iron Bank's tag isn't this image's version)) |
 
-## Stays on Iron Bank (20)
+## Stays on Iron Bank (19)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -181,7 +182,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/microfocus/fortify/ssc:26.2.2.0004` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | fortify |
 | `ironbank/opensource/go-gitea/gitea:28.2.0` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | renovate |
 | `ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | logging-loki, mattermost, minio |
-| `ironbank/opensource/neuvector/registry-adapter:v0.2.13` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | neuvector |
 | `ironbank/opensource/shellcheck/shellcheck:v0.11.0` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | argocd |
 | `ironbank/redhat/ubi/ubi9-minimal:9.8` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | external-secrets, fortify, grafana, monitoring |
 | `ironbank/redhat/ubi/ubi9:9.8` | `Iron Bank` | `Iron Bank` | Iron Bank | stays on Iron Bank | fortify, gitlab, gitlab-runner, sonarqube |

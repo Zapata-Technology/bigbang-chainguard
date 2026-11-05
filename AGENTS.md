@@ -98,9 +98,13 @@ The loop, for a person or an agent picking the repo up:
    FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, follow the playbook below that
    matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
-   generated ones), `python scripts/check.py`, a PR. A change to one `compat/<test>.yaml`
-   runs just that kind test (`scripts/compat-plan.py`); a mapping or harness change runs them
-   all (20-45 minutes).
+   generated ones), `python scripts/check.py`, a PR. A pull request runs only the kind tests
+   its change reaches (`scripts/compat-plan.py`: a changed `compat/<test>.yaml`, a package
+   whose overlay tag changed, the installer tests for `scripts/bbinstall/`, two smoke tests
+   for harness, Flux, mapping and digest-only changes, nothing for docs); the weekly run and
+   a new `BIGBANG_VERSION` run them all. Runner minutes are billed: push a branch once it is
+   ready, not after every edit (a new push cancels the PR's older runs), and don't run
+   several agents that each push PRs touching the overlays at once.
 4. **Wait without polling hard:** check every 3 minutes or more; parallel agents share the
    GitHub API rate limit. GitHub releases a job's log only when the job ends, so a kind test
    reports its own progress (`LIVE` lines, an early stop) in its log and artifact.
@@ -169,7 +173,8 @@ add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the reposi
 
 ### Add a repository to the org
 Add what the conversion needs, but check the plan first: per-image plans count images
-against a quota per tier (`python scripts/bb-org-repos.py --quota` shows each tier's room,
+against a quota per tier, and a `CATALOG` plan has no limit in its active tiers
+(`python scripts/bb-org-repos.py --quota` shows each tier's room,
 what still needs adding and which counted images Big Bang doesn't use). For each name,
 standard and `-fips`:
 
@@ -273,7 +278,8 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   Chainguard builds with removed, so Gitaly, Shell and the registry died at start;
   `overrides.gitlab` sets `GODEBUG=tlsmlkem=0`. Expect this for any chart that pins Go knobs.
 - **Nightly digest changes are normal**: Chainguard rebuilds images daily; the bot's pull
-  request then changes only digests, and the kind tests decide whether it merges.
+  request then changes only digests, and the two smoke kind tests decide whether it merges
+  (the weekly run deploys every package).
 - **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.

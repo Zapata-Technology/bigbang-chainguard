@@ -54,6 +54,28 @@ def test_quota_with_nothing_needed_blocks_nothing():
     assert blocked == [] and "(none)" in lines[-1]
 
 
+CATALOG = {
+    "plan": "CATALOG", "activeTiers": ["APPLICATION", "BASE", "FIPS"], "maxTotalImages": -1, "swapQuota": -1,
+    # Left over from the per-image plan: over max, and no longer a limit.
+    "quota": {"AI": {}, "APPLICATION": {"current": 10, "max": 6}, "BASE": {"current": 2, "max": 2}},
+    "activeImages": [{"name": "jdk", "catalogTier": "BASE"}],
+}
+
+
+def test_a_catalog_plan_is_unlimited_in_its_active_tiers():
+    lines, blocked = org.quota_report(CATALOG, set(), {"go": "BASE", "go-fips": "FIPS", "model": "AI"})
+    text = "\n".join(lines)
+    assert "FULL" not in text and "swap quota" not in text and "Counted" not in text
+    assert "BASE         2/-  unlimited" in text and "FIPS         0/-  unlimited" in text
+    assert "AI           not entitled" in text
+    assert blocked == ["model"]
+
+
+def test_an_empty_tier_quota_is_no_limit():
+    lines, blocked = org.quota_report({"plan": "PER_IMAGE", "quota": {"AI": {}}}, set(), {"m": "AI"})
+    assert "AI           0/-  unlimited" in "\n".join(lines) and blocked == []
+
+
 def test_used_names_cover_twins_tokens_and_build_bases():
     mapping = {"images": {"a/b": {"cg": "argocd"}, "c/d": {"cg": "kyvernopre", "fips": None},
                           "e/f": {"stays": "ironbank", "until": "redis"}},
