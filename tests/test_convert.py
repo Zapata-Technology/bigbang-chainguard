@@ -437,5 +437,7 @@ def test_chart_registry_builds_move_the_built_image_to_build_registry(monkeypatc
         [{"name": "cgr.dev/org/bigbang-x", "newName": "ghcr.io/o/bigbang-x", "newTag": "v1"}]
     assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "fips")[0]["newName"] == "ghcr.io/o/bigbang-x-fips"
     assert convert.chart_registry_builds(mapping, c, "packages.argocd", "standard") == []
-    c.build_registry = ""   # no BUILD_REGISTRY: the image stays on Iron Bank, nothing to move
-    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") == []
+    # No BUILD_REGISTRY: the image stays on Iron Bank, but the chart still puts the org's
+    # registry in front of its Iron Bank repository; it goes back to registry1 at the chart's tag.
+    c.build_registry = ""
+    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") ==         [{"name": "cgr.dev/org/ironbank/x", "newName": "registry1.dso.mil/ironbank/x"}]
