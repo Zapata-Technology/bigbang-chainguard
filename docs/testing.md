@@ -340,9 +340,18 @@ Bang's network policies, Istio's gateways (seccomp). With 6 GB the node ran out 
 requests before istiod (4.7 GiB requested by RKE2, Flux, Kyverno and SeaweedFS alone). With
 12 GB on swap everything scheduled, but the control plane starved: the controller manager
 and scheduler lost their leases and Kyverno's webhook timed out, so cert-manager and the
-gateways failed to install. Next step: a larger runner (GitHub's 4-core/16 GB or bigger,
-set as `RKE2_RUNNER`), then the remaining packages (monitoring, Loki, Tempo, Grafana, Kiali,
-NeuVector, Alloy) will show their own PSA and network-policy findings, if any.
+gateways failed to install.
+
+**On the 8-core/32 GB runner (`RKE2_RUNNER=ubuntu-rke2`, 2026-11-05, run 42041496095):** the
+control plane held, and 15 of 19 HelmReleases became Ready (34 images, all converted). What
+remained:
+- PSA `restricted` refused Kiali's operator and Loki (no seccomp profile) and Tempo (no
+  seccomp profile, `allowPrivilegeEscalation` unset). `mapping.yaml` `overrides` add them
+  (`kiali` also for the Kiali server its operator creates); Alloy waited on Loki.
+- NeuVector's enforcer exited 254 ("couldn't initialize inotify: too many open files") at
+  AlmaLinux's default of 128 inotify instances per user, and the exporter couldn't log in
+  to the controller meanwhile. **A Big Bang node needs `fs.inotify.max_user_instances=8192`
+  and `fs.inotify.max_user_watches=524288`**; the VM sets them (`.github/rke2-vm.sh`).
 
 ## CI environment notes
 

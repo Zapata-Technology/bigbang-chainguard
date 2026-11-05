@@ -96,6 +96,14 @@ PSA
 INSTALL_RKE2_ARTIFACT_PATH=/root/rke2 sh install.sh
 cp /usr/local/share/rke2/rke2-cis-sysctl.conf /etc/sysctl.d/60-rke2-cis.conf
 sysctl -p /etc/sysctl.d/60-rke2-cis.conf
+# NeuVector's enforcer watches files with inotify and exits (254, "couldn't initialize
+# inotify: too many open files") at the distribution's default of 128 instances per user;
+# Loki, Alloy and Kyverno use inotify too. A Big Bang node needs more (docs/testing.md).
+cat > /etc/sysctl.d/61-bigbang-inotify.conf <<'SYSCTL'
+fs.inotify.max_user_instances = 8192
+fs.inotify.max_user_watches = 524288
+SYSCTL
+sysctl -p /etc/sysctl.d/61-bigbang-inotify.conf
 systemctl enable --now rke2-server
 EOF
   vm "for i in \$(seq 100); do sudo $KUBECTL --kubeconfig $KCFG get node >/dev/null 2>&1 && exit 0; sleep 3; done

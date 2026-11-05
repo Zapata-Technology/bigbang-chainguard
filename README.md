@@ -84,6 +84,9 @@ converts your site file to Big Bang 4's keys and keeps the original.
 **You need** a Kubernetes 1.35+ cluster with a default StorageClass, and `kubectl`, `helm` 3,
 Python 3 with PyYAML and `chainctl`. To skip installing the tools, run the same commands
 from the installer image: `scripts/bb-docker.sh check`, then `scripts/bb-docker.sh install`.
+On each node, raise the inotify limits (`fs.inotify.max_user_instances=8192`,
+`fs.inotify.max_user_watches=524288`): NeuVector's enforcer exits at the common default of 128
+([RKE2 test](docs/testing.md)).
 
 More: [every installer option](docs/install.md) (TLS, signatures, GitOps, air-gapped sites,
 doing it by hand) · [Quickstart](docs/quickstart.md) (pinning and verifying a release) ·

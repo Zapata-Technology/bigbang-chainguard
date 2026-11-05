@@ -365,6 +365,26 @@ overrides:
     upstream:
       podSecurityContext: {runAsUser: null, runAsGroup: null}
       securityContext: {runAsUser: null, runAsGroup: null}
+  # Pod Security Admission's `restricted` level (RKE2's CIS profile) refused these pods for
+  # want of a seccomp profile (and Tempo's for allowPrivilegeEscalation) (rke2.yml). Helm
+  # merges these keys into the charts' own security contexts.
+  kiali:
+    upstream:
+      securityContext: {seccompProfile: {type: RuntimeDefault}}     # the operator
+      cr:
+        spec:
+          deployment:
+            security_context: {seccompProfile: {type: RuntimeDefault}}   # the Kiali server the operator creates
+  logging-loki:
+    loki:
+      podSecurityContext: {seccompProfile: {type: RuntimeDefault}}
+  tempo:
+    upstream:
+      securityContext: {seccompProfile: {type: RuntimeDefault}}     # the pod
+      tempo:
+        securityContext: {allowPrivilegeEscalation: false}
+      tempoQuery:
+        securityContext: {allowPrivilegeEscalation: false}
   kyverno:
     # Kyverno's reports controller runs at the chart's 128Mi limit. Upgrading from Big Bang
     # 3 to 4 replaces every ClusterPolicy with a CEL ValidatingPolicy, and the controller

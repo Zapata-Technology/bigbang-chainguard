@@ -15,8 +15,8 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | newer minor | 15 |
-| newer patch | 30 |
-| same | 71 |
+| newer patch | 31 |
+| same | 70 |
 | numbered differently | 7 |
 | stays on Iron Bank | 19 |
 | **total** | **143** |
@@ -42,7 +42,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/prometheus/memcached-exporter:v0.17.0` | `memcached-exporter:0.18.0` | `memcached-exporter-fips:0.18.0` | Chainguard | newer minor | logging-loki, mimir |
 | `ironbank/opensource/prometheus/snmp_exporter:v0.30.1` | `prometheus-snmp-exporter:0.31.0` | `prometheus-snmp-exporter:0.31.0` | Chainguard | newer minor | monitoring |
 
-## Newer patch, same line (30)
+## Newer patch, same line (31)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -68,6 +68,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.17` | `haproxy:3.3.17` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/keycloak/keycloak:26.8.0` | `keycloak:26.8.1` | `keycloak-fips:26.8.1` | Chainguard | newer patch | keycloak |
 | `ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.0` | `metrics-server:0.9.1` | `metrics-server-fips:0.9.1` | Chainguard | newer patch | metrics-server |
+| `ironbank/opensource/mattermost/mattermost:12.0.1` | `mattermost:12.0.2` | `mattermost-fips:12.0.1` | Chainguard | newer patch | mattermost |
 | `ironbank/opensource/mysql/mysql8:8.4.11` | `mysql:8.4.13` | `mysql-fips:8.4.13` | Chainguard | newer patch | fortify |
 | `ironbank/opensource/nginx/nginx:1.31.7` | `nginx:1.31.8` | `nginx-fips:1.31.8` | Chainguard | newer patch | logging-loki |
 | `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.94.1` | `prometheus-config-reloader:0.94.2` | `prometheus-config-reloader-fips:0.94.2` | Chainguard | newer patch | monitoring |
@@ -77,7 +78,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/thanos/thanos:v0.42.4` | `thanos:0.42.5` | `thanos-fips:0.42.5` | Chainguard | newer patch | monitoring |
 
-## Same version (71)
+## Same version (70)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -134,7 +135,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/kyverno/policy-reporter:3.11.2` | `kyverno-policy-reporter:3.11.2` | `kyverno-policy-reporter-fips:3.11.2` | Chainguard | same | kyverno-reporter |
 | `ironbank/opensource/kyverno:v1.19.2` | `kyverno:1.19.2` | `kyverno-fips:1.19.2` | Chainguard | same | kyverno |
 | `ironbank/opensource/mattermost/mattermost-operator:v1.25.9` | `ghcr.io/zapata-technology/bigbang-mattermost-operator:v1.25.9` | `ghcr.io/zapata-technology/bigbang-mattermost-operator-fips:v1.25.9` | built here | same | mattermost-operator |
-| `ironbank/opensource/mattermost/mattermost:12.0.1` | `mattermost:12.0.1` | `mattermost-fips:12.0.1` | Chainguard | same | mattermost |
 | `ironbank/opensource/memcached/memcached:1.6.45` | `memcached:1.6.45` | `memcached-fips:1.6.45` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/minio/operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar:v7.1.0` | `ghcr.io/zapata-technology/bigbang-minio-operator-sidecar-fips:v7.1.0` | built here | same | minio-operator |
 | `ironbank/opensource/minio/operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1` | `ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1` | built here | same | minio-operator |
