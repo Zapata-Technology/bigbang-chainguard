@@ -259,7 +259,9 @@ can't express, `mapping.yaml` has these escape hatches:
 - `post_renderers`: images hardcoded in a template. A Flux post-renderer rewrites them.
 - `chart_registry_builds`: images this repo builds in a chart that prefixes every image
   with one chart-wide registry (NeuVector's registry adapter). A Flux post-renderer moves
-  `<org registry>/<built image>` to `BUILD_REGISTRY`.
+  `<org registry>/<built image>` to `BUILD_REGISTRY`, or, with no `BUILD_REGISTRY`,
+  `<org registry>/ironbank/...` back to registry1. `bb-verify.py` fails on any nested path
+  under the org (org repositories are flat).
 - `version_labels`: workload labels that must state the version actually deployed (istiod).
 - `bash_wait_jobs`: wait jobs whose `#!/bin/sh` script is really bash. Iron Bank's UBI
   images run `sh` as bash; Chainguard's `-dev` images run busybox `sh`. A Flux
