@@ -11,6 +11,7 @@ modules, so scripts/ must be on sys.path, as bb-install.py and the tests arrange
   chart        Big Bang's chart (fetch_chart, clone_chart, chart_defaults), git mirrors
   credentials  Credentials (the bigbang/bb-install Secret), pull tokens, check_logins
   images       the images an install deploys and a pull test of each
+  nodes        each node's inotify limits, read by a short-lived pod (check)
   preflight    prepare and preflight: what check, install and upgrade start with
   tls          the gateway certificate (tls_choice, tls_manifests, tls_problem)
   signatures   the Kyverno signature policy (signature_choice, signature_policy, ...)
