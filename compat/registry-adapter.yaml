@@ -1,0 +1,69 @@
+# NeuVector's registry adapter built here from upstream's source (builds/registry-adapter),
+# FROM the org's images, in place of Iron Bank's. The harness builds
+# bigbang-registry-adapter and loads it into kind. Big Bang leaves the chart's
+# cve.adapter off, so the test turns it on, with test-only Harbor credentials (the
+# adapter's API takes basic auth; Harbor would hold the same pair).
+#
+# The credentials come from a Secret named by cve.adapter.harbor.secretName (keys username
+# and password). Not cve.adapter.env: NeuVector core 2.11.4 indents its entries one level
+# too deep under the container's env, and the manifest no longer parses. Big Bang creates
+# the neuvector namespace, so a setup job waits for it and then creates the Secret; the
+# adapter's pod starts once the Secret is there.
+images:
+  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter}
+test:
+  enable: [neuvector]
+  namespaces: [neuvector]
+  expect: [bigbang-registry-adapter]
+  values:
+    packages:
+      neuvector:
+        values:
+          upstream:
+            cve:
+              adapter:
+                enabled: true
+                harbor: {secretName: compat-harbor}
+  setup:
+    - sh compat/support/watch.sh adapter "kubectl -n neuvector logs deploy/neuvector-registry-adapter-pod --tail=30"
+    - |
+      nohup sh -c '
+        i=0
+        until kubectl get namespace neuvector >/dev/null 2>&1; do
+          i=$((i+1)); [ $i -lt 360 ] || exit 1; sleep 5
+        done
+        kubectl -n neuvector create secret generic compat-harbor \
+          --from-literal=username=compat --from-literal=password=compatAdapterAB12cd34 \
+          --dry-run=client -o yaml | kubectl apply -f -' > "$COMPAT_OUT/harbor-secret.log" 2>&1 &
+      echo "creating neuvector/compat-harbor once Big Bang makes the namespace"
+  check:
+    # The adapter serves Harbor's scanner API only once it has reached the NeuVector
+    # controller over its internal mTLS gRPC and the controller reports a scanner (the
+    # scanner's CVE database version becomes the adapter's version). Through a
+    # port-forward with curl (basic auth, the adapter's own TLS certificate): Harbor's
+    # GET /endpoint/api/v1/metadata (the URL Harbor is given ends in /endpoint) must name NeuVector with a version.
+    - |
+      kubectl -n neuvector port-forward deploy/neuvector-registry-adapter-pod 19443:9443 > "$COMPAT_OUT/pf-adapter.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
+      i=0
+      until out=$(curl -sk --fail-with-body -u compat:compatAdapterAB12cd34 https://127.0.0.1:19443/endpoint/api/v1/metadata 2>&1) \
+          && echo "$out" | python3 -c "import json, sys; s = json.load(sys.stdin)['scanner']; sys.exit(not (s['name'] == 'NeuVector' and s['version']))"; do
+        i=$((i+1))
+        if [ $i -ge 60 ]; then
+          echo "the adapter's metadata after 10 minutes: $out"; cat "$COMPAT_OUT/pf-adapter.log"
+          kubectl -n neuvector logs deploy/neuvector-registry-adapter-pod --tail=20
+          exit 1
+        fi
+        # A port-forward dies when the pod restarts; start another.
+        kill -0 $pf 2>/dev/null || { kubectl -n neuvector port-forward deploy/neuvector-registry-adapter-pod 19443:9443 >> "$COMPAT_OUT/pf-adapter.log" 2>&1 & pf=$!; }
+        sleep 10
+      done
+      echo "registry adapter metadata: $out"
+      # Wrong credentials are refused.
+      code=$(curl -sk -o /dev/null -w '%{http_code}' -u compat:wrong https://127.0.0.1:19443/endpoint/api/v1/metadata)
+      [ "$code" = 401 ] || { echo "wrong credentials answered $code, want 401"; exit 1; }
+  debug:
+    - "kubectl -n neuvector get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "cat $COMPAT_OUT/harbor-secret.log"
+    - "cat $COMPAT_OUT/watch-adapter.log"
+    - "kubectl -n neuvector logs deploy/neuvector-registry-adapter-pod --tail=40"

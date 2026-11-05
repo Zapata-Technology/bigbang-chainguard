@@ -167,6 +167,11 @@
       "notes": "Check: a span sent to Tempo over OTLP comes back through tempo-query's Jaeger `SpanReaderPlugin/GetTrace` (one gRPC call by hand, curl over HTTP/2)"
     },
     {
+      "test": "registry-adapter",
+      "runs": "`bigbang-registry-adapter` (built and loaded by the test), the chart's `cve.adapter` turned on, beside NeuVector",
+      "notes": "Check: Harbor's `GET /endpoint/api/v1/metadata` with basic auth names NeuVector with the scanner's version, which the adapter has only after reaching the controller over its internal gRPC; wrong credentials get 401"
+    },
+    {
       "test": "minio-operator",
       "runs": "`bigbang-minio-operator` and `bigbang-minio-operator-sidecar` (built and loaded by the test) reconciling a small Tenant the test makes (one server, four volumes) in its own namespace",
       "notes": "Check: the Tenant's pool is initialized, and its pod's `validate-arguments` init container completed and `sidecar` container runs on the built sidecar image. The MinIO server isn't checked: an org without `minio` (Zapata's, `orgs/`) keeps Iron Bank's, which CI can't pull, and a Big Bang minio package pod that never starts fails the test, so the package stays off"

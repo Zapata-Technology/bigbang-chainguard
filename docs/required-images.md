@@ -49,7 +49,7 @@ lists the ones your org doesn't have yet.
 | `gitlab-runner` | `gitlab-runner-fips` | gitlab-runner |
 | `gitlab-runner-helper` | `gitlab-runner-helper-fips` | gitlab-runner |
 | `gitlab-shell` | `gitlab-shell-fips` | gitlab |
-| `go` | `go-fips` | gitlab (builds/gitaly-init-cgroups), mattermost-operator (builds/mattermost-operator), minio-operator (builds/minio-operator), minio-operator (builds/minio-operator-sidecar), tempo (builds/tempo-query) |
+| `go` | `go-fips` | gitlab (builds/gitaly-init-cgroups), mattermost-operator (builds/mattermost-operator), minio-operator (builds/minio-operator), minio-operator (builds/minio-operator-sidecar), neuvector (builds/registry-adapter), tempo (builds/tempo-query) |
 | `grafana` | `grafana-fips` | grafana (builds/grafana-plugins), monitoring (builds/grafana-plugins) |
 | `grafana-alloy` | `grafana-alloy-fips` | alloy |
 | `grafana-alloy-operator` | `grafana-alloy-operator-fips` | alloy |

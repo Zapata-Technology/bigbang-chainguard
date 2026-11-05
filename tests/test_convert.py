@@ -425,3 +425,17 @@ def test_version_report_groups_and_explains_other_numbering():
     assert doc.index("## Different version line (1)") < doc.index("## Newer patch, same line (1)")
     assert "numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version)" in doc
     assert "## Stays on Iron Bank (1)" in doc and "override" not in doc
+
+
+def test_chart_registry_builds_move_the_built_image_to_build_registry(monkeypatch):
+    # NeuVector's chart renders <its one registry>/<repository>: the org's registry, not ours.
+    monkeypatch.setattr(convert, "build_target", lambda m, reg: (f"{reg}/bigbang-x:v1", f"{reg}/bigbang-x-fips:v1")
+                        if reg else None)
+    mapping = {"chart_registry_builds": {"packages.neuvector": ["ironbank/x"]}}
+    c = type("C", (), {"images": {"ironbank/x": {"build": "x"}}, "cg": "cgr.dev/org", "build_registry": "ghcr.io/o"})
+    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") == \
+        [{"name": "cgr.dev/org/bigbang-x", "newName": "ghcr.io/o/bigbang-x", "newTag": "v1"}]
+    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "fips")[0]["newName"] == "ghcr.io/o/bigbang-x-fips"
+    assert convert.chart_registry_builds(mapping, c, "packages.argocd", "standard") == []
+    c.build_registry = ""   # no BUILD_REGISTRY: the image stays on Iron Bank, nothing to move
+    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") == []
