@@ -9,11 +9,28 @@ packages:
       endpoint: http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333
       region: us-east-1
       type: minio
+    values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
   mattermost:
     objectStorage:
       bucket: bigbang-mattermost
       endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
     values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
       mattermostEnvs:
         MM_FILESETTINGS_AMAZONS3SSL: 'false'
   mimir:
@@ -24,6 +41,14 @@ packages:
       insecure: true
       region: us-east-1
     values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
       upstream:
         minio:
           enabled: false
@@ -37,6 +62,15 @@ packages:
       endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
       insecure: true
       region: us-east-1
+    values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
   thanos:
     objectStorage:
       bucket: bigbang-thanos
@@ -44,11 +78,27 @@ packages:
       insecure: true
       region: us-east-1
     values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
       upstream:
         minio:
           enabled: false
   velero:
     values:
+      bb-common:
+        networkPolicies:
+          egress:
+            from:
+              '*':
+                to:
+                  k8s:
+                    seaweedfs/seaweedfs:8333: true
       upstream:
         configuration:
           backupStorageLocation:

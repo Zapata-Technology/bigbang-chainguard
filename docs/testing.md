@@ -27,6 +27,7 @@ flowchart LR
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
 | **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
+| **RKE2, CIS profile** (`rke2.yml`) | weekly, PRs that touch it, or by hand | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. See below |
 
 ## Running packages on kind
 
@@ -190,6 +191,11 @@ None of these showed up when rendering. All are fixed in the overlays:
 | Found by | Problem | Fix |
 |---|---|---|
 | Every test (Flux) | Chainguard's Flux controllers are a minor ahead of Big Bang's Flux CRDs | `flux/` installs the Flux release the controllers belong to |
+| rke2 (Flux) | Pod Security Admission `restricted` (RKE2's CIS profile) refused every Flux controller: Big Bang's `base/flux` patch replaces the container `securityContext`, dropping Flux's own `seccompProfile` | `flux/` and `flux-fips/` end with a patch giving each controller pod `RuntimeDefault` (`fluxrelease.seccomp_patch`) |
+| rke2 (kyverno-policies) | PSA refused Big Bang's gluon wait job (no seccomp profile unless `waitJob.seccompProfile` is set), so the post-install hook timed out and every package behind Kyverno's policies waited | `template_defaults` `beside` sets `waitJob.seccompProfile: RuntimeDefault` for every package with a wait job; Istio's gateway chart's schema refuses that key, so it gets the same as a post-renderer patch |
+| rke2 (Istio gateways) | Istio's gateway chart gives its pods no seccomp profile; PSA `restricted` refused both gateways | `overrides` for both gateway releases set `upstream.securityContext` with `RuntimeDefault` (keeping the chart's default sysctl) |
+| rke2 (installer, signatures) | Big Bang's network policies let Kyverno's admission controller reach only the API server and registry1. With a CNI that enforces them (RKE2's Canal; kind's tests turn the policies off) every signature check timed out fetching Sigstore's trust root, and the enforced policy refused every Pod (istiod, ztunnel, cert-manager's startupapicheck) | With signature checks on, `bb-install.py install` adds a Kyverno egress rule: the admission controller to port 443 anywhere (Sigstore and the registry sit behind CDNs) |
+| rke2 (installer) | `bb-install.py status` judged every pod in `kube-system` (Istio's CNI agent goes there) and called RKE2's own CoreDNS, Canal and etcd images "not from the conversion" | `status` judges only the pods of Big Bang's releases in `kube-system` (workloads Flux labelled) |
 | vault-2 | Big Bang's post-start hook needs `curl`, which Chainguard's vault doesn't have | `bigbang-vault` adds it |
 | headlamp, alloy | Big Bang's jobs run `/bin/bash`, which Chainguard's `kubectl` doesn't have | `kubectl(-fips)-dev` |
 | kiali | `istio-init` was built from `hub` + `proxy_init.image`, so it still pulled Iron Bank's | Overrides set `hub`, `tag` and `proxy_init.image` |
@@ -273,6 +279,102 @@ recurred in 2 of 3 FIPS runs of `compat/release-upgrade.yaml`, right after the u
 that limit to 256Mi (`overrides.kyverno` in mapping.yaml). A site that still sees the reports
 controller restart can raise
 `packages.kyverno.values.upstream.reportsController.resources.limits.memory` further.
+
+## Big Bang on RKE2 with the CIS profile
+
+Most Big Bang sites run RKE2 hardened to CIS. That cluster refuses what kind and k3s allow:
+Pod Security Admission (PSA) enforces `restricted` in every namespace not exempted, the
+kubelet refuses to start on unsafe kernel settings, etcd runs as its own user, and volumes
+come from a real StorageClass. A package that needs a privilege PSA refuses passes every kind
+test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
+
+1. boots AlmaLinux 9 under QEMU/KVM, as the FIPS test does (`.github/vm-lib.sh`, shared by
+   both VMs), with twice the runner's CPUs (at least 8) and all but 2 GB of its memory. It runs
+   on the runner the repository variable `RKE2_RUNNER` names, else `ubuntu-latest`; on a
+   runner under 14 GB the VM gets 12 GB backed by swap (see the results below);
+2. installs RKE2 `v1.35.9+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
+   its release: the release's checksum file is pinned by SHA256 and vouches for the tarball
+   and the airgap images (core and Canal, so nothing of RKE2's comes from Docker Hub);
+   `install.sh` from the same tag, also by SHA256 (`.github/rke2-vm.sh`);
+3. configures `profile: cis` with what RKE2's CIS guide requires (the `etcd` user,
+   `rke2-cis-sysctl.conf`), RKE2's own CIS PSA configuration (`restricted`, enforced) with
+   the exemptions listed below, and local-path-provisioner (manifest by SHA256, images by
+   digest) as the default StorageClass; RKE2's ingress-nginx is off (Big Bang brings Istio's
+   gateway), its metrics-server stays, as at a site;
+4. checks the profile is in effect (etcd runs as `etcd`; PSA refuses a privileged pod in
+   `default`) before the install and again after it;
+5. writes a site file with Big Bang's defaults (`bb-install.py init`), runs
+   `bb-install.py check`, then `bb-install.py install` (standard images; `--small-cluster`
+   only lowers Flux's requests on the one node);
+6. `scripts/cluster-check.py`: fails on any HelmRelease that isn't Ready, any pod in any namespace that isn't Ready (or a
+   finished Job), any container restart, an image that can't be pulled, and any pod refused
+   by PSA or an admission webhook. Events are kept for the whole run (the API server forgets
+   them after an hour), since a controller whose pod was refused keeps retrying and the pod
+   never shows up as failing.
+
+The PSA exemptions are what a site on RKE2's CIS profile has to configure for Big Bang's
+default packages, because their node agents need the host, which `restricted` and `baseline`
+forbid: `istio-system` (ztunnel), `neuvector` (the enforcer is privileged), `monitoring`
+(node-exporter: host network, PID and filesystem), `alloy` (reads pod logs from the host),
+plus RKE2's defaults (`kube-system`, which holds Istio's CNI agent, `cis-operator-system`,
+`tigera-operator`) and `local-path-storage`. Every other namespace (Flux, SeaweedFS, Kyverno,
+Loki, Tempo, Grafana, Kiali, cert-manager, the gateway) must pass `restricted`.
+
+It runs weekly (Sunday 11:00 UTC), on pull requests that change it, and by hand from main
+(`gh workflow run rke2.yml --ref main`; from another branch the Chainguard login fails, as
+for the kind tests). The harden-runner egress policy blocks every host it doesn't list, the
+VM's traffic included (it leaves through the runner): Sigstore's hosts are on the list because
+Kyverno fetches its trust roots to check each image's signature for the installer's signature
+policy; blocked, every Deployment timed out in Kyverno's webhook. The artifact `rke2-default-packages`
+holds the `check`, `install` and `cluster-check` logs, every pod's log, the events, and the
+VM's RKE2, kubelet, audit and kernel logs. Not covered: SELinux (permissive in the VM;
+`rke2-selinux` is another package repository), several nodes, and the FIPS overlay on RKE2.
+
+**Results (2026-11-04, PR #137, runs 41784393791 to 41812789877):** not passing yet, because
+a standard private-repository runner (2 CPUs, 7 GB) can't hold Big Bang's default packages.
+RKE2, the CIS profile, PSA and local-path come up in every run (about 9 minutes), and
+`bb-install.py check` passes (46 of 46 images pullable). Each run got further as the
+findings above were fixed: Flux (seccomp), Kyverno's policies (the wait job's seccomp), the
+installer's status (RKE2's own pods), Sigstore through the egress block and through Big
+Bang's network policies, Istio's gateways (seccomp). With 6 GB the node ran out of memory
+requests before istiod (4.7 GiB requested by RKE2, Flux, Kyverno and SeaweedFS alone). With
+12 GB on swap everything scheduled, but the control plane starved: the controller manager
+and scheduler lost their leases and Kyverno's webhook timed out, so cert-manager and the
+gateways failed to install.
+
+**On the 8-core/32 GB runner (`RKE2_RUNNER=ubuntu-rke2`, 2026-11-05, run 42041496095):** the
+control plane held, and 15 of 19 HelmReleases became Ready (34 images, all converted). What
+remained:
+- PSA `restricted` refused Kiali's operator and Loki (no seccomp profile) and Tempo (no
+  seccomp profile, `allowPrivilegeEscalation` unset). `mapping.yaml` `overrides` add them
+  (`kiali` also for the Kiali server its operator creates); Alloy waited on Loki.
+- NeuVector's enforcer exited 254 ("couldn't initialize inotify: too many open files") at
+  AlmaLinux's default of 128 inotify instances per user, and the exporter couldn't log in
+  to the controller meanwhile. **A Big Bang node needs `fs.inotify.max_user_instances=8192`
+  and `fs.inotify.max_user_watches=524288`**; the VM sets them (`.github/rke2-vm.sh`).
+
+**Second run (run 42047840509):** Kiali and NeuVector came up; 16 of 19 HelmReleases Ready.
+- Tempo's S3 calls to the in-cluster SeaweedFS timed out: Canal enforces Big Bang's network
+  policies (kind's CNI doesn't), and they allow object storage only at MinIO. The object
+  storage overlay now gives each package using SeaweedFS egress to it
+  (`objstore.seaweedfs_egress`).
+- Loki's volume was never created: Big Bang's Kyverno policies refused local-path's helper
+  pod (a host path, an image outside the allowed registries). The test excludes
+  `local-path-storage` (`kyvernoPolicies.values.policies.excludeNamespaces`); a site does
+  the same for its storage provisioner's namespace.
+
+**Third run (run 42056914565, after one re-run for GitHub's 504s):** Tempo came up; 17 of 19.
+- Kyverno's `restrict-host-path-mount-pv` refused local-path's hostPath PersistentVolume for
+  Loki (a PV has no namespace, so the exclusion doesn't reach it). The VM's StorageClass now
+  makes `local` volumes (`defaultVolumeType: local`). At a site, use storage that doesn't
+  make hostPath PVs, or exclude them from that policy.
+- NeuVector's exporter restarted 4 times in its first minute, until the controller
+  answered, then ran for 20. `cluster-check.py` waits until such a container (Ready, at
+  most 5 restarts) has run 10 minutes, then reports its restarts as a note, not a failure.
+
+**Fourth run (run 42066570084):** all 19 HelmReleases Ready on RKE2's CIS profile. The one
+problem left was the exporter's startup restarts, judged before it had run 10 minutes:
+`cluster-check.py` now waits for that.
 
 ## CI environment notes
 

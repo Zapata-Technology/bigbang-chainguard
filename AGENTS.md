@@ -43,8 +43,9 @@ org-neutral.
 6. **No secrets** in the repo, logs or test output. Pull credentials come from the site
    file (`registryCredentials`) or CI secrets.
 7. **Workflows:** every action pinned to a full commit SHA with the version as a comment;
-   top-level `permissions`; harden-runner blocks unlisted hosts in ci/builds/update (add a
-   host to `allowed-endpoints` when a new tool needs it).
+   top-level `permissions`; harden-runner blocks unlisted hosts in ci/builds/update/rke2 (add a
+   host to `allowed-endpoints` when a new tool needs it). A VM test's downloads are pinned by
+   SHA256 and its hosts allowed (`tests/test_repo_rules.py`).
 8. **Every `bb-scan.py` finding is reviewed** in `mapping.yaml` `scan_reviewed`.
 9. Python: standard library + PyYAML only (pinned in `requirements.txt`; pytest and ruff,
    for CI only, in `requirements-dev.txt`); each script starts with a docstring saying what
@@ -78,7 +79,8 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix), `fips-kernel.yml` (weekly: the FIPS overlay
-on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `bigbang-preview.yml` (weekly:
+on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
+packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (weekly:
 `bb-preview.py` against Big Bang's development branch; keeps one `bigbang-preview` issue
 current), `codeql.yml` / `scorecard.yml` (public repo only).
 

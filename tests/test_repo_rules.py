@@ -118,6 +118,38 @@ def test_workflows_parse_and_declare_permissions(path):
     assert "permissions" in doc, "top-level permissions keep the default token least-privilege"
 
 
+# --- the VM tests (fips-kernel.yml, rke2.yml): every download pinned, every host allowed ---
+
+GITHUB_DIR = os.path.join(ROOT, ".github")
+VM_SCRIPTS = sorted(glob.glob(os.path.join(GITHUB_DIR, "*vm*.sh")))
+
+
+@pytest.mark.parametrize("path", VM_SCRIPTS, ids=os.path.basename)
+def test_vm_scripts_check_every_download_by_sha256(path):
+    text = open(path, encoding="utf-8").read()
+    for name in re.findall(r"^(\w+)_VERSION=", text, re.M):
+        assert re.search(rf"^{name}_\w*SHA256=[0-9a-f]{{64}}$", text, re.M), f"{name}_VERSION has no pinned SHA256"
+    curls = len(re.findall(r"\bcurl\b", text))
+    checks = len(re.findall(r"sha256sum -c", text))
+    assert curls <= checks, f"{curls} downloads but {checks} sha256sum checks: check each file you fetch"
+
+
+def test_blocking_vm_workflows_allow_the_hosts_their_scripts_download_from():
+    for wf in WORKFLOWS:
+        text = open(wf, encoding="utf-8").read()
+        if "egress-policy: block" not in text:
+            continue
+        allowed = set(re.findall(r"^\s+([\w.*-]+:\d+)$", text, re.M))
+        for script in sorted(set(re.findall(r"\.github/([\w-]+\.sh)", text))):
+            body = open(os.path.join(GITHUB_DIR, script), encoding="utf-8").read()
+            if "vm-lib.sh" in body:
+                body += open(os.path.join(GITHUB_DIR, "vm-lib.sh"), encoding="utf-8").read()
+            for host in set(re.findall(r"https://([\w.-]+)/", body)):
+                ok = f"{host}:443" in allowed or any(
+                    a.startswith("*.") and host.endswith(a[1:].rsplit(":", 1)[0]) for a in allowed)
+                assert ok, f"{os.path.basename(wf)} blocks {host}, which {script} downloads from"
+
+
 # --- scripts explain themselves ---
 
 @pytest.mark.parametrize("path", SCRIPTS, ids=lambda p: os.path.relpath(p, ROOT))

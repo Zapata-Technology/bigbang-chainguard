@@ -12,6 +12,7 @@ on:
     paths:
       - .github/workflows/fips-kernel.yml
       - .github/fips-vm.sh
+      - .github/vm-lib.sh
   schedule:
     - cron: "0 9 * * 0"   # weekly, after compat.yml's Sunday run
   workflow_dispatch:

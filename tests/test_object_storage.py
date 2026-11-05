@@ -109,3 +109,15 @@ def test_package_of():
     import objstore
     assert objstore.package_of("packages.mimir.s3ObjectStorage.accessKey") == "mimir"
     assert objstore.package_of("packages.tempo.objectStorage.accessSecret") == "tempo"
+
+
+def test_in_cluster_seaweedfs_gets_network_policy_egress():
+    # Big Bang's network policies know only MinIO: each package using the in-cluster
+    # SeaweedFS needs egress to it (Tempo timed out on RKE2's Canal). A site's own S3 doesn't.
+    t = storage.tokens("http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333", "us-east-1", "bb")
+    overlay, _, _, chosen = storage.build(SPEC, t, set())
+    for name in chosen:
+        rule = overlay["packages"][name]["values"]["bb-common"]["networkPolicies"]["egress"]["from"]["*"]
+        assert rule == {"to": {"k8s": {"seaweedfs/seaweedfs:8333": True}}}
+    overlay, _, _, _ = storage.build(SPEC, storage.tokens("https://s3.example.com", "r", "bb"), set())
+    assert "bb-common" not in yaml.safe_dump(overlay)

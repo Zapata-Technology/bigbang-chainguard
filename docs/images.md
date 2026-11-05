@@ -155,7 +155,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | mattermost | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | mattermost | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | mattermost | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
-| mattermost | ironbank/opensource/mattermost/mattermost:12.0.1 | mattermost:12.0.1 | mattermost-fips:12.0.1 |  |
+| mattermost | ironbank/opensource/mattermost/mattermost:12.0.1 | mattermost:12.0.2 | mattermost-fips:12.0.1 | mattermost: Iron Bank 12.0.1 -> newest 12.0 patch |
 | mattermost | ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z | Iron Bank | Iron Bank | MinIO not used by Zapata; org minio repos removed 2026-10-27 |
 | mattermost | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
 | mattermost-operator | ironbank/opensource/mattermost/mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator-fips:v1.25.9 | built FROM the org's images by scripts/bb-build.py mattermost-operator |
