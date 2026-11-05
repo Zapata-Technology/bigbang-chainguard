@@ -74,6 +74,8 @@ packages:
         kubectlImage: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   argocd:
     postRenderers:
     - kustomize:
@@ -258,6 +260,8 @@ packages:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
         scripts:
           image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   externalSecrets:
     postRenderers:
     - kustomize:
@@ -324,6 +328,8 @@ packages:
             tag: 0.21.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   gatekeeper:
     postRenderers:
     - kustomize:
@@ -377,6 +383,8 @@ packages:
             - ghcr.io/zapata-technology
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   gitlab:
     postRenderers:
     - kustomize:
@@ -684,6 +692,8 @@ packages:
           tag: 0.46.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   istioCNI:
     postRenderers:
     - kustomize:
@@ -711,8 +721,20 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:9650d0c9fe1bddc1bcd7b50fb6920ede8452beef4061fadd4079e746f6b9df67
           name: cgr.dev/zapatatechnology.com/kubectl
+        patches:
+        - patch: '[{"op": "add", "path": "/spec/template/spec/securityContext/seccompProfile", "value": {"type": "RuntimeDefault"}}]'
+          target:
+            kind: Job
+            name: .*-wait-job
     values:
       shared:
+        upstream:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            sysctls:
+            - name: net.ipv4.ip_unprivileged_port_start
+              value: '0'
         waitJob:
           image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
   istiod:
@@ -777,6 +799,8 @@ packages:
           tag: 2.33.0
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyverno:
     postRenderers:
     - kustomize:
@@ -852,6 +876,8 @@ packages:
             tag: 1.37-dev
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyvernoPolicies:
     postRenderers:
     - kustomize:
@@ -879,6 +905,8 @@ packages:
             - ghcr.io/zapata-technology
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   kyvernoReporter:
     postRenderers:
     - kustomize:
@@ -1011,6 +1039,8 @@ packages:
           tag: '18.6'
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   mattermostOperator:
     values:
       image:
@@ -1092,6 +1122,8 @@ packages:
           tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   minioOperator:
     values:
       tenantPatchJob:
@@ -1390,6 +1422,8 @@ packages:
           tag: 2.1.0-kubectl1.36.6
       waitJob:
         image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
+        seccompProfile:
+          type: RuntimeDefault
   vault:
     postRenderers:
     - kustomize:
