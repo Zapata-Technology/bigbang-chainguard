@@ -124,6 +124,10 @@ EOF
   grep -q "$LOCAL_PATH_IMAGE" local-path.yaml && grep -q "$BUSYBOX_IMAGE" local-path.yaml
   kubectl apply -f local-path.yaml
   kubectl annotate storageclass local-path storageclass.kubernetes.io/is-default-class=true --overwrite
+  # `local` PersistentVolumes, not hostPath ones: Big Bang's Kyverno policy
+  # restrict-host-path-mount-pv refused the hostPath PV for Loki's claim (a PV has no
+  # namespace, so excluding local-path-storage doesn't cover it).
+  kubectl annotate storageclass local-path defaultVolumeType=local --overwrite
   kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=300s
   assert
   # RKE2's own charts (CoreDNS, Canal, metrics-server) finish installing after the node is

@@ -363,6 +363,15 @@ remained:
   `local-path-storage` (`kyvernoPolicies.values.policies.excludeNamespaces`); a site does
   the same for its storage provisioner's namespace.
 
+**Third run (run 42056914565, after one re-run for GitHub's 504s):** Tempo came up; 17 of 19.
+- Kyverno's `restrict-host-path-mount-pv` refused local-path's hostPath PersistentVolume for
+  Loki (a PV has no namespace, so the exclusion doesn't reach it). The VM's StorageClass now
+  makes `local` volumes (`defaultVolumeType: local`). At a site, use storage that doesn't
+  make hostPath PVs, or exclude them from that policy.
+- NeuVector's exporter restarted 4 times in its first minute, until the controller
+  answered, then ran for 20. `cluster-check.py` reports a few restarts followed by 10 Ready
+  minutes as a note, not a failure.
+
 ## CI environment notes
 
 These are kind-on-GitHub-Actions limits, not image problems:

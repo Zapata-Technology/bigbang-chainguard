@@ -8,7 +8,10 @@ Every HelmRelease Ready (Flux uninstalls a release whose install failed, so its 
 gone by now), and across every namespace (Big Bang's, Flux's, SeaweedFS's and the cluster's own):
   - each pod Running with every container Ready, or Succeeded (a finished Job)
   - no container restarted more than --max-restarts times (a finished Job's retries aside:
-    RKE2's own helm-install Jobs retry while the API settles)
+    RKE2's own helm-install Jobs retry while the API settles). A container that restarted
+    at most STARTUP_RESTARTS times while what it needs came up, and has been Ready and
+    running for SETTLED seconds since, is a note: NeuVector's exporter exits until the
+    controller answers, then runs.
   - no container waiting on an image it can't pull (ErrImagePull, ImagePullBackOff,
     InvalidImageName) or on its config (CreateContainerConfigError)
   - no pod refused by Pod Security Admission or an admission webhook (Kyverno), in the
@@ -19,6 +22,7 @@ An image pull that failed and later succeeded is listed, not failed (a registry 
 Prints PROBLEM lines and a RESULT line; exit 1 on any problem.
 """
 import argparse
+import datetime
 import json
 import os
 import re
@@ -31,11 +35,24 @@ from bbcluster import STUCK_WAITING, kubectl  # noqa: E402
 # Admission refusals, as the controllers that create pods report them (FailedCreate).
 REFUSED = re.compile(r"violates PodSecurity|admission webhook \S+ denied the request")
 PULL_FAILED = re.compile(r"Failed to pull image|ErrImagePull|ImagePullBackOff")
+STARTUP_RESTARTS = 5
+SETTLED = 600
 
 
-def pod_problems(pods, max_restarts=0):
+def settled(s, now):
+    """Whether a container's restarts were startup only: few, and Ready and running for
+    SETTLED seconds since the last one."""
+    started = s.get("state", {}).get("running", {}).get("startedAt")
+    if not (started and s.get("ready") and s.get("restartCount", 0) <= STARTUP_RESTARTS):
+        return False
+    since = now - datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
+    return since.total_seconds() >= SETTLED
+
+
+def pod_problems(pods, max_restarts=0, now=None, notes=None):
     """PROBLEM lines for pods that aren't Running and Ready (or Succeeded), restarted, or
-    wait on an image or config they can't get."""
+    wait on an image or config they can't get. Startup restarts go to `notes`."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
     problems = []
     for p in pods:
         name = f"{p['metadata']['namespace']}/{p['metadata']['name']}"
@@ -52,8 +69,12 @@ def pod_problems(pods, max_restarts=0):
                                 f"({s.get('state', {}).get('waiting', {}).get('message', '')[:200]})")
             if s.get("restartCount", 0) > max_restarts:
                 last = s.get("lastState", {}).get("terminated", {})
-                problems.append(f"{name} container {s['name']} restarted {s['restartCount']} times"
-                                + (f" (last: {last.get('reason')}, exit {last.get('exitCode')})" if last else ""))
+                line = (f"{name} container {s['name']} restarted {s['restartCount']} times"
+                        + (f" (last: {last.get('reason')}, exit {last.get('exitCode')})" if last else ""))
+                if settled(s, now) and notes is not None:
+                    notes.append(line + f", while starting; Ready since {s['state']['running']['startedAt']}")
+                else:
+                    problems.append(line)
         if phase == "Succeeded":
             continue
         if phase != "Running" or not containers or not all(s.get("ready") for s in containers):
@@ -129,11 +150,13 @@ def main():
 
     hrs = json.loads(kubectl("get", "helmrelease", "-A", "-o", "json", check=False) or '{"items": []}')["items"]
     pods = json.loads(kubectl("get", "pod", "-A", "-o", "json"))["items"]
-    problems = helmrelease_problems(hrs) + pod_problems(pods, a.max_restarts)
+    startup = []
+    problems = helmrelease_problems(hrs) + pod_problems(pods, a.max_restarts, notes=startup)
     events = json_events(json.loads(kubectl("get", "events", "-A", "-o", "json")))
     if a.events and os.path.exists(a.events):
         events += parse_event_lines(open(a.events, encoding="utf-8", errors="replace").read())
     refused, notes = event_problems(events)
+    notes = startup + notes
     problems += refused
     namespaces = sorted({p["metadata"]["namespace"] for p in pods})
     print(f"{len(hrs)} HelmReleases; {len(pods)} pods in {len(namespaces)} namespaces ({', '.join(namespaces)}); {len(events)} events read")

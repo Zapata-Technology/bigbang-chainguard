@@ -37,6 +37,21 @@ def test_restarts_fail_past_the_allowance_and_name_the_last_exit():
     assert check.pod_problems([p], max_restarts=2) == []
 
 
+def test_startup_restarts_then_settled_are_notes():
+    # NeuVector's exporter exits until the controller answers, then runs.
+    now = check.datetime.datetime(2026, 11, 5, 16, 30, tzinfo=check.datetime.timezone.utc)
+    p = pod("exporter", restarts=4, last={"reason": "Error", "exitCode": 1})
+    p["status"]["containerStatuses"][0]["state"] = {"running": {"startedAt": "2026-11-05T16:10:00Z"}}
+    notes = []
+    assert check.pod_problems([p], now=now, notes=notes) == []
+    assert "restarted 4 times" in notes[0] and "while starting" in notes[0]
+    # Recently restarted, or restarting too often: still a problem.
+    p["status"]["containerStatuses"][0]["state"] = {"running": {"startedAt": "2026-11-05T16:25:00Z"}}
+    assert check.pod_problems([p], now=now, notes=[])
+    p["status"]["containerStatuses"][0].update(restartCount=6, state={"running": {"startedAt": "2026-11-05T16:00:00Z"}})
+    assert check.pod_problems([p], now=now, notes=[])
+
+
 def test_image_pull_errors_fail():
     problems = check.pod_problems([pod("a", phase="Pending", ready=False, waiting="ImagePullBackOff")])
     assert problems[0] == "ns/a container app: ImagePullBackOff (pull access denied)"
