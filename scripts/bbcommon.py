@@ -144,6 +144,14 @@ def load_build(name):
     return yaml.safe_load(open(p)) if os.path.exists(p) else None
 
 
+def org_note(cg, comment="# "):
+    """The line every generated file that names the org carries: which org it is for, and how
+    another org regenerates it (docs/your-org.md). The colon after the org ends it for
+    bbinstall.checkout, which reads the org from this line."""
+    return (f"{comment}Generated for {cg}: for another org, regenerate it with "
+            "python scripts/bb-run.py --org <your org> --save (docs/your-org.md).")
+
+
 def build_target(m, registry):
     """(standard ref, fips ref) for a mapping.yaml `build:` entry, or None if it stays on Iron Bank."""
     spec = load_build(m["build"])
