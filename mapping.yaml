@@ -479,6 +479,8 @@ unpinned:
     kubectl: its two wait jobs run two kubectl lines (1.36, 1.37); kustomize pins one digest per name
   argocd:
     redis: redis (8.10) and redis-ha (8.8, off in Big Bang) name two redis lines; kustomize pins one digest per name
+    prometheus-redis-exporter-iamguarded: redis-bb's exporter is Iron Bank's 1.96; redis-ha's (off in Big Bang)
+      is 1.86, which the org lacks, so it takes the newest, and the two differ whenever Chainguard is ahead
 
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.
