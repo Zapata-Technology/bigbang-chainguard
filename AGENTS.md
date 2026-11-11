@@ -288,6 +288,11 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   The database password can't change on a running Keycloak (PostgreSQL keeps it).
 - **cgr.dev serves layers and signatures from `*.r2.cloudflarestorage.com`**: harden-runner
   must allow it.
+- **harden-runner's block can let an unlisted host through, then stop it later**: cosign 3's
+  `sign-blob` (release.yml) gets its timestamp from `timestamp.sigstore.dev`, which wasn't
+  listed; releases signed until 2026-11-11, when the runner answered that name with a
+  non-Sigstore address and the release failed (`connection refused`). Before listing a new
+  tool's hosts, read the `endpoint called` lines in a passing run's harden-runner post step.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
   the matching upstream Flux release (`fluxrelease.py`).
 - GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
