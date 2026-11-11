@@ -85,7 +85,8 @@ jobs:
       # and what this workflow's tools download). A blocked call fails the step and
       # shows up in the job's annotations: add the host here if it is expected.
       # proxy.golang.org serves module zips from storage.googleapis.com; grafana.com, the
-      # Grafana plugins grafana-plugins installs.
+      # Grafana plugins grafana-plugins installs; timestamp.sigstore.dev, the timestamp in
+      # the Sigstore bundle cosign 3 signs and attests with (pushes to main only).
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
@@ -120,6 +121,7 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
             storage.googleapis.com:443
             sum.golang.org:443
+            timestamp.sigstore.dev:443
             token.actions.githubusercontent.com:443
             toolbox-data.anchore.io:443
             tuf-repo-cdn.sigstore.dev:443
