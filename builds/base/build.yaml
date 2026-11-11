@@ -5,12 +5,12 @@
 ironbank:
   image: ironbank/big-bang/base:2.1.0
   source: https://repo1.dso.mil/dsop/big-bang/base
-  commit: 0698a04cdb442322dbccfb32f2e345658a8c3248
+  commit: 5833ec00e068f38e3a4b498af076eeaacd85fd4b
   manifest_tags:
   - 2.1.0
   - latest
   kubectl: 1.36.0
-  yq: 4.54.1
+  yq: 4.54.3
   microdnf:
   - jq
   - pinentry
@@ -20,11 +20,11 @@ image:
   standard:
     name: bigbang-base
     tag: 2.1.0-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:88127961bca628d7cffcff20ab42b31654536e58a1494f308260e97c5e406ed7
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:f0d00e5a058495eb5c12a1360262972c21fa0761bf0be75bda7b0cc3957cb02d
   fips:
     name: bigbang-base-fips
     tag: 2.1.0-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:ecf5d23bfd25ca2e2b5ec73a713b1edc9a777e07a958e85a9c12dd7a4e404a82
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:b00b95edeed9617cd0f79f2c8e643055cfc409cef26729f5f0f2a10aaa94536e
 packages:
 - bash
 - ca-certificates

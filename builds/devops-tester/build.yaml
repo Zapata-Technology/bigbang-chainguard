@@ -16,15 +16,15 @@ image:
   standard:
     name: bigbang-devops-tester
     tag: 1.4-kubectl1.37.2
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev@sha256:9650d0c9fe1bddc1bcd7b50fb6920ede8452beef4061fadd4079e746f6b9df67
-    velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:4f2ec5c37e8c6286ff2c172cb9f066b108127aec387b4ad205e03f148df38b3a
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:e57e7d709bc5d27546d283b49495d968991e88a9e7093154b454fcc66518e77b
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev@sha256:d7173a23fa4177be57aabd46081ad7aa01abf193f3c1d6a3993c2548de22d0de
+    velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:2a51434982751def081210ee39f37fa4eb8cf936eace4d5ad16f0046fa7f1727
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:0c9e878eafbc0862b0c8c082fca456510b8bc4019c064e164256fa1bc22c4296
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:2ebc8bc07c5a7d772572f2af6542e877041066cf15b4628456b5f15ed015e950
-    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:9351f98128c5817d782f2698e3f36c9c972cc8663f0d314b8e7acea7302601f9
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:44c3dcae6320fa5d86f1b318ec85ad465bab2956ef92816f074457a6accfbcab
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:6a852e3d661fcfb870eed8ef8e907bb9ae5d39430a659dc99b3afd7ecc0a4552
+    velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:4e2d7aa162a3500a5d7720d343702d60424602a67bd3ee919a8379fbc0f2112a
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:c12b96ee4d3063a636b951785bbeb7fd74243c0f9198dc01efd2e989658b185c
 chainsaw:
   version: 0.2.15
   source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15
@@ -32,7 +32,7 @@ chainsaw:
   go_get:
   - golang.org/x/net@v0.62.0
   - google.golang.org/grpc@v1.85.0
-  - github.com/go-jose/go-jose/v4@v4.1.8
+  - github.com/go-jose/go-jose/v4@v4.1.9
 packages:
 - bash
 - curl
