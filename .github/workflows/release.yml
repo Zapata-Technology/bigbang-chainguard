@@ -40,6 +40,8 @@ jobs:
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: block
+          # timestamp.sigstore.dev: cosign 3's sign-blob timestamps the signature with the
+          # timestamp authority in Sigstore's signing config.
           allowed-endpoints: >
             api.github.com:443
             files.pythonhosted.org:443
@@ -49,6 +51,7 @@ jobs:
             pypi.org:443
             rekor.sigstore.dev:443
             release-assets.githubusercontent.com:443
+            timestamp.sigstore.dev:443
             tuf-repo-cdn.sigstore.dev:443
             uploads.github.com:443
 
