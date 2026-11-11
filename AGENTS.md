@@ -288,11 +288,14 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   The database password can't change on a running Keycloak (PostgreSQL keeps it).
 - **cgr.dev serves layers and signatures from `*.r2.cloudflarestorage.com`**: harden-runner
   must allow it.
-- **harden-runner's block can let an unlisted host through, then stop it later**: cosign 3's
-  `sign-blob` (release.yml) gets its timestamp from `timestamp.sigstore.dev`, which wasn't
-  listed; releases signed until 2026-11-11, when the runner answered that name with a
-  non-Sigstore address and the release failed (`connection refused`). Before listing a new
-  tool's hosts, read the `endpoint called` lines in a passing run's harden-runner post step.
+- **harden-runner's block let unlisted hosts through until 2026-11-11**, then refused them:
+  the runner answers the name with an address that isn't the host's (54.185.253.63) and the
+  call fails with `connect: connection refused`. Hosts that had worked unlisted:
+  `timestamp.sigstore.dev` (cosign 3's `sign-blob` timestamps there), `storage.googleapis.com`
+  (proxy.golang.org serves module zips from it), `grafana.com`, Docker Hub's
+  `production.cloudfront.docker.com` and `index.docker.io`, SUSE's registry storage. A passing
+  run doesn't prove its list: compare the `domain resolved:` lines in its harden-runner post
+  step with the workflow's `allowed-endpoints`.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
   the matching upstream Flux release (`fluxrelease.py`).
 - GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
