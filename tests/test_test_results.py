@@ -149,10 +149,11 @@ def test_update_from_a_directory_writes_both_files(tmp_path, monkeypatch):
 
 
 def test_the_seed_keeps_every_test_the_hand_table_had():
+    # The committed file, which update.yml refreshes nightly: a test's newest run and its outcome
+    # change whenever it reruns, so only what the seed promised is checked, never a run ID.
     seeded = tr.load()
     names = [t["test"] for t in seeded["tests"]]
     for name in ("vault-2", "release-upgrade", "vault-upgrade", "gitlab", "gitlab-runner", "minio-operator"):
         assert name in names
-    gitlab = {r["mode"]: r for r in seeded["results"] if r["test"] == "gitlab"}
-    assert gitlab["standard"]["run_id"] == 41770338111 and gitlab["fips"]["result"] == "pass"
+    assert {r["mode"] for r in seeded["results"] if r["test"] == "gitlab"} == {"standard", "fips"}
     assert all(tr.valid(r) for r in seeded["results"])
