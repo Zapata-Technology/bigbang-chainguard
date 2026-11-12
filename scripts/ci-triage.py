@@ -10,7 +10,9 @@ maintaining this repo: one command instead of reading job logs by hand.
   python scripts/ci-triage.py --flakes            # which jobs needed re-runs lately (30 days)
 
 A kind test's evidence comes from its artifact (compat-<test>-<mode>: compat.log and
-diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in.
+diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in. A job whose
+connections were refused gets the hosts named: in a workflow whose harden-runner blocks egress,
+that means a host missing from its allowed-endpoints (a re-run won't help).
 Exit code: 0 nothing failed, 1 a real failure, 2 only flakes.
 
 --flakes counts, per job, the failed attempts of runs that were re-run (by a person or
@@ -44,6 +46,10 @@ FLAKES = [
     # Rekor stored the entry, cosign's request timed out, and its retry was refused as a duplicate.
     (re.compile(r"createLogEntryConflict", re.I), "Sigstore's log timed out (duplicate entry on retry)"),
 ]
+# A refused connection. Not a flake: in a workflow whose harden-runner blocks egress, the host
+# isn't on its allowed-endpoints list (the runner answers an unlisted name with an address that
+# refuses), and a re-run fails the same way.
+BLOCKED = re.compile(r'"https?://(?P<host>[A-Za-z0-9.-]+)[^"]*": dial tcp [\d.]+:\d+: connect: connection refused')
 # Lines worth showing from a kind test's compat.log.
 EVIDENCE = re.compile(r"^(RESULT|PROBLEM|EXITED|CHECK FAILED|FORBIDDEN LOG|IMAGE POLICY|NOT EXERCISED)"
                       r"|^\d\d:\d\d:\d\d LIVE |^\d\d:\d\d:\d\d source: ")
@@ -70,12 +76,20 @@ def errors(log, limit=15):
     for ln in log.splitlines():
         # `gh run view --log` prefixes "job<TAB>step<TAB>"; the API's job log doesn't.
         ln = re.sub(r"^(?:[^\t]*\t[^\t]*\t)?﻿?\d{4}-\d\d-\d\dT[\d:.]+Z ", "", ln)
-        # Skip the workflow's own script, echoed in cyan (raw escape, or ^[ from `gh run view`).
+        # Shorten long URLs (the Go proxy's signed links), so the cut below keeps the error.
+        ln = re.sub(r'"(https?://[^/"]+)/[^"]{120,}"', r'"\1/..."', ln)
+        # Skip the workflow's own script, echoed in cyan (raw escape, or ^[ from `gh run view`),
+        # and harden-runner's own telemetry errors (agent.api.stepsecurity.io), which fail no job.
         # Keep known-flake lines too: they decide FLAKE vs FAILED (a curl 500 isn't an "error" line).
-        if (ERROR.search(ln) or any(rx.search(ln) for rx, _ in FLAKES)) \
-                and "Harden the runner" not in ln and "[36;1m" not in ln:
+        if (ERROR.search(ln) or BLOCKED.search(ln) or any(rx.search(ln) for rx, _ in FLAKES)) \
+                and "Harden the runner" not in ln and "[36;1m" not in ln and "stepsecurity.io" not in ln:
             out.append(ln[:300])
     return out[-limit:]
+
+
+def blocked(lines):
+    """Hosts that refused a job's connections: with egress blocked, the missing allowed-endpoints."""
+    return sorted({m["host"] for ln in lines for m in BLOCKED.finditer(ln)})
 
 
 def classify(lines):
@@ -206,6 +220,11 @@ def main():
         print(f"\n== {name} (run {run}): {'FLAKE: ' + flake if flake else 'FAILED'}")
         for ln in lines or ["(no evidence found: open the job's log)"]:
             print("   " + ln)
+        hosts = blocked(lines)
+        if hosts:
+            print(f"   refused: {', '.join(hosts)}. If the workflow's harden-runner blocks egress, add "
+                  f"{', '.join(h + ':443' for h in hosts)} to its allowed-endpoints "
+                  "(AGENTS.md, the harden-runner trap; scripts/egress-audit.py)")
     real = [r for r in report if not r[2]]
     if a.rerun_flakes:
         runs_with_real = {run for _, run, flake, _ in real}

@@ -68,6 +68,22 @@ def test_a_go_proxy_stream_error_and_a_sigstore_conflict_are_flakes():
     assert triage.classify([rekor]) == "Sigstore's log timed out (duplicate entry on retry)"
 
 
+def test_a_refused_connection_names_the_host_to_allow_and_is_no_flake():
+    # 2026-11-11: harden-runner began refusing unlisted hosts; cosign's timestamp and a Go
+    # module zip (behind a signed URL longer than the evidence cut) failed this way.
+    refused = ": dial tcp 54.185.253.63:443: connect: connection refused"
+    log = ("2026-11-11T18:06:09.83Z Error: signing [ghcr.io/o/vault@sha256:a96e]: signing bundle: "
+           'error signing bundle: Post "https://timestamp.sigstore.dev/api/v1/timestamp"' + refused + "\n"
+           "2026-11-11T17:13:35.94Z #12 12.55 x.go:9:2: sigs.k8s.io/y@v0.0.5: Get "
+           '"https://storage.googleapis.com/proxy-golang-org-prod/' + "a" * 300 + '"' + refused + "\n"
+           "2026-11-11T17:13:39.01Z error in connecting to https://agent.api.stepsecurity.io/v1: "
+           "TimeoutError: The operation was aborted due to timeout\n")
+    lines = triage.errors(log)
+    assert triage.blocked(lines) == ["storage.googleapis.com", "timestamp.sigstore.dev"]
+    assert triage.classify(lines) is None                     # a re-run fails the same way
+    assert not any("stepsecurity" in ln for ln in lines)      # harden-runner's own telemetry
+
+
 def test_flakes_count_failed_attempts_of_runs_that_passed_after_a_rerun():
     runs = [
         {"databaseId": 1, "attempt": 3, "workflowName": "Compat", "createdAt": "2026-11-03T00:00:00Z", "conclusion": "success"},
