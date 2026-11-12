@@ -14,14 +14,14 @@ image:
   standard:
     name: bigbang-registry-adapter
     tag: v0.2.13
-    dev: cgr.dev/zapatatechnology.com/go:1.27.3-dev@sha256:d65f52544fd5d80507f2ca89607f3f38a6043b613100d5f4d98b4ca6d6b6162a
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:78264c81f34ca5163739d2017778048939930781a3e2bfdda6e5b67d6da1377b
+    dev: cgr.dev/zapatatechnology.com/go:1.27.3-dev@sha256:0654bbaec34514782c764cd5fb41241cf98246947864a7f9b86fe6fb9a8ebc47
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:b59b0fd439a2c9d60b8b3b4c04e0e892a2308b1bd22bd650206a2bca3eff6a46
     go_package: ''
   fips:
     name: bigbang-registry-adapter-fips
     tag: v0.2.13
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.3-dev@sha256:ac13b4456045dc456b6f6ec36530ac09ea7a0f5dfa4604f95ec28367ab52b5b0
-    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:b9d7ea5b5fb0498d611fbffb0036a2c99c0eb10b0816a0cb1c2849ae837e9925
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.3-dev@sha256:5f8c6ba21c059f9e35afea993c250a20fe14868fc5e41c089eeed494e937635d
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:a95e6fee594d8a5fdc1e74fc7456044704dec467752eda4137b55f98fef336f5
     go_package: ''
     fips: toolchain
 adapter:
@@ -32,7 +32,7 @@ adapter:
   commit: bcfc14e9efc920d1e8d0a5195cb3e803899478e2
   go_get:
   - golang.org/x/net@v0.62.0
-  - github.com/go-jose/go-jose/v4@v4.1.8
+  - github.com/go-jose/go-jose/v4@v4.1.9
 user: 65534:65534
 notes:
 - built from neuvector/registry-adapter v0.2.13's source like Iron Bank's recipe (upstream's `make build`, cgo) with `adapter.go_get` raised; Chainguard has no registry-adapter image
