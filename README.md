@@ -158,11 +158,11 @@ refreshes them.
     included, is **83 MB** standard and 116 MB FIPS.
   - The median Iron Bank base image alone, before the application, is **107 MB**.
 - **Tested on Kubernetes, not just rendered.**
-  - **More than 35 runtime tests**, each with a functional check of the app: a Loki query, a
+  - **38 runtime tests**, each with a functional check of the app: a Loki query, a
     Velero backup, a GitLab readiness check, and so on.
   - A **release-to-release upgrade test** on every change.
-  - **More than 430 unit tests**.
-- **Problems found and fixed before you hit them.** The runtime tests found **34 problems**
+  - **About 600 unit tests**.
+- **Problems found and fixed before you hit them.** The runtime tests found **40 problems**
   that rendering alone would miss, each fixed in the overlays and listed in
   [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Examples:
   - an Istio sidecar still pulled from Iron Bank;

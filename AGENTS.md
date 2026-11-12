@@ -79,7 +79,7 @@ CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, P
 `compat/` or the installer), `update.yml` (nightly bot PR), `automerge.yml` (merges that PR
 when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
-vs Chainguard grype counts, with each Critical and its fix), `fips-kernel.yml` (weekly: the FIPS overlay
+vs Chainguard grype counts, with each Critical and its fix and the most common Highs), `fips-kernel.yml` (weekly: the FIPS overlay
 on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
 packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (weekly:
 `bb-preview.py` against Big Bang's development branch; keeps one `bigbang-preview` issue

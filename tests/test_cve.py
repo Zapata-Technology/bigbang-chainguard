@@ -114,3 +114,16 @@ def test_gate_skips_images_built_here(monkeypatch):
     monkeypatch.setattr(cve.subprocess, "run", lambda *a, **k: type("P", (), {"stdout": "", "returncode": 0})())
     lines, failed = cve.gate("origin/main")
     assert not failed and lines[1].startswith("skipped  ghcr.io/example/bigbang-x:1")
+
+
+def test_the_highs_in_the_most_chainguard_images_come_first():
+    # Nov 2026: one new High in a shared package showed as "1 High" in half the images.
+    def high(i, pkg, fix=None):
+        return {"vulnerability": {"id": i, "severity": "High", "fix": {"versions": [fix] if fix else []}},
+                "artifact": {"name": pkg, "version": "1"}}
+    shared = high("CVE-7", "glibc", "2.42-r5")
+    a, b = {"matches": [shared, high("CVE-6", "openssl")]}, {"matches": [shared]}
+    results = {"cgr.dev/example.com/tempo:2.8.1": {**cve.counts(a), "high": cve.findings(a, "High")},
+               "ghcr.io/o/bigbang-base:2.1.0": {**cve.counts(b), "high": cve.findings(b, "High")}}
+    section = cve.report(cve.image_pairs(MAP), results, False, False).split("## Most common High")[1]
+    assert section.index("| CVE-7 | glibc | 2.42-r5 | 2 |") < section.index("| CVE-6 | openssl | no fix yet | 1 |")

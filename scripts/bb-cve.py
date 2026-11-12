@@ -8,7 +8,8 @@ Chainguard image that replaces it.
 Reads docs/images.md (bb-convert.py's image map), scans every distinct image pair with
 grype, and writes a Markdown report: totals by severity, each side's distinct images (how
 many have no Critical, or no Critical or High, and their size as grype measured it), then
-one row per image with both sides' counts and sizes. Iron Bank images need registry1 credentials in the Docker config;
+one row per image with both sides' counts and sizes, each Critical in the Chainguard images
+with its fix, and the High CVEs found in the most Chainguard images. Iron Bank images need registry1 credentials in the Docker config;
 without --ironbank (or without credentials) only the Chainguard side is scanned and the
 Iron Bank columns say so. Images that stay on Iron Bank and the images this repo builds
 are listed under their own headings. cve-report.yml runs this weekly.
@@ -170,15 +171,19 @@ def counts(grype_json):
     return out
 
 
-def criticals(grype_json):
-    """Sorted unique (id, package, version, fixed-in or "") of the Critical matches."""
+def findings(grype_json, severity):
+    """Sorted unique (id, package, version, fixed-in or "") of the matches at one severity."""
     out = set()
     for m in grype_json.get("matches", []):
         v, a = m.get("vulnerability", {}), m.get("artifact", {})
-        if v.get("severity") == "Critical":
+        if v.get("severity") == severity:
             fixed = ", ".join(v.get("fix", {}).get("versions") or [])
             out.add((v.get("id", "?"), a.get("name", "?"), a.get("version", "?"), fixed))
     return sorted(out)
+
+
+def criticals(grype_json):
+    return findings(grype_json, "Critical")
 
 
 def scan(ref):
@@ -191,7 +196,7 @@ def scan(ref):
     if p.returncode:
         return (p.stderr.strip().splitlines() or ["grype failed"])[-1][:120]
     found = json.loads(p.stdout)
-    return {**counts(found), "critical": criticals(found), "size": image_size(found)}
+    return {**counts(found), "critical": criticals(found), "high": findings(found, "High"), "size": image_size(found)}
 
 
 def image_size(grype_json):
@@ -267,6 +272,19 @@ def report(pairs, results, fips, ironbank, bases=False):
         lines += ["", "## Critical in the Chainguard images", "",
                   "| Image | CVE | Package | Installed | Fixed in |", "|---|---|---|---|---|"]
         lines += [f"| {ref} | {i} | {pkg} | {ver} | {fixed or 'no fix yet'} |" for ref, (i, pkg, ver, fixed) in crit]
+    # A High in many images is usually one shared package (glibc, OpenSSL): its fixed-in
+    # version says whether Chainguard's next rebuild clears it.
+    highs = {}
+    for ref in sorted({new for _, new in converted}):
+        r = results.get(ref)
+        for i, pkg, _, fixed in (r.get("high", []) if isinstance(r, dict) else []):
+            highs.setdefault((i, pkg, fixed), set()).add(ref)
+    if highs:
+        top = sorted(highs.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:15]
+        lines += ["", "## Most common High in the Chainguard images", "",
+                  f"The {len(top)} of {len(highs)} High CVEs found in the most images.", "",
+                  "| CVE | Package | Fixed in | Images |", "|---|---|---|---|"]
+        lines += [f"| {i} | {pkg} | {fixed or 'no fix yet'} | {len(refs)} |" for (i, pkg, fixed), refs in top]
     if kept:
         lines += ["", "## Still on Iron Bank", ""] + [f"- {ib.removeprefix(IRON_BANK + '/')}" for ib in kept]
     return "\n".join(lines) + "\n"
