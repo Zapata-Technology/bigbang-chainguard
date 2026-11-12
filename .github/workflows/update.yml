@@ -8,7 +8,7 @@ name: Update - Big Bang and Chainguard tags
 
 on:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "17 3 * * *"   # off the hour: GitHub delays scheduled runs most at :00
   workflow_dispatch:
 
 permissions:
