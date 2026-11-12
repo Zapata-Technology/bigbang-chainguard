@@ -218,7 +218,7 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    participant N as update.yml (nightly 03:00 UTC)
+    participant N as update.yml (nightly, 03:17 UTC)
     participant PR as Pull request
     participant CI as ci.yml + builds.yml + compat.yml
     participant M as main
