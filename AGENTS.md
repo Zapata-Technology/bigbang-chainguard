@@ -71,6 +71,7 @@ python scripts/bb-preview.py          # Big Bang's development branch against th
 python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
 python scripts/test-results.py update # docs/testing.md's results table (--from-main N: main's runs)
 python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
+python scripts/egress-audit.py        # hosts a workflow reached that its harden-runner list doesn't name
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 ```
 
@@ -297,6 +298,8 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   run doesn't prove its list: compare the `domain resolved:` lines in its harden-runner post
   step with the workflow's `allowed-endpoints`, for a run of each event (a pull request's
   build never signs or pushes; `builds.yml` on main does, and needs `timestamp.sigstore.dev`).
+  `scripts/egress-audit.py` does that comparison; `ci-triage.py` names the host that refused
+  a job's connections.
 - Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
   the matching upstream Flux release (`fluxrelease.py`).
 - GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
