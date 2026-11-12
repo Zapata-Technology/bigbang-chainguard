@@ -6,7 +6,7 @@ Chainguard org** (`cgr.dev/<org>`) instead of Iron Bank, with FIPS as an option.
 Big Bang itself is not forked. This repo turns the unmodified upstream chart into a
 deployment on Chainguard images, tests it, and releases it; you install it with one tool.
 
-**[Read the briefing (PDF, 18 slides)](docs/big-bang-on-chainguard-briefing.pdf)**: why run
+**[Read the briefing (PDF, 19 slides)](docs/big-bang-on-chainguard-briefing.pdf)**: why run
 Big Bang on Chainguard images, what this repo's scans and tests show, and how to start.
 
 ```mermaid
@@ -217,7 +217,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 ## Learn more
 
 - [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang on
-  Chainguard in 18 slides, with this repo's CVE counts and tests (November 2026).
+  Chainguard in 19 slides, with this repo's CVE counts and tests (November 2026).
 - [Quickstart](docs/quickstart.md): install from a pinned, signed release.
 - [Installer details](docs/install.md): every option, registry logins, TLS, signatures,
   air-gapped sites, upgrading from Big Bang 3.
