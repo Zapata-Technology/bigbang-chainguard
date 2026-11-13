@@ -1338,7 +1338,7 @@ packages:
         images:
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:8bf5842c091d10b94a4bb90c873db820a3da627313ae91545e5c425d2cd67039
+        - digest: sha256:63ad848263097111a13d1979f4d3d2f22553787688872ca4617637ed8717c825
           name: cgr.dev/zapatatechnology.com/renovate
     values:
       bbtests:
@@ -1350,7 +1350,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate
-          tag: 44.235.4
+          tag: 44.237.1
   sonarqube:
     postRenderers:
     - kustomize:
