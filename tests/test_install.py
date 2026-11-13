@@ -1116,3 +1116,20 @@ def test_a_failed_or_impossible_backup_stops_the_upgrade(monkeypatch):
     with pytest.raises(SystemExit, match="didn't finish"):
         commands.backup_before_upgrade(30, now=lambda: clock[0],
                                        sleep=lambda s: clock.__setitem__(0, clock[0] + s))
+
+
+def test_seaweedfs_replaces_the_bucket_job_before_applying(monkeypatch):
+    """A Job's pod template is immutable: applying a new SeaweedFS digest over the old Job
+    failed every upgrade that moved it (compat/installer-upgrade-to.yaml found it)."""
+    calls = []
+    monkeypatch.setattr(installer, "apply_secret", lambda *a, **k: None)
+    monkeypatch.setattr(installer, "sh", lambda *a, **k: calls.append(("sh",) + a))
+    monkeypatch.setattr(installer, "kubectl", lambda *a, **k: calls.append(("kubectl",) + a) or "condition met")
+
+    class Co:
+        def path(self, p):
+            return "/x/" + p
+    installer.seaweedfs(Co(), False, {}, ("k", "s"))
+    delete = next(i for i, c in enumerate(calls) if "delete" in c and "seaweedfs-buckets" in c)
+    apply = next(i for i, c in enumerate(calls) if "apply" in c)
+    assert delete < apply and "--ignore-not-found" in calls[delete]
