@@ -109,10 +109,10 @@ jobs:
           echo "::notice::Pull request from a fork: no secrets, so the checks that need Chainguard or the registries (overlays current, image age, signatures, CVEs) are skipped. A maintainer runs them by pushing this branch to origin (CONTRIBUTING.md)."
 
       - name: Log into Chainguard
-        if: env.FORK != 'true'
         uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
+        if: env.FORK != 'true'   # below `with`: the `uses` line changes with each action bump
 
       # Big Bang and its package charts change only with BIGBANG_VERSION (each package is
       # pinned to a tag in Big Bang's values): fetch them from repo1.dso.mil once per
