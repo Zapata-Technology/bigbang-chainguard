@@ -3,36 +3,36 @@
 # GitLab's gitaly-init-cgroups built from Gitaly's source FROM the Chainguard
 # org's images, following GitLab's CNG recipe (`cng.source`).
 cng:
-  image: registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.1-ubi
-  source: https://gitlab.com/gitlab-org/build/CNG/-/tree/v19.5.1/gitaly-init-cgroups
+  image: registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.3-ubi
+  source: https://gitlab.com/gitlab-org/build/CNG/-/tree/v19.5.3/gitaly-init-cgroups
   binary: /setup_cgroups
   module: tools/gitaly-init-cgroups
 image:
   standard:
     name: bigbang-gitaly-init-cgroups
-    tag: v19.5.1-ubi
-    dev: cgr.dev/zapatatechnology.com/go:1.26.10-dev@sha256:4b12e0ece1566a2ac30002536e14a371cdacb7354607d2765bbf4ba8a5136e57
+    tag: v19.5.3-ubi
+    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:8f1f9f18b457fc198da4d46c0d65a5d5e3fb3dae900981351e9053d552a6f779
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:b59b0fd439a2c9d60b8b3b4c04e0e892a2308b1bd22bd650206a2bca3eff6a46
     go_package: ''
   fips:
     name: bigbang-gitaly-init-cgroups-fips
-    tag: v19.5.1-ubi
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.10.1-dev@sha256:96db4ec978eca5799d742330124eec3f69543b4016a8d6a5b5b1cdabfb8a3fb9
+    tag: v19.5.3-ubi
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:adce9970158e83fd2b81f5474d9246585d358ac42651ac7aa0e69280dbdb5516
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:a95e6fee594d8a5fdc1e74fc7456044704dec467752eda4137b55f98fef336f5
     go_package: ''
     fips: toolchain
 gitaly:
-  tag: v19.5.1
-  source: https://gitlab.com/gitlab-org/gitaly/-/archive/v19.5.1/gitaly-v19.5.1.tar.gz?path=tools/gitaly-init-cgroups
-  sha256: 7983ae9fb042f22b44353ec90bc872bc2a0b6c1ce86d9dd21c5c9c834450c9d2
+  tag: v19.5.3
+  source: https://gitlab.com/gitlab-org/gitaly/-/archive/v19.5.3/gitaly-v19.5.3.tar.gz?path=tools/gitaly-init-cgroups
+  sha256: 5067e14bff80da1c5176cc9f32d767c09f26d76c254f217230b4b17cafb5abcb
   go: 1.26.0
-  commit: 034030537552451de10deedbafb3ac81a950c032
+  commit: 9d36ea1d6d098f612ab24e06611d7646f815e37d
   module: tools/gitaly-init-cgroups
   go_get: []
-  license: https://gitlab.com/gitlab-org/gitaly/-/raw/v19.5.1/LICENSE
+  license: https://gitlab.com/gitlab-org/gitaly/-/raw/v19.5.3/LICENSE
   license_sha256: a60a07cfafa66191227557322bd764aee897a53fff11a1ade3630b58295042c3
 user: 0:0
 notes:
-- built from Gitaly v19.5.1's tools/gitaly-init-cgroups module as GitLab's CNG builds it (Chainguard has no gitaly-init-cgroups image; Iron Bank has no recipe); the tag keeps Big Bang's
+- built from Gitaly v19.5.3's tools/gitaly-init-cgroups module as GitLab's CNG builds it (Chainguard has no gitaly-init-cgroups image; Iron Bank has no recipe); the tag keeps Big Bang's
 - 'runs as root like CNG''s: the chart runs it as root to chown the pod''s cgroup to Gitaly''s uid'
 - 'image.fips.fips: toolchain = cgo with the org''s go-fips; native = the org has no go-fips image, so Wolfi''s Go builds it against Go''s own FIPS 140-3 module (GOFIPS140, fips140=on by default)'
