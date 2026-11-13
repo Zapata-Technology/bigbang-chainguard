@@ -9,7 +9,7 @@ packages:
         images:
         - digest: sha256:44f0c77d4a9395be5758154559c552c6c8b130bb5dfe1484ceeddef357b0fa0b
           name: cgr.dev/zapatatechnology.com/grafana-alloy-fips
-        - digest: sha256:81a4da9be825a622b6b011d3e92b61831c5fd24c736f7e29981f70ab5a61e631
+        - digest: sha256:9255879830c0ae7450ff81e8abd9006da023b4bb2203eed309faace6bdf9d49c
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator-fips
         - digest: sha256:9dec00486050085c8d97261a79f291280b5dd779800323d7e0c4014112e4798a
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -804,19 +804,19 @@ packages:
         images:
         - digest: sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:d336cc365576082a5563e2b5d3a05fb93cb80bc9ad0863bef0d32ff952ca212e
+        - digest: sha256:12bf6bd40df55099ded84653a85f98c91c3ae2d6b02d0e08f0cbd338023d0968
           name: cgr.dev/zapatatechnology.com/kyverno-background-controller-fips
-        - digest: sha256:b41e8d518dd1f7ac71b35031ada77fb20175c27dfc2f7ef79c106f39a0a48356
+        - digest: sha256:e98c929af453ad2426dcb6d50edf939a13bd1a97e314402217bfc910681a7ec7
           name: cgr.dev/zapatatechnology.com/kyverno-cleanup-controller-fips
-        - digest: sha256:03cdf8a48361445dc10823986f07c35c163bb1594f280ca16dae537fdbe9d48d
+        - digest: sha256:c769abd42b2f0861bb70aaf8364dd694a756d5ab1fc6a86a7a10e00d478b4d8e
           name: cgr.dev/zapatatechnology.com/kyverno-cli-fips
-        - digest: sha256:a443406ea255e19de29bc9ac54b8a2f49b3c8deafbc3bc461fb5446361076504
+        - digest: sha256:794c0bb1eb11f210576ea7b825340f93ed80bec7ee7e285e21de5048945851eb
           name: cgr.dev/zapatatechnology.com/kyverno-fips
-        - digest: sha256:ffa834ff90b389bc501f4777c449156bf501aec74442dabae9f915337289427b
+        - digest: sha256:b6ed77f7d5dc37a7233062e33cf6135274bd742d20d7b9c5d51b94c751a243fa
           name: cgr.dev/zapatatechnology.com/kyverno-readiness-checker-fips
-        - digest: sha256:204915cb104451aff133bec3747f2db190168e9a6ea4db5734c0c2241d641087
+        - digest: sha256:b1f679f6bb15da875db76e346a3c35640ba174f4f5da6fb88bde46277fc3a042
           name: cgr.dev/zapatatechnology.com/kyverno-reports-controller-fips
-        - digest: sha256:50894a64b1c8937ade22ef23e4932abd8017205779f71d56b0c2c18d5e8e4d0f
+        - digest: sha256:d316d4869b293bc901873a69c81b31ba66d267a29a54a43a2f88b926f49866fc
           name: cgr.dev/zapatatechnology.com/kyvernopre
     values:
       bbtests:
