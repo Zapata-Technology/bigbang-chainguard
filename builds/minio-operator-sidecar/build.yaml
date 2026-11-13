@@ -13,13 +13,13 @@ image:
   standard:
     name: bigbang-minio-operator-sidecar
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/go:1.27.3-dev@sha256:0654bbaec34514782c764cd5fb41241cf98246947864a7f9b86fe6fb9a8ebc47
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:535b2424e9a882d532bc94b9d83ed7dc3d20d5bd3c11f5e9e0d31849d2fe98bb
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:b59b0fd439a2c9d60b8b3b4c04e0e892a2308b1bd22bd650206a2bca3eff6a46
     go_package: ''
   fips:
     name: bigbang-minio-operator-sidecar-fips
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.3-dev@sha256:5f8c6ba21c059f9e35afea993c250a20fe14868fc5e41c089eeed494e937635d
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:015048937dd5fa07718104dcd46e1fcd2f3952718d1dd821c83850ef79f10998
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:a95e6fee594d8a5fdc1e74fc7456044704dec467752eda4137b55f98fef336f5
     go_package: ''
     fips: toolchain
@@ -35,7 +35,7 @@ minio:
   drop_replace:
   - golang.org/x/crypto
   go_get:
-  - golang.org/x/crypto@v0.58.0
+  - golang.org/x/crypto@v0.59.0
   - golang.org/x/net@v0.62.0
 user: 65532:65532
 dockerfile: minio-operator

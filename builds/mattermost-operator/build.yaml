@@ -13,13 +13,13 @@ image:
   standard:
     name: bigbang-mattermost-operator
     tag: v1.25.9
-    dev: cgr.dev/zapatatechnology.com/go:1.26.10-dev@sha256:4b12e0ece1566a2ac30002536e14a371cdacb7354607d2765bbf4ba8a5136e57
+    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:8f1f9f18b457fc198da4d46c0d65a5d5e3fb3dae900981351e9053d552a6f779
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:b59b0fd439a2c9d60b8b3b4c04e0e892a2308b1bd22bd650206a2bca3eff6a46
     go_package: ''
   fips:
     name: bigbang-mattermost-operator-fips
     tag: v1.25.9
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.10.1-dev@sha256:96db4ec978eca5799d742330124eec3f69543b4016a8d6a5b5b1cdabfb8a3fb9
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:adce9970158e83fd2b81f5474d9246585d358ac42651ac7aa0e69280dbdb5516
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:a95e6fee594d8a5fdc1e74fc7456044704dec467752eda4137b55f98fef336f5
     go_package: ''
     fips: toolchain
