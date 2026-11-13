@@ -145,7 +145,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:a2808c788e17dbdc1c672cd6781a624b0001e311a275e3f0a82bb08b0793ddc8
+        - digest: sha256:c2493453dd330ad96847230bad0b1437538f31397a58528d69c756a627a6074d
           name: cgr.dev/zapatatechnology.com/authservice-fips
         - digest: sha256:a5807dd2d75102392f221a5ab24d889dae0fb751e7dbf99a7aefb8d24ca0815a
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
@@ -280,7 +280,7 @@ packages:
         images:
         - digest: sha256:1336085e3d13cd6042a3873af2639b38157fc1a54ec7cc27929a223b9d891fb2
           name: cgr.dev/zapatatechnology.com/configmap-reload-fips
-        - digest: sha256:b5a886121d2813eb26c76fce11aa36ecf5d7a673353bc8d356233e66681f9192
+        - digest: sha256:ef9114b3658ff0af3d7437fb40ef7c654b049d27516b84bef3ad37b90c9919e2
           name: cgr.dev/zapatatechnology.com/fluent-bit-fips
     values:
       bbtests:
@@ -1454,7 +1454,7 @@ packages:
         images:
         - digest: sha256:e3e45d77de61292b7748e2e2284994be21d8a105153f07f7e354aa8628ff6fa7
           name: cgr.dev/zapatatechnology.com/velero-fips
-        - digest: sha256:6812700a6167ef2caa46f970c8e58d6b6546d6099069cee42521db73841b5854
+        - digest: sha256:2c502b2d71feb077942012d25c0b1a95e2aa736b1ef801fc513bcdeb10feb2a6
           name: cgr.dev/zapatatechnology.com/velero-plugin-for-aws-fips
     values:
       bbtests:

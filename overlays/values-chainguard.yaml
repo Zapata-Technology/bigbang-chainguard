@@ -145,7 +145,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:06292373b33a67ce65508a7f1f622b3c459e73ecb307406464f74022d7495d92
+        - digest: sha256:e922c081e586714d26deacd992abb4b4a17d76d040e952d676c0f948eb18ba31
           name: cgr.dev/zapatatechnology.com/authservice
         - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
@@ -1470,7 +1470,7 @@ packages:
         images:
         - digest: sha256:7bc35953a7669a198abee7a593343ea184fba18235be3571a1365c98d110e50f
           name: cgr.dev/zapatatechnology.com/velero
-        - digest: sha256:4dee5e26404543a4c06258d80cc395649c7bf86dbef0a515f61da02a9c5da833
+        - digest: sha256:04455630313be01bbab6c12245f0447fb35ea60cff462556139acacdbcb2f2d4
           name: cgr.dev/zapatatechnology.com/velero-plugin-for-aws
     values:
       bbtests:
