@@ -229,7 +229,7 @@ packages:
         images:
         - digest: sha256:c900a508714210b36fe998d4f420696e3ce2d567a49c57ed3e0f57c7d09891e4
           name: cgr.dev/zapatatechnology.com/elasticsearch-fips
-        - digest: sha256:9ca7c98ba916c36ba1045d2ca941b78691939bdb6a51d66d49f7849ad1ff362f
+        - digest: sha256:12f6aa047313752c938b3b2a5bd23514e7ffaa4ce7cab2e444e440f0688fa59b
           name: cgr.dev/zapatatechnology.com/kibana-fips
         - digest: sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -1151,7 +1151,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
         - digest: sha256:feb1249a27b699d5ce062d393659fe9897be76c56b8b1e4c47bcc30fa96a6789
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
-        - digest: sha256:7cefd763414dd31c00451c8f91b15f6814ce8cea9878c424183c82059e008543
+        - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
         - digest: sha256:7073e83e78795e36f668a14446e737b38bc99f381365e5cfba85c2928a6d5ccb
           name: cgr.dev/zapatatechnology.com/thanos-fips

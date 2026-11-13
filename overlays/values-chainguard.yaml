@@ -1167,7 +1167,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter
         - digest: sha256:bdff4a8a917a06d8f0397200e14a811b6c96006e8609d7f89d9893ce090acc33
           name: cgr.dev/zapatatechnology.com/prometheus-operator
-        - digest: sha256:7cefd763414dd31c00451c8f91b15f6814ce8cea9878c424183c82059e008543
+        - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
         - digest: sha256:0eb2910f3ce5939c696fb4e890cc922b6d21d99813c0ac1c49975fa16a64a954
           name: cgr.dev/zapatatechnology.com/thanos
