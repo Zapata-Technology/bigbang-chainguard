@@ -916,11 +916,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:d69cdb78474350e7c9951238e6df9d620544ffc63de682d70929d5569df87b22
+        - digest: sha256:28f556f1bc51eff46aded0bad0032f76bf849dca48bbaf42bf133d39812932af
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter
         - digest: sha256:e4c5e2d065fb1c0d8740a7adca0694f809e2e93c8b84fb66e1110847ba28f6ee
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno
-        - digest: sha256:b12fbe0e97cdcb098aaac6d0a60b8b1169f9a32e285d80cc66a5046d0267f2bf
+        - digest: sha256:e9e44db8c9dcc047bbfd3de3a51f77d75ef9d8a56db70a5f0297479e6bf5f14e
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-ui
     values:
       upstream:
