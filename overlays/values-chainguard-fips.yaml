@@ -54,7 +54,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:a5807dd2d75102392f221a5ab24d889dae0fb751e7dbf99a7aefb8d24ca0815a
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:6ac23ce74ef097dc8c79446188e2ea14b34c0718bdf1f3b2da95f037df9347c5
+        - digest: sha256:e73219ddcdeb6d0c2f89b5819f97c3c142fd5769889673fda1beb239ad784342
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       ui-redis:
@@ -149,7 +149,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/authservice-fips
         - digest: sha256:a5807dd2d75102392f221a5ab24d889dae0fb751e7dbf99a7aefb8d24ca0815a
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:6ac23ce74ef097dc8c79446188e2ea14b34c0718bdf1f3b2da95f037df9347c5
+        - digest: sha256:e73219ddcdeb6d0c2f89b5819f97c3c142fd5769889673fda1beb239ad784342
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       image:
@@ -609,7 +609,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/postgres-fips
         - digest: sha256:a5807dd2d75102392f221a5ab24d889dae0fb751e7dbf99a7aefb8d24ca0815a
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:6ac23ce74ef097dc8c79446188e2ea14b34c0718bdf1f3b2da95f037df9347c5
+        - digest: sha256:e73219ddcdeb6d0c2f89b5819f97c3c142fd5769889673fda1beb239ad784342
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       bbtests:
@@ -1003,7 +1003,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:d105475643a22c353071e0ae81f03a5a0327bb426a7ca30d3b9013672f172b59
+        - digest: sha256:f4fbcbc7b9db871471c03c4381288485e127d4c0910f9b93b4144e1073e9e967
           name: cgr.dev/zapatatechnology.com/mattermost-fips
         - digest: sha256:21074230865a6a8cf69119ef9f45a748f1417e82ade782dd4b5d5c53fae10a31
           name: cgr.dev/zapatatechnology.com/postgres-fips
@@ -1046,7 +1046,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:836b1fa425cadf13303f26fa4de75e349c29601116d968ab8b4921fba2ea47e3
+        - digest: sha256:f8db8f449fd5cff86f90270558537985dc54895a0d3566fe20b5ab3404f399e0
           name: cgr.dev/zapatatechnology.com/grafana-mimir-fips
         - digest: sha256:c90280cabb7d27e48a95fe5ebf35d4bd1f6168cb3ef388eb1f9875427f562723
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
@@ -1072,7 +1072,7 @@ packages:
               tag: 1.31.8
         image:
           repository: cgr.dev/zapatatechnology.com/grafana-mimir-fips
-          tag: 3.2.4
+          tag: 3.2.5
         kafka:
           image:
             registry: cgr.dev/zapatatechnology.com
@@ -1490,7 +1490,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:0a538dc45d5eef525625b4dc21a2e92cf082139af734744114f32d72e7f41cb7
+        - digest: sha256:536f78c8864b41865a64adf0de14c3981d4c3f2d6a3421c5c1f392f91317ba95
           name: cgr.dev/zapatatechnology.com/ztunnel-fips
     values:
       upstream:

@@ -159,7 +159,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | metrics-server | ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.1 | metrics-server:0.9.1 | metrics-server-fips:0.9.1 |  |
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | mimir | ironbank/opensource/apache/kafka-native:4.3.2 | kafka-native:4.3.2 | kafka-native:4.3.2 | no FIPS variant; FIPS overlay keeps the standard image |
-| mimir | ironbank/opensource/grafana/mimir:3.2.4 | grafana-mimir:3.2.4 | grafana-mimir-fips:3.2.4 |  |
+| mimir | ironbank/opensource/grafana/mimir:3.2.4 | grafana-mimir:3.2.5 | grafana-mimir-fips:3.2.5 | grafana-mimir: Iron Bank 3.2.4 -> newest 3.2 patch; grafana-mimir-fips: Iron Bank 3.2.4 -> newest 3.2 patch |
 | mimir | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
 | mimir | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
 | mimir | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.8 | nginx-fips:1.31.8 |  |

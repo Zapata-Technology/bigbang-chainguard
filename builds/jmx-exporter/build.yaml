@@ -5,7 +5,7 @@
 ironbank:
   image: ironbank/opensource/prometheus/jmx-exporter:1.7.0
   source: https://repo1.dso.mil/dsop/opensource/prometheus/jmx-exporter
-  commit: 7a03498467265fda41934cda4ff2d5af9a4d8766
+  commit: 7296346408a03fb740a57f5edc429d9ecc0f0f7e
   manifest_tags:
   - 1.7.0
   - latest
