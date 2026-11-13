@@ -128,8 +128,11 @@ jobs:
           echo "KUBECONFIG=$RUNNER_TEMP/fips-vm/kubeconfig" >> "$GITHUB_ENV"
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
+        uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
         with:
+          # Pinned: `latest` changes under every run. Same version in every workflow
+          # (tests/test_repo_rules.py); raise it on purpose (AGENTS.md, "chainctl").
+          version: 0.2.403
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
       - name: Big Bang (from the plan job's cache)

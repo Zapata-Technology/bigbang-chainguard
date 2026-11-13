@@ -311,6 +311,14 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
 - GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
   push three times; re-run the job if all three fail. repo1.dso.mil intermittently refuses
   GitHub runners: the scripts retry, and `compat.yml` reruns a kind test once.
+- **chainctl and cosign are pinned**, one version each in every workflow
+  (`tests/test_repo_rules.py`): `setup-chainctl`'s `version` (it installs `latest`
+  otherwise, from dl.enforce.dev, checked against that release's `chainctl_checksums.txt`)
+  and `cosign-installer`'s `cosign-release`. To raise chainctl: find the newest release
+  (`curl -fsSL https://dl.enforce.dev/chainctl/latest/chainctl_checksums.txt` and match
+  its checksum against `https://dl.enforce.dev/chainctl/<version>/chainctl_checksums.txt`),
+  then change every `version:` at once. A Dependabot bump of either action leaves the
+  pinned tool alone.
 - **Sign before the tag moves.** With enforce the default, a tag that points at an unsigned
   digest even for a minute refuses Pods. `builds.yml` pushes `<tag>-staging`, signs, then
   pushes `<tag>`; keep that order in any new publish step.

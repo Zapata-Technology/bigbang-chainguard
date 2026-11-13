@@ -132,6 +132,23 @@ def test_every_workflow_pins_the_same_cosign():
     assert len(set(found.values())) == 1, f"one cosign version everywhere: {found}"
 
 
+def test_every_workflow_pins_the_same_chainctl():
+    """setup-chainctl installs `latest` unless told otherwise, right before it logs into
+    the org: name one version (an exact release, not `latest`) everywhere."""
+    found = {}
+    for path in WORKFLOWS:
+        for job in (yaml.safe_load(open(path, encoding="utf-8")).get("jobs") or {}).values():
+            for step in job.get("steps", []):
+                if "chainguard-dev/setup-chainctl@" in step.get("uses", ""):
+                    found.setdefault(os.path.basename(path), set()).add(
+                        str((step.get("with") or {}).get("version", "")))
+    assert {"ci.yml", "builds.yml", "update.yml"} <= set(found)
+    versions = set().union(*found.values())
+    assert len(versions) == 1, f"one chainctl version everywhere: {found}"
+    [v] = versions
+    assert re.fullmatch(r"\d+\.\d+\.\d+", v), f"an exact chainctl release, not {v!r}"
+
+
 # --- the VM tests (fips-kernel.yml, rke2.yml): every download pinned, every host allowed ---
 
 GITHUB_DIR = os.path.join(ROOT, ".github")
