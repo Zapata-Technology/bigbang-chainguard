@@ -1051,7 +1051,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:4f76fb2da302ed610cab592b8a364271d2de8efb2dad628fa69ba69613e17bf7
+        - digest: sha256:a07cc183b6da541b414fe2a39902b828ebaf3828bd5f94c4284f0cb8b95796a2
           name: cgr.dev/zapatatechnology.com/metrics-server
     values:
       upstream:
@@ -1165,7 +1165,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
         - digest: sha256:20996a58371b29cddb765718f9c86fa0269c71cafac6b3de7ea29cb3f4d8317f
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter
-        - digest: sha256:bdff4a8a917a06d8f0397200e14a811b6c96006e8609d7f89d9893ce090acc33
+        - digest: sha256:a12257edcaf0480e25092f25e22f14aa46e0ef9929d136c97568563cd0bf8404
           name: cgr.dev/zapatatechnology.com/prometheus-operator
         - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
@@ -1260,7 +1260,7 @@ packages:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-operator
-            tag: 0.95.1
+            tag: 0.95.2
           prometheusConfigReloader:
             image:
               registry: cgr.dev/zapatatechnology.com

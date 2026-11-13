@@ -145,7 +145,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | logging-loki | ironbank/grafana/grafana-enterprise-logs:v3.6.18 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner:3.6.18 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
-| logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.9 | loki-fips:3.7.9 |  |
+| logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.9 | loki-fips:3.7.10 | loki-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
 | logging-loki | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
 | logging-loki | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | logging-loki | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
@@ -178,7 +178,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | monitoring | ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0 | kube-state-metrics:2.20.0 | kube-state-metrics-fips:2.20.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.2 | prometheus-config-reloader-fips:0.95.2 | prometheus-config-reloader: Iron Bank v0.95.1 -> newest 0.95 patch; prometheus-config-reloader-fips: Iron Bank v0.95.1 -> newest 0.95 patch |
-| monitoring | ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1 | prometheus-operator:0.95.1 | prometheus-operator-fips:0.95.1 |  |
+| monitoring | ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1 | prometheus-operator:0.95.2 | prometheus-operator-fips:0.95.2 | prometheus-operator: Iron Bank v0.95.1 -> newest 0.95 patch; prometheus-operator-fips: Iron Bank v0.95.1 -> newest 0.95 patch |
 | monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.2 | prometheus-alertmanager:0.34.2 | prometheus-alertmanager-fips:0.34.2 |  |
 | monitoring | ironbank/opensource/prometheus/blackbox_exporter:v0.29.1 | prometheus-blackbox-exporter:0.29.1 | prometheus-blackbox-exporter-fips:0.29.1 |  |
 | monitoring | ironbank/opensource/prometheus/node-exporter:v1.12.1 | prometheus-node-exporter:1.12.1 | prometheus-node-exporter-fips:1.12.1 |  |
