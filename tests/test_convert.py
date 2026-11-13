@@ -516,3 +516,20 @@ def test_an_image_beside_an_unused_repository_default_maps_by_image_and_sets_bot
     image = std["gitlabRunner"]["values"]["upstream"]["image"]
     assert image["image"] == image["repository"] == "gitlab-runner"
     assert image["registry"].startswith("cgr.dev/") and image["tag"] == "19.5.2"
+def test_a_version_pin_behind_iron_bank_is_noted_and_reported_once_the_org_catches_up():
+    m = {"images": {"ironbank/sq": {"cg": "sq", "fips": None, "version": "26.10"}}}
+    c = convert.Converter(m, FakeTags({"sq": ["26.10.0", "26.10.1"]}))
+    std, _ = c.target("ironbank/sq", "26.11.0", "sonarqube")
+    assert std.endswith("sq:26.10.1") and not c.unpin
+    assert "VERSION PINNED to 26.10 (Iron Bank 26.11.0)" in c.rows[-1][-1]
+    c = convert.Converter(m, FakeTags({"sq": ["26.10.1", "26.11.2"]}))
+    std, _ = c.target("ironbank/sq", "26.11.0", "sonarqube")
+    assert std.endswith("sq:26.10.1")          # still pinned until a person drops it
+    assert c.unpin == {("ironbank/sq", "sq", "26.11.0")}
+
+
+def test_a_version_pin_on_iron_banks_own_line_says_nothing():
+    c = convert.Converter({"images": {"ironbank/sq": {"cg": "sq", "fips": None, "version": "26.10"}}},
+                          FakeTags({"sq": ["26.10.1"]}))
+    c.target("ironbank/sq", "26.10.0", "sonarqube")
+    assert "PINNED" not in c.rows[-1][-1] and not c.unpin

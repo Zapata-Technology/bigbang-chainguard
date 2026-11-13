@@ -18,7 +18,9 @@
 #                          (end-of-life lines the org stops rebuilding)
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
-#                                                 ("*": the org's newest release)
+#                                                 ("*": the org's newest release; a pin to another
+#                                                 line than Iron Bank's is noted VERSION PINNED, and
+#                                                 bb-convert says when the org has Iron Bank's line)
 #   <ironbank path>: {build: <name>}              built FROM the org's images by this repo
 #                                                 (builds/<name>/, pushed to BUILD_REGISTRY)
 #   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org
@@ -125,7 +127,10 @@ images:
   ironbank/anchore/cli/cli: {stays: "Anchore CLI test image (bbtests only)"}
   ironbank/microfocus/fortify/ssc: {stays: "Fortify SSC is proprietary; vendor image only"}
   # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube-26.10.yaml).
-  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
+  # Big Bang 4.1.0 moved to 26.11, which the org didn't have yet (2026-11-13): stay on 26.10,
+  # what sites already run (SonarQube migrates its database forward only). bb-convert prints
+  # "Version pin no longer needed" once the org has 26.11; then drop `version`.
+  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null, version: "26.10"}
   # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
   # scripts/bb-build.py vault adds it. Chainguard carries Vault 2.x only (Big Bang pins
   # 1.21); tested on kind as a fresh install (compat/vault-2.yaml) and as an upgrade of

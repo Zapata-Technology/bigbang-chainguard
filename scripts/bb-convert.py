@@ -71,6 +71,7 @@ class Converter:
         self.optional_missing = set()  # absent repos of `fallback: ironbank` images
         self.unmapped = set()
         self.ready = set()      # (Iron Bank repo, org repo): `stays ... until` whose org repo now has tags
+        self.unpin = set()      # (Iron Bank repo, org repo, Iron Bank tag): a `version` pin the org caught up with
         self.used = {}          # release -> {"standard"|"fips": {org ref}}: what digest_pins() pins
 
     def target(self, ib_repo, ib_tag, release):
@@ -149,6 +150,14 @@ class Converter:
                 notes.append(f"{name}: {note}")
             elif str(m.get("version")) == "*":
                 notes.append(f"{name}: newest org release (Iron Bank {ib_tag})")
+            if ("version" in m and str(m["version"]) != "*" and ib_tag and not m.get("tag")
+                    and parse(ib_tag) and parse(str(m["version"]))
+                    and parse(ib_tag)[0][:2] != parse(str(m["version"]))[0][:2]):
+                # A pin to an older line while the org lacks Iron Bank's (SonarQube 26.10 for
+                # Big Bang 4.1's 26.11): say so, and say when the org has caught up.
+                notes.append(f"{name}: VERSION PINNED to {m['version']} (Iron Bank {ib_tag})")
+                if resolve(ib_tag, tags, m.get("suffix"), allow_ahead=False)[0]:
+                    self.unpin.add((ib_repo, name, ib_tag))
             refs.append(f"{self.cg}/{name}:{tag}")
         std, fips = refs
         if fips_name is None:
@@ -997,6 +1006,10 @@ def main():
         print("Ready to convert (the org now has tags; change the `stays` entry in mapping.yaml):")
         for ib, repo in sorted(c.ready):
             print(f"  {ib} -> {repo}")
+    if c.unpin:
+        print("Version pin no longer needed (the org now has Iron Bank's line; drop `version` in mapping.yaml):")
+        for ib, repo, tag in sorted(c.unpin):
+            print(f"  {ib} -> {repo} (Iron Bank {tag})")
     if a.missing:
         print("Org repositories needed but missing:", *sorted(c.missing) or ["(none)"], sep="\n  ")
         if c.optional_missing:
