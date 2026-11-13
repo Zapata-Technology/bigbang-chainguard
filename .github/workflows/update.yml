@@ -101,6 +101,9 @@ jobs:
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
         with:
+          # Pinned: `latest` changes under every run. Same version in every workflow
+          # (tests/test_repo_rules.py); raise it on purpose (AGENTS.md, "chainctl").
+          version: 0.2.403
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
       - name: Log into GHCR (which build tags are published)
