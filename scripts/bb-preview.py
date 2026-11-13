@@ -88,6 +88,24 @@ def problem_lines(text, pattern):
     return [ln.rstrip() for ln in text.splitlines() if re.search(pattern, ln)]
 
 
+# bb-convert.py's failing blocks: a heading, then one indented line per image.
+CONVERT_PROBLEMS = ("Images not in mapping.yaml", "Images with no usable org tag")
+
+
+def conversion_problems(text):
+    """bb-convert.py's reasons for failing: its unmapped and no-org-tag blocks (heading and
+    images), and any traceback or error line. Its `wrote <file>` lines are not problems."""
+    out, block = [], False
+    for ln in text.splitlines():
+        if ln.startswith(CONVERT_PROBLEMS):
+            block = True
+        elif not ln.startswith((" ", "	")):
+            block = False
+        if block or re.search(r"(?i)traceback|error", ln):
+            out.append(ln.rstrip())
+    return out
+
+
 def test_values_for(test, chart_values, test_values):
     """The values a compat test installs with: every package off (bb-images starts with all
     of them on), then the test's enable list (bb-compat.test_values), then its values."""
@@ -264,9 +282,9 @@ def main():
 
     out = os.path.join(d, "generated")
     rc, text = run("scripts/bb-convert.py", "--discovered", discovered, "--out", out, timeout=3600)
-    conv = problem_lines(text, r"(?i)unmapped|no (org )?tag|not pinned|missing|error|traceback")
-    if rc and not conv:
-        conv = text.strip().splitlines()[-10:]
+    conv = conversion_problems(text)
+    if rc and not conv:   # failed without saying why: its last lines, minus the files it wrote
+        conv = [ln for ln in text.strip().splitlines() if not ln.startswith(("wrote ", "removed "))][-10:]             or [f"bb-convert.py exited {rc}"]
     sections.append(("Conversion problems", conv if rc else []))
     broken |= bool(rc)
 

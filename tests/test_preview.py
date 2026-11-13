@@ -146,3 +146,22 @@ def test_compat_takes_a_big_bang_ref_and_marks_its_results():
     for job in wf["jobs"].values():
         for step in job.get("steps", []):
             assert "${{ inputs." not in step.get("run", "")
+
+
+def test_conversion_problems_are_the_failing_blocks_not_the_files_written():
+    text = """Images not in mapping.yaml (add them):
+  registry1.dso.mil/ironbank/new/thing:1.0
+Images with no usable org tag:
+  mattermost: registry1.dso.mil/x -> UNRESOLVED
+Ready to convert (the org now has tags; change the `stays` entry in mapping.yaml):
+  a -> b
+wrote flux/kustomization.yaml
+wrote docs/images.md
+"""
+    assert pv.conversion_problems(text) == [
+        "Images not in mapping.yaml (add them):",
+        "  registry1.dso.mil/ironbank/new/thing:1.0",
+        "Images with no usable org tag:",
+        "  mattermost: registry1.dso.mil/x -> UNRESOLVED"]
+    assert pv.conversion_problems("wrote flux/kustomization.yaml") == []
+    assert pv.conversion_problems("Traceback (most recent call last):") == ["Traceback (most recent call last):"]
