@@ -304,7 +304,7 @@ packages:
           newTag: 1.37-dev
         - digest: sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:a285ce6ac17427b4e6f40dc33df19c3a19f1b908f61d0f1ec20bc3d7d057e4ce
+        - digest: sha256:667812c33a8abbfe6ce6bf10ea726d083ba3fb33544ab6ba95a4bc9cfd9a9923
           name: cgr.dev/zapatatechnology.com/mysql-fips
         - digest: sha256:cc0ca0015c88cbaf0b9d3040f64809c9583e3f7900f7e9eb13accaad1515e3fa
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-fips

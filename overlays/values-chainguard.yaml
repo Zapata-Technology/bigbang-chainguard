@@ -13,7 +13,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator
         - digest: sha256:69dc289054814f5b52d39f38408513adb5b48e2ac4e6c091e38bf96cce2cd30b
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:d8203ae41b41429136ee3ae9e730a43fbd8793d6b3ef4cc991c41617ed23d919
+        - digest: sha256:4b1d3f889a323dc97142c695fa88a73913a447dd8163165d0cb700dd84002049
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
     values:
       autoRollingUpgrade:
@@ -41,7 +41,7 @@ packages:
               image:
                 registry: cgr.dev/zapatatechnology.com
                 repository: prometheus-config-reloader
-                tag: 0.95.1
+                tag: 0.95.2
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: grafana-alloy
@@ -304,7 +304,7 @@ packages:
           newTag: 1.37-dev
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:dd78d3c1cb009045893825f52b0afe5c70e9f06e09d573bdd056be0cbaac6d77
+        - digest: sha256:1d7f791ae7fd7fdc1ea3a6023356c1e94c48d72ccb1aeb70f236fc724255e6f9
           name: cgr.dev/zapatatechnology.com/mysql
         - digest: sha256:4c138429a219a43b16fb23c44bcbcbfac616ecb712b969faaedb49d5871facd8
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter
@@ -1161,7 +1161,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager
         - digest: sha256:7b876082c29189ac45eb9cfa94fb50f9f392de7bf9c4e7911131c2a84ea5bfae
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter
-        - digest: sha256:d8203ae41b41429136ee3ae9e730a43fbd8793d6b3ef4cc991c41617ed23d919
+        - digest: sha256:4b1d3f889a323dc97142c695fa88a73913a447dd8163165d0cb700dd84002049
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
         - digest: sha256:24a47158b9f496bbfae1361e61e563b8310b2379595adccb8a0ad2183f85ab62
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter
@@ -1180,7 +1180,7 @@ packages:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-config-reloader
-            tag: 0.95.1
+            tag: 0.95.2
         global:
           imageRegistry: ''
         image:
@@ -1196,7 +1196,7 @@ packages:
         configmapReload:
           image:
             repository: cgr.dev/zapatatechnology.com/prometheus-config-reloader
-            tag: 0.95.1
+            tag: 0.95.2
         image:
           repository: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
           tag: 0.31.0
@@ -1265,7 +1265,7 @@ packages:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: prometheus-config-reloader
-              tag: 0.95.1
+              tag: 0.95.2
           thanosImage:
             registry: cgr.dev/zapatatechnology.com
             repository: thanos
