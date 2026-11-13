@@ -149,12 +149,17 @@ def seaweedfs_files(image, dev_image, buckets, header):
     pod_security = {"runAsNonRoot": True, "runAsUser": 65532, "runAsGroup": 65532, "fsGroup": 65532,
                     "seccompProfile": {"type": "RuntimeDefault"}}
     container_security = {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}
+    # Only the missing buckets: weed shell fails on one that exists, and the Job runs again on
+    # every install and upgrade (bb-install.py replaces it when SeaweedFS's digest moves).
+    shell = "weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888"
     script = ("set -e\n"
-              "until printf 'cluster.check\\n' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888 >/dev/null 2>&1; "
+              f"until printf 'cluster.check\\n' | {shell} >/dev/null 2>&1; "
               "do echo waiting for seaweedfs; sleep 5; done\n"
-              + "".join(f"printf 's3.bucket.create -name {b}\\n' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888\n"
+              f"have=$(printf 's3.bucket.list\\n' | {shell})\n"
+              + "".join(f"printf '%s\\n' \"$have\" | grep -qE '^ *{b}[[:space:]]' "
+                        f"|| printf 's3.bucket.create -name {b}\\n' | {shell}\n"
                         for b in buckets)
-              + "printf 's3.bucket.list\\n' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888\n")
+              + f"printf 's3.bucket.list\\n' | {shell}\n")
     docs = [
         {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": NAMESPACE}},
         {"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "seaweedfs-data"},

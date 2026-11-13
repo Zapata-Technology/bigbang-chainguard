@@ -152,37 +152,40 @@ spec:
 
           until printf ''cluster.check\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888 >/dev/null 2>&1; do echo waiting for seaweedfs; sleep 5; done
 
-          printf ''s3.bucket.create -name bigbang-tempo\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          have=$(printf ''s3.bucket.list\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888)
 
-          printf ''s3.bucket.create -name bigbang-thanos\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-tempo[[:space:]]'' || printf ''s3.bucket.create -name bigbang-tempo\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-mimir\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-thanos[[:space:]]'' || printf ''s3.bucket.create -name bigbang-thanos\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-mattermost\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-mimir[[:space:]]'' || printf ''s3.bucket.create -name bigbang-mimir\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-registry\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-mattermost[[:space:]]'' || printf ''s3.bucket.create -name bigbang-mattermost\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-lfs\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-registry[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-registry\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-artifacts\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-lfs[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-lfs\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-uploads\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-artifacts[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-artifacts\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-packages\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-uploads[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-uploads\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-mr-diffs\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-packages[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-packages\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-terraform-state\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-mr-diffs[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-mr-diffs\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-dependency-proxy\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-terraform-state[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-terraform-state\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-pseudo\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-dependency-proxy[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-dependency-proxy\n'' | weed shell -master=seaweedfs:9333
+          -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-backup\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-pseudo[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-pseudo\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-gitlab-backup-tmp\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-backup[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-backup\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
-          printf ''s3.bucket.create -name bigbang-velero\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-gitlab-backup-tmp[[:space:]]'' || printf ''s3.bucket.create -name bigbang-gitlab-backup-tmp\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
+
+          printf ''%s\n'' "$have" | grep -qE ''^ *bigbang-velero[[:space:]]'' || printf ''s3.bucket.create -name bigbang-velero\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
           printf ''s3.bucket.list\n'' | weed shell -master=seaweedfs:9333 -filer=seaweedfs:8888
 
