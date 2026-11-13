@@ -194,7 +194,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.235.4 | renovate-fips:44.235.4 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.235.4 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.235.4 (Iron Bank 44.97.2) |
+| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.237.1 | renovate-fips:44.237.1 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.237.1 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.237.1 (Iron Bank 44.97.2) |
 | renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | Iron Bank | Iron Bank | org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
@@ -257,7 +257,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter:0.21.0` (newer minor)
 - harbor: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
-- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.235.4` (newer minor)
+- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.237.1` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.3-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
 - gitlab: `gitlab/gitlab-org/build/cng/kubectl:v19.5.3-ubi` -> `gitlab-kubectl:v1.37.2` (newest release; Iron Bank's tag has no version line)
 - vault: `ironbank/hashicorp/vault:1.21.4` -> `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` (built by this repo on a different version line)
