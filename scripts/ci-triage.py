@@ -10,10 +10,11 @@ maintaining this repo: one command instead of reading job logs by hand.
   python scripts/ci-triage.py --flakes            # which jobs needed re-runs lately (30 days)
 
 A kind test's evidence comes from its artifact (compat-<test>-<mode>: compat.log and
-diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in. A job whose
+diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in; GitHub is
+read through REST only (scripts/ghrest.py), so it works from the scheduled agent's sandbox. A job whose
 connections were refused gets the hosts named: in a workflow whose harden-runner blocks egress,
 that means a host missing from its allowed-endpoints (a re-run won't help).
-Exit code: 0 nothing failed, 1 a real failure, 2 only flakes.
+Exit code: 0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer.
 
 --flakes counts, per job, the failed attempts of runs that were re-run (by a person or
 --rerun-flakes) and passed in the end, over the last --days. A job re-run --threshold times
@@ -27,8 +28,12 @@ import io
 import json
 import re
 import subprocess
+import os
 import sys
 import zipfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ghrest  # noqa: E402
 
 # Known flakes: outside this repo, and a re-run fixes them.
 FLAKES = [
@@ -59,6 +64,8 @@ ARTIFACT_JOB = re.compile(r"^(?P<test>[\w.-]+) \((?P<mode>standard|fips)\)$")
 
 
 def gh(*args, binary=False):
+    """A job log or artifact (None if GitHub has none): the job's evidence is then missing,
+    which the report says. Listings that decide what failed go through ghrest, which raises."""
     # gh's output is UTF-8 (job logs carry any byte); Windows' default code page can't decode it.
     p = subprocess.run(["gh", *args], capture_output=True, text=not binary,
                        encoding=None if binary else "utf-8", errors=None if binary else "replace")
@@ -107,17 +114,17 @@ def classify(lines):
 def failed_jobs(pr=None, run=None):
     """[(job name, run id, job id)] of failed jobs."""
     if pr:
-        checks = json.loads(gh("pr", "checks", str(pr), "--json", "name,bucket,link") or "[]")
+        checks = ghrest.checks(ghrest.pr_sha(pr))
         found = []
         for c in checks:
             m = re.search(r"/runs/(\d+)/job/(\d+)", c.get("link", ""))
-            # A job cut off by its time limit is "cancel", not "fail" (`gh pr checks` prints
-            # both as fail): a kind test waiting on repo1.dso.mil ends that way.
+            # A job cut off by its time limit is "cancel", not "fail": a kind test waiting
+            # on repo1.dso.mil ends that way.
             if c.get("bucket") in ("fail", "cancel") and m:
                 found.append((c["name"], m.group(1), m.group(2)))
         return found
-    jobs = json.loads(gh("run", "view", str(run), "--json", "jobs") or '{"jobs": []}')["jobs"]
-    return [(j["name"], str(run), str(j["databaseId"])) for j in jobs
+    jobs = ghrest.api_list(f"actions/runs/{run}/jobs", key="jobs")
+    return [(j["name"], str(run), str(j["id"])) for j in jobs
             if j.get("conclusion") in ("failure", "cancelled", "timed_out")]
 
 
@@ -184,12 +191,13 @@ def flake_report(counts, threshold):
 
 def flakes(repo, days, threshold):
     since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    runs = json.loads(gh("run", "list", "--limit", "500", "--json",
-                         "databaseId,attempt,workflowName,createdAt,conclusion") or "[]")
+    runs = [{"databaseId": r["id"], "attempt": r.get("run_attempt", 1), "workflowName": r["name"],
+             "createdAt": r["created_at"], "conclusion": r.get("conclusion")}
+            for r in ghrest.api_list(f"actions/runs?created=%3E%3D{since}", key="workflow_runs", limit=500)]
 
     def failed_in_attempt(run, n):
-        data = json.loads(gh("api", f"repos/{repo}/actions/runs/{run}/attempts/{n}/jobs?per_page=100") or '{"jobs": []}')
-        return [j["name"] for j in data.get("jobs", []) if j.get("conclusion") in ("failure", "cancelled", "timed_out")]
+        jobs = ghrest.api_list(f"actions/runs/{run}/attempts/{n}/jobs", key="jobs")
+        return [j["name"] for j in jobs if j.get("conclusion") in ("failure", "cancelled", "timed_out")]
 
     lines, fix = flake_report(rerun_counts(runs, failed_in_attempt, since), threshold)
     print(f"Jobs re-run in the last {days} days (FIX: {threshold} or more):")
@@ -198,6 +206,14 @@ def flakes(repo, days, threshold):
 
 
 def main():
+    try:
+        return run_main()
+    except ghrest.GhError as e:
+        print(f"ERROR: GitHub didn't answer, so nothing was triaged: {e}")
+        return 3
+
+
+def run_main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pr", nargs="?", type=int, help="pull request number")
     ap.add_argument("--run", type=int, help="a workflow run id instead of a pull request")
@@ -207,12 +223,10 @@ def main():
     ap.add_argument("--threshold", type=int, default=3, help="--flakes: re-runs that mark a job FIX (default 3)")
     a = ap.parse_args()
     if a.flakes:
-        repo = (gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner") or "").strip()
-        return flakes(repo, a.days, a.threshold)
+        return flakes(ghrest.repo(), a.days, a.threshold)
     if not (a.pr or a.run):
         ap.error("give a pull request number or --run")
-    repo = (gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner") or "").strip()
-    report = triage(repo, failed_jobs(a.pr, a.run))
+    report = triage(ghrest.repo(), failed_jobs(a.pr, a.run))
     if not report:
         print("no failed jobs")
         return 0
@@ -230,7 +244,7 @@ def main():
         runs_with_real = {run for _, run, flake, _ in real}
         for run in sorted({run for _, run, flake, _ in report if flake} - runs_with_real):
             print(f"\nre-running the failed jobs of run {run}")
-            subprocess.run(["gh", "run", "rerun", run, "--failed"])
+            ghrest.rerun_failed(run)
     print(f"\n{len(real)} real failure(s), {len(report) - len(real)} flake(s)")
     return 1 if real else 2
 

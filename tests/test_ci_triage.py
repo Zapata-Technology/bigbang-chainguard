@@ -1,6 +1,4 @@
 """ci-triage.py: telling a known flake from a real failure, from lines CI printed."""
-import json
-
 from conftest import load_script
 
 triage = load_script("ci-triage")
@@ -52,9 +50,11 @@ def test_cancelled_and_timed_out_jobs_count_as_failed(monkeypatch):
     checks = [{"name": "mimir (standard)", "bucket": "cancel", "link": "https://x/actions/runs/1/job/11"},
               {"name": "loki (fips)", "bucket": "fail", "link": "https://x/actions/runs/1/job/12"},
               {"name": "alloy (fips)", "bucket": "pass", "link": "https://x/actions/runs/1/job/13"}]
-    jobs = {"jobs": [{"name": "a", "databaseId": 21, "conclusion": "timed_out"},
-                     {"name": "b", "databaseId": 22, "conclusion": "success"}]}
-    monkeypatch.setattr(triage, "gh", lambda *a, **k: json.dumps(checks if a[:2] == ("pr", "checks") else jobs))
+    jobs = [{"name": "a", "id": 21, "conclusion": "timed_out"},
+            {"name": "b", "id": 22, "conclusion": "success"}]
+    monkeypatch.setattr(triage.ghrest, "pr_sha", lambda n: "abc")
+    monkeypatch.setattr(triage.ghrest, "checks", lambda sha: checks if sha == "abc" else [])
+    monkeypatch.setattr(triage.ghrest, "api_list", lambda path, key=None, **k: jobs if path == "actions/runs/7/jobs" else [])
     assert triage.failed_jobs(pr=5) == [("mimir (standard)", "1", "11"), ("loki (fips)", "1", "12")]
     assert triage.failed_jobs(run=7) == [("a", "7", "21")]
 
