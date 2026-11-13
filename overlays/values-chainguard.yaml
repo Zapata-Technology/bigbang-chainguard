@@ -9,7 +9,7 @@ packages:
         images:
         - digest: sha256:a2b63d40a9d01b8ff93e1d7910c5e21548874d2aeb9abd931eb0dc7b30885700
           name: cgr.dev/zapatatechnology.com/grafana-alloy
-        - digest: sha256:7f79b537bc6b950494d9117c9e8236b5264f06e1685d363ed8839809cc1fa0f3
+        - digest: sha256:e2dfff84d659e23910553926e383060fceffb0c800cfce634a338a2bd5f67776
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator
         - digest: sha256:69dc289054814f5b52d39f38408513adb5b48e2ac4e6c091e38bf96cce2cd30b
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -812,19 +812,19 @@ packages:
         images:
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:eaebfc9b183eb22c14369ba765ed6110a6c79e59c2a593432704d6b0dea63b1a
+        - digest: sha256:0fe9110ab9af7915f612fc44979d53106699ef9c84290b878fa2aadb36cfbef1
           name: cgr.dev/zapatatechnology.com/kyverno
-        - digest: sha256:7da0abea5b9d4380df6481905734acf7b9ee2c31d62296fd62772b2c82df5a30
+        - digest: sha256:423c54f41e94e0ad1dad4a7ea27f40fac09aaf3dcb6695bf5c487c12bb9ea4fc
           name: cgr.dev/zapatatechnology.com/kyverno-background-controller
-        - digest: sha256:ec81724dceea58ad29e0b9c73945160361ccaee1124ef3f94237201f2362a5da
+        - digest: sha256:49002822b497a9153c7617637cdf35922cc4a606c2d0ad1bc1f733682179d1a3
           name: cgr.dev/zapatatechnology.com/kyverno-cleanup-controller
         - digest: sha256:349d16d754420aafb0edf5b1fa33d68ffd99c2738a5b486cafc20b8faae6f115
           name: cgr.dev/zapatatechnology.com/kyverno-cli
         - digest: sha256:5bc3b08f4fde974927c1840be0b00fdeb59e65372d96c3350e98be322ed5a1a6
           name: cgr.dev/zapatatechnology.com/kyverno-readiness-checker
-        - digest: sha256:0943c8ee67fc12cc3fa796b6187b87d69e3e69d0f30146397de561fc8b432fa7
+        - digest: sha256:d2d4166ab220e1884a5ebcda37530fdbaed40e0e8d81727e8289b77a88984ec8
           name: cgr.dev/zapatatechnology.com/kyverno-reports-controller
-        - digest: sha256:50894a64b1c8937ade22ef23e4932abd8017205779f71d56b0c2c18d5e8e4d0f
+        - digest: sha256:d316d4869b293bc901873a69c81b31ba66d267a29a54a43a2f88b926f49866fc
           name: cgr.dev/zapatatechnology.com/kyvernopre
     values:
       bbtests:

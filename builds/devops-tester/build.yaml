@@ -18,13 +18,13 @@ image:
     tag: 1.4-kubectl1.37.2
     dev: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev@sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
     velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:7bc35953a7669a198abee7a593343ea184fba18235be3571a1365c98d110e50f
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:b8ac133835438599be272ea135627ea969f72949760add8e44e8414620a9143a
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:349d16d754420aafb0edf5b1fa33d68ffd99c2738a5b486cafc20b8faae6f115
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
     velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:e3e45d77de61292b7748e2e2284994be21d8a105153f07f7e354aa8628ff6fa7
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:03cdf8a48361445dc10823986f07c35c163bb1594f280ca16dae537fdbe9d48d
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:c769abd42b2f0861bb70aaf8364dd694a756d5ab1fc6a86a7a10e00d478b4d8e
 chainsaw:
   version: 0.2.15
   source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15
