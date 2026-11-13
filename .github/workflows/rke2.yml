@@ -28,6 +28,10 @@ jobs:
     # Big Bang's default packages need more than a standard private-repository runner (2 CPUs,
     # 7 GB): set the repository variable RKE2_RUNNER to a larger runner's label (16 GB or more).
     runs-on: ${{ vars.RKE2_RUNNER || 'ubuntu-latest' }}
+    # Not on Dependabot's pull requests: an action bump doesn't need this billed larger-runner VM test, and
+    # CI, builds and the kind tests already run the bumped actions. Scheduled, manual and
+    # every other pull request's runs are unchanged.
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
     timeout-minutes: 150
     name: default packages (RKE2, CIS profile)
     env:

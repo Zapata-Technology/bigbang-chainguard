@@ -30,6 +30,10 @@ permissions:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    # Not on Dependabot's pull requests: an action bump doesn't need this VM test (its test job needs this one), and
+    # CI, builds and the kind tests already run the bumped actions. Scheduled, manual and
+    # every other pull request's runs are unchanged.
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
     timeout-minutes: 30
     outputs:
       bigbang-key: ${{ steps.bb.outputs.key }}
