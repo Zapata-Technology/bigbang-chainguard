@@ -1,5 +1,6 @@
 """bb-install.py decisions that don't need a cluster (kubectl/helm calls are stubbed)."""
 import argparse
+import base64
 import getpass
 import hashlib
 import json
@@ -923,10 +924,26 @@ def test_to_resolves_a_tag_a_big_bang_version_or_latest():
 
 
 def test_running_release_is_trusted_only_while_big_bang_matches():
-    assert releases.running_release({"release": "4.1.0-cg.3"}, "4.1.0") == "4.1.0-cg.3"
-    assert releases.running_release({"release": "4.1.0-cg.3"}, "4.0.0") is None     # rolled back
-    assert releases.running_release({}, "4.1.0") is None
-    assert releases.running_release({"release": "4.1.0-cg.3"}, None) is None
+    assert releases.running_release("4.1.0-cg.3", "4.1.0") == "4.1.0-cg.3"
+    assert releases.running_release("4.1.0-cg.3", "4.0.0") is None     # rolled back
+    assert releases.running_release(None, "4.1.0") is None
+    assert releases.running_release("4.1.0-cg.3", None) is None
+
+
+def test_recorded_release_reads_only_a_release_tag(monkeypatch):
+    stored = {}
+
+    def kubectl(*a, **k):
+        assert a[-1] == "jsonpath={.data.release}"     # one key; never the credentials
+        return stored.get("out")
+    monkeypatch.setattr(releases, "kubectl", kubectl)
+    assert releases.recorded_release() is None                       # no Secret, or no key
+    stored["out"] = base64.b64encode(b"4.1.0-cg.3").decode()
+    assert releases.recorded_release() == "4.1.0-cg.3"
+    stored["out"] = base64.b64encode(b"hunter2").decode()
+    assert releases.recorded_release() is None
+    stored["out"] = "%%%"
+    assert releases.recorded_release() is None
 
 
 def test_downgrades_are_found_by_release_or_big_bang_version():
@@ -1031,7 +1048,7 @@ def release_cluster(monkeypatch, tmp_path, state, running):
     """Stub GitHub, the cluster and the release's installer for upgrade --to / --list."""
     calls = {"run": [], "recorded": []}
     monkeypatch.setattr(releases, "list_releases", lambda repo: ["4.1.0-cg.11", "4.1.0-cg.10", "4.0.0-cg.29"])
-    monkeypatch.setattr(commands, "read_secret", lambda ns, name: state)
+    monkeypatch.setattr(releases, "recorded_release", lambda: state.get("release"))
     monkeypatch.setattr(commands, "deployed", lambda: (running, {}))
     monkeypatch.setattr(commands.shutil, "which", lambda t: "/bin/" + t)
     real_fetch = releases.fetch_release

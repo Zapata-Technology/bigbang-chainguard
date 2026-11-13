@@ -7,6 +7,7 @@ A release is a fixed set of overlays, digests and installer that CI tested toget
 flags) rather than pointing this checkout's installer at its overlays: a newer release can
 need installer changes this checkout doesn't have (the Big Bang 4 site file conversion
 did)."""
+import base64
 import hashlib
 import json
 import os
@@ -103,11 +104,22 @@ def resolve(spec, tags):
                      f"such as {bigbang_of(tags[0])}, or latest (upgrade --list shows them)")
 
 
-def running_release(state, deployed_version):
-    """The release tag the cluster runs: the one the installer recorded (bb-install Secret
-    `release`), trusted only while Big Bang's chart is still that release's version (a
-    rollback or an install from a checkout moves it). None when unknown."""
-    tag = (state or {}).get("release")
+def recorded_release():
+    """The release tag install recorded in the bb-install Secret, or None. Only that one key
+    is read (the Secret also holds credentials, which must never reach output)."""
+    out = kubectl("-n", NAMESPACE, "get", "secret", STATE_SECRET, "-o", "jsonpath={.data.release}", check=False)
+    try:
+        key = tag_key(base64.b64decode(out or "").decode())
+    except ValueError:
+        return None
+    # Rebuilt from the parsed numbers: nothing but a release tag comes out of the Secret.
+    return "{}.{}.{}-cg.{}".format(*key) if key else None
+
+
+def running_release(tag, deployed_version):
+    """The release tag the cluster runs: the one the installer recorded, trusted only while
+    Big Bang's chart is still that release's version (a rollback or an install from a
+    checkout moves it). None when unknown."""
     if tag_key(tag) and deployed_version and bigbang_of(tag) == deployed_version:
         return tag
     return None

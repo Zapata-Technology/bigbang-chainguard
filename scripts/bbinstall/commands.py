@@ -110,9 +110,8 @@ def _cluster_release(a):
     """(repo, release tags newest first, the release tag the cluster runs, its Big Bang version)."""
     repo = a.repo or releases.release_repo()
     tags = releases.list_releases(repo)
-    state = read_secret(NAMESPACE, STATE_SECRET) or {}
     running = deployed()[0] if shutil.which("helm") else None
-    return repo, tags, releases.running_release(state, running), running
+    return repo, tags, releases.running_release(releases.recorded_release(), running), running
 
 
 def list_upgrades(a):
