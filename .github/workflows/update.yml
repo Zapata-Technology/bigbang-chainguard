@@ -21,12 +21,16 @@
 #
 # An image this repo builds whose tag moves (Grafana 13.3.0 -> 13.3.1) can't be in the
 # overlays until builds.yml has published it from main. scripts/bb-held-builds.py holds
-# such a build.yaml back: the overlays stay on the published tag, and the build.yaml goes
-# in its own pull request (bot/builds-update, or bot/builds-release for the release track;
-# automerge.yml merges both when green). Once builds.yml has published from main, this
-# workflow runs again and moves the overlays. (A release's builds on main are pinned for
-# the new release until the routine track's next PR re-pins them for the deployed one; the
-# published tags stay, so both tracks' overlays then use published images.)
+# such a build back: the overlays stay on the published tag, and the new build goes in its
+# own pull request (automerge.yml merges both kinds when green). The routine track's is
+# build.yaml, in bot/builds-update. The release track's is builds/<name>/release.yaml (same
+# schema), in bot/builds-release: build.yaml stays pinned for the deployed release and the
+# routine track never touches release.yaml, so main's build.yaml doesn't flip between the
+# two releases (each flip rebuilt and re-pushed an existing tag). builds.yml publishes both
+# from main. Once published, this workflow runs again and moves the overlays; the release
+# PR then carries the new build.yaml and deletes release.yaml. A release.yaml left on main
+# once no newer release is out (merged with its build still held, or withdrawn) is deleted
+# by the routine PR.
 name: Update - Big Bang and Chainguard tags
 
 on:
@@ -100,10 +104,18 @@ jobs:
             sleep $((30 * i))
           done
           echo "current=$current latest=$latest"
-          tracks='{"track":"routine","version":"'"$current"'","branch":"bot/bigbang-update","builds_branch":"bot/builds-update","title":"update Chainguard tags in the Big Bang overlays"}'
+          newer=false
           if [ -n "$latest" ] && [ "$latest" != "$current" ] \
              && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
-            tracks+=',{"track":"release","version":"'"$latest"'","branch":"bot/bigbang-release","builds_branch":"bot/builds-release","title":"Big Bang '"$latest"' on Chainguard images"}'
+            newer=true
+          fi
+          # No newer release (and repo1 answered): a builds/*/release.yaml left on main is
+          # stale (its release merged, or was withdrawn), so the routine track drops it.
+          drop=false
+          [ -n "$latest" ] && [ "$newer" = false ] && drop=true
+          tracks='{"track":"routine","version":"'"$current"'","branch":"bot/bigbang-update","builds_branch":"bot/builds-update","title":"update Chainguard tags in the Big Bang overlays","drop_release":"'"$drop"'"}'
+          if [ "$newer" = true ]; then
+            tracks+=',{"track":"release","version":"'"$latest"'","branch":"bot/bigbang-release","builds_branch":"bot/builds-release","title":"Big Bang '"$latest"' on Chainguard images","drop_release":"true"}'
           fi
           echo "tracks=[$tracks]" | tee -a "$GITHUB_OUTPUT"
 
@@ -205,6 +217,10 @@ jobs:
 
       - name: Discover, convert, verify
         id: run
+        env:
+          TRACK: ${{ matrix.track }}
+          BUILDS_BRANCH: ${{ matrix.builds_branch }}
+          DROP_RELEASE: ${{ matrix.drop_release }}
         run: |
           python3 -m pip install --quiet -r requirements.txt
           python3 scripts/bb-fetch.py
@@ -235,12 +251,25 @@ jobs:
               # chart the smoke test didn't find).
               python3 scripts/bb-build.py installer 2>&1 || true
               # A moved tag builds.yml hasn't published yet: keep the overlays on the
-              # published one; the new build.yaml goes in bot/builds-update below.
-              held=$(python3 scripts/bb-held-builds.py hold "${RUNNER_TEMP}/held") || held=""
+              # published one; the new build goes in the builds PR below (bot/builds-update as
+              # build.yaml; the release track's as builds/<name>/release.yaml, which the
+              # routine track never rewrites, so main's build.yaml doesn't flip between them).
+              held=$(python3 scripts/bb-held-builds.py hold "${RUNNER_TEMP}/held" \
+                $([ "$TRACK" = release ] && echo --release)) || held=""
               if [ -n "$held" ]; then
-                echo "held back until builds.yml publishes them from main (bot/builds-update):"
+                echo "held back until builds.yml publishes them from main (${BUILDS_BRANCH}):"
                 echo "$held" | sed 's/^/  /'
                 { echo "held<<HELD_EOF"; echo "$held"; echo "HELD_EOF"; } >> "$GITHUB_OUTPUT"
+              fi
+              # A release.yaml whose build is published (this PR's build.yaml carries it), or
+              # left over once no newer release is out: removed here (each one held again stays).
+              if [ "$DROP_RELEASE" = true ]; then
+                dropped=$(python3 scripts/bb-held-builds.py drop-release --keep "${RUNNER_TEMP}/held") || dropped=""
+                if [ -n "$dropped" ]; then
+                  echo "removed (published, or its release is no longer ahead):"
+                  echo "$dropped" | sed 's/^/  /'
+                  { echo "dropped<<DROPPED_EOF"; echo "$dropped"; echo "DROPPED_EOF"; } >> "$GITHUB_OUTPUT"
+                fi
               fi
             fi
             python3 scripts/bb-convert.py 2>&1 || true
@@ -336,12 +365,15 @@ jobs:
             builds/*/build.yaml
             seaweedfs/*.yaml
             seaweedfs-fips/*.yaml
+            ${{ steps.run.outputs.dropped }}
+          # (`dropped`: each removed builds/<name>/release.yaml by name, so `git add` stages
+          # the deletion; a glob matching no file would make git add nothing at all.)
           body: |
             Automated by `.github/workflows/update.yml`.
 
             ${{ steps.run.outputs.body }}
 
-      # The held-back build.yaml files, alone: the overlays don't change, so this passes,
+      # The held-back build.yaml (release.yaml) files, alone: the overlays don't change, so this passes,
       # and once it merges builds.yml publishes the new tags and this workflow runs again.
       - name: Put the held-back builds back
         if: steps.run.outputs.held != ''
@@ -372,3 +404,5 @@ jobs:
 
             Nothing deployed changes here. When this merges, builds.yml pushes and signs the
             new tags, then update.yml runs again and moves the overlays in `${{ matrix.branch }}`.
+            (A `builds/<name>/release.yaml` is the build pinned for the newer Big Bang release:
+            builds.yml publishes it next to `build.yaml`, which stays the deployed release's.)

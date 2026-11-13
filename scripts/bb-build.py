@@ -17,6 +17,7 @@ the generated build.yaml. The recipe says what the build is; its hook module
 
   bb-build.py <name> [--org <org>] [--ref master] [--version V]   regenerate builds/<name>/build.yaml
   bb-build.py <name> --build [--test] [--push]                     also build both images
+  bb-build.py <name> --release --build [...]                       build builds/<name>/release.yaml
   bb-build.py --all [...]                                           every build (a recipe's `after` first)
   bb-build.py --list                                                the builds, one per line
 
@@ -31,6 +32,11 @@ recipe.yaml keys every build has (the hook reads the rest; see its docstring):
                 for empty when missing), when the hook has no build_args()
   smoke         {script: [lines], checks: {label: regex}, shell, docker_args}, filled from
                 build.yaml, when the hook has no smoke_test(); -fips also checks OpenSSL fips=yes
+
+builds/<name>/release.yaml (build.yaml's schema) is the build pinned for a newer Big Bang
+release, which the nightly update's release track holds there (scripts/bb-held-builds.py)
+until builds.yml has published it from main. --release builds it (never generates it), and
+does nothing when it is absent or has build.yaml's tags.
 
 A new build is a builds/<name>/ directory with a Dockerfile and a recipe.yaml, and a hook
 module when no existing one fits; then add its name to builds.yml's matrix and update.yml's
@@ -63,6 +69,9 @@ def parse_args(argv=None):
     ap.add_argument("--force", action="store_true",
                     help="build even if the mapping doesn't use this image (upgrade tests)")
     ap.add_argument("--no-generate", action="store_true", help="build from the existing build.yaml")
+    ap.add_argument("--release", action="store_true",
+                    help="build from builds/<name>/release.yaml (implies --no-generate); nothing when it "
+                         "is absent or has build.yaml's tags")
     ap.add_argument("--build", action="store_true", help="docker build the standard and FIPS images")
     ap.add_argument("--test", action="store_true", help="smoke-test each built image (implies --build)")
     ap.add_argument("--push", action="store_true", help="push both images to BUILD_REGISTRY (implies --build)")
@@ -93,20 +102,41 @@ def smoke_test(r, hook, ref, variant, spec):
     return bbbuild.recipe_smoke_test(r, ref, variant, spec)
 
 
+def tags(spec):
+    """{variant: (image name, tag)}: what a build.yaml spec publishes."""
+    return {v: (img.get("name"), img.get("tag")) for v, img in (spec or {}).get("image", {}).items()}
+
+
+def release_spec(out):
+    """builds/<name>/release.yaml's spec when it publishes tags build.yaml doesn't, else None."""
+    path = os.path.join(out, "release.yaml")
+    if not os.path.exists(path):
+        return None
+    spec = yaml.safe_load(open(path, encoding="utf-8"))
+    current = os.path.join(out, "build.yaml")
+    current = yaml.safe_load(open(current, encoding="utf-8")) if os.path.exists(current) else None
+    return spec if tags(spec) != tags(current) else None
+
+
 def run_build(name, a):
     r = bbbuild.load_recipe(name)
     hook = bbbuild.load_hook(r)
     building = a.build or a.test or a.push
     org = org_name(a.org)
     out = os.path.join(ROOT, "builds", name)
-    spec_file = os.path.join(out, "build.yaml")
+    spec_file, no_generate = os.path.join(out, "build.yaml"), a.no_generate
+    if a.release:
+        if not release_spec(out):
+            print(f"skipped: no builds/{name}/release.yaml with tags builds/{name}/build.yaml lacks")
+            return
+        spec_file, no_generate = os.path.join(out, "release.yaml"), True
     standalone = os.path.exists(spec_file) and (yaml.safe_load(open(spec_file)) or {}).get("standalone")
     # A standalone image (the installer) isn't a Big Bang image the mapping names.
     if building and not a.force and not standalone and not any(isinstance(v, dict) and v.get("build") == name
                                                                for v in load_mapping(org)["images"].values()):
         print(f"skipped: the mapping for {org} doesn't use builds/{name} (mapping.yaml or orgs/{org}.yaml)")
         return
-    spec = yaml.safe_load(open(spec_file)) if a.no_generate else generate(r, a)
+    spec = yaml.safe_load(open(spec_file)) if no_generate else generate(r, a)
     if not building:
         return
     registry = build_registry(a.build_registry)

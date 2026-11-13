@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write a SLSA v1 provenance predicate for one image this repo builds.
 
-  bb-provenance.py <name> <image@digest> -o predicate.json
+  bb-provenance.py <name> <image@digest> -o predicate.json [--spec release.yaml]
 
 builds.yml attests it to each pushed image (cosign attest --type slsaprovenance1), next to
 the signature and the SBOM: which workflow run built the image, from which commit, and
@@ -71,8 +71,13 @@ def main():
     ap.add_argument("name", help="the builder: builds/<name>/build.yaml")
     ap.add_argument("image", help="the pushed image, <repo>@sha256:<digest>")
     ap.add_argument("-o", "--output", required=True)
+    ap.add_argument("--spec", default="build.yaml",
+                    help="the file in builds/<name>/ the image was built from (release.yaml: the "
+                         "release track's held build; default build.yaml)")
     a = ap.parse_args()
-    spec = yaml.safe_load(open(os.path.join(ROOT, "builds", a.name, "build.yaml"), encoding="utf-8")) or {}
+    if a.spec not in ("build.yaml", "release.yaml"):
+        sys.exit(f"--spec: build.yaml or release.yaml, not {a.spec}")
+    spec = yaml.safe_load(open(os.path.join(ROOT, "builds", a.name, a.spec), encoding="utf-8")) or {}
     missing = [k for k in ("GITHUB_REPOSITORY", "GITHUB_SHA", "GITHUB_REF", "GITHUB_RUN_ID") if k not in os.environ]
     if missing:
         sys.exit(f"not in GitHub Actions: {', '.join(missing)} unset")

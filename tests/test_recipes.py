@@ -592,6 +592,41 @@ def test_bb_build_command_line(capsys):
         bb_build.main(["no-such-build"])
 
 
+def test_bb_build_release_builds_release_yaml_only_when_its_tags_differ(tmp_path):
+    def spec(tag):
+        return {"image": {"standard": {"name": "bigbang-x", "tag": tag}, "fips": {"name": "bigbang-x-fips", "tag": tag}}}
+    assert bb_build.parse_args(["base", "--release", "--build"]).release
+    assert bb_build.release_spec(str(tmp_path)) is None                       # no release.yaml
+    (tmp_path / "build.yaml").write_text(yaml.safe_dump(spec("1.0.0")), encoding="utf-8")
+    (tmp_path / "release.yaml").write_text(yaml.safe_dump(spec("1.0.0")), encoding="utf-8")
+    assert bb_build.release_spec(str(tmp_path)) is None                       # build.yaml's tags: built already
+    (tmp_path / "release.yaml").write_text(yaml.safe_dump(spec("1.1.0")), encoding="utf-8")
+    assert bb_build.release_spec(str(tmp_path)) == spec("1.1.0")
+    (tmp_path / "build.yaml").unlink()                                        # a build new to main
+    assert bb_build.release_spec(str(tmp_path)) == spec("1.1.0")
+
+
+def test_bb_build_release_never_generates(monkeypatch, tmp_path):
+    a = bb_build.parse_args(["base", "--release", "--org", "example.com"])
+    monkeypatch.setattr(bb_build, "generate", lambda r, a: pytest.fail("generated build.yaml"))
+    monkeypatch.setattr(bb_build, "release_spec", lambda out: None)
+    bb_build.run_build("base", a)                                             # skipped: nothing to build
+
+
+def test_builds_workflow_publishes_release_yaml_next_to_build_yaml():
+    steps = {s.get("name"): s for s in yaml.safe_load(workflow("builds.yml"))["jobs"]["build"]["steps"]}
+    run = steps["Build and smoke-test (standard and FIPS)"]["run"]
+    assert 'build build.yaml "${args[@]}"' in run
+    assert 'build release.yaml "${args[@]}" --release' in run
+    assert run.index('build build.yaml "${args[@]}"') < run.index("build release.yaml")
+    # Each image keeps the file it was built from, for its provenance.
+    assert 'sed "s|\\$| $spec|"' in run
+    push = steps["Push to BUILD_REGISTRY (signed before the tag moves)"]["run"]
+    assert "while read -r image spec; do" in push and 'echo "$pushed $spec"' in push
+    attest = steps["Attest an SBOM and provenance (cosign keyless)"]["run"]
+    assert '--spec "${spec:-build.yaml}"' in attest
+
+
 def workflow(name):
     return open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8").read()
 

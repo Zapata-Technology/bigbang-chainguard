@@ -64,11 +64,18 @@ def test_no_guard_reads_a_failed_call_as_no():
 
 def test_automerge_accepts_exactly_the_files_update_writes():
     pr_step = next(s for s in UPDATE["jobs"]["update"]["steps"] if s.get("name") == "Open the pull request")
-    for path in pr_step["with"]["add-paths"].split():
+    paths = pr_step["with"]["add-paths"].splitlines()
+    for path in (p.strip() for p in paths):
+        if path.startswith("${{"):
+            continue    # steps.run.outputs.dropped: removed builds/*/release.yaml, below
         assert f"bot/bigbang-*:{path}" in STEP["run"] or f"bot/bigbang-release:{path}" in STEP["run"], \
             f"automerge refuses update.yml's {path}"
+    assert "${{ steps.run.outputs.dropped }}" in [p.strip() for p in paths]
+    assert "bot/bigbang-*:builds/*/release.yaml) [ \"$status\" = removed ]" in STEP["run"]
     assert "bot/builds-update:builds/*/build.yaml" in STEP["run"]
     assert "bot/builds-release:builds/*/build.yaml" in STEP["run"]
+    assert "bot/builds-release:builds/*/release.yaml)" in STEP["run"]
+    assert "bot/builds-update:builds/*/release.yaml" not in STEP["run"]
 
 
 def test_update_runs_a_routine_track_and_a_release_track_with_their_own_branches():
@@ -270,3 +277,82 @@ def test_the_routine_track_never_moves_big_bang(tmp_path):
     data["pulls/7/files?per_page=100&page=1"] = [{"filename": "BIGBANG_VERSION"}]
     p, log = run_merge(tmp_path, data, patches="true")
     assert "pr merge" not in log and "needs-attention" in log
+
+
+RELEASE_YAML = "builds/grafana-plugins/release.yaml"
+
+
+def test_the_release_tracks_held_build_merges_as_release_yaml(tmp_path):
+    data = green(**{"pulls?state=open&per_page=100": [{"number": 7, "head": {"ref": "bot/builds-release", "sha": "abc"}}],
+                    "pulls/7/files?per_page=100&page=1": [{"status": "added", "filename": RELEASE_YAML}]})
+    p, log = run_merge(tmp_path, data, branch="bot/builds-release")
+    assert p.returncode == 0, p.stderr
+    assert "pr merge 7 --squash" in log and "needs-attention" not in log
+
+
+def test_a_big_bang_pr_may_only_delete_a_release_yaml(tmp_path):
+    files = [{"status": "modified", "filename": "builds/grafana-plugins/build.yaml"},
+             {"status": "removed", "filename": RELEASE_YAML}]
+    p, log = run_merge(tmp_path, green(**{"pulls/7/files?per_page=100&page=1": files}))
+    assert p.returncode == 0, p.stderr
+    assert "pr merge 7 --squash" in log
+    for status in ("added", "modified"):
+        (tmp_path / status).mkdir()
+        files = [{"status": status, "filename": RELEASE_YAML}]
+        p, log = run_merge(tmp_path / status, green(**{"pulls/7/files?per_page=100&page=1": files}))
+        assert "pr merge" not in log and "needs-attention" in log, status
+
+
+def test_the_routine_builds_pr_never_carries_a_release_yaml(tmp_path):
+    data = green(**{"pulls?state=open&per_page=100": [{"number": 7, "head": {"ref": "bot/builds-update", "sha": "abc"}}],
+                    "pulls/7/files?per_page=100&page=1": [{"status": "added", "filename": RELEASE_YAML}]})
+    p, log = run_merge(tmp_path, data, branch="bot/builds-update")
+    assert "pr merge" not in log and "needs-attention" in log
+
+
+def test_update_puts_the_release_tracks_held_builds_in_release_yaml():
+    steps = UPDATE["jobs"]["update"]["steps"]
+    run_step = next(s for s in steps if s.get("id") == "run")
+    run = run_step["run"]
+    assert run_step["env"]["TRACK"] == "${{ matrix.track }}"
+    assert run_step["env"]["DROP_RELEASE"] == "${{ matrix.drop_release }}"
+    assert '$([ "$TRACK" = release ] && echo --release)' in run
+    assert run.index("bb-held-builds.py hold") < run.index("bb-held-builds.py drop-release --keep") \
+        < run.index("bb-convert.py")
+    plan = next(s for s in UPDATE["jobs"]["plan"]["steps"] if s.get("id") == "bb")["run"]
+    # The release track always drops what it no longer holds; the routine track only once
+    # no newer release is out, and never when repo1 didn't answer (latest unknown).
+    assert '"drop_release":"true"}' in plan and '"drop_release":"\'"$drop"\'"}' in plan
+    assert '[ -n "$latest" ] && [ "$newer" = false ] && drop=true' in plan
+
+
+def test_update_plan_tracks(tmp_path):
+    """The plan step's bash, with git ls-remote faked: which tracks run, and which drop."""
+    import json
+    import shutil
+    import subprocess
+    import pytest
+    if os.name == "nt" or not shutil.which("bash"):
+        pytest.skip("needs bash (CI's runner has it)")
+    plan = next(s for s in UPDATE["jobs"]["plan"]["steps"] if s.get("id") == "bb")["run"]
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "git").write_text('#!/bin/sh\nprintf "%s" "$FAKE_TAGS"\n', encoding="utf-8")
+    (bindir / "git").chmod(0o755)
+    (bindir / "sleep").write_text("#!/bin/sh\n", encoding="utf-8")
+    (bindir / "sleep").chmod(0o755)
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.0\n", encoding="utf-8")
+
+    def tracks(tags):
+        out = tmp_path / "out"
+        out.write_text("", encoding="utf-8")
+        env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", GITHUB_OUTPUT=str(out),
+                   FAKE_TAGS="".join(f"x\trefs/tags/{t}\n" for t in tags))
+        p = subprocess.run(["bash", "-e", "-c", plan], env=env, capture_output=True, text=True, cwd=tmp_path)
+        assert p.returncode == 0, p.stderr
+        line = out.read_text(encoding="utf-8").strip()
+        return {t["track"]: t["drop_release"] for t in json.loads(line.split("=", 1)[1])}
+
+    assert tracks(["4.0.0", "4.1.0", "4.2.0"]) == {"routine": "false", "release": "true"}
+    assert tracks(["4.0.0", "4.1.0"]) == {"routine": "true"}
+    assert tracks([]) == {"routine": "false"}       # repo1 didn't answer: keep release.yaml

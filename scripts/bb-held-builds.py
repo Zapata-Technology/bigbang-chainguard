@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Hold back the images this repo builds whose new tag isn't published yet (nightly update).
 
-  bb-held-builds.py hold <dir>      set them aside in <dir>, put back HEAD's build.yaml
-  bb-held-builds.py restore <dir>   put the set-aside build.yaml files back
+  bb-held-builds.py hold <dir> [--release]       set them aside in <dir>, put back HEAD's build.yaml
+  bb-held-builds.py restore <dir>                put the set-aside files back
+  bb-held-builds.py drop-release [--keep <dir>]  remove builds/*/release.yaml (but those held in <dir>)
 
 The builders (scripts/bb-<name>.py) rewrite builds/<name>/build.yaml; bb-convert.py points
 the overlays at its tag. builds.yml pushes and signs that tag only from main, so a nightly
@@ -15,6 +16,14 @@ so bb-convert keeps the overlays on the published tag. It prints the held paths,
 line. update.yml sends them in their own pull request (bot/builds-update): it passes, as
 the overlays don't change, and once it merges builds.yml publishes the new tag and
 update.yml runs again to move the overlays.
+
+The release track (a newer Big Bang release) holds with --release: a held build goes to
+builds/<name>/release.yaml instead (same schema), in bot/builds-release. builds.yml
+publishes release.yaml from main next to build.yaml, which stays pinned for the deployed
+release (the routine track never touches release.yaml), so main's build.yaml doesn't flip
+between the two releases. Once published, the release PR carries the new build.yaml, and
+`drop-release --keep <dir>` removes each release.yaml not held again. The routine track
+drops them all only once no newer release is out (it merged, or was withdrawn).
 
 A standalone build (the installer) is never held: the overlays don't use it, and it
 bundles BIGBANG_VERSION's chart, so it ships with the Big Bang PR that moves it.
@@ -34,6 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bbcommon import ROOT, build_registry  # noqa: E402
 
 VARIANTS = ("standard", "fips")
+RELEASE = "release.yaml"   # the release track's held build, next to build.yaml
 
 
 def refs(spec, registry):
@@ -77,16 +87,20 @@ def to_hold(registry, root=ROOT, head=head_spec, exists=published):
     return held
 
 
-def hold(out, registry, root=ROOT, head=head_spec, exists=published):
-    paths = to_hold(registry, root, head, exists)
-    for rel in paths:
-        dest = os.path.join(out, rel)
+def hold(out, registry, root=ROOT, head=head_spec, exists=published, release=False):
+    """Set each held build.yaml aside in <out> (as release.yaml, with release) and put back
+    HEAD's. Returns the paths they take in the builds pull request."""
+    paths = []
+    for rel in to_hold(registry, root, head, exists):
+        dest_rel = f"{os.path.dirname(rel)}/{RELEASE}" if release else rel
+        dest = os.path.join(out, dest_rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         shutil.copyfile(os.path.join(root, rel), dest)
         if subprocess.run(["git", "cat-file", "-e", f"HEAD:{rel}"], cwd=root).returncode == 0:
             subprocess.run(["git", "checkout", "HEAD", "--", rel], cwd=root, check=True)
         else:   # a new build: not on main at all yet
             os.remove(os.path.join(root, rel))
+        paths.append(dest_rel)
     return paths
 
 
@@ -102,17 +116,37 @@ def restore(out, root=ROOT):
     return sorted(paths)
 
 
+def drop_release(root=ROOT, keep=None):
+    """Remove each builds/<name>/release.yaml, except one held again (in <keep>). Returns
+    the removed paths."""
+    dropped = []
+    builds = os.path.join(root, "builds")
+    for name in sorted(os.listdir(builds)) if os.path.isdir(builds) else []:
+        rel = f"builds/{name}/{RELEASE}"
+        if os.path.exists(os.path.join(root, rel)) and not (keep and os.path.exists(os.path.join(keep, rel))):
+            os.remove(os.path.join(root, rel))
+            dropped.append(rel)
+    return dropped
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("action", choices=("hold", "restore"))
-    ap.add_argument("dir", help="where held build.yaml files are kept")
+    ap.add_argument("action", choices=("hold", "restore", "drop-release"))
+    ap.add_argument("dir", nargs="?", help="where held build files are kept (hold, restore)")
+    ap.add_argument("--release", action="store_true",
+                    help="hold for the release track: a held build goes to builds/<name>/release.yaml")
+    ap.add_argument("--keep", help="drop-release: keep each release.yaml held in this directory")
     ap.add_argument("--build-registry", help="default: $BUILD_REGISTRY, else the BUILD_REGISTRY file")
     a = ap.parse_args()
+    if a.action != "drop-release" and not a.dir:
+        ap.error(f"{a.action} needs <dir>")
     if a.action == "restore":
         paths = restore(a.dir)
+    elif a.action == "drop-release":
+        paths = drop_release(keep=a.keep)
     else:
         registry = build_registry(a.build_registry)
-        paths = hold(a.dir, registry) if registry else []
+        paths = hold(a.dir, registry, release=a.release) if registry else []
     print(*paths, sep="\n")
 
 

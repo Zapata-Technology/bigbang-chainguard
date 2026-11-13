@@ -14,6 +14,10 @@
 #   gitaly-init-cgroups  GitLab's Gitaly cgroups init container, built from Gitaly's source (Go)
 #   registry-adapter  NeuVector's Harbor scanner adapter built from upstream's source (Go, cgo)
 #
+# builds/<name>/release.yaml, when present with other tags, is the same build pinned for a
+# newer Big Bang release (update.yml's release track holds it there until published, so
+# build.yaml stays the deployed release's): it is built, tested and pushed the same way.
+#
 # Pull requests build and test. A push to main (e.g. a merged nightly update) also
 # pushes the images to the BUILD_REGISTRY repository variable when it is set; a
 # manual run with push=true does the same. With the SIGN_IMAGES variable set to
@@ -162,7 +166,7 @@ jobs:
         id: build
         run: |
           python3 -m pip install --quiet -r requirements.txt
-          args=(--build --test --built-file "${RUNNER_TEMP}/built.txt")
+          args=(--build --test)
           # A new builder has no build.yaml until update.yml on main writes it together with
           # the overlays that use it (committed alone, bb-verify fails: the mapping says
           # `build:` but the overlays still name Iron Bank). Until then generate it here and
@@ -181,19 +185,34 @@ jobs:
           # a network error), and a download's server can answer 5xx (grafana.com's plugin
           # downloads: "curl: (22) ... returned error: 500"): one more try then. Any other
           # failure is real and fails now.
-          for try in 1 2; do
-            : > "${RUNNER_TEMP}/built.txt"
-            set +e
-            python3 scripts/bb-build.py "${{ matrix.name }}" "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/build.log"
-            rc=${PIPESTATUS[0]}
-            set -e
-            [ "$rc" = 0 ] && break
-            if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)|curl: \(22\) The requested URL returned error: 5[0-9][0-9]|proxy\.golang\.org/[^ ]*: stream error" \
-                "${RUNNER_TEMP}/build.log"; then
-              exit "$rc"
-            fi
-            echo "::warning::transient package fetch failure; building once more"
-          done
+          # built.txt: "<image> <spec>", the file in builds/<name>/ each image was built from.
+          build() {   # $1: build.yaml or release.yaml; the rest: bb-build.py's arguments
+            local spec=$1; shift
+            for try in 1 2; do
+              : > "${RUNNER_TEMP}/built-$spec.txt"
+              set +e
+              python3 scripts/bb-build.py "${{ matrix.name }}" "$@" --built-file "${RUNNER_TEMP}/built-$spec.txt" 2>&1 \
+                | tee "${RUNNER_TEMP}/build.log"
+              rc=${PIPESTATUS[0]}
+              set -e
+              [ "$rc" = 0 ] && break
+              if [ "$try" = 2 ] || ! grep -qE "ERROR: [^ ]+: (Permission denied|network error|temporary error|TLS handshake)|curl: \(22\) The requested URL returned error: 5[0-9][0-9]|proxy\.golang\.org/[^ ]*: stream error" \
+                  "${RUNNER_TEMP}/build.log"; then
+                exit "$rc"
+              fi
+              echo "::warning::transient package fetch failure; building once more"
+            done
+            sed "s|\$| $spec|" "${RUNNER_TEMP}/built-$spec.txt" >> "${RUNNER_TEMP}/built.txt"
+          }
+          : > "${RUNNER_TEMP}/built.txt"
+          build build.yaml "${args[@]}"
+          # builds/<name>/release.yaml: the build pinned for a newer Big Bang release, which
+          # update.yml's release track holds there until it is published (build.yaml stays
+          # pinned for the deployed release). Built, and on main pushed, next to build.yaml;
+          # bb-build.py skips it when its tags are build.yaml's.
+          if [ -f "builds/${{ matrix.name }}/release.yaml" ]; then
+            build release.yaml "${args[@]}" --release
+          fi
           [ -s "${RUNNER_TEMP}/built.txt" ] && echo "built=true" >> "$GITHUB_OUTPUT" || true
 
       - name: Upload the generated build.yaml (for review)
@@ -234,7 +253,7 @@ jobs:
           GRYPE: ${{ steps.grype.outputs.cmd }}
         run: |
           rc=0
-          while read -r image; do
+          while read -r image _spec; do
             [ -n "$image" ] || continue
             echo "== $image"
             "$GRYPE" "docker:$image" --only-fixed --fail-on critical -o table || rc=1
@@ -283,7 +302,7 @@ jobs:
               sleep 20
             done
           }
-          while read -r image; do
+          while read -r image spec; do
             [ -n "$image" ] || continue
             if [ -n "$SIGN" ]; then
               staging="${image}-staging"
@@ -295,7 +314,8 @@ jobs:
               sigstore sign --yes --new-bundle-format=false --use-signing-config=false "$digest"
             fi
             push "$image"
-            docker inspect --format '{{index .RepoDigests 0}}' "$image" >> "${RUNNER_TEMP}/pushed.txt"
+            pushed=$(docker inspect --format '{{index .RepoDigests 0}}' "$image")
+            echo "$pushed $spec" >> "${RUNNER_TEMP}/pushed.txt"
           done < "${RUNNER_TEMP}/built.txt"
           [ -s "${RUNNER_TEMP}/pushed.txt" ] && echo "pushed=true" >> "$GITHUB_OUTPUT" || true
 
@@ -319,10 +339,11 @@ jobs:
               sleep 20
             done
           }
-          while read -r image; do
+          while read -r image spec; do
             [ -n "$image" ] || continue
             "$SYFT" "$image" -o spdx-json="${RUNNER_TEMP}/sbom.spdx.json"
-            python3 scripts/bb-provenance.py "${{ matrix.name }}" "$image" -o "${RUNNER_TEMP}/provenance.json"
+            python3 scripts/bb-provenance.py "${{ matrix.name }}" "$image" --spec "${spec:-build.yaml}" \
+              -o "${RUNNER_TEMP}/provenance.json"
             sigstore attest --yes --type spdxjson --predicate "${RUNNER_TEMP}/sbom.spdx.json" "$image"
             sigstore attest --yes --type slsaprovenance1 --predicate "${RUNNER_TEMP}/provenance.json" "$image"
             echo "signed $image (SBOM, provenance)" >> "$GITHUB_STEP_SUMMARY"

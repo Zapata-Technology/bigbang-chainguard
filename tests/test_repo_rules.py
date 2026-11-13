@@ -53,7 +53,8 @@ GENERATED = ["overlays/values-chainguard.yaml", "overlays/values-chainguard-fips
              "docs/images.md", "docs/required-images.md", "docs/version-differences.md",
              "seaweedfs/kustomization.yaml",
              "seaweedfs-fips/kustomization.yaml"] + \
-            [os.path.relpath(p, ROOT).replace(os.sep, "/") for p in glob.glob(os.path.join(ROOT, "builds", "*", "build.yaml"))]
+            [os.path.relpath(p, ROOT).replace(os.sep, "/") for f in ("build.yaml", "release.yaml")
+             for p in glob.glob(os.path.join(ROOT, "builds", "*", f))]
 
 
 @pytest.mark.parametrize("rel", GENERATED)

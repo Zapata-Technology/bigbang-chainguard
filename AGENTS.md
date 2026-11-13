@@ -154,8 +154,9 @@ pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it 
 7. *A built image's tag moved* (Grafana 13.3.0 → 13.3.1): builds.yml publishes a tag only
    from main, so the overlays can't use it yet. `scripts/bb-held-builds.py` holds that
    build.yaml back and update.yml opens it alone as `bot/builds-update` (`bot/builds-release`
-   for the release track), which merges itself when green; builds.yml then publishes from main and update.yml runs again to move the
-   overlays. A bot PR failing on `MANIFEST_UNKNOWN` / `ImagePullBackOff` for
+   for the release track, as `builds/<name>/release.yaml`, so main's build.yaml stays the
+   deployed release's), which merges itself when green; builds.yml then publishes from main and update.yml runs again to move the
+   overlays (the release PR then deletes release.yaml). A bot PR failing on `MANIFEST_UNKNOWN` / `ImagePullBackOff` for
    `<BUILD_REGISTRY>/bigbang-*` means that didn't happen: check builds.yml's last run on main.
 
 ### The Big Bang preview issue (`bigbang-preview`)
