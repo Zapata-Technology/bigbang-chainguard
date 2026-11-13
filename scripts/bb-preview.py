@@ -19,7 +19,14 @@ What it reports:
   - each compat/*.yaml test's values rendered against the new chart and package charts
     (a values key the new charts refuse, like Big Bang 4's kyverno-policies schema)
 Exit 0 nothing to do, 1 something would break. .github/workflows/bigbang-preview.yml runs
-it weekly and keeps one issue up to date with the report.
+it daily and keeps one issue per ref up to date with the report.
+
+  bb-preview.py --ref release-4.2.0 --kind-results DIR --kind-outcome failure \\
+                --kind-run URL --body issue.md [--have-issue]
+
+For a release branch the workflow also deploys a few kind tests on it (compat.yml with
+bigbang_ref); this puts their results in the issue body file (a marked section) and prints
+what to do with the issue: create, edit, close or none.
 """
 import argparse
 import glob
@@ -128,6 +135,73 @@ def report(ref, sections):
     return "\n".join(out)
 
 
+# A release branch's issue also carries its kind tests (compat.yml on that ref, called by
+# bigbang-preview.yml), between these markers so each day's run replaces its own.
+KIND_START, KIND_END = "<!-- kind:start -->", "<!-- kind:end -->"
+NOTHING = "**Nothing would break.**"
+
+
+def kind_results(path):
+    """The compat-result JSONs (test-results.py record) under path, errors included."""
+    found = []
+    for f in sorted(glob.glob(os.path.join(path, "**", "*.json"), recursive=True)):
+        try:
+            doc = json.load(open(f, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        found += [r for r in (doc if isinstance(doc, list) else [doc])
+                  if isinstance(r, dict) and r.get("test") and r.get("mode")]
+    return sorted(found, key=lambda r: (r["test"], r["mode"]))
+
+
+def kind_section(ref, results, outcome, run_url):
+    """(Markdown between the kind markers, whether every test passed). `outcome` is the
+    called compat.yml's result: a run that failed outside a test (its plan) fails too."""
+    failed = [r for r in results if r.get("result") not in ("pass", "skipped")]
+    ok = bool(results) and not failed and outcome == "success"
+    lines = [KIND_START, f"### Kind tests on `{ref}`", ""]
+    if results:
+        lines += ["| Test | Mode | Result |", "|---|---|---|"]
+        lines += [f"| {r['test']} | {r['mode']} | {str(r.get('result', '?')).upper()} |" for r in results]
+    else:
+        lines.append(f"No test recorded a result (the kind run's result: {outcome or 'unknown'}).")
+    verdict = ("Every kind test passed on this ref." if ok else
+               "**A kind test failed on this ref**: `python scripts/ci-triage.py --run <run>`, then the "
+               "artifact `compat-<test>-<mode>` (AGENTS.md, \"A compat (kind) test fails\").")
+    lines += ["", f"{verdict} Run: {run_url}", KIND_END]
+    return "\n".join(lines), ok
+
+
+def with_kind_section(body, section):
+    """body with its kind section replaced by `section`, or `section` appended."""
+    i, j = body.find(KIND_START), body.find(KIND_END)
+    if 0 <= i < j:
+        return body[:i] + section + body[j + len(KIND_END):]
+    return (body.rstrip() + "\n\n" if body.strip() else "") + section + "\n"
+
+
+def kind_action(have_issue, body, ok):
+    """What the workflow does with the ref's issue: create, edit, close (the preview found
+    nothing and the kind tests passed) or none."""
+    if not ok:
+        return "edit" if have_issue else "create"
+    if not have_issue:
+        return "none"
+    return "close" if NOTHING in body else "edit"
+
+
+def kind_report(a):
+    """--kind-results: put the kind section in the issue body file; print the action."""
+    body = open(a.body, encoding="utf-8").read() if os.path.exists(a.body) else ""
+    section, ok = kind_section(a.ref, kind_results(a.kind_results), a.kind_outcome, a.kind_run)
+    new = with_kind_section(body, section)
+    with open(a.body, "w", encoding="utf-8", newline="\n") as f:
+        f.write(new)
+    print(section, file=sys.stderr)
+    print(kind_action(a.have_issue, body, ok))
+    return 0
+
+
 def load(script):
     """A sibling script (bb-images, bb-compat) as a module: its name has a dash."""
     spec = importlib.util.spec_from_file_location(script.replace("-", "_"), os.path.join(HERE, f"{script}.py"))
@@ -142,7 +216,17 @@ def main():
     ap.add_argument("--dir", default=os.path.join(ROOT, "work-preview"))
     ap.add_argument("-o", "--output", help="also write the report here")
     ap.add_argument("--skip-tests", action="store_true", help="don't render the compat tests' values")
+    kind = ap.add_argument_group("kind results (bigbang-preview.yml, after compat.yml ran on --ref)")
+    kind.add_argument("--kind-results", metavar="DIR", help="the run's compat-result-* artifacts")
+    kind.add_argument("--kind-outcome", default="", help="the compat.yml call's result")
+    kind.add_argument("--kind-run", default="", help="the run's URL")
+    kind.add_argument("--body", help="the ref's issue body: its kind section is replaced in place")
+    kind.add_argument("--have-issue", action="store_true", help="the ref has an open issue")
     a = ap.parse_args()
+    if a.kind_results:
+        if not a.body:
+            ap.error("--kind-results needs --body")
+        return kind_report(a)
     d = os.path.abspath(a.dir)
     bigbang, pkgs = os.path.join(d, "bigbang"), os.path.join(d, "pkgs")
     sections, broken = [], False

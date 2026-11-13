@@ -119,3 +119,41 @@ def test_the_release_upgrade_data_tests_follow_their_packages_and_run_weekly():
     assert {"release-upgrade", "release-upgrade-keycloak", "release-upgrade-mattermost"} <= weekly
     jobs = _tests(plan_mod.plan("pull_request", [], ["compat/support/upgrade-data.py"], True))
     assert jobs == [("release-upgrade-keycloak", "standard"), ("release-upgrade-mattermost", "standard")]
+
+
+def test_a_big_bang_ref_runs_the_preview_handful(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "compat" / "release-upgrade.yaml").write_text("test:\n  enable: [kyverno]\n")
+    assert _tests(plan_mod.plan("workflow_call", [], [], False, root, bigbang_ref="release-4.2.0")) == [
+        ("kyverno-enforce", "standard"), ("kyverno-enforce", "fips"), ("metrics-server", "standard"),
+        ("release-upgrade", "standard")]
+    # Named tests still win.
+    assert _tests(plan_mod.plan("workflow_dispatch", ["loki"], [], False, root, bigbang_ref="master")) == [
+        ("loki", "standard")]
+
+
+def test_the_big_bang_cache_key_follows_the_version_or_the_refs_commit(tmp_path):
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.0\n")
+    root = str(tmp_path)
+    assert plan_mod.bigbang_source("", root) == ("bigbang-chart-4.1.0", "4.1.0")
+    remote = "1111111111111111\trefs/heads/release-4.2.0\n"
+    key, version = plan_mod.bigbang_source("release-4.2.0", root, ls_remote=lambda ref: remote)
+    assert version == "release-4.2.0" and key.startswith("bigbang-ref-release-4.2.0-111111111111-")
+    moved = "2222222222222222\trefs/heads/release-4.2.0\n"
+    assert plan_mod.bigbang_source("release-4.2.0", root, ls_remote=lambda ref: moved)[0] != key
+
+
+def test_a_refs_commit_prefers_the_branch_then_an_annotated_tags_commit():
+    out = "aaa\trefs/tags/4.2.0\nbbb\trefs/tags/4.2.0^{}\n"
+    assert plan_mod.ref_commit("4.2.0", out) == "bbb"
+    assert plan_mod.ref_commit("master", "ccc\trefs/heads/master\n") == "ccc"
+    assert plan_mod.ref_commit("nope", "") is None
+
+
+def test_a_bad_or_unknown_ref_stops_the_plan(tmp_path):
+    import pytest
+    for bad in ("a b", "x;rm", "../etc", "-x", "a/b"):
+        with pytest.raises(SystemExit):
+            plan_mod.bigbang_source(bad, str(tmp_path), ls_remote=lambda ref: "")
+    with pytest.raises(SystemExit):
+        plan_mod.bigbang_source("release-9.9.9", str(tmp_path), ls_remote=lambda ref: "")
