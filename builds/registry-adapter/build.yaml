@@ -5,7 +5,7 @@
 ironbank:
   image: ironbank/opensource/neuvector/registry-adapter:v0.2.13
   source: https://repo1.dso.mil/dsop/opensource/neuvector/neuvector/registry-adapter
-  commit: 88af9a41800afb094074d42183e768d4357781b1
+  commit: d7e5a281554be59ac2f9d3b5aec591f1595b46e1
   upstream: v0.2.13
   binary: /usr/local/bin/adapter
   user: nobody
