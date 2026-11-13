@@ -15,8 +15,8 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | newer minor | 10 |
-| newer patch | 24 |
-| same | 77 |
+| newer patch | 25 |
+| same | 76 |
 | numbered differently | 8 |
 | stays on Iron Bank | 19 |
 | **total** | **139** |
@@ -37,7 +37,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.1` | `flux-source-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
 
-## Newer patch, same line (24)
+## Newer patch, same line (25)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -57,6 +57,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/goharbor/registry:v2.15.4` | `harbor-registry:2.15.5` | `harbor-registry-fips:2.15.4` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/goharbor/trivy-adapter:v2.15.4` | `harbor-trivy-adapter:2.15.5` | `harbor-trivy-adapter-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/grafana/grafana-image-renderer:v5.12.10` | `grafana-image-renderer:5.12.11` | `grafana-image-renderer:5.12.11` | Chainguard | newer patch | grafana |
+| `ironbank/opensource/grafana/mimir:3.2.4` | `grafana-mimir:3.2.5` | `grafana-mimir-fips:3.2.5` | Chainguard | newer patch | mimir |
 | `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.17` | `haproxy:3.3.17` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/istio/install-cni:1.31.3` | `istio-install-cni:1.31.4` | `istio-install-cni-fips:1.31.4` | Chainguard | newer patch | istio-cni |
 | `ironbank/opensource/istio/pilot:1.31.3` | `istio-pilot:1.31.4` | `istio-pilot-fips:1.31.4` | Chainguard | newer patch | istiod |
@@ -66,7 +67,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (77)
+## Same version (76)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -103,7 +104,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/fluent/fluent-bit:v5.1.5` | `fluent-bit:5.1.5` | `fluent-bit-fips:5.1.5` | Chainguard | same | fluentbit |
 | `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:1.21.3` | `grafana-alloy-fips:1.21.3` | Chainguard | same | alloy |
 | `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.9` | `loki-fips:3.7.9` | Chainguard | same | logging-loki |
-| `ironbank/opensource/grafana/mimir:3.2.4` | `grafana-mimir:3.2.4` | `grafana-mimir-fips:3.2.4` | Chainguard | same | mimir |
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:0.41.1` | `grafana-rollout-operator-fips:0.41.1` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/grafana/tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1` | built here | same | tempo |
 | `ironbank/opensource/grafana/tempo:3.1.1` | `tempo:3.1.1` | `tempo-fips:3.1.1` | Chainguard | same | tempo |
