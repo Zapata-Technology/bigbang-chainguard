@@ -54,7 +54,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
-        - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
+        - digest: sha256:c8cd6d07d703c01444fb160d927106b49f9d015e0bbe04bbd5ccf880b457a933
           name: cgr.dev/zapatatechnology.com/redis
     values:
       ui-redis:
@@ -149,7 +149,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/authservice
         - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
-        - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
+        - digest: sha256:c8cd6d07d703c01444fb160d927106b49f9d015e0bbe04bbd5ccf880b457a933
           name: cgr.dev/zapatatechnology.com/redis
     values:
       image:
@@ -389,7 +389,7 @@ packages:
         images:
         - digest: sha256:d6babc3b5115d078c281d23893b69de11be7441d04c791353cd58cb0a9888699
           name: cgr.dev/zapatatechnology.com/busybox
-        - digest: sha256:aa2c8350bc30436f2706c11b25846467df53298c78f8624be7df39e451c28655
+        - digest: sha256:6892fec14ef23cb5857fe5a75bba7e6cfc0e26f394d5130db4a035394b7e02fd
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign
         - digest: sha256:4f07de96724ec439deae9e90484850711c12795c3bf53b6b41d0f49c17d7fe9b
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee
@@ -617,7 +617,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/postgres
         - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
-        - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
+        - digest: sha256:c8cd6d07d703c01444fb160d927106b49f9d015e0bbe04bbd5ccf880b457a933
           name: cgr.dev/zapatatechnology.com/redis
     values:
       bbtests:
