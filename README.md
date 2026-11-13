@@ -44,7 +44,8 @@ flowchart TB
 ```
 
 When Chainguard patches an image, the nightly run tests it and releases it on its own; a
-new Big Bang version gets the same pull request and tests, and a person merges it. Moving
+new Big Bang version gets its own pull request, with the same tests and upgrade notes
+([docs/upgrades/](docs/upgrades/)), and a person merges it. Moving
 a cluster to a new release is `bb-install.py upgrade`.
 
 ## Install

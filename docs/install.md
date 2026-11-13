@@ -194,6 +194,14 @@ that moves. `rollback` returns the release to the previous revision (or `--to N`
 Flux then downgrades the packages, which a package whose data has moved forward (a
 database migration) may not accept, so check `--plan` before upgrading.
 
+**Upgrading.** `upgrade` takes a Velero backup of the cluster before it changes anything,
+when Velero runs with an Available backup location (`bb-upgrade-<time>`, kept 30 days); a
+backup that fails stops the upgrade. That backup, not `rollback`, undoes a database
+migration: `velero restore create --from-backup <name>`. `--no-backup` skips it. Each Big
+Bang release this repo moves to has upgrade notes in [docs/upgrades/](upgrades/): the
+package charts and Iron Bank images that change, new major versions first. Read them, and
+Big Bang's own release notes, before upgrading.
+
 **When repo1 doesn't answer.** Flux fetches every package's chart from repo1.dso.mil git
 while it installs and upgrades. The installer names any source that can't fetch, asks Flux
 to retry it every two minutes while it waits, and ends a timeout with the host that failed.

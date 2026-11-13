@@ -229,10 +229,10 @@ sequenceDiagram
     N->>N: re-read Iron Bank recipes, re-pin org digests
     N->>N: bb-convert (tags and today's digests) + bb-verify (standard, FIPS)
     N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
-    N->>PR: open bot/bigbang-update, report in the body
+    N->>PR: open bot/bigbang-update (deployed release, newest patches)<br/>and, for a newer Big Bang, bot/bigbang-release<br/>with upgrade notes (docs/upgrades/)
     PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test images, every package on kind
     CI-->>PR: checks
-    PR->>M: automerge.yml when every check passed<br/>(a new Big Bang release: you)
+    PR->>M: automerge.yml when every check passed<br/>(bot/bigbang-release: you, or itself for a patch<br/>release with AUTOMERGE_BIGBANG_PATCHES)
     M->>B: push to main
     B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```

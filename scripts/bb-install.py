@@ -10,7 +10,8 @@
   bb-install.py upgrade [--site my-site.yaml] [--fips]
                      the install below for a cluster that already runs Big Bang: converts a
                      Big Bang 3 site file to Big Bang 4's keys (keeping a backup), shows what
-                     will change, asks, then installs
+                     will change, asks, takes a Velero backup when Velero runs (--no-backup
+                     skips it; a failed backup stops the upgrade), then installs
   bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
                      write a starter site file (no credentials in it)
   bb-install.py install [--site my-site.yaml] [--fips]
@@ -130,7 +131,11 @@ def main():
     sub.add_parser("check", parents=[common], help="test every setting; changes nothing (a short-lived pod "
                                                       "per node reads its inotify limits, then is deleted)")
     sub.add_parser("install", parents=[common], help="install, or re-apply after a change")
-    sub.add_parser("upgrade", parents=[common], help="upgrade a running Big Bang (converts a Big Bang 3 site file)")
+    p = sub.add_parser("upgrade", parents=[common],
+                       help="upgrade a running Big Bang (converts a Big Bang 3 site file)")
+    p.add_argument("--no-backup", action="store_true",
+                   help="don't take a Velero backup first (taken when Velero runs with a usable location)")
+    p.add_argument("--backup-timeout", type=int, default=1800, help="seconds to wait for that backup (default 1800)")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
     p.add_argument("--version", help="Big Bang version (default: the overlays')")
     sub.add_parser("status", help="what's running and what isn't")

@@ -27,6 +27,8 @@ def test_only_the_bot_branches_from_this_repository_are_handled():
     cond = " ".join(JOB["if"].split())
     assert "github.event.workflow_run.head_branch == 'bot/bigbang-update'" in cond
     assert "github.event.workflow_run.head_branch == 'bot/builds-update'" in cond
+    assert "github.event.workflow_run.head_branch == 'bot/bigbang-release'" in cond
+    assert "github.event.workflow_run.head_branch == 'bot/builds-release'" in cond
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in cond
     # The branch reaches the script as an env var, never interpolated into it.
     assert STEP["env"]["BRANCH"] == "${{ github.event.workflow_run.head_branch }}"
@@ -40,12 +42,13 @@ def test_update_holds_unpublished_builds_and_reruns_after_publishing():
     assert on["workflow_run"]["branches"] == ["main"]
     steps = wf["jobs"]["update"]["steps"]
     run = next(s for s in steps if s.get("id") == "run")["run"]
+    assert "bb-release-notes.py" in run
     assert run.index("bb-held-builds.py hold") < run.index("bb-convert.py")
     names = [s.get("name") for s in steps]
     assert names.index("Open the pull request") < names.index("Put the held-back builds back") \
         < names.index("Open the builds pull request")
     builds_pr = next(s for s in steps if s.get("name") == "Open the builds pull request")
-    assert builds_pr["with"]["branch"] == "bot/builds-update"
+    assert builds_pr["with"]["branch"] == "${{ matrix.builds_branch }}"
     assert builds_pr["with"]["add-paths"] == "${{ steps.run.outputs.held }}"
 
 
@@ -62,16 +65,30 @@ def test_no_guard_reads_a_failed_call_as_no():
 def test_automerge_accepts_exactly_the_files_update_writes():
     pr_step = next(s for s in UPDATE["jobs"]["update"]["steps"] if s.get("name") == "Open the pull request")
     for path in pr_step["with"]["add-paths"].split():
-        assert f"bot/bigbang-update:{path}" in STEP["run"], f"automerge refuses update.yml's {path}"
+        assert f"bot/bigbang-*:{path}" in STEP["run"] or f"bot/bigbang-release:{path}" in STEP["run"], \
+            f"automerge refuses update.yml's {path}"
     assert "bot/builds-update:builds/*/build.yaml" in STEP["run"]
+    assert "bot/builds-release:builds/*/build.yaml" in STEP["run"]
+
+
+def test_update_runs_a_routine_track_and_a_release_track_with_their_own_branches():
+    plan = next(s for s in UPDATE["jobs"]["plan"]["steps"] if s.get("id") == "bb")["run"]
+    assert '"branch":"bot/bigbang-update","builds_branch":"bot/builds-update"' in plan
+    assert '"branch":"bot/bigbang-release","builds_branch":"bot/builds-release"' in plan
+    job = UPDATE["jobs"]["update"]
+    assert job["needs"] == "plan" and job["strategy"]["fail-fast"] is False
+    steps = {s.get("name"): s for s in job["steps"]}
+    assert steps["Open the pull request"]["with"]["branch"] == "${{ matrix.branch }}"
+    assert "docs/upgrades/*.md" in steps["Open the pull request"]["with"]["add-paths"].split()
 
 
 def test_update_leaves_a_held_bot_pr_alone_and_has_a_time_limit():
     job = UPDATE["jobs"]["update"]
     assert job["timeout-minutes"] <= 90
     steps = {s.get("name"): s for s in job["steps"]}
-    assert "steps.hold.outputs.bigbang-update != 'true'" in steps["Open the pull request"]["if"]
-    assert "steps.hold.outputs.builds-update != 'true'" in steps["Open the builds pull request"]["if"]
+    for track in ("update", "release"):
+        assert f"steps.hold.outputs.bigbang-{track} != 'true'" in steps["Open the pull request"]["if"]
+        assert f"steps.hold.outputs.builds-{track} != 'true'" in steps["Open the builds pull request"]["if"]
     on = UPDATE[True] if True in UPDATE else UPDATE["on"]
     assert "mapping.yaml" in on["push"]["paths"] and on["push"]["branches"] == ["main"]
     for name in ("Open the pull request", "Open the builds pull request"):
@@ -101,7 +118,8 @@ sys.stdout.write(text)
 '''
 
 
-def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1):
+def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1, branch="bot/bigbang-update",
+              patches="", main_version="4.1.0"):
     """Run the merge step with a fake gh, and a stub ci-triage.py that exits triage_rc
     (0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer)."""
     import shutil
@@ -120,11 +138,12 @@ def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1):
     (tmp_path / "data.json").write_text(__import__("json").dumps(data), encoding="utf-8")
     log = tmp_path / "gh.log"
     log.write_text("", encoding="utf-8")
+    (tmp_path / "BIGBANG_VERSION").write_text(main_version + "\n", encoding="utf-8")   # main's checkout
     env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", FAKE_GH_DATA=str(tmp_path / "data.json"),
                FAKE_GH_LOG=str(log), GH_TOKEN="t", MERGE_TOKEN="m", GH_REPO="o/r", SHA="abc",
-               BRANCH="bot/bigbang-update", RUN="9", RUN_NAME="CI", RUN_URL="u", ATTEMPT=attempt,
+               BRANCH=branch, PATCHES=patches, RUN="9", RUN_NAME="CI", RUN_URL="u", ATTEMPT=attempt,
                CONCLUSION=conclusion, MENTION="", CI_TRIAGE=str(triage))
-    p = subprocess.run(["bash", "-c", STEP["run"]], env=env, capture_output=True, text=True)
+    p = subprocess.run(["bash", "-c", STEP["run"]], env=env, capture_output=True, text=True, cwd=tmp_path)
     return p, log.read_text(encoding="utf-8")
 
 
@@ -216,3 +235,38 @@ def test_the_merge_script_is_valid_bash(tmp_path):
     script.write_text(STEP["run"], encoding="utf-8")
     p = subprocess.run(["bash", "-n", str(script)], capture_output=True, text=True)
     assert p.returncode == 0, p.stderr
+
+
+def release(version, **over):
+    import base64
+    data = green(**{
+        "pulls?state=open&per_page=100": [{"number": 7, "head": {"ref": "bot/bigbang-release", "sha": "abc"}}],
+        "pulls/7/files?per_page=100&page=1": [{"filename": "BIGBANG_VERSION"},
+                                              {"filename": f"docs/upgrades/{version}.md"},
+                                              {"filename": "overlays/values-chainguard.yaml"}],
+        "contents/BIGBANG_VERSION?ref=abc": {"content": base64.b64encode(f"{version}\n".encode()).decode()}})
+    data.update(over)
+    return data
+
+
+def test_a_new_big_bang_release_waits_for_a_person(tmp_path):
+    p, log = run_merge(tmp_path, release("4.1.1"), branch="bot/bigbang-release")
+    assert p.returncode == 0, p.stderr
+    assert "pr merge" not in log and "labels[]=needs-attention" in log
+
+
+def test_a_patch_release_merges_itself_only_when_turned_on(tmp_path):
+    p, log = run_merge(tmp_path, release("4.1.1"), branch="bot/bigbang-release", patches="true")
+    assert p.returncode == 0, p.stderr
+    assert "pr merge 7 --squash" in log and "needs-attention" not in log
+    (tmp_path / "minor").mkdir()
+    p, log = run_merge(tmp_path / "minor", release("4.2.0"), branch="bot/bigbang-release", patches="true")
+    assert "pr merge" not in log and "needs-attention" in log       # a minor release: a person
+
+
+def test_the_routine_track_never_moves_big_bang(tmp_path):
+    data = release("4.1.1", **{"pulls?state=open&per_page=100": [
+        {"number": 7, "head": {"ref": "bot/bigbang-update", "sha": "abc"}}]})
+    data["pulls/7/files?per_page=100&page=1"] = [{"filename": "BIGBANG_VERSION"}]
+    p, log = run_merge(tmp_path, data, patches="true")
+    assert "pr merge" not in log and "needs-attention" in log
