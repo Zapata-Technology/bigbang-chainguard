@@ -222,6 +222,10 @@ jobs:
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          # The bot branch is rebuilt from main; when main's workflow files changed since the
+          # last push, GitHub refuses the push without it ("refusing to allow ... to create or
+          # update workflow ... without `workflow` scope", 2026-11-13).
+          permission-workflows: write
 
       # A person is working on a bot PR (label `hold`): leave its branch alone.
       - name: Bot PRs on hold

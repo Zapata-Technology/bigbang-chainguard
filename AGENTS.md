@@ -353,7 +353,9 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
 - **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
   token and uses the bot token only for `gh pr merge`. The bot token is a GitHub App's
   (repository variable `BOT_APP_CLIENT_ID`, secret `BOT_APP_PRIVATE_KEY`; the App needs
-  Contents and Pull requests read/write on this repo) when set, else `RELEASE_PAT`.
+  Contents, Pull requests and Workflows read/write on this repo) when set, else `RELEASE_PAT`
+  (which then needs the `workflow` scope: the bot branch is rebuilt from main, and a push
+  that brings main's workflow-file changes is refused without it).
   GITHUB_TOKEN can't stand in: its pull requests and merges start no workflows.
 - **A shell guard must not read a failed call as "no"**: `if gh ... | grep -q x` under
   `set -o pipefail` is false when gh fails, so automerge once would have merged a held PR on
