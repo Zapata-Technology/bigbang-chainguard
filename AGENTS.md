@@ -125,9 +125,13 @@ Never print or copy secrets, and never change git config.
 
 ### The nightly bot PR (`bot/bigbang-update`) fails or reports something
 A green bot PR merges itself (`automerge.yml`), so one still open has a failed check, a
-`hold` label, or a new `BIGBANG_VERSION`. A failure that survived the automatic re-run, a
-new release, or a commit that isn't the bot's gets the `needs-attention` label and a comment
-saying which (remove the label once handled). Label the PR `hold` while you work on it:
+`hold` label, or a new `BIGBANG_VERSION`. `automerge.yml` triages a failed first attempt
+with main's `ci-triage.py --run` and re-runs it only when every failure is a known flake; a
+real failure isn't re-run. A real failure, a failure that survived the re-run, a triage
+that couldn't read GitHub, a new release, or a commit that isn't the bot's gets the
+`needs-attention` label and a comment saying which (remove the label once handled). A flake
+pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it to its
+`FLAKES` (with a test) rather than re-running by hand each time. Label the PR `hold` while you work on it:
 `update.yml` then leaves its branch alone.
 1. Read the PR body: it holds the bb-convert, bb-verify, bb-scan and bb-leftovers output.
 2. *Unmapped image* → "Add or fix an image mapping" below.

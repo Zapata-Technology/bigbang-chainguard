@@ -101,7 +101,9 @@ sys.stdout.write(text)
 '''
 
 
-def run_merge(tmp_path, data, conclusion="success", attempt="1"):
+def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1):
+    """Run the merge step with a fake gh, and a stub ci-triage.py that exits triage_rc
+    (0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer)."""
     import shutil
     import subprocess
     import pytest
@@ -112,13 +114,16 @@ def run_merge(tmp_path, data, conclusion="success", attempt="1"):
     gh = bindir / "gh"
     gh.write_text(FAKE_GH, encoding="utf-8")
     gh.chmod(0o755)
+    triage = bindir / "triage"
+    triage.write_text(f'#!/bin/sh\necho "triage $*" >> "$FAKE_GH_LOG"\nexit {triage_rc}\n', encoding="utf-8")
+    triage.chmod(0o755)
     (tmp_path / "data.json").write_text(__import__("json").dumps(data), encoding="utf-8")
     log = tmp_path / "gh.log"
     log.write_text("", encoding="utf-8")
     env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", FAKE_GH_DATA=str(tmp_path / "data.json"),
                FAKE_GH_LOG=str(log), GH_TOKEN="t", MERGE_TOKEN="m", GH_REPO="o/r", SHA="abc",
                BRANCH="bot/bigbang-update", RUN="9", RUN_NAME="CI", RUN_URL="u", ATTEMPT=attempt,
-               CONCLUSION=conclusion, MENTION="")
+               CONCLUSION=conclusion, MENTION="", CI_TRIAGE=str(triage))
     p = subprocess.run(["bash", "-c", STEP["run"]], env=env, capture_output=True, text=True)
     return p, log.read_text(encoding="utf-8")
 
@@ -162,6 +167,32 @@ def test_a_persons_commit_on_the_bot_branch_is_flagged_not_merged(tmp_path):
     assert p.returncode == 0, p.stderr
     assert "pr merge" not in log
     assert "issues/7/labels" in log and "labels[]=needs-attention" in log and "issues/7/comments" in log
+
+
+def test_a_first_failure_is_re_run_only_when_triage_finds_only_flakes(tmp_path):
+    p, log = run_merge(tmp_path, green(), conclusion="failure", attempt="1", triage_rc=2)
+    assert p.returncode == 0, p.stderr
+    assert "triage --run 9" in log and "run rerun 9 --failed" in log
+    assert "needs-attention" not in log and "pr merge" not in log
+
+
+def test_a_real_first_failure_asks_for_a_person_without_a_re_run(tmp_path):
+    p, log = run_merge(tmp_path, green(), conclusion="failure", attempt="1", triage_rc=1)
+    assert p.returncode == 0, p.stderr
+    assert "run rerun" not in log and "pr merge" not in log
+    assert "labels[]=needs-attention" in log and "issues/7/comments" in log
+
+
+def test_a_triage_that_couldnt_read_github_fails_closed(tmp_path):
+    p, log = run_merge(tmp_path, green(), conclusion="cancelled", attempt="1", triage_rc=3)
+    assert "run rerun" not in log and "pr merge" not in log and "needs-attention" in log
+
+
+def test_the_re_run_uses_mains_triage_not_the_pull_requests_code():
+    [checkout] = [s for s in JOB["steps"] if s.get("uses", "").startswith("actions/checkout@")]
+    assert checkout["with"]["ref"] == "${{ github.event.repository.default_branch }}"
+    assert checkout["with"]["persist-credentials"] is False
+    assert "${CI_TRIAGE:-python3 scripts/ci-triage.py} --run" in STEP["run"]
 
 
 def test_a_second_failure_asks_for_a_person_once(tmp_path):
