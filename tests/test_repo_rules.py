@@ -238,3 +238,28 @@ def test_mermaid_labels_with_brackets_are_quoted():
                 if end > start and re.search(r"[()\[\]{}]", line[start:end]):
                     bad.append(f"{os.path.relpath(path, ROOT)}:{n}: {line[m.start():end + 2].strip()}")
     assert not bad, "quote these mermaid labels:\n" + "\n".join(bad)
+
+
+# --- pull requests from forks: no secrets, so ci.yml runs only what needs none ---
+
+def test_no_workflow_runs_fork_code_with_secrets():
+    """pull_request_target runs with the repo's secrets: a fork's PR could read them."""
+    for path in WORKFLOWS:
+        on = (lambda d: d.get(True, d.get("on")))(yaml.safe_load(open(path, encoding="utf-8")))
+        events = on if isinstance(on, (list, str)) else list(on or {})
+        assert "pull_request_target" not in events, os.path.basename(path)
+
+
+def test_ci_skips_only_the_steps_that_need_chainguard_for_a_fork():
+    ci = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "ci.yml"), encoding="utf-8"))
+    job = ci["jobs"]["verify"]
+    assert "github.event.pull_request.head.repo.fork" in job["env"]["FORK"]
+    needs_chainguard = ("bb-convert.py --check", "bb-age.py", "bb-signatures.py", "bb-cve.py")
+    for step in job["steps"]:
+        text = step.get("run", "") + step.get("uses", "") + str(step.get("with", ""))
+        if any(s in text for s in needs_chainguard) or "setup-chainctl" in text or "secrets." in text:
+            assert "env.FORK != 'true'" in step.get("if", ""), f"skip for forks: {step.get('name')}"
+    # What a fork can still prove runs for it.
+    for name in ("Unit tests", "Lint (ruff; rules in pyproject.toml)", "Discovery is current"):
+        step = next(s for s in job["steps"] if s.get("name") == name)
+        assert "FORK" not in step.get("if", ""), name

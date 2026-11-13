@@ -35,6 +35,10 @@ jobs:
       # fluxrelease.py reads Flux releases from api.github.com; authenticated, the
       # parallel jobs don't share the anonymous rate limit.
       GITHUB_TOKEN: ${{ github.token }}
+      # A pull request from a fork gets no secrets and no OIDC token, so it can't log into
+      # Chainguard: it runs only the checks that need neither (FORK steps are skipped), and a
+      # maintainer runs the rest (CONTRIBUTING.md, "Pull requests from forks").
+      FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
     permissions:
       contents: read
       id-token: write
@@ -99,10 +103,16 @@ jobs:
       - name: Lint (ruff; rules in pyproject.toml)
         run: python3 -m ruff check --output-format github .
 
+      - name: Pull request from a fork (checks without Chainguard)
+        if: env.FORK == 'true'
+        run: |
+          echo "::notice::Pull request from a fork: no secrets, so the checks that need Chainguard or the registries (overlays current, image age, signatures, CVEs) are skipped. A maintainer runs them by pushing this branch to origin (CONTRIBUTING.md)."
+
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
+        if: env.FORK != 'true'   # below `with`: the `uses` line changes with each action bump
 
       # Big Bang and its package charts change only with BIGBANG_VERSION (each package is
       # pinned to a tag in Big Bang's values): fetch them from repo1.dso.mil once per
@@ -140,6 +150,7 @@ jobs:
         run: python3 scripts/bb-scan.py --pkgs work/pkgs --bigbang work/bigbang
 
       - name: Overlays are current
+        if: env.FORK != 'true'   # reads the org's tags
         run: |
           rc=0
           python3 scripts/bb-convert.py --check || rc=$?
@@ -149,20 +160,25 @@ jobs:
             exit "$rc"
           fi
 
+      # Renders Big Bang with the overlays and checks every image: offline, but it needs the
+      # org's name (the CHAINGUARD_ORG variable).
       - name: Verify standard images
+        if: env.FORK != 'true' || env.CHAINGUARD_ORG != ''
         run: python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs -o "${RUNNER_TEMP}/rendered.json"
 
       - name: Verify FIPS images
+        if: env.FORK != 'true' || env.CHAINGUARD_ORG != ''
         run: python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs --fips -o "${RUNNER_TEMP}/rendered-fips.json"
 
       # An org image not rebuilt in 30 days is on a line Chainguard stopped maintaining
       # (Vault's kubectl 1.30): scripts/bb-age.py.
       - name: Every org image was rebuilt recently
+        if: env.FORK != 'true'   # reads the org's registry
         run: python3 scripts/bb-age.py --max-days 30
 
       # The signature check and the CVE gate below read the images this repo builds.
       - name: Log into GHCR (the images this repo builds)
-        if: startsWith(vars.BUILD_REGISTRY, 'ghcr.io/')
+        if: startsWith(vars.BUILD_REGISTRY, 'ghcr.io/') && env.FORK != 'true'
         env:
           TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
@@ -187,6 +203,7 @@ jobs:
 
       # Org images: Chainguard's signature. Images built here: builds.yml's, on this repo's main.
       - name: Signatures on every org image and every image built here
+        if: env.FORK != 'true'   # cosign reads signatures from the org's registry
         env:
           CHAINGUARD_ORG_ID: ${{ vars.CHAINGUARD_ORG_ID }}
           BUILD_SIGNER: ${{ vars.BUILD_SIGNER || github.repository }}
@@ -196,12 +213,12 @@ jobs:
       # still asks grype.anchore.io for a newer database before scanning and downloads
       # one if it exists, so the cache only skips re-downloading an unchanged one.
       - name: Day (grype database cache key)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.FORK != 'true'
         id: day
         run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       - name: grype database (cached per day)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.FORK != 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/grype/db
@@ -209,14 +226,14 @@ jobs:
           restore-keys: grype-db-
 
       - name: Install grype
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.FORK != 'true'
         id: grype
         uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
 
       # A pull request may not move to an image with a fixable Critical CVE (the nightly
       # update included): scripts/bb-cve.py --changed-from.
       - name: No fixable Critical CVEs in new images
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.FORK != 'true'
         env:
           GRYPE: ${{ steps.grype.outputs.cmd }}
           BASE: origin/${{ github.base_ref }}

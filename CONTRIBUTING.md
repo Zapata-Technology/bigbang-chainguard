@@ -25,6 +25,28 @@ your improvements back so everyone's Big Bang conversion gets better.
 
 [docs/adding-a-package.md](docs/adding-a-package.md) walks through mapping a new image.
 
+## Pull requests from forks
+
+GitHub gives a fork's pull request no secrets and no OIDC token, so CI can't log into
+Chainguard for it. `ci.yml`'s `verify` then runs only what needs neither: unit tests, ruff,
+discovery, the chart scan and both `bb-verify.py` renders. It skips the checks that read
+the org's registry (overlays current, image age, signatures, CVEs) with a notice, and
+`builds.yml` and the kind tests don't run. Run `python scripts/check.py --online` yourself
+if you have a Chainguard org.
+
+A maintainer runs the full set before merging. Push the fork's branch to this repository
+under a new name and open a pull request from it (the fork's PR can then be closed in its
+favour, or merged once the full run passes):
+
+```bash
+gh pr checkout <number>                  # the fork's branch, locally
+git push origin HEAD:fork/<number>       # a branch here: CI runs with the repo's secrets
+gh pr create --head fork/<number> --title "<title> (from #<number>)" --body "Full CI for #<number>."
+```
+
+Read the diff before pushing it: once it is a branch here, its workflows run with this
+repository's secrets. CI never uses `pull_request_target` for that reason.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the
