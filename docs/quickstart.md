@@ -126,6 +126,11 @@ python scripts/bb-install.py upgrade         # checks, shows what changes, asks,
 python scripts/bb-install.py status
 ```
 
+From a release that has it, `python scripts/bb-install.py upgrade --to <tag>` does the
+download, the verification (with cosign installed) and the upgrade in one step, from the
+directory holding `my-site.yaml`; `upgrade --list` shows the releases newer than the
+cluster's ("Upgrading to a release" in [install.md](install.md)).
+
 From Big Bang 3, `upgrade` also converts `my-site.yaml` to Big Bang 4's keys
 ([Upgrading from Big Bang 3](install.md#upgrading-from-big-bang-3)).
 

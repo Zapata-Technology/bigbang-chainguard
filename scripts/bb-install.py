@@ -12,6 +12,15 @@
                      Big Bang 3 site file to Big Bang 4's keys (keeping a backup), shows what
                      will change, asks, takes a Velero backup when Velero runs (--no-backup
                      skips it; a failed backup stops the upgrade), then installs
+  bb-install.py upgrade --to <release> [--site my-site.yaml] [--fips]
+                     the same to a published release, without checking it out: a tag
+                     (4.1.0-cg.3), a Big Bang version (4.1.0: its newest -cg.<n>) or latest.
+                     Downloads the release archive into work/releases/<tag>, checks its
+                     sha256 and (with cosign) its signature, then runs that release's own
+                     upgrade with your other flags. Refuses a release older than the
+                     cluster's unless --allow-downgrade; --repo OWNER/REPO for a fork
+  bb-install.py upgrade --list
+                     the releases newer than the one the cluster runs
   bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
                      write a starter site file (no credentials in it)
   bb-install.py install [--site my-site.yaml] [--fips]
@@ -136,6 +145,16 @@ def main():
     p.add_argument("--no-backup", action="store_true",
                    help="don't take a Velero backup first (taken when Velero runs with a usable location)")
     p.add_argument("--backup-timeout", type=int, default=1800, help="seconds to wait for that backup (default 1800)")
+    p.add_argument("--to", metavar="RELEASE",
+                   help="a published release instead of this checkout: a tag (4.1.0-cg.3), a Big Bang version "
+                        "(4.1.0: its newest release) or latest; downloaded, verified and upgraded by its own "
+                        "installer")
+    p.add_argument("--list", action="store_true", help="list the releases newer than the cluster's and stop")
+    p.add_argument("--allow-downgrade", action="store_true",
+                   help="--to: allow a release older than the one the cluster runs")
+    p.add_argument("--repo", metavar="OWNER/REPO",
+                   help="where --to and --list find releases (default: this checkout's GitHub remote, else "
+                        "Zapata-Technology/bigbang-chainguard)")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
     p.add_argument("--version", help="Big Bang version (default: the overlays')")
     sub.add_parser("status", help="what's running and what isn't")
@@ -148,6 +167,7 @@ def main():
     p.add_argument("--keep-flux", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     a = ap.parse_args()
+    a.argv = sys.argv[1:]     # upgrade --to passes these on to the release's installer
     return {"init": init, "check": check, "install": install, "upgrade": upgrade, "chart": chart,
             "status": status, "rollback": rollback, "uninstall": uninstall}[a.cmd](a)
 

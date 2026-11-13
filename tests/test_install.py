@@ -1,10 +1,13 @@
 """bb-install.py decisions that don't need a cluster (kubectl/helm calls are stubbed)."""
 import argparse
+import base64
 import getpass
+import hashlib
 import json
 import os
 import shutil
 import subprocess
+import tarfile
 import time
 import urllib.error
 import urllib.request
@@ -12,8 +15,8 @@ import urllib.request
 import pytest
 import yaml
 
-from bbinstall import chart, checkout, commands, credentials, gitops, images, preflight, signatures, sitefile, \
-    status, tls
+from bbinstall import chart, checkout, commands, credentials, gitops, images, preflight, releases, signatures, \
+    sitefile, status, tls
 from bbinstall import install as installer
 from conftest import ROOT, load_script
 
@@ -880,6 +883,225 @@ def test_an_upgrade_backs_up_with_velero_first(monkeypatch):
 def test_no_velero_upgrades_without_a_backup(monkeypatch):
     applied = velero_cluster(monkeypatch, [], crd=False)
     assert commands.backup_before_upgrade(600) is None and applied == []
+
+
+# upgrade --to / --list: published releases (bbinstall.releases)
+
+TAGS = ["4.1.0-cg.11", "4.1.0-cg.2", "4.1.0-cg.10", "4.0.0-cg.29", "3.35.1-cg.62", "not-a-release"]
+
+
+def github_releases(tags=TAGS, extra=()):
+    return [{"tag_name": t, "draft": False, "prerelease": False} for t in tags] + list(extra)
+
+
+def test_releases_list_newest_first_and_page():
+    pages = {1: github_releases([f"4.0.0-cg.{n}" for n in range(1, 101)]),
+             2: github_releases(extra=[{"tag_name": "4.2.0-cg.1", "draft": True},
+                                       {"tag_name": "4.2.0-cg.2", "prerelease": True}])}
+    tags = releases.list_releases("o/r", get=lambda url: pages[int(url.rsplit("=", 1)[1])])
+    assert tags[:3] == ["4.1.0-cg.11", "4.1.0-cg.10", "4.1.0-cg.2"]      # by number, not text
+    assert "4.0.0-cg.100" in tags and "not-a-release" not in tags and "4.2.0-cg.1" not in tags
+    assert tags[-1] == "3.35.1-cg.62"
+
+
+def test_releases_list_failure_says_what_to_do():
+    def fail(url):
+        raise urllib.error.URLError("no route")
+    with pytest.raises(SystemExit, match="--repo"):
+        releases.list_releases("o/r", get=fail)
+
+
+def test_to_resolves_a_tag_a_big_bang_version_or_latest():
+    tags = releases.list_releases("o/r", get=lambda url: github_releases())
+    assert releases.resolve("latest", tags) == "4.1.0-cg.11"
+    assert releases.resolve("4.1.0", tags) == "4.1.0-cg.11"
+    assert releases.resolve("4.0.0", tags) == "4.0.0-cg.29"
+    assert releases.resolve("4.1.0-cg.2", tags) == "4.1.0-cg.2"
+    with pytest.raises(SystemExit, match="no release deploys Big Bang 4.9.0"):
+        releases.resolve("4.9.0", tags)
+    with pytest.raises(SystemExit, match="isn't a published release"):
+        releases.resolve("4.1.0-cg.99", tags)
+
+
+def test_running_release_is_trusted_only_while_big_bang_matches():
+    assert releases.running_release("4.1.0-cg.3", "4.1.0") == "4.1.0-cg.3"
+    assert releases.running_release("4.1.0-cg.3", "4.0.0") is None     # rolled back
+    assert releases.running_release(None, "4.1.0") is None
+    assert releases.running_release("4.1.0-cg.3", None) is None
+
+
+def test_recorded_release_reads_only_a_release_tag(monkeypatch):
+    stored = {}
+
+    def kubectl(*a, **k):
+        assert a[-1] == "jsonpath={.data.release}"     # one key; never the credentials
+        return stored.get("out")
+    monkeypatch.setattr(releases, "kubectl", kubectl)
+    assert releases.recorded_release() is None                       # no Secret, or no key
+    stored["out"] = base64.b64encode(b"4.1.0-cg.3").decode()
+    assert releases.recorded_release() == "4.1.0-cg.3"
+    stored["out"] = base64.b64encode(b"hunter2").decode()
+    assert releases.recorded_release() is None
+    stored["out"] = "%%%"
+    assert releases.recorded_release() is None
+
+
+def test_downgrades_are_found_by_release_or_big_bang_version():
+    assert releases.downgrade_problem("4.1.0-cg.11", "4.1.0-cg.3", "4.1.0") is None
+    assert "older" in releases.downgrade_problem("4.1.0-cg.2", "4.1.0-cg.3", "4.1.0")
+    assert releases.downgrade_problem("4.1.0-cg.2", None, "4.1.0") is None          # revision unknown
+    assert "4.0.0" in releases.downgrade_problem("4.0.0-cg.29", None, "4.1.0")
+    assert releases.downgrade_problem("3.35.1-cg.1", None, None) is None           # fresh install
+
+
+def test_newer_releases_than_the_cluster():
+    tags = ["4.1.0-cg.11", "4.1.0-cg.10", "4.0.0-cg.29"]
+    assert releases.newer_releases(tags, "4.1.0-cg.10", "4.1.0") == ["4.1.0-cg.11"]
+    assert releases.newer_releases(tags, None, "4.1.0") == ["4.1.0-cg.11", "4.1.0-cg.10"]
+    assert releases.newer_releases(tags, None, None) == tags
+
+
+def test_handoff_drops_only_upgrades_own_options():
+    argv = ["--overlays", "x", "upgrade", "--to", "latest", "--site", "s.yaml", "--allow-downgrade",
+            "--repo=o/r", "--fips", "--to=4.1.0", "--yes"]
+    assert releases.handoff_args(argv) == ["upgrade", "--site", "s.yaml", "--fips", "--yes"]
+    assert releases.unknown_options(["upgrade", "--site", "s", "--no-backup"], "'--site' ...") == ["--no-backup"]
+
+
+def test_release_repo_from_the_git_remote(tmp_path):
+    assert releases.release_repo(ROOT).count("/") == 1
+    assert releases.release_repo(str(tmp_path)) == releases.DEFAULT_REPO        # a release archive: no .git
+
+
+def release_archive(tmp_path, tag, release=None):
+    """A release archive like scripts/release.py makes, and a fake download that serves it."""
+    src = tmp_path / "src" / f"bigbang-chainguard-{tag}"
+    (src / "scripts").mkdir(parents=True, exist_ok=True)
+    (src / "scripts" / "bb-install.py").write_text("# --site --fips --yes --plan --no-backup\n")
+    (src / "RELEASE").write_text((release or tag) + "\n")
+    name = f"bigbang-chainguard-{tag}.tar.gz"
+    path = tmp_path / name
+    with tarfile.open(path, "w:gz") as t:
+        t.add(src, arcname=src.name)
+    data = path.read_bytes()
+    files = {name: data, name + ".sha256": f"{hashlib.sha256(data).hexdigest()}  {name}\n".encode(),
+             name + ".sigstore.json": b"{}"}
+
+    def download(url, dest):
+        got = files.get(url.rsplit("/", 1)[1])
+        if got is None:
+            return False
+        with open(dest, "wb") as f:
+            f.write(got)
+        return True
+    return files, download
+
+
+def test_fetch_release_verifies_with_cosign_then_extracts(tmp_path):
+    files, download = release_archive(tmp_path, "4.1.0-cg.3")
+    runs = []
+
+    def ok(cmd, **k):
+        runs.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "Verified OK", "")
+    root, verified, note = releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"),
+                                                  download=download, which=lambda t: "/bin/cosign", run=ok)
+    assert verified and "verified" in note
+    assert open(os.path.join(root, "RELEASE")).read().strip() == "4.1.0-cg.3"
+    cmd = runs[0]
+    assert cmd[:2] == ["cosign", "verify-blob"]
+    assert cmd[cmd.index("--certificate-identity-regexp") + 1] == \
+        "^https://github.com/o/r/.github/workflows/release.yml@"
+    with pytest.raises(SystemExit, match="doesn't verify"):
+        releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"), download=download,
+                               which=lambda t: "/bin/cosign",
+                               run=lambda cmd, **k: subprocess.CompletedProcess(cmd, 1, "", "no matching signatures"))
+
+
+def test_fetch_release_without_cosign_says_it_is_not_verified(tmp_path):
+    files, download = release_archive(tmp_path, "4.1.0-cg.3")
+    root, verified, note = releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"),
+                                                  download=download, which=lambda t: None)
+    assert not verified and note.startswith("NOT VERIFIED") and "cosign" in note
+
+
+def test_fetch_release_refuses_a_bad_digest_or_the_wrong_archive(tmp_path):
+    files, download = release_archive(tmp_path, "4.1.0-cg.3")
+    files["bigbang-chainguard-4.1.0-cg.3.tar.gz.sha256"] = b"0" * 64 + b"  x\n"
+    with pytest.raises(SystemExit, match="sha256"):
+        releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "c"), download=download,
+                               which=lambda t: None)
+    _, download = release_archive(tmp_path / "other", "4.1.0-cg.3", release="4.1.0-cg.1")
+    with pytest.raises(SystemExit, match="isn't release"):
+        releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "c"), download=download,
+                               which=lambda t: None)
+
+
+def upgrade_args(**kw):
+    a = argparse.Namespace(overlays=ROOT, repo="o/r", to=None, list=False, allow_downgrade=False, yes=True,
+                           plan=False, argv=["upgrade", "--yes"])
+    vars(a).update(kw)
+    return a
+
+
+def release_cluster(monkeypatch, tmp_path, state, running):
+    """Stub GitHub, the cluster and the release's installer for upgrade --to / --list."""
+    calls = {"run": [], "recorded": []}
+    monkeypatch.setattr(releases, "list_releases", lambda repo: ["4.1.0-cg.11", "4.1.0-cg.10", "4.0.0-cg.29"])
+    monkeypatch.setattr(releases, "recorded_release", lambda: state.get("release"))
+    monkeypatch.setattr(commands, "deployed", lambda: (running, {}))
+    monkeypatch.setattr(commands.shutil, "which", lambda t: "/bin/" + t)
+    real_fetch = releases.fetch_release
+
+    def fetch(repo, tag):
+        _, download = release_archive(tmp_path / tag, tag)
+        return real_fetch(repo, tag, cache=str(tmp_path / "cache"), download=download, which=lambda t: None)
+    monkeypatch.setattr(releases, "fetch_release", fetch)
+
+    def run(cmd, **k):
+        calls["run"].append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+    monkeypatch.setattr(commands.subprocess, "run", run)
+    monkeypatch.setattr(releases, "record_release", calls["recorded"].append)
+    return calls
+
+
+def test_upgrade_to_runs_the_releases_own_installer(monkeypatch, tmp_path, capsys):
+    calls = release_cluster(monkeypatch, tmp_path, {"release": "4.1.0-cg.10"}, "4.1.0")
+    assert commands.upgrade(upgrade_args(to="latest", argv=["upgrade", "--to", "latest", "--yes"])) == 0
+    cmd = calls["run"][0]
+    assert cmd[1].replace(os.sep, "/").endswith("4.1.0-cg.11/bigbang-chainguard-4.1.0-cg.11/scripts/bb-install.py")
+    assert cmd[2:] == ["upgrade", "--yes"]
+    assert calls["recorded"] == ["4.1.0-cg.11"]
+    assert "NOT VERIFIED" in capsys.readouterr().out
+
+
+def test_upgrade_to_refuses_a_downgrade_unless_allowed(monkeypatch, tmp_path):
+    calls = release_cluster(monkeypatch, tmp_path, {"release": "4.1.0-cg.11"}, "4.1.0")
+    with pytest.raises(SystemExit, match="--allow-downgrade"):
+        commands.upgrade(upgrade_args(to="4.1.0-cg.10"))
+    with pytest.raises(SystemExit, match="4.0.0-cg.29 is older"):
+        commands.upgrade(upgrade_args(to="4.0.0"))
+    assert calls["run"] == []
+    assert commands.upgrade(upgrade_args(to="4.1.0-cg.10", allow_downgrade=True)) == 0
+    assert calls["recorded"] == ["4.1.0-cg.10"]
+
+
+def test_upgrade_to_with_plan_records_nothing_and_refuses_unknown_flags(monkeypatch, tmp_path):
+    calls = release_cluster(monkeypatch, tmp_path, {}, "4.1.0")
+    assert commands.upgrade(upgrade_args(to="latest", plan=True, argv=["upgrade", "--plan"])) == 0
+    assert calls["recorded"] == []
+    with pytest.raises(SystemExit, match="doesn't have --gitops"):
+        commands.upgrade(upgrade_args(to="latest", argv=["upgrade", "--gitops", "d"]))
+    with pytest.raises(SystemExit, match="pick one"):
+        commands.upgrade(upgrade_args(to="latest", overlays=str(tmp_path)))
+
+
+def test_upgrade_list_shows_newer_releases(monkeypatch, tmp_path, capsys):
+    release_cluster(monkeypatch, tmp_path, {"release": "4.1.0-cg.10"}, "4.1.0")
+    assert commands.upgrade(upgrade_args(list=True)) == 0
+    out = capsys.readouterr().out
+    assert "runs release 4.1.0-cg.10" in out and "4.1.0-cg.11  (latest)" in out and "4.0.0-cg.29" not in out
 
 
 def test_a_failed_or_impossible_backup_stops_the_upgrade(monkeypatch):

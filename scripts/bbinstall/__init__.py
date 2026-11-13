@@ -18,5 +18,6 @@ modules, so scripts/ must be on sys.path, as bb-install.py and the tests arrange
   gitops       install --gitops (write_gitops)
   status       status_report, what runs (deployed) and plan_lines
   install      install and --plan
-  commands     chart, check, upgrade, status, rollback, uninstall
+  commands     chart, check, upgrade (and --to, --list), status, rollback, uninstall
+  releases     published releases: resolve --to, the running release, fetch and verify one
 """

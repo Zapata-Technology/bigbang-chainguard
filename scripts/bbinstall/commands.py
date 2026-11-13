@@ -12,7 +12,8 @@ import yaml
 
 import objstore
 from bbcluster import hr_namespaces, kubectl, read_secret, sh, wait_ready
-from bbcommon import is_bigbang4
+from bbcommon import ROOT, is_bigbang4
+from bbinstall import releases
 from bbinstall.chart import chart_defaults, fetch_chart
 from bbinstall.checkout import Checkout
 from bbinstall.common import NAMESPACE, STATE_SECRET, confirm, say, step
@@ -22,7 +23,7 @@ from bbinstall.install import install
 from bbinstall.nodes import INOTIFY, inotify_problems, node_inotify, probe_image
 from bbinstall.preflight import prepare
 from bbinstall.sitefile import legacy_keys, migrate_site
-from bbinstall.status import status_report
+from bbinstall.status import deployed, status_report
 
 def chart(a):
     say(fetch_chart(a.version or Checkout(a.overlays).version))
@@ -71,7 +72,12 @@ def node_problems(co, fips, login):
 
 def upgrade(a):
     """install for a cluster that runs Big Bang already: a Big Bang 3 site file converted
-    first (backup kept), then the plan, a question, and the install."""
+    first (backup kept), then the plan, a question, and the install. With --to, the same
+    done by a published release's own installer (upgrade_to_release); --list shows them."""
+    if getattr(a, "list", False):
+        return list_upgrades(a)
+    if getattr(a, "to", None):
+        return upgrade_to_release(a)
     a.version = a.version or Checkout(a.overlays).version
     if os.path.exists(a.site):
         site = yaml.safe_load(open(a.site, encoding="utf-8")) or {}
@@ -98,6 +104,73 @@ def upgrade(a):
         if not getattr(a, "no_backup", False):
             backup_before_upgrade(getattr(a, "backup_timeout", 1800))
     return install(a)
+
+
+def _cluster_release(a):
+    """(repo, release tags newest first, the release tag the cluster runs, its Big Bang version)."""
+    repo = a.repo or releases.release_repo()
+    tags = releases.list_releases(repo)
+    running = deployed()[0] if shutil.which("helm") else None
+    return repo, tags, releases.running_release(releases.recorded_release(), running), running
+
+
+def list_upgrades(a):
+    """The releases newer than what the cluster runs."""
+    repo, tags, running_tag, running = _cluster_release(a)
+    runs = f"release {running_tag}" if running_tag else f"Big Bang {running}" if running else "no Big Bang"
+    if running and not running_tag:
+        runs += " (which release isn't recorded: installed before upgrade --to existed, or rolled back since)"
+    say(f"the cluster runs {runs}")
+    newer = releases.newer_releases(tags, running_tag, running)
+    if not newer:
+        say(f"no newer release on github.com/{repo}")
+        return 0
+    say(f"releases on github.com/{repo} it can move to, newest first:")
+    for t in newer[:30]:
+        say(f"  {t}" + ("  (latest)" if t == tags[0] else ""))
+    if len(newer) > 30:
+        say(f"  ... and {len(newer) - 30} older")
+    say("upgrade with: bb-install.py upgrade --to <tag>, --to <Big Bang version> (its newest release) "
+        "or --to latest")
+    return 0
+
+
+def upgrade_to_release(a):
+    """upgrade to a published release: resolve --to, refuse a downgrade (unless
+    --allow-downgrade), download and verify the release's archive, then run that release's
+    own `bb-install.py upgrade` with the same flags (its plan, question, Velero backup and
+    install), and record the release in the cluster."""
+    if os.path.abspath(a.overlays) != os.path.abspath(ROOT):
+        raise SystemExit("--to and --overlays: pick one (--to uses the release's own overlays)")
+    repo, tags, running_tag, running = _cluster_release(a)
+    tag = releases.resolve(a.to, tags)
+    problem = releases.downgrade_problem(tag, running_tag, running)
+    if problem and not a.allow_downgrade:
+        raise SystemExit(f"{problem}: not downgrading (--allow-downgrade does; `rollback` returns to the "
+                         "previous revision)")
+    step(f"release {tag}")
+    if running_tag == tag:
+        say(f"the cluster already runs {tag}: applying it again")
+    elif problem:
+        say(f"downgrade: {problem}")
+    root, verified, note = releases.fetch_release(repo, tag)
+    say(note)
+    if not verified and not a.yes and sys.stdin.isatty() and \
+            not confirm(f"Run release {tag}'s installer without a verified signature?", default=False):
+        raise SystemExit("not upgrading (install cosign to verify the release)")
+    script = os.path.join(root, "scripts", "bb-install.py")
+    text = open(script, encoding="utf-8").read()
+    args = releases.handoff_args(getattr(a, "argv", None) or sys.argv[1:])
+    missing = releases.unknown_options(args, text)
+    if missing:
+        raise SystemExit(f"release {tag}'s installer doesn't have {', '.join(missing)}: leave them out")
+    if "--no-backup" not in text:
+        say(f"note: release {tag}'s installer takes no Velero backup before upgrading")
+    say(f"running {tag}'s installer: bb-install.py {' '.join(args)}")
+    rc = subprocess.run([sys.executable, script, *args]).returncode
+    if rc == 0 and not a.plan:
+        releases.record_release(tag)
+    return rc
 
 
 VELERO_NS = "velero"
@@ -168,6 +241,7 @@ def rollback(a):
     if not a.yes and not (sys.stdin.isatty() and confirm("Roll back?", default=False)):
         raise SystemExit("not confirmed; nothing changed (--yes skips this question)")
     sh("helm", "rollback", "bigbang", str(target), "-n", NAMESPACE, "--wait", "--timeout", "15m", capture=True)
+    releases.forget_release()
     step("waiting for the packages")
     time.sleep(10)
     state = read_secret(NAMESPACE, STATE_SECRET) or {}
