@@ -78,12 +78,14 @@ one fails.
 
 ```bash
 python scripts/bb-install.py status          # what's healthy, and the app URLs
-python scripts/bb-install.py upgrade         # move to a newer release, including from Big Bang 3
+python scripts/bb-install.py upgrade --to latest   # move to a newer release (upgrade --list shows them)
 python scripts/bb-install.py rollback        # back to the previous revision
 ```
 
-`upgrade` shows what will change and asks before applying it. From Big Bang 3 it also
-converts your site file to Big Bang 4's keys and keeps the original.
+`upgrade --to` downloads the release (a tag, a Big Bang version or `latest`), verifies its
+signature when cosign is installed, refuses an older release than the cluster's, then shows
+what will change and asks before applying it. From Big Bang 3 it also converts your site
+file to Big Bang 4's keys and keeps the original.
 
 **You need** a Kubernetes 1.35+ cluster with a default StorageClass, and `kubectl`, `helm` 3,
 Python 3 with PyYAML and `chainctl`. To skip installing the tools, run the same commands

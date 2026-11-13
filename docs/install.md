@@ -18,6 +18,8 @@ python scripts/bb-install.py check           # tests every setting; changes noth
 python scripts/bb-install.py install         # add --fips for FIPS images
 python scripts/bb-install.py status          # any time: what's healthy, and the app URLs
 python scripts/bb-install.py upgrade         # a newer release: shows the changes, asks, installs
+python scripts/bb-install.py upgrade --list  # the releases newer than the cluster's
+python scripts/bb-install.py upgrade --to latest   # or --to 4.1.0, --to 4.1.0-cg.3: no checkout needed
 ```
 
 **`check`** runs everything `install` checks and changes nothing:
@@ -201,6 +203,37 @@ migration: `velero restore create --from-backup <name>`. `--no-backup` skips it.
 Bang release this repo moves to has upgrade notes in [docs/upgrades/](upgrades/): the
 package charts and Iron Bank images that change, new major versions first. Read them, and
 Big Bang's own release notes, before upgrading.
+
+**Upgrading to a release.** `upgrade` on its own deploys the checkout (or release directory)
+you run it from. `upgrade --to <release>` moves the cluster to a published release without
+downloading it yourself: a tag (`--to 4.1.0-cg.3`), a Big Bang version (`--to 4.1.0`, its
+newest `-cg.<n>`) or `--to latest` (the newest release). The installer:
+
+1. lists the repository's GitHub releases (this checkout's GitHub remote, so a fork uses its
+   own; a release directory, which has no git remote, uses this repository; `--repo
+   OWNER/REPO` names another; `GH_TOKEN` lifts GitHub's anonymous limit of 60 calls an hour);
+2. refuses a release older than the one the cluster runs unless `--allow-downgrade`
+   (`rollback` is the usual way back);
+3. downloads the release archive into `work/releases/<tag>/`, checks it against the
+   release's sha256 file and, when `cosign` is installed, verifies its signature exactly as
+   the [quickstart](quickstart.md#2-check-it-came-from-this-repository) does. A digest or
+   signature that doesn't match stops the upgrade. Without cosign it says
+   `NOT VERIFIED` and, when it can ask, asks before going on;
+4. runs that release's own `bb-install.py upgrade` with your other flags (`--site`, `--fips`,
+   `--yes`, `--plan`, ...), so the plan, the question, the Velero backup and the install are
+   the release's, with the installer CI tested its overlays with. A flag that release's
+   installer doesn't have stops it before anything changes;
+5. records the release in the `bigbang/bb-install` Secret (`install` from a release does the
+   same).
+
+`upgrade --list` shows the releases newer than the cluster's. The cluster's release is known
+once it was installed or upgraded from a release by an installer that records it; before
+that (and after a `rollback`) only its Big Bang version is, so `--list` shows every release
+of that version and newer, and only an older Big Bang version counts as a downgrade.
+A release from before `--to` existed doesn't have it: download a
+newer release once ([quickstart](quickstart.md#5-upgrade-to-a-newer-release)), or run `--to`
+from a clone of this repository. A target release older than 4.1.0-cg.3 takes no Velero
+backup (its installer predates it), and the installer says so.
 
 **When repo1 doesn't answer.** Flux fetches every package's chart from repo1.dso.mil git
 while it installs and upgrades. The installer names any source that can't fetch, asks Flux

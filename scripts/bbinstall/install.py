@@ -130,6 +130,12 @@ def install(a):
             raise SystemExit("not installing: these images can't be pulled with your logins (an image your "
                              "Chainguard plan doesn't cover is refused the same way):\n  " + "\n  ".join(failed))
         say(f"all {count} images can be pulled")
+    # Which release the cluster runs (upgrade --list and --to's downgrade check read it); a
+    # checkout that isn't a release leaves it unknown rather than keep an older one.
+    if co.release:
+        creds.values["release"] = co.release
+    else:
+        creds.values.pop("release", None)
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
