@@ -19,6 +19,7 @@ from bbinstall.common import NAMESPACE, STATE_SECRET, confirm, say, step
 from bbinstall.credentials import Credentials, pull_token_maker
 from bbinstall.gitops import GITOPS_SECRET, write_gitops
 from bbinstall.images import build_images, deployed_images, image_problems, pull_check
+from bbinstall import releases
 from bbinstall.preflight import prepare
 from bbinstall.signatures import built_signer, cluster_signatures, signature_choice, signature_egress_values
 from bbinstall.sitefile import package_values
@@ -133,12 +134,7 @@ def install(a):
             raise SystemExit("not installing: these images can't be pulled with your logins (an image your "
                              "Chainguard plan doesn't cover is refused the same way):\n  " + "\n  ".join(failed))
         say(f"all {count} images can be pulled")
-    # Which release the cluster runs (upgrade --list and --to's downgrade check read it); a
-    # checkout that isn't a release leaves it unknown rather than keep an older one.
-    if co.release:
-        creds.values["release"] = co.release
-    else:
-        creds.values.pop("release", None)
+    # The release recorded stays the one that runs until this install succeeds (record_release).
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")
 
@@ -208,11 +204,26 @@ def install(a):
         cluster_signatures(co.org, org_id, signatures, wait=900, built=built)
 
     if a.no_wait:
+        record_release(co)
         return 0
     step("waiting for the packages")
     time.sleep(10)
     ok, problems = wait_ready(hr_namespaces(), a.timeout)
-    return status_report(co, a.fips, problems) if ok else status_report(co, a.fips, problems, failed=True)
+    rc = status_report(co, a.fips, problems) if ok else status_report(co, a.fips, problems, failed=True)
+    if rc == 0:
+        record_release(co)
+    return rc
+
+
+def record_release(co):
+    """Which release the cluster runs (upgrade --list and --to's downgrade check read it),
+    written only once an install has succeeded: a failed upgrade leaves the release that
+    still runs. A checkout that isn't a release leaves it unknown rather than keep an
+    older one."""
+    if co.release:
+        releases.record_release(co.release)
+    else:
+        releases.forget_release()
 
 
 def keycloak_database_password(creds, site, enabled):

@@ -1133,3 +1133,22 @@ def test_seaweedfs_replaces_the_bucket_job_before_applying(monkeypatch):
     delete = next(i for i, c in enumerate(calls) if "delete" in c and "seaweedfs-buckets" in c)
     apply = next(i for i, c in enumerate(calls) if "apply" in c)
     assert delete < apply and "--ignore-not-found" in calls[delete]
+
+
+def test_the_release_is_recorded_only_after_the_install_succeeds(monkeypatch):
+    """A failed upgrade used to leave the new release recorded while the old one ran
+    (compat/installer-upgrade-to.yaml): the tag is now written after the packages are Ready."""
+    import inspect
+    calls = []
+    monkeypatch.setattr(releases, "record_release", lambda tag: calls.append(("record", tag)))
+    monkeypatch.setattr(releases, "forget_release", lambda: calls.append(("forget",)))
+
+    class Co:
+        release = "4.1.0-cg.9"
+    installer.record_release(Co())
+    Co.release = None
+    installer.record_release(Co())
+    assert calls == [("record", "4.1.0-cg.9"), ("forget",)]
+    src = inspect.getsource(installer.install)
+    assert 'creds.values["release"]' not in src
+    assert src.rindex("record_release(co)") > src.index("wait_ready(") > src.index("creds.save(")
