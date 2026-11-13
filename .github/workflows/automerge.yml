@@ -12,11 +12,14 @@ name: Auto-merge - nightly update
 # but the bot's one commit touching the files update.yml writes (a person's commit on the
 # bot branch would otherwise land on main unreviewed, under the bot's title).
 #
-# A workflow run on the bot PR that fails on its first attempt gets its failed jobs
-# re-run once: most nightly failures are repo1.dso.mil refusing the runner or a
-# download's 5xx. A second failure waits for a person: the PR gets the `needs-attention`
-# label and one comment saying what failed (python scripts/ci-triage.py <pr>), mentioning
-# the ALERT_MENTION repository variable (e.g. a maintainer's login) when it is set.
+# A workflow run on the bot PR that fails on its first attempt is triaged with main's
+# scripts/ci-triage.py --run: its failed jobs are re-run once only when every failure is a
+# known flake (repo1.dso.mil refusing the runner, a network timeout, a download's 5xx). A real
+# failure (a check, a missing image, a policy refusal) isn't re-run: it fails the same way
+# again and only delays the person. That, a failure that survives the re-run, or triage that
+# couldn't read GitHub waits for a person: the PR gets the `needs-attention` label and one
+# comment saying what failed (python scripts/ci-triage.py <pr>), mentioning the ALERT_MENTION
+# repository variable (e.g. a maintainer's login) when it is set.
 #
 # Every read is captured before it is tested: under `set -e` a failed gh call stops the
 # run. (Piping gh into `grep -q` inside an `if` read a failed call as "no hold label".)
@@ -59,6 +62,10 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             api.github.com:443
+            github.com:443
+            *.blob.core.windows.net:443
+            pipelines.actions.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
 
       - name: Bot token (GitHub App)
         id: app
@@ -70,7 +77,13 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      # No checkout: nothing from the pull request runs here.
+      # main's scripts (ci-triage.py), never the pull request's: workflow_run runs with secrets,
+      # so nothing from the bot branch is checked out or run here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
       - name: Merge when every check on the head commit passed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -144,10 +157,22 @@ jobs:
           fi
 
           # A kind test cut off by its time limit (repo1.dso.mil) ends the run as cancelled.
+          # Re-run a first attempt only when ci-triage.py finds nothing but known flakes
+          # (exit 2); a real failure (1) or a triage that couldn't tell (anything else) waits
+          # for a person. CI_TRIAGE: the command, replaced by a stub in tests/test_automerge.py.
           if { [ "$CONCLUSION" = failure ] || [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = timed_out ]; } \
               && [ "$ATTEMPT" = 1 ]; then
-            echo "run $RUN failed on its first attempt: re-running its failed jobs once"
-            gh run rerun "$RUN" --failed
+            rc=0
+            ${CI_TRIAGE:-python3 scripts/ci-triage.py} --run "$RUN" || rc=$?
+            case "$rc" in
+              2)
+                echo "run $RUN failed on its first attempt, only on known flakes: re-running its failed jobs once"
+                gh run rerun "$RUN" --failed ;;
+              1)
+                attention "$RUN_NAME failed, and ci-triage.py finds a real failure (not re-run; the log above has the evidence): $RUN_URL" ;;
+              *)
+                attention "$RUN_NAME failed, and ci-triage.py couldn't triage it (exit $rc), so it wasn't re-run: $RUN_URL" ;;
+            esac
             exit 0
           fi
           if [ "$CONCLUSION" = failure ] || [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = timed_out ]; then
