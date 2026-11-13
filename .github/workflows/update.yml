@@ -4,12 +4,23 @@
 # A new Big Bang release re-runs discovery. If it deploys an image mapping.yaml
 # does not cover, or one with no org tag, the pull request still opens with the
 # failures in its body (and CI fails on it): add the mapping and push to the branch.
+#
+# An image this repo builds whose tag moves (Grafana 13.3.0 -> 13.3.1) can't be in the
+# overlays until builds.yml has published it from main. scripts/bb-held-builds.py holds
+# such a build.yaml back: the overlays stay on the published tag, and the build.yaml goes
+# in its own pull request (bot/builds-update; automerge.yml merges it when green). Once
+# builds.yml has published from main, this workflow runs again and moves the overlays.
 name: Update - Big Bang and Chainguard tags
 
 on:
   schedule:
     - cron: "17 3 * * *"   # off the hour: GitHub delays scheduled runs most at :00
   workflow_dispatch:
+  # builds.yml finished on main: a held-back build may be published now.
+  workflow_run:
+    workflows: ["Build - Big Bang images"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,6 +31,10 @@ concurrency:
 
 jobs:
   update:
+    # After builds.yml only when it published (a push to main that succeeded).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     env:
       # Chainguard org (cgr.dev/<org>). Set the CHAINGUARD_ORG repository variable to
@@ -35,6 +50,7 @@ jobs:
       pull-requests: write
       id-token: write
       actions: read   # compat.yml's result artifacts (docs/testing.md's results table)
+      packages: read  # bb-held-builds.py asks GHCR which build tags are published
     steps:
       # Block every outbound call not listed (GitHub, PyPI, Chainguard, repo1/registry1,
       # and what this workflow's tools download). A blocked call fails the step and
@@ -87,6 +103,13 @@ jobs:
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
+      - name: Log into GHCR (which build tags are published)
+        if: startsWith(vars.BUILD_REGISTRY, 'ghcr.io/')
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
       - name: Newest Big Bang release
         id: bb
         run: |
@@ -134,6 +157,14 @@ jobs:
                 cat "$out/$b.log"
               done
               echo "builders (in parallel): $(( $(date +%s) - start )) s"
+              # A moved tag builds.yml hasn't published yet: keep the overlays on the
+              # published one; the new build.yaml goes in bot/builds-update below.
+              held=$(python3 scripts/bb-held-builds.py hold "${RUNNER_TEMP}/held") || held=""
+              if [ -n "$held" ]; then
+                echo "held back until builds.yml publishes them from main (bot/builds-update):"
+                echo "$held" | sed 's/^/  /'
+                { echo "held<<HELD_EOF"; echo "$held"; echo "HELD_EOF"; } >> "$GITHUB_OUTPUT"
+              fi
             fi
             python3 scripts/bb-convert.py 2>&1 || true
             python3 scripts/bb-verify.py --bigbang work/bigbang --pkgs work/pkgs 2>&1 || true
@@ -191,3 +222,33 @@ jobs:
             Automated by `.github/workflows/update.yml`.
 
             ${{ steps.run.outputs.body }}
+
+      # The held-back build.yaml files, alone: the overlays don't change, so this passes,
+      # and once it merges builds.yml publishes the new tags and this workflow runs again.
+      - name: Put the held-back builds back
+        if: steps.run.outputs.held != ''
+        run: python3 scripts/bb-held-builds.py restore "${RUNNER_TEMP}/held"
+
+      - name: Open the builds pull request
+        if: steps.run.outputs.held != ''
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ secrets.RELEASE_PAT || github.token }}
+          base: main
+          branch: bot/builds-update
+          delete-branch: true
+          title: "chore: build the images built here at their new versions"
+          commit-message: "chore: build the images built here at their new versions"
+          add-paths: ${{ steps.run.outputs.held }}
+          body: |
+            Automated by `.github/workflows/update.yml`.
+
+            These images' tags moved, and builds.yml publishes a tag only from main, so the
+            overlays can't use them yet (`scripts/bb-held-builds.py`):
+
+            ```
+            ${{ steps.run.outputs.held }}
+            ```
+
+            Nothing deployed changes here. When this merges, builds.yml pushes and signs the
+            new tags, then update.yml runs again and moves the overlays in `bot/bigbang-update`.

@@ -1,6 +1,7 @@
 name: Auto-merge - nightly update
 
-# Merges the nightly bot pull request (update.yml, branch bot/bigbang-update) once every
+# Merges the nightly bot pull requests (update.yml: bot/bigbang-update, and
+# bot/builds-update with build.yaml files held back until published) once every
 # check on its head commit has passed: CI, the image builds and every kind test. Branch
 # protection only requires `verify`, so GitHub's own auto-merge would not wait for the
 # kind tests; this does. It runs each time one of those workflows finishes and merges on
@@ -33,7 +34,8 @@ jobs:
   merge:
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.head_branch == 'bot/bigbang-update' &&
+      (github.event.workflow_run.head_branch == 'bot/bigbang-update' ||
+       github.event.workflow_run.head_branch == 'bot/builds-update') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -57,16 +59,17 @@ jobs:
           MERGE_TOKEN: ${{ secrets.RELEASE_PAT }}
           GH_REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN: ${{ github.event.workflow_run.id }}
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
           set -euo pipefail
           [ -n "$MERGE_TOKEN" ] || { echo "::warning::RELEASE_PAT is not set; not merging"; exit 0; }
-          pr=$(gh pr list --head bot/bigbang-update --state open --json number,headRefOid \
+          pr=$(gh pr list --head "$BRANCH" --state open --json number,headRefOid \
             --jq ".[] | select(.headRefOid == \"$SHA\") | .number")
           if [ -z "$pr" ]; then
-            echo "no open bot/bigbang-update pull request at $SHA (a newer commit, or merged)"; exit 0
+            echo "no open $BRANCH pull request at $SHA (a newer commit, or merged)"; exit 0
           fi
           if gh pr view "$pr" --json labels --jq '.labels[].name' | grep -qx hold; then
             echo "#$pr is labeled hold"; exit 0
