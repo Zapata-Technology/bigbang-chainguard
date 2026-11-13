@@ -11,7 +11,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | alloy | ironbank/opensource/grafana/alloy-operator:1.14.4 | grafana-alloy-operator:0.9 | grafana-alloy-operator-fips:0.9 | grafana-alloy-operator: VERSION PINNED to 0.9 (Iron Bank 1.14.4); grafana-alloy-operator-fips: VERSION PINNED to 0.9 (Iron Bank 1.14.4) |
 | alloy | ironbank/opensource/grafana/alloy:v1.21.3 | grafana-alloy:1.21.3 | grafana-alloy-fips:1.21.3 |  |
 | alloy | ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0 | kubectl:1.34-dev | kubectl-fips:1.34-dev | kubectl: VERSION PINNED to 1.34 (Iron Bank 1.0); kubectl-fips: VERSION PINNED to 1.34 (Iron Bank 1.0) |
-| alloy | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.1 | prometheus-config-reloader-fips:0.95.1 |  |
+| alloy | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.2 | prometheus-config-reloader-fips:0.95.1 | prometheus-config-reloader: Iron Bank v0.95.1 -> newest 0.95 patch |
 | anchore-enterprise | ironbank/anchore/cli/cli:0.9.4 | Iron Bank | Iron Bank | Anchore CLI test image (bbtests only) |
 | anchore-enterprise | ironbank/anchore/enterprise/enterprise:6.2.0 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
 | anchore-enterprise | ironbank/anchore/enterpriseui/enterpriseui:6.2.0 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
@@ -177,7 +177,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | monitoring | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0 | kube-state-metrics:2.20.0 | kube-state-metrics-fips:2.20.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
-| monitoring | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.1 | prometheus-config-reloader-fips:0.95.1 |  |
+| monitoring | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.2 | prometheus-config-reloader-fips:0.95.1 | prometheus-config-reloader: Iron Bank v0.95.1 -> newest 0.95 patch |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1 | prometheus-operator:0.95.1 | prometheus-operator-fips:0.95.1 |  |
 | monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.2 | prometheus-alertmanager:0.34.2 | prometheus-alertmanager-fips:0.34.2 |  |
 | monitoring | ironbank/opensource/prometheus/blackbox_exporter:v0.29.1 | prometheus-blackbox-exporter:0.29.1 | prometheus-blackbox-exporter-fips:0.29.1 |  |

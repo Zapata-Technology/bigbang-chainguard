@@ -15,8 +15,8 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | newer minor | 10 |
-| newer patch | 17 |
-| same | 84 |
+| newer patch | 18 |
+| same | 83 |
 | numbered differently | 8 |
 | stays on Iron Bank | 19 |
 | **total** | **139** |
@@ -37,7 +37,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.1` | `flux-source-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
 
-## Newer patch, same line (17)
+## Newer patch, same line (18)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -56,10 +56,11 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/istio/pilot:1.31.3` | `istio-pilot:1.31.4` | `istio-pilot-fips:1.31.4` | Chainguard | newer patch | istiod |
 | `ironbank/opensource/istio/ztunnel:1.31.3` | `ztunnel:1.31.4` | `ztunnel-fips:1.31.4` | Chainguard | newer patch | ztunnel |
 | `ironbank/opensource/keycloak/keycloak:26.8.1` | `keycloak:26.8.2` | `keycloak-fips:26.8.2` | Chainguard | newer patch | keycloak |
+| `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1` | `prometheus-config-reloader:0.95.2` | `prometheus-config-reloader-fips:0.95.1` | Chainguard | newer patch | alloy, monitoring |
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (84)
+## Same version (83)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -134,7 +135,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/nginx/nginx:1.31.8` | `nginx:1.31.8` | `nginx-fips:1.31.8` | Chainguard | same | gitlab, harbor, logging-loki, mimir |
 | `ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1` | `gatekeeper:3.23.1` | `gatekeeper-fips:3.23.1` | Chainguard | same | gatekeeper |
 | `ironbank/opensource/postgres/postgresql:18.6` | `postgres:18.6` | `postgres-fips:18.6` | Chainguard | same | harbor, keycloak, mattermost |
-| `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1` | `prometheus-config-reloader:0.95.1` | `prometheus-config-reloader-fips:0.95.1` | Chainguard | same | alloy, monitoring |
 | `ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1` | `prometheus-operator:0.95.1` | `prometheus-operator-fips:0.95.1` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:0.34.2` | `prometheus-alertmanager-fips:0.34.2` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/blackbox_exporter:v0.29.1` | `prometheus-blackbox-exporter:0.29.1` | `prometheus-blackbox-exporter-fips:0.29.1` | Chainguard | same | monitoring |
