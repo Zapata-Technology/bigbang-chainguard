@@ -264,7 +264,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:debacf2b9711f5f5b562384e6842ee87847930aa597a3aa0f6225a34a8b5cb55
+        - digest: sha256:35d82bd3c8f357a9338117537011dd09421a1bb890144272c51b4e143c053a91
           name: cgr.dev/zapatatechnology.com/external-secrets-fips
     values:
       bbtests:
