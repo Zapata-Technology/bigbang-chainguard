@@ -83,7 +83,7 @@ jobs:
       # Audit only, as in compat.yml: the VM pulls from whichever registries the test touches,
       # and a blocked pull would look like the image failure this test exists to find.
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
         with:
           egress-policy: audit
 
@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
 
       - name: Set up Helm
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
         with:
           version: v3.18.3
 
@@ -128,7 +128,7 @@ jobs:
           echo "KUBECONFIG=$RUNNER_TEMP/fips-vm/kubeconfig" >> "$GITHUB_ENV"
 
       - name: Log into Chainguard
-        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28  # v0.5.1
+        uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
         with:
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
