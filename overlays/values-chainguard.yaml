@@ -229,7 +229,7 @@ packages:
         images:
         - digest: sha256:1c7b0b6df3a7238f8fdf69e1c083eb6522244a9927dc5c887c1d58abe92a1e5c
           name: cgr.dev/zapatatechnology.com/elasticsearch
-        - digest: sha256:afcce418af2d401fb91567526408797e98572e6af19eca020bd560973f8b4576
+        - digest: sha256:7dd5a1877fbf4ecf436a22eca76f087573fa41337e8b52612032ad99a5e79601
           name: cgr.dev/zapatatechnology.com/kibana
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -1355,7 +1355,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:4a0773d54d4772d643283dfa720b6c971fef6208650707e36b5f605abefee8fe
+        - digest: sha256:e37fab4316e752a86c40831c2411254835f2bc4dfbf986f056e53799d899d17c
           name: cgr.dev/zapatatechnology.com/sonarqube
     values:
       upstream:

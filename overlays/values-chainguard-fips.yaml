@@ -82,7 +82,7 @@ packages:
         images:
         - digest: sha256:5a0807f328344d63ac76d3f41f9098f4d4b41a63a417b0002452a6c0ca2fcaa6
           name: cgr.dev/zapatatechnology.com/argocd-fips
-        - digest: sha256:6bb1552906ae206eac49abe17ca54708cd68f80f863918be21b934f5c8024ef6
+        - digest: sha256:e965766ed6d34f46ba2090a9e181ac014de6808ed871cb42b141e273b6fd1076
           name: cgr.dev/zapatatechnology.com/busybox-fips
         - digest: sha256:99399dbf2b5ed268eeb11997c01cd0a53d2e1ac237b9d94d28074a68084c41d5
           name: cgr.dev/zapatatechnology.com/dex-fips
@@ -379,7 +379,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:6bb1552906ae206eac49abe17ca54708cd68f80f863918be21b934f5c8024ef6
+        - digest: sha256:e965766ed6d34f46ba2090a9e181ac014de6808ed871cb42b141e273b6fd1076
           name: cgr.dev/zapatatechnology.com/busybox-fips
         - digest: sha256:d8c5095677c745e73a48f3c80975cfd1ebf2955d7228bd0d9cd190fe10d3cb8e
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign-fips
@@ -1339,7 +1339,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:4a0773d54d4772d643283dfa720b6c971fef6208650707e36b5f605abefee8fe
+        - digest: sha256:e37fab4316e752a86c40831c2411254835f2bc4dfbf986f056e53799d899d17c
           name: cgr.dev/zapatatechnology.com/sonarqube
     values:
       upstream:
