@@ -808,7 +808,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kyverno-background-controller-fips
         - digest: sha256:e98c929af453ad2426dcb6d50edf939a13bd1a97e314402217bfc910681a7ec7
           name: cgr.dev/zapatatechnology.com/kyverno-cleanup-controller-fips
-        - digest: sha256:c769abd42b2f0861bb70aaf8364dd694a756d5ab1fc6a86a7a10e00d478b4d8e
+        - digest: sha256:6469812e522581d77158dceabb0ff78e8759327134663eba91a17c0b8f06bc99
           name: cgr.dev/zapatatechnology.com/kyverno-cli-fips
         - digest: sha256:794c0bb1eb11f210576ea7b825340f93ed80bec7ee7e285e21de5048945851eb
           name: cgr.dev/zapatatechnology.com/kyverno-fips
@@ -1422,7 +1422,7 @@ packages:
         images:
         - digest: sha256:d047ed80ae4d06e8ddcd814c9c3efb3f47162c48d4cfb669a2b75e3b11aa1787
           name: cgr.dev/zapatatechnology.com/vault-csi-provider-fips
-        - digest: sha256:abc7fd65f1392041150f3f39301a63b25f87336ff50229a8f8de391c4883942e
+        - digest: sha256:54b3f822b1170a44ff08256b622ade016d2b5920e27d4ae2bcdc694c93773df4
           name: cgr.dev/zapatatechnology.com/vault-k8s-fips
     values:
       bbtests:
