@@ -860,9 +860,9 @@ def velero_cluster(monkeypatch, phases, crd=True, location="Available"):
     def kubectl(*a, **k):
         if a[:2] == ("get", "crd"):
             return "customresourcedefinition/backups.velero.io" if crd else ""
-        if "backupstoragelocations.velero.io" in a:
+        if a[2:4] == ("get", "backupstoragelocations.velero.io"):
             return json.dumps({"items": [{"status": {"phase": location}}]})
-        if "backups.velero.io" in a:
+        if a[2:4] == ("get", "backups.velero.io"):
             return json.dumps({"status": {"phase": next(seq)}})
         raise AssertionError(a)
     monkeypatch.setattr(commands, "kubectl", kubectl)
