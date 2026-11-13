@@ -337,7 +337,15 @@ def image_nodes(values, path=()):
     if isinstance(values, dict):
         hit = None
         reg = values.get("registry")
-        if _is_ironbank(values.get("repository")) or (
+        img = values.get("image")
+        if (isinstance(img, str) and "/" in img and isinstance(values.get("repository"), str)
+                and isinstance(reg, str) and reg.startswith(IRONBANK_HOSTS) and isinstance(values.get("tag"), str)):
+            # Both keys: Big Bang sets `image` (an Iron Bank path), and the upstream chart's
+            # default `repository` rides along unused (GitLab Runner in Big Bang 4.1:
+            # image gitlab/gitlab-org/gitlab-runner, repository gitlab-org/gitlab-runner,
+            # rendered from image). Map by `image`; bb-convert sets both keys.
+            hit = "name"
+        elif _is_ironbank(values.get("repository")) or (
                 isinstance(reg, str) and reg.startswith(IRONBANK_HOSTS) and isinstance(values.get("repository"), str)):
             hit = "repo"
         elif _is_ironbank(values.get("hub")):
