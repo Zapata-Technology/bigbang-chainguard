@@ -255,8 +255,11 @@ without `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`), and `upgrade_from` (`images`
 to install first; `check`: commands on that install; `upgrade`: commands after Big Bang is
 upgraded to the test's mapping, before the wait; `values`: values for the starting install
 only; see `compat/vault-upgrade.yaml`; data a release upgrade must keep: `compat/release-upgrade-keycloak.yaml`;
-`release: previous-bigbang` starts from the previous Big Bang version's newest release, so the
-packages' versions and database migrations change: `compat/release-upgrade-mattermost.yaml`). Unknown
+`release: previous-bigbang` starts from the previous Big Bang version's newest release
+(`compat/release-upgrade-mattermost.yaml`; the org image is often the same on both sides, so
+for a real schema migration pin `upgrade_from.images` to an older line and verify with
+`upgrade-data.py <app> verify --migrated`: `compat/keycloak-migration.yaml`,
+`compat/mattermost-migration.yaml`). Unknown
 keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
 ### Disconnected sites
