@@ -597,19 +597,19 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:5e38198676d72a5e69dd6c17a6f855acfb1eb57627e025ddcfd2ab5bb538e59a
+        - digest: sha256:f469ad03ae343ec04b425f6289019d9824dacb2508da6ccb68f648bb2c015a27
           name: cgr.dev/zapatatechnology.com/harbor-core
         - digest: sha256:4ecc9fab9d570ece72c1170e0891c8d5e6b2deccd65ffdb7c717af56f9dbea6f
           name: cgr.dev/zapatatechnology.com/harbor-exporter
-        - digest: sha256:6ffa59d6e3244d2248bbd6dc5d6cc17971aeb81e3262c6e7ac261d4ec3927c9b
+        - digest: sha256:83f145c4881db99c606ca65dcec666d9a8adc9557d83f587ac652167a1ba2d58
           name: cgr.dev/zapatatechnology.com/harbor-jobservice
-        - digest: sha256:a4f78db248f82be5393b2d7707208e747ccc346c31f687c2b95f5d10a5d18aa8
+        - digest: sha256:7529d5720cc5e72e57c4b950b40b30e80e03b4a1ebfd56567cd0bf665b8185be
           name: cgr.dev/zapatatechnology.com/harbor-portal
-        - digest: sha256:94ccf025bf7300d462ffe594608a647b84e80bd7a2abfca4649db3a1dfc36343
+        - digest: sha256:64700c3ca72f4132c664a029adabff970bb1a83249e7781091ab46f353c09384
           name: cgr.dev/zapatatechnology.com/harbor-registry
-        - digest: sha256:76c03e51d8bac5e85e7973b27f1bc752310cd1bab4610d75ca0c781e27ba19c0
+        - digest: sha256:a223a71da9cfaa86196a636cedbbb85190103fc06de7c2eab6dc05b22b7dd98e
           name: cgr.dev/zapatatechnology.com/harbor-registryctl
-        - digest: sha256:d57977d6bc190d9b58fe76a985c19d2d68d3e9a651b8167bba9639887c267ec4
+        - digest: sha256:ba1600f29d2804e876f819e6f009c613374e9a1116adf920b033ebdcbda966fc
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter
         - digest: sha256:3ac37832a728ed3d34a981c4c1c52fbcc6bf76760d08f509937e2b895db6e05c
           name: cgr.dev/zapatatechnology.com/nginx
@@ -645,7 +645,7 @@ packages:
         core:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-core
-            tag: 2.15.4
+            tag: 2.15.5
         exporter:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-exporter
@@ -653,7 +653,7 @@ packages:
         jobservice:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-jobservice
-            tag: 2.15.4
+            tag: 2.15.5
         nginx:
           image:
             repository: cgr.dev/zapatatechnology.com/nginx
@@ -661,20 +661,20 @@ packages:
         portal:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-portal
-            tag: 2.15.4
+            tag: 2.15.5
         registry:
           controller:
             image:
               repository: cgr.dev/zapatatechnology.com/harbor-registryctl
-              tag: 2.15.4
+              tag: 2.15.5
           registry:
             image:
               repository: cgr.dev/zapatatechnology.com/harbor-registry
-              tag: 2.15.4
+              tag: 2.15.5
         trivy:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-trivy-adapter
-            tag: 2.15.4
+            tag: 2.15.5
   headlamp:
     postRenderers:
     - kustomize:
@@ -780,7 +780,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:b5aa3ddc867f1c2e3721d54fa8644038530eac5d87910953e5eecf46ab6513bb
+        - digest: sha256:5282a659767cfe007bf80c24750b06922c9db64d34ec62d34be4d13a666d455d
           name: cgr.dev/zapatatechnology.com/kiali
         - digest: sha256:e463423a0d43623e96c24190c21c4251f5b4dd4176fd0bf30d3d51a405ed4e07
           name: cgr.dev/zapatatechnology.com/kiali-operator

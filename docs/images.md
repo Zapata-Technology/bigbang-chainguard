@@ -104,13 +104,13 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | harbor | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | harbor | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | harbor | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0) |
-| harbor | ironbank/opensource/goharbor/harbor-core:v2.15.4 | harbor-core:2.15.4 | harbor-core-fips:2.15.4 |  |
+| harbor | ironbank/opensource/goharbor/harbor-core:v2.15.4 | harbor-core:2.15.5 | harbor-core-fips:2.15.4 | harbor-core: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/harbor-exporter:v2.15.4 | harbor-exporter:2.15.5 | harbor-exporter-fips:2.15.5 | harbor-exporter: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-exporter-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
-| harbor | ironbank/opensource/goharbor/harbor-jobservice:v2.15.4 | harbor-jobservice:2.15.4 | harbor-jobservice-fips:2.15.4 |  |
-| harbor | ironbank/opensource/goharbor/harbor-portal:v2.15.4 | harbor-portal:2.15.4 | harbor-portal-fips:2.15.4 |  |
-| harbor | ironbank/opensource/goharbor/harbor-registryctl:v2.15.4 | harbor-registryctl:2.15.4 | harbor-registryctl-fips:2.15.4 |  |
-| harbor | ironbank/opensource/goharbor/registry:v2.15.4 | harbor-registry:2.15.4 | harbor-registry-fips:2.15.4 |  |
-| harbor | ironbank/opensource/goharbor/trivy-adapter:v2.15.4 | harbor-trivy-adapter:2.15.4 | harbor-trivy-adapter-fips:2.15.4 |  |
+| harbor | ironbank/opensource/goharbor/harbor-jobservice:v2.15.4 | harbor-jobservice:2.15.5 | harbor-jobservice-fips:2.15.4 | harbor-jobservice: Iron Bank v2.15.4 -> newest 2.15 patch |
+| harbor | ironbank/opensource/goharbor/harbor-portal:v2.15.4 | harbor-portal:2.15.5 | harbor-portal-fips:2.15.5 | harbor-portal: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-portal-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
+| harbor | ironbank/opensource/goharbor/harbor-registryctl:v2.15.4 | harbor-registryctl:2.15.5 | harbor-registryctl-fips:2.15.4 | harbor-registryctl: Iron Bank v2.15.4 -> newest 2.15 patch |
+| harbor | ironbank/opensource/goharbor/registry:v2.15.4 | harbor-registry:2.15.5 | harbor-registry-fips:2.15.4 | harbor-registry: Iron Bank v2.15.4 -> newest 2.15 patch |
+| harbor | ironbank/opensource/goharbor/trivy-adapter:v2.15.4 | harbor-trivy-adapter:2.15.5 | harbor-trivy-adapter-fips:2.15.5 | harbor-trivy-adapter: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-trivy-adapter-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.8 | nginx-fips:1.31.8 |  |
 | harbor | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
 | harbor | ironbank/opensource/redis/redis8-slim:8.10.3 | redis:8.10.3 | redis-fips:8.10.3 |  |
