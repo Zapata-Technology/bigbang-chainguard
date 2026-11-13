@@ -36,9 +36,12 @@ def seaweedfs(co, fips, pull, s3):
         s3json = os.path.join(d, "s3.json")
         open(s3json, "w", encoding="utf-8").write(objstore.s3_config(*s3))
         apply_secret(ns, "seaweedfs-s3", "generic", f"--from-file=s3.json={s3json}")
+    # The bucket Job's pod template can't change once created, and every new SeaweedFS digest
+    # (an org patch, a new release) changes its image: replace it. Creating the buckets again
+    # is harmless (weed shell reports an existing bucket and goes on).
+    kubectl("-n", ns, "delete", "job", "seaweedfs-buckets", "--ignore-not-found", "--wait=true", check=False)
     sh("kubectl", "apply", "-k", co.path("seaweedfs-fips" if fips else "seaweedfs"), capture=True)
     kubectl("-n", ns, "rollout", "status", "deploy/seaweedfs", "--timeout=600s")
-    # The bucket Job is immutable once created: a re-run with new buckets replaces it.
     job = kubectl("-n", ns, "wait", "job/seaweedfs-buckets", "--for=condition=complete", "--timeout=600s",
                   check=False)
     if job is None or "condition met" not in job:
