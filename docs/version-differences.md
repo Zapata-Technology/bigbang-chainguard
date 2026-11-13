@@ -56,7 +56,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/istio/pilot:1.31.3` | `istio-pilot:1.31.4` | `istio-pilot-fips:1.31.4` | Chainguard | newer patch | istiod |
 | `ironbank/opensource/istio/ztunnel:1.31.3` | `ztunnel:1.31.4` | `ztunnel-fips:1.31.4` | Chainguard | newer patch | ztunnel |
 | `ironbank/opensource/keycloak/keycloak:26.8.1` | `keycloak:26.8.2` | `keycloak-fips:26.8.2` | Chainguard | newer patch | keycloak |
-| `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1` | `prometheus-config-reloader:0.95.2` | `prometheus-config-reloader-fips:0.95.1` | Chainguard | newer patch | alloy, monitoring |
+| `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1` | `prometheus-config-reloader:0.95.2` | `prometheus-config-reloader-fips:0.95.2` | Chainguard | newer patch | alloy, monitoring |
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
