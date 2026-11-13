@@ -128,7 +128,17 @@ def wait_ready(namespaces, timeout, abort=None, source_patience=None):
         for hr in hrs:
             cond = {c["type"]: c for c in hr.get("status", {}).get("conditions", [])}
             ready = cond.get("Ready", {})
-            status[hr["metadata"]["name"]] = (ready.get("status"), ready.get("reason", ""), ready.get("message", ""))
+            state = ready.get("status")
+            # Right after `helm upgrade` of Big Bang, a HelmRelease has a new spec that Flux
+            # hasn't reconciled yet, and its Ready still describes the previous generation:
+            # count it as not ready until Flux has observed this generation. (A release
+            # upgrade test read "all ready", then found the old Grafana pod beside its
+            # Pending replacement and failed "not rolled by the upgrade".)
+            gen = hr["metadata"].get("generation")
+            seen = hr.get("status", {}).get("observedGeneration", ready.get("observedGeneration"))
+            if state == "True" and gen is not None and seen is not None and seen < gen:
+                state = "Unknown"
+            status[hr["metadata"]["name"]] = (state, ready.get("reason", ""), ready.get("message", ""))
         line = ", ".join(f"{n}={s[0]}" for n, s in sorted(status.items()))
         detail = "; ".join(f"{n}: {s[2][:200]}" for n, s in sorted(status.items()) if s[0] == "False")
         if line != last:

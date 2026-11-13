@@ -380,3 +380,26 @@ def test_a_release_on_big_bang_3_installs_with_its_keys():
                                   dict(old, kyvernoPolicies={"git": {"repo": "r"}}))
     assert legacy == {"domain": "d", "kyvernoPolicies": {"values": {"x": 1}}, "addons": {"headlamp": {"values": {"y": 2}}}}
     assert compat.legacy_values({"packages": {}}, {"packages": {}}) == {"packages": {}}
+
+
+def test_a_helmrelease_counts_as_ready_only_once_flux_observed_its_generation(monkeypatch):
+    """After `helm upgrade` of Big Bang, a HelmRelease's Ready still describes its previous
+    spec until Flux reconciles: waiting on it then ended at once, before the new pods."""
+    bbcluster = load_script("bbcluster")
+    now = [0.0]
+    monkeypatch.setattr(bbcluster.time, "time", lambda: now[0])
+    monkeypatch.setattr(bbcluster.time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+    monkeypatch.setattr(bbcluster, "source_problems", lambda nudge=False: [])
+    ready = {"type": "Ready", "status": "True", "reason": "UpgradeSucceeded", "message": ""}
+
+    def kubectl(*a, **k):
+        if a[:2] == ("get", "helmrelease"):
+            seen = 1 if now[0] < 100 else 2          # Flux catches up after ~100 s
+            hr = {"metadata": {"name": "grafana", "generation": 2},
+                  "status": {"observedGeneration": seen, "conditions": [ready]}}
+            return json.dumps({"items": [hr]})
+        return json.dumps({"items": []})              # no pods to wait for
+    monkeypatch.setattr(bbcluster, "kubectl", kubectl)
+    ok, problems = bbcluster.wait_ready(["monitoring"], 3600)
+    assert ok and problems == []
+    assert now[0] >= 100     # waited for Flux instead of trusting the stale Ready
