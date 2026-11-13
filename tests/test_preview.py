@@ -47,3 +47,18 @@ def test_report_says_nothing_for_empty_sections():
     text = pv.report("master", [("Kubernetes version", []), ("Images added or removed", ["loki: + r/x"])])
     assert "### Kubernetes version\nnothing" in text
     assert "```\nloki: + r/x\n```" in text
+
+
+def test_the_preview_follows_master_and_an_untagged_release_branch():
+    import os
+    import yaml
+    from conftest import ROOT
+    wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "bigbang-preview.yml"), encoding="utf-8"))
+    refs = next(s for s in wf["jobs"]["refs"]["steps"] if s.get("id") == "refs")
+    assert "refs/heads/release-" in refs["run"] and '"master"' in refs["run"]
+    job = wf["jobs"]["preview"]
+    assert job["strategy"]["matrix"]["ref"] == "${{ fromJSON(needs.refs.outputs.refs) }}"
+    # Inputs and the matrix reach the scripts as env vars, never interpolated into them.
+    for step in [refs] + job["steps"]:
+        run = step.get("run", "")
+        assert "${{ inputs." not in run and "${{ matrix." not in run and "${{ steps." not in run

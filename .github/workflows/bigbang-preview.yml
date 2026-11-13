@@ -1,12 +1,17 @@
-# Weekly: run this repo against Big Bang's development branch (scripts/bb-preview.py), so
-# the next release's breaking changes show up as a list of work weeks before it ships.
-# Keeps one issue (label bigbang-preview) current: opened or updated while something would
-# break, closed when nothing does. It changes no file and opens no pull request.
+# Daily: run this repo against Big Bang's next releases (scripts/bb-preview.py), so their
+# breaking changes show up as a list of work before they ship:
+#   master            Big Bang's development branch: weeks ahead
+#   release-X.Y.Z     the release branch Big Bang cuts before tagging X.Y.Z, while one is
+#                     newer than the newest tag: what the next release will be, days ahead
+# Keeps one issue per ref (label bigbang-preview, the ref in its title) current: opened or
+# updated while something would break, closed when nothing does, and a release branch's
+# closed once its release is tagged (update.yml's bot/bigbang-release takes over). It
+# changes no file and opens no pull request.
 name: Big Bang preview - next release against this repo
 
 on:
   schedule:
-    - cron: "0 5 * * 1"   # Mondays
+    - cron: "0 5 * * *"
   workflow_dispatch:
     inputs:
       ref:
@@ -21,7 +26,70 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The refs to preview: the dispatched one, else master and an untagged release branch.
+  refs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write   # close a tagged release branch's issue
+    outputs:
+      refs: ${{ steps.refs.outputs.refs }}
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            repo1.dso.mil:443
+
+      - name: Big Bang refs to preview
+        id: refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REF" ]; then
+            echo "refs=[\"$REF\"]" | tee -a "$GITHUB_OUTPUT"; exit 0
+          fi
+          remote=""
+          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
+            remote=$(git ls-remote --heads --tags https://repo1.dso.mil/big-bang/bigbang.git) && break
+            sleep $((30 * i))
+          done
+          latest=$(grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' <<<"$remote" | sed 's#refs/tags/##' | sort -V | tail -1 || true)
+          branch=$(grep -oE 'refs/heads/release-[0-9]+\.[0-9]+\.[0-9]+$' <<<"$remote" | sed 's#refs/heads/release-##' | sort -V | tail -1 || true)
+          refs='"master"'
+          if [ -n "$branch" ] && [ -n "$latest" ] && [ "$branch" != "$latest" ] \
+             && [ "$(printf '%s\n%s\n' "$latest" "$branch" | sort -V | tail -1)" = "$branch" ]; then
+            refs+=",\"release-$branch\""
+          fi
+          echo "newest tag $latest, newest release branch ${branch:-none}"
+          echo "refs=[$refs]" | tee -a "$GITHUB_OUTPUT"
+          # A release branch whose release is out: its issue is done.
+          [ -n "$remote" ] || exit 0
+          gh api "repos/$GH_REPO/issues?labels=bigbang-preview&state=open&per_page=100" \
+            --jq '.[] | "\(.number) \(.title)"' > open.txt
+          while read -r num title; do
+            ref=$(grep -oE '\(release-[0-9.]+\)$' <<<"$title" | tr -d '()' || true)
+            [ -n "$ref" ] || continue
+            if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "${ref#release-}" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+              gh api -X POST "repos/$GH_REPO/issues/$num/comments" \
+                -f body="Big Bang $latest is tagged: the nightly release pull request (bot/bigbang-release) takes over from this preview." >/dev/null
+              gh api -X PATCH "repos/$GH_REPO/issues/$num" -f state=closed >/dev/null
+            fi
+          done < open.txt
+
   preview:
+    needs: refs
+    name: preview (${{ matrix.ref }})
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: ${{ fromJSON(needs.refs.outputs.refs) }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -81,30 +149,38 @@ jobs:
 
       - name: Run against Big Bang's next release
         id: preview
+        env:
+          REF: ${{ matrix.ref }}
         run: |
           python3 -m pip install --quiet -r requirements.txt
           set +e
-          python3 scripts/bb-preview.py --ref "${{ inputs.ref || 'master' }}" \
+          python3 scripts/bb-preview.py --ref "$REF" \
             --dir "$RUNNER_TEMP/preview" -o "$RUNNER_TEMP/report.md"
           echo "rc=$?" >> "$GITHUB_OUTPUT"
           cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Keep the preview issue current
         if: always() && steps.preview.outputs.rc != ''
+        env:
+          REF: ${{ matrix.ref }}
+          RC: ${{ steps.preview.outputs.rc }}
         run: |
           gh label create bigbang-preview --color FBCA04 \
             --description "Big Bang's next release against this repo (bigbang-preview.yml)" 2>/dev/null || true
-          issue=$(gh issue list --label bigbang-preview --state open --json number --jq '.[0].number')
+          title="Big Bang's next release: what would break ($REF)"
+          # master's issue from before titles carried the ref has the plain title.
+          issue=$(gh issue list --label bigbang-preview --state open --json number,title \
+            | jq -r --arg t "$title" --arg r "$REF" \
+            'map(select(.title == $t or ($r == "master" and .title == "Big Bang'"'"'s next release: what would break"))) | .[0].number // empty')
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           { cat "$RUNNER_TEMP/report.md" 2>/dev/null || echo "The preview produced no report: see the run."
             echo; echo "Run: $run_url"; } > "$RUNNER_TEMP/body.md"
-          if [ "${{ steps.preview.outputs.rc }}" = 0 ]; then
+          if [ "$RC" = 0 ]; then
             [ -n "$issue" ] && gh issue close "$issue" --comment "Nothing would break any more ($run_url)."
             exit 0
           fi
           if [ -n "$issue" ]; then
-            gh issue edit "$issue" --body-file "$RUNNER_TEMP/body.md"
+            gh issue edit "$issue" --title "$title" --body-file "$RUNNER_TEMP/body.md"
           else
-            gh issue create --label bigbang-preview \
-              --title "Big Bang's next release: what would break" --body-file "$RUNNER_TEMP/body.md"
+            gh issue create --label bigbang-preview --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
