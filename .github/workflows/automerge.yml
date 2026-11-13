@@ -8,14 +8,22 @@ name: Auto-merge - nightly update
 # the run that sees nothing pending or failed.
 #
 # Not merged automatically: a new Big Bang release (BIGBANG_VERSION changes; a person
-# reads the report first), and a pull request labeled `hold`.
+# reads the report first), a pull request labeled `hold`, and a bot PR that carries anything
+# but the bot's one commit touching the files update.yml writes (a person's commit on the
+# bot branch would otherwise land on main unreviewed, under the bot's title).
 #
 # A workflow run on the bot PR that fails on its first attempt gets its failed jobs
 # re-run once: most nightly failures are repo1.dso.mil refusing the runner or a
-# download's 5xx. A second failure waits for a person (python scripts/ci-triage.py <pr>).
+# download's 5xx. A second failure waits for a person: the PR gets the `needs-attention`
+# label and one comment saying what failed (python scripts/ci-triage.py <pr>), mentioning
+# the ALERT_MENTION repository variable (e.g. a maintainer's login) when it is set.
+#
+# Every read is captured before it is tested: under `set -e` a failed gh call stops the
+# run. (Piping gh into `grep -q` inside an `if` read a failed call as "no hold label".)
 #
 # The reads use GITHUB_TOKEN (RELEASE_PAT has no Checks permission, so the check-runs call
-# returned 403). Only the merge uses RELEASE_PAT, as update.yml does: a merge made with
+# returned 403). The merge uses the bot's token: the GitHub App's (BOT_APP_CLIENT_ID
+# variable, BOT_APP_PRIVATE_KEY secret) when set, else RELEASE_PAT. A merge made with
 # GITHUB_TOKEN would not start the push workflows (builds.yml, release.yml) on main.
 
 on:
@@ -42,7 +50,7 @@ jobs:
     permissions:
       actions: write        # re-run a failed first attempt
       contents: read
-      pull-requests: read
+      pull-requests: write  # the needs-attention label and comment
       checks: read
     steps:
       - name: Harden the runner (block unlisted outbound calls)
@@ -52,31 +60,89 @@ jobs:
           allowed-endpoints: >
             api.github.com:443
 
+      - name: Bot token (GitHub App)
+        id: app
+        if: vars.BOT_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510  # v3.3.0
+        with:
+          client-id: ${{ vars.BOT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       # No checkout: nothing from the pull request runs here.
       - name: Merge when every check on the head commit passed
         env:
           GH_TOKEN: ${{ github.token }}
-          MERGE_TOKEN: ${{ secrets.RELEASE_PAT }}
+          MERGE_TOKEN: ${{ steps.app.outputs.token || secrets.RELEASE_PAT }}
           GH_REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN: ${{ github.event.workflow_run.id }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          MENTION: ${{ vars.ALERT_MENTION }}
         run: |
           set -euo pipefail
-          [ -n "$MERGE_TOKEN" ] || { echo "::warning::RELEASE_PAT is not set; not merging"; exit 0; }
-          pr=$(gh pr list --head "$BRANCH" --state open --json number,headRefOid \
-            --jq ".[] | select(.headRefOid == \"$SHA\") | .number")
+          [ -n "$MERGE_TOKEN" ] || { echo "::warning::no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT); not merging"; exit 0; }
+
+          pulls=$(gh api "repos/$GH_REPO/pulls?state=open&per_page=100")
+          pr=$(jq -r --arg b "$BRANCH" --arg s "$SHA" \
+            '.[] | select(.head.ref == $b and .head.sha == $s) | .number' <<<"$pulls")
           if [ -z "$pr" ]; then
             echo "no open $BRANCH pull request at $SHA (a newer commit, or merged)"; exit 0
           fi
-          if gh pr view "$pr" --json labels --jq '.labels[].name' | grep -qx hold; then
+          labels=$(gh api "repos/$GH_REPO/issues/$pr/labels" --jq '.[].name')
+
+          # Label the PR and say why, once (the label marks that it was said).
+          attention() {
+            echo "::warning::#$pr needs a person: $1"
+            if grep -qx needs-attention <<<"$labels"; then return 0; fi
+            gh api -X POST "repos/$GH_REPO/issues/$pr/labels" -f "labels[]=needs-attention" >/dev/null
+            body="Auto-merge stopped: $1"$'\n\n'"Triage: \`python scripts/ci-triage.py $pr\` (AGENTS.md has the playbooks). Remove the \`needs-attention\` label once handled."
+            [ -z "$MENTION" ] || body="$MENTION $body"
+            gh api -X POST "repos/$GH_REPO/issues/$pr/comments" -f body="$body" >/dev/null
+          }
+
+          if grep -qx hold <<<"$labels"; then
             echo "#$pr is labeled hold"; exit 0
           fi
-          if gh pr diff "$pr" --name-only | grep -qx BIGBANG_VERSION; then
-            echo "#$pr moves to a new Big Bang release: left for a person to merge"; exit 0
+
+          # The PR must be the bot's own: one commit, touching only what update.yml writes.
+          files=""; page=1
+          while :; do
+            batch=$(gh api "repos/$GH_REPO/pulls/$pr/files?per_page=100&page=$page" --jq '.[].filename')
+            files+="$batch"$'\n'
+            [ "$(grep -c . <<<"$batch" || true)" -lt 100 ] && break
+            page=$((page + 1))
+          done
+          commits=$(gh api "repos/$GH_REPO/pulls/$pr/commits?per_page=100" --jq 'length')
+          foreign=""
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            case "$BRANCH:$f" in
+              bot/builds-update:builds/*/build.yaml) ;;
+              bot/bigbang-update:BIGBANG_VERSION|bot/bigbang-update:discovery/images.json) ;;
+              bot/bigbang-update:overlays/*.yaml|bot/bigbang-update:flux/kustomization.yaml) ;;
+              bot/bigbang-update:flux-fips/kustomization.yaml|bot/bigbang-update:builds/*/build.yaml) ;;
+              bot/bigbang-update:seaweedfs/*.yaml|bot/bigbang-update:seaweedfs-fips/*.yaml) ;;
+              bot/bigbang-update:docs/images.md|bot/bigbang-update:docs/required-images.md) ;;
+              bot/bigbang-update:docs/version-differences.md|bot/bigbang-update:docs/testing.md) ;;
+              bot/bigbang-update:docs/test-results.json) ;;
+              *) foreign+=" $f" ;;
+            esac
+          done <<<"$files"
+          if [ -n "$foreign" ] || [ "$commits" != 1 ]; then
+            attention "it isn't only the bot's commit ($commits commit(s); files update.yml doesn't write:${foreign:- none}). Fix on main instead; update.yml rebuilds this branch from main."
+            exit 0
           fi
+          if grep -qx BIGBANG_VERSION <<<"$files"; then
+            attention "it moves to a new Big Bang release, which a person merges after reading the report in the PR body."
+            exit 0
+          fi
+
           # A kind test cut off by its time limit (repo1.dso.mil) ends the run as cancelled.
           if { [ "$CONCLUSION" = failure ] || [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = timed_out ]; } \
               && [ "$ATTEMPT" = 1 ]; then
@@ -84,17 +150,30 @@ jobs:
             gh run rerun "$RUN" --failed
             exit 0
           fi
-          # Every check run on the head commit, any workflow. Wait while any is unfinished;
-          # stop on any that didn't pass. Skipped jobs (codeql before the repo is public) count
-          # as passed.
-          runs=$(gh api --paginate "repos/$GH_REPO/commits/$SHA/check-runs?per_page=100" \
-            --jq '.check_runs[] | "\(.status) \(.conclusion // "-") \(.name)"')
+          if [ "$CONCLUSION" = failure ] || [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = timed_out ]; then
+            attention "$RUN_NAME failed again after its re-run (attempt $ATTEMPT): $RUN_URL"
+            exit 0
+          fi
+
+          # Every check run on the head commit, any workflow (the newest of each: the API's
+          # default filter). Wait while any is unfinished; stop on any that didn't pass.
+          # Skipped jobs count as passed. Pages by number: --paginate is fine here, but keep
+          # one way of paging in this repo (scripts/ghrest.py).
+          runs=""; page=1
+          while :; do
+            batch=$(gh api "repos/$GH_REPO/commits/$SHA/check-runs?per_page=100&page=$page" \
+              --jq '.check_runs[] | "\(.status) \(.conclusion // "-") \(.name)"')
+            runs+="$batch"$'\n'
+            [ "$(grep -c . <<<"$batch" || true)" -lt 100 ] && break
+            page=$((page + 1))
+          done
+          runs=$(grep . <<<"$runs" || true)
           echo "$runs"
           [ -n "$runs" ] || { echo "no checks yet"; exit 0; }
-          if echo "$runs" | grep -qv '^completed '; then
+          if grep -qv '^completed ' <<<"$runs"; then
             echo "checks still running on #$pr"; exit 0
           fi
-          if echo "$runs" | grep -qvE '^completed (success|skipped|neutral) '; then
+          if grep -qvE '^completed (success|skipped|neutral) ' <<<"$runs"; then
             echo "::warning::#$pr has a failed check; not merging"; exit 0
           fi
           GH_TOKEN="$MERGE_TOKEN" gh pr merge "$pr" --squash --delete-branch --match-head-commit "$SHA"

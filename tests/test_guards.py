@@ -53,10 +53,15 @@ def test_the_test_postgresql_allows_gitlabs_schema_load(tmp_path, monkeypatch):
     assert args == ["-c", "max_locks_per_transaction=256"]
 
 
-def test_automerge_reads_with_the_workflow_token_and_merges_with_release_pat():
+def test_automerge_reads_with_the_workflow_token_and_merges_with_the_bot_token():
     wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "automerge.yml"), encoding="utf-8"))
     [step] = [s for s in wf["jobs"]["merge"]["steps"] if "gh pr merge" in s.get("run", "")]
     assert step["env"]["GH_TOKEN"] == "${{ github.token }}"     # RELEASE_PAT can't read check runs
-    assert step["env"]["MERGE_TOKEN"] == "${{ secrets.RELEASE_PAT }}"
+    # The GitHub App's token when configured, else RELEASE_PAT; never GITHUB_TOKEN (a merge
+    # with it starts no push workflows on main).
+    assert step["env"]["MERGE_TOKEN"] == "${{ steps.app.outputs.token || secrets.RELEASE_PAT }}"
+    [app] = [s for s in wf["jobs"]["merge"]["steps"] if s.get("id") == "app"]
+    assert app["uses"].startswith("actions/create-github-app-token@")
+    assert app["with"]["permission-contents"] == "write" and app["with"]["permission-pull-requests"] == "write"
     merge_lines = [ln for ln in step["run"].splitlines() if "gh pr merge" in ln]
     assert merge_lines and all(ln.strip().startswith('GH_TOKEN="$MERGE_TOKEN"') for ln in merge_lines)
