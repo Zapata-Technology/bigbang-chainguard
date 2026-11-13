@@ -76,8 +76,12 @@ def gh(*args, binary=False):
 
 
 def evidence(text, limit=25):
-    """The lines that say why a kind test failed."""
-    return [ln for ln in text.splitlines() if EVIDENCE.search(ln)][-limit:]
+    """The lines that say why a kind test failed. A test that stopped before deploying
+    (cloning the release to upgrade from while repo1.dso.mil refused the runner) prints no
+    PROBLEM or RESULT line: then its error and flake lines, so a repo1 outage reads as a
+    FLAKE (automerge re-runs only those) instead of a failure with no evidence."""
+    found = [ln for ln in text.splitlines() if EVIDENCE.search(ln)][-limit:]
+    return found or errors(text, limit)
 
 
 def errors(log, limit=15):
