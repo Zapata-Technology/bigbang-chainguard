@@ -595,13 +595,13 @@ packages:
           name: cgr.dev/zapatatechnology.com/harbor-exporter-fips
         - digest: sha256:5c5402906306a9ce52676ca23b8a210aa58b1205075d5aa2c434facf2424ee9b
           name: cgr.dev/zapatatechnology.com/harbor-jobservice-fips
-        - digest: sha256:5a343f39a3565d26924b0085d0d2730f38c246066c4b6b4e89428ffd24d7350f
+        - digest: sha256:8b64df41cc453a11ac68dd34bf7f6901c646a5076075bdaef536380fa9619699
           name: cgr.dev/zapatatechnology.com/harbor-portal-fips
         - digest: sha256:744fc23672206614244a3aa18665c92da81811aecb980988c729112be1859608
           name: cgr.dev/zapatatechnology.com/harbor-registry-fips
         - digest: sha256:94c0801c0e9b0a1ad44e824351bc776e949abda4f51cfb3b00be5e1a01dbb5ce
           name: cgr.dev/zapatatechnology.com/harbor-registryctl-fips
-        - digest: sha256:9f969ef5f33e6d967995e15dd4f063e64d703c5d327ed484a8a0b8550d00f77c
+        - digest: sha256:4b12691247a60baf8fd88d5ffb387cdb8c7495de476ffa9718c41f8e8781b413
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter-fips
         - digest: sha256:bd3d1ab3460159e590c627c87482fb803b85c34294f57fc990da854c1408b805
           name: cgr.dev/zapatatechnology.com/nginx-fips
@@ -653,7 +653,7 @@ packages:
         portal:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-portal-fips
-            tag: 2.15.4
+            tag: 2.15.5
         registry:
           controller:
             image:
@@ -666,7 +666,7 @@ packages:
         trivy:
           image:
             repository: cgr.dev/zapatatechnology.com/harbor-trivy-adapter-fips
-            tag: 2.15.4
+            tag: 2.15.5
   headlamp:
     postRenderers:
     - kustomize:
@@ -772,7 +772,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:caf757b998881776f462bd6b7806607926a61700064019bb80dbd38d2896e5f4
+        - digest: sha256:f27ddc6041d42b3862eab2aae139023a9ac9e058865c8628898fe020151e7a43
           name: cgr.dev/zapatatechnology.com/kiali-fips
         - digest: sha256:f3299971d5948691bb86fa731aead3b231e678762a55bcf30c75632c4cebe415
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
