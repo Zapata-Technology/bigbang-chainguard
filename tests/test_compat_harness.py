@@ -5,6 +5,7 @@ import sys
 
 import yaml
 
+import pytest
 from conftest import load_script
 
 compat = load_script("bb-compat")
@@ -417,3 +418,13 @@ def test_a_release_upgrades_starting_install_takes_the_releases_overlay_files(tm
     assert compat.values_file("$COMPAT_OUT/site-mattermost.yaml", str(out), str(release)) == f"{out}/site-mattermost.yaml"
     # A release without the file: this tree's.
     assert compat.values_file("$COMPAT_OUT/overlays/new.yaml", str(out), str(release)) == f"{out}/overlays/new.yaml"
+
+
+def test_installer_release_starts_from_an_older_big_bang_or_the_release_before():
+    tags = ["4.1.0-cg.20", "4.1.0-cg.19", "4.0.0-cg.29", "4.0.0-cg.28"]
+    assert compat.release_pair(tags, "previous-bigbang") == ("4.0.0-cg.29", "4.1.0-cg.20")
+    assert compat.release_pair(tags, "previous") == ("4.1.0-cg.19", "4.1.0-cg.20")
+    with pytest.raises(SystemExit):
+        compat.release_pair(tags[:2], "previous-bigbang")
+    with pytest.raises(SystemExit):
+        compat.release_pair(tags, "oldest")

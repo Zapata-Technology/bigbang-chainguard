@@ -1,0 +1,33 @@
+# `bb-install.py upgrade --to` on a real cluster: a site on an older release upgrades to the
+# newest one. The newest release of the Big Bang version before the newest release's is
+# installed with that release's own bb-install.py and overlays (as the site installed it),
+# then this tree's `bb-install.py upgrade --to <newest release>` downloads the newest
+# release, checks its sha256 and Sigstore signature, and hands the upgrade to its installer
+# (bb-compat.py run_installer_release). Keycloak's database moves across the Big Bang
+# upgrade; Tempo on SeaweedFS shows the stored S3 keys carry over.
+images: {}
+test:
+  installer: true
+  installer_release: previous-bigbang
+  enable: [tempo, keycloak]
+  namespaces: [tempo, keycloak, seaweedfs]
+  expect: [tempo, keycloak, seaweedfs]
+  forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  check:
+    # The cluster records the release it now runs, and runs that release's Big Bang.
+    - |
+      got=$(kubectl -n bigbang get secret bb-install -o jsonpath='{.data.release}' | base64 -d)
+      echo "from $COMPAT_FROM_RELEASE, recorded $got, expected $COMPAT_TO_RELEASE"
+      [ "$got" = "$COMPAT_TO_RELEASE" ] || exit 1
+      chart=$(helm -n bigbang list -o json | python3 -c 'import json,sys; print(next(r["chart"] for r in json.load(sys.stdin) if r["name"] == "bigbang"))')
+      echo "bigbang chart $chart"
+      [ "$chart" = "bigbang-${COMPAT_TO_RELEASE%-cg.*}" ] || exit 1
+    # Nothing newer to move to, and going back to the starting release is refused.
+    - python3 scripts/bb-install.py upgrade --list | tee /dev/stderr | grep -q "no newer release"
+    - |
+      out=$(python3 scripts/bb-install.py upgrade --to "$COMPAT_FROM_RELEASE" --site "$COMPAT_OUT/site.yaml" --yes --plan ${COMPAT_FIPS:+--fips} 2>&1)
+      echo "$out" | tail -3
+      echo "$out" | grep -q "not downgrading" || { echo "upgrade --to $COMPAT_FROM_RELEASE wasn't refused"; exit 1; }
+  debug:
+    - helm -n bigbang history bigbang
+    - "kubectl -n bigbang get secret bb-install -o jsonpath='{.data}' | python3 -c 'import json,sys; print(sorted(json.load(sys.stdin)))'"

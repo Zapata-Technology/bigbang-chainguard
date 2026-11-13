@@ -218,6 +218,16 @@ jobs:
           version: 0.2.403
           identity: ${{ secrets.CGR_ACTIONS_ID }}
 
+      # bb-install.py upgrade --to verifies a release's signature with it
+      # (compat/installer-upgrade-to.yaml).
+      - name: Install cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
+        with:
+          # Pinned: the installer's default moves with each release (4.1.3: cosign 3.1.4,
+          # which deprecates the signing flags builds.yml uses). Same version in every
+          # workflow (tests/test_repo_rules.py); raise it on purpose, with builds.yml's flags.
+          cosign-release: v3.0.6
+
       - name: Big Bang (from the plan job's cache)
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:

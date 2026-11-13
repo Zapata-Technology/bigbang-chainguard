@@ -30,6 +30,14 @@ release on Big Bang 3 takes Big Bang 3's keys); a `values_files` overlay
 lose: write it in upgrade_from.check, read it back in check
 (compat/release-upgrade-keycloak.yaml, compat/support/upgrade-data.py).
 
+An installer test with `installer_release: previous-bigbang` (or `previous`) instead
+installs a published release with that release's own bb-install.py and overlays (the
+newest release of the Big Bang version before the newest release's; or the release just
+before the newest), then runs this tree's `bb-install.py upgrade --to <newest release>`:
+the download, checksum and signature check, and handoff to the release's installer, on a
+real cluster. Checks see the two tags as $COMPAT_FROM_RELEASE and $COMPAT_TO_RELEASE
+(compat/installer-upgrade-to.yaml).
+
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
   GHCR_USER, GHCR_TOKEN       for BUILD_REGISTRY on ghcr.io (optional)
@@ -58,6 +66,7 @@ from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
                        install_flux, kubectl, report, sh, wait_ready)
 from release import previous_tag  # noqa: E402
+from bbinstall import releases  # noqa: E402
 
 
 def test_values(chart_values, enable):
@@ -295,6 +304,25 @@ def upgrade(a, test, out, tv, creds, abort):
     return True
 
 
+def release_pair(tags, start):
+    """(release to install first, release to upgrade to) from the published tags, newest
+    first: `previous-bigbang` starts from the newest release of an older Big Bang version
+    than the newest release's, `previous` from the release just before the newest."""
+    if not tags:
+        raise SystemExit("installer_release: no published releases")
+    target = tags[0]
+    if start == "previous":
+        older = tags[1:2]
+    elif start == "previous-bigbang":
+        older = [t for t in tags if releases.version_key(releases.bigbang_of(t))
+                 < releases.version_key(releases.bigbang_of(target))][:1]
+    else:
+        raise SystemExit(f"installer_release: {start!r} isn't previous or previous-bigbang")
+    if not older:
+        raise SystemExit(f"installer_release: {start}: no release to start from before {target}")
+    return older[0], target
+
+
 def run_installer(a, test, out):
     """Install with bb-install.py from the regenerated overlays in `out`: a site file
     from the test's packages and values, credentials only through the environment, and
@@ -314,14 +342,40 @@ def run_installer(a, test, out):
         for k in ("BUILD_REGISTRY_USERNAME", "BUILD_REGISTRY_PASSWORD"):
             env.pop(k, None)
     base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
-    install = base + ["install", "--site", site, "--small-cluster", "--yes",
-                      "--timeout", str(a.timeout)] + (["--fips"] if a.fips else []) + test.get("installer_args", [])
+    flags = ["--site", site, "--small-cluster", "--yes", "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
+    if test.get("installer_release"):
+        return run_installer_release(a, test, flags, env)
+    install = base + ["install"] + flags + test.get("installer_args", [])
     print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
     rc = subprocess.run(install, env=env, cwd=ROOT).returncode
     print(f"\n== bb-install.py status (install exited {rc})", flush=True)
     subprocess.run(base + ["status"], env=env, cwd=ROOT)
     if rc:
         print(f"PROBLEM: bb-install.py install exited {rc}")
+
+
+def run_installer_release(a, test, flags, env):
+    """`installer_release`: install a published release with its own installer, then
+    upgrade --to the newest release with this tree's."""
+    repo = releases.release_repo()
+    start, target = release_pair(releases.list_releases(repo), test["installer_release"])
+    os.environ.update(COMPAT_FROM_RELEASE=start, COMPAT_TO_RELEASE=target)   # for the checks
+    root, verified, note = releases.fetch_release(repo, start)
+    print(f"\n== release {start} ({note})", flush=True)
+    old = [sys.executable, os.path.join(root, "scripts", "bb-install.py")]
+    print(f"\n== {start}'s bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
+    rc = subprocess.run(old + ["install"] + flags, env=env, cwd=root).returncode
+    if rc:
+        print(f"PROBLEM: release {start}'s bb-install.py install exited {rc}")
+        return
+    # This tree's installer, as a site with this checkout (or a newer release) runs it.
+    new = [sys.executable, os.path.join(HERE, "bb-install.py")]
+    print(f"\n== bb-install.py upgrade --to {target} (from {start})", flush=True)
+    rc = subprocess.run(new + ["upgrade", "--to", target] + flags, env=env, cwd=ROOT).returncode
+    print(f"\n== bb-install.py status (upgrade exited {rc})", flush=True)
+    subprocess.run(new + ["status"], env=env, cwd=ROOT)
+    if rc:
+        print(f"PROBLEM: bb-install.py upgrade --to {target} exited {rc}")
 
 
 def main():
