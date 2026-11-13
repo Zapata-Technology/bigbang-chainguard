@@ -94,6 +94,31 @@ def source_problems(nudge=False):
     return lines
 
 
+def reconcile_helmreleases(timeout=600, now=time.time, sleep=time.sleep):
+    """Ask Flux to reconcile every HelmRelease now and wait until it has handled the request.
+
+    After `helm upgrade` of Big Bang, a package whose new values reach it only through its
+    values Secret (valuesFrom: a new image tag) keeps its spec and generation, so its Ready
+    still describes the old values until Flux's next interval: wait_ready would call it
+    ready on the old pods (keycloak-migration.yaml upgraded and read 26.7 back). Returns
+    the HelmReleases that hadn't handled the request in `timeout` seconds (Flux still
+    reconciles them later; wait_ready then judges them)."""
+    token = f"{now():.0f}"
+    kubectl("annotate", "--overwrite", "helmrelease", "--all", "-A", f"reconcile.fluxcd.io/requestedAt={token}",
+            check=False)
+    end, waiting = now() + timeout, []
+    while True:
+        out = kubectl("get", "helmrelease", "-A", "-o", "json", check=False)
+        hrs = json.loads(out)["items"] if out else []
+        waiting = [f"{h['metadata']['namespace']}/{h['metadata']['name']}" for h in hrs
+                   if h.get("status", {}).get("lastHandledReconcileAt") != token]
+        if out and not waiting:
+            return []
+        if now() >= end:
+            return waiting
+        sleep(10)
+
+
 def wait_ready(namespaces, timeout, abort=None, source_patience=None):
     """Wait for every HelmRelease and the namespaces' pods; return (ok, summary lines).
     `abort`: a callable returning reasons to stop early (a failure that waiting won't fix,

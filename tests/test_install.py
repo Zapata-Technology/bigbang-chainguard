@@ -1152,3 +1152,23 @@ def test_the_release_is_recorded_only_after_the_install_succeeds(monkeypatch):
     src = inspect.getsource(installer.install)
     assert 'creds.values["release"]' not in src
     assert src.rindex("record_release(co)") > src.index("wait_ready(") > src.index("creds.save(")
+
+def test_reconcile_helmreleases_waits_until_flux_handled_the_request(monkeypatch):
+    import bbcluster
+    calls = []
+    answers = iter([
+        [{"metadata": {"namespace": "bigbang", "name": "keycloak"}, "status": {"lastHandledReconcileAt": "old"}}],
+        [{"metadata": {"namespace": "bigbang", "name": "keycloak"}, "status": {"lastHandledReconcileAt": "100"}}]])
+
+    def kubectl(*a, **k):
+        calls.append(a)
+        return None if a[0] == "annotate" else json.dumps({"items": next(answers)})
+    monkeypatch.setattr(bbcluster, "kubectl", kubectl)
+    assert bbcluster.reconcile_helmreleases(now=lambda: 100.0, sleep=lambda s: None) == []
+    assert calls[0][:4] == ("annotate", "--overwrite", "helmrelease", "--all")
+    assert "reconcile.fluxcd.io/requestedAt=100" in calls[0]
+    # Not handled in time: named, not fatal (wait_ready judges it later).
+    answers = iter([[{"metadata": {"namespace": "bigbang", "name": "keycloak"}, "status": {}}]] * 3)
+    clock = iter([0.0, 0.0, 5.0, 11.0, 11.0])
+    assert bbcluster.reconcile_helmreleases(timeout=10, now=lambda: next(clock), sleep=lambda s: None) == \
+        ["bigbang/keycloak"]

@@ -10,8 +10,8 @@ import time
 import yaml
 
 import objstore
-from bbcluster import apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret, report, sh, \
-    wait_ready
+from bbcluster import apply_secret, dockerconfig, hr_namespaces, install_flux, kubectl, read_secret, \
+    reconcile_helmreleases, report, sh, wait_ready
 from bbcommon import deep_merge
 from bbinstall.chart import chart_ref, git_mirror_values
 from bbinstall.checkout import _build_registry_host
@@ -195,6 +195,11 @@ def install(a):
             sh("helm", "upgrade", "-i", "bigbang", ref, *version, "-n", NAMESPACE, "--create-namespace",
                *files, "-f", sv, "--timeout", "15m", capture=True)
         say(f"Big Bang applied ({len(enabled)} packages); Flux installs them now")
+        if not a.gitops:
+            # An upgrade whose new values reach a package only through its values Secret (a
+            # new image tag) doesn't change its HelmRelease: have Flux apply them now, so the
+            # wait below sees the new pods, not the old ones still Ready.
+            reconcile_helmreleases(timeout=120)
 
     if tls:
         step(f"TLS for *.{site['domain']}")

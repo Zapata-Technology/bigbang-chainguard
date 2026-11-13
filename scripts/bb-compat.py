@@ -70,7 +70,7 @@ from bbcommon import (ROOT, bigbang_packages, build_registry, deep_merge, is_big
                       load_mapping, running_image_problems)
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
-                       install_flux, kubectl, report, sh, wait_ready)
+                       install_flux, kubectl, reconcile_helmreleases, report, sh, wait_ready)
 from release import previous_tag  # noqa: E402
 from bbinstall import releases  # noqa: E402
 
@@ -311,6 +311,11 @@ def upgrade(a, test, out, tv, creds, abort):
             print("PROBLEM: Flux from this tree did not become ready")
             return False
     helm_bigbang(a, test, out, out, tv, creds, ", upgrade")
+    # New values that reach a package only through its values Secret don't change its
+    # HelmRelease: have Flux apply them now, not at its interval (after the checks).
+    late = reconcile_helmreleases()
+    if late:
+        print(f"note: Flux hadn't reconciled {', '.join(late)} yet; waiting for them as usual", flush=True)
     env = dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else "")
     for cmd in frm.get("upgrade", []):
         print(f"\n== upgrade: {cmd}", flush=True)
