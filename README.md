@@ -159,7 +159,7 @@ refreshes them.
     included, is **83 MB** standard and 116 MB FIPS.
   - The median Iron Bank base image alone, before the application, is **107 MB**.
 - **Tested on Kubernetes, not just rendered.**
-  - **38 runtime tests**, each with a functional check of the app: a Loki query, a
+  - **40 runtime tests**, each with a functional check of the app: a Loki query, a
     Velero backup, a GitLab readiness check, and so on.
   - A **release-to-release upgrade test** on every change.
   - **About 600 unit tests**.
@@ -208,7 +208,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 | Gap | Why | What closes it |
 |---|---|---|
 | Some images stay on Iron Bank (none in the default packages; [the current list](docs/images.md)) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
-| Release-to-release upgrades are tested for a few packages only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; other packages' upgrades rely on Flux and Helm rolling new digests, which that test checks | More packages in that test as kind's runner allows; a staging cluster that follows releases |
+| Release-to-release upgrades are tested for a few packages only, and data across them for Keycloak and Mattermost only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; `release-upgrade-keycloak` and `release-upgrade-mattermost` write data before the upgrade (a realm and user; a team, post and file) and read it back after, so a failed database migration fails them (they run when those packages' versions change, and weekly). Other packages' upgrades rely on Flux and Helm rolling new digests, which the tests check; GitLab's migrations are untested (too slow for kind's runner) | More packages as kind's runner allows; a staging cluster that follows releases |
 | Keycloak's images stay on tags, not digests | Big Bang 4.0.0's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
