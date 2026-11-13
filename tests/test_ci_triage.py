@@ -124,3 +124,16 @@ def test_bb_convert_findings_are_evidence_and_the_failed_step_is_named(monkeypat
         {"name": "Overlays are current", "conclusion": "failure"}]})
     [(name, run, flake, out)] = triage.triage("o/r", [("verify", "1", "2")])
     assert out[0] == "failed step: Overlays are current" and flake is None
+
+
+def test_a_kind_test_that_stopped_before_deploying_on_repo1_is_a_flake():
+    log = "\n".join([
+        "== release-upgrade.yaml: trial mapping {}",
+        "wrote overlays/values-chainguard.yaml",
+        "fatal: unable to access 'https://repo1.dso.mil/big-bang/bigbang.git/': Failed to connect to "
+        "repo1.dso.mil port 443 after 133453 ms: Could not connect to server",
+        "upgrade_from.release: cloning Big Bang 4.0.0 (what 4.0.0-cg.28 deploys) failed",
+    ])
+    lines = triage.evidence(log)
+    assert any("repo1.dso.mil" in ln for ln in lines)
+    assert triage.classify(lines) == "repo1.dso.mil refused the runner"
