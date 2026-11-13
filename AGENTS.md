@@ -351,6 +351,19 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   starts, so a crash loop stops a test only at 6 restarts; GitLab's `dependencies` init
   container exits 1 while it waits, without an error line. Iron Bank images can't be pulled
   without `REGISTRY1_*` and don't stop a test. Check a new rule against a full PR run.
+- **The scheduled agent's cloud sandbox reaches GitHub through a proxy that passes only
+  REST `repos/<owner>/<repo>/...` paths.** GraphQL (`gh pr list`, `gh pr checks`,
+  `gh pr view`, `gh repo view`) and numeric-ID paths (`gh run download`, `gh api --paginate`'s
+  next-page links) fail there. `repo-status.py` once turned that failure into "Open pull
+  requests: 0", and the daily agent reported all green for a week while bot PRs sat red.
+  Maintenance scripts go through `scripts/ghrest.py` (REST only, raises on any failure, pages
+  with `page=N`); `tests/test_ghrest.py` refuses the rest. In that sandbox, do the same by
+  hand: `gh api repos/<owner>/<repo>/pulls`, `.../commits/<sha>/check-runs`,
+  `.../actions/runs/<run>/artifacts` then `.../actions/artifacts/<id>/zip`. An empty answer
+  is not "nothing to do" unless the call succeeded.
+- On Windows Git Bash, `git show origin/main:.github/...` fails ("ambiguous argument
+  'origin\main;.github\...'"): MSYS rewrites the argument as a path. Prefix
+  `MSYS_NO_PATHCONV=1`.
 - **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
   token and uses `RELEASE_PAT` only for `gh pr merge`.
 
