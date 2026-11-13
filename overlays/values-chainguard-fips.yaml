@@ -900,11 +900,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:9b5da1b2cb3057871778c65399e28f2418189eeb96274fa533dd3368230425c5
+        - digest: sha256:07492c2d9c9dc4a647df769cf71c521c819bf8c140b87d090b40da6fae96edeb
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-fips
         - digest: sha256:e30a4a9f6cac91a0579837a436790175c3bb1eeedfdca9af2832e66bd055dfb9
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno-fips
-        - digest: sha256:4b0ed9878c7af45926638893762746497a529fe2d75e8534ad5ff3f3dc08502b
+        - digest: sha256:b2b65485f72b07afcfb24b700f61b5885f7ae0110d11cea5faa0422313fe6c5d
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-ui-fips
     values:
       upstream:

@@ -17,7 +17,7 @@ image:
   fips:
     name: bigbang-gitaly-init-cgroups-fips
     tag: v19.5.3-ubi
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:adce9970158e83fd2b81f5474d9246585d358ac42651ac7aa0e69280dbdb5516
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:86c499fc769eda7d808ceef1943448d62b72561f098ac71ff3e5597e8ac9e5bd
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:5da8b875e5318e8a9aa9c0fb882398f9f87b3a33fb15b7a602d5ec4e19c3e5e0
     go_package: ''
     fips: toolchain

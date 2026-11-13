@@ -20,7 +20,7 @@ image:
   fips:
     name: bigbang-registry-adapter-fips
     tag: v0.2.13
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:015048937dd5fa07718104dcd46e1fcd2f3952718d1dd821c83850ef79f10998
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:7888ab6b725f89511599f017b321f261cb0f0d769005dd7b8a2237fc5dba47f7
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:5da8b875e5318e8a9aa9c0fb882398f9f87b3a33fb15b7a602d5ec4e19c3e5e0
     go_package: ''
     fips: toolchain
