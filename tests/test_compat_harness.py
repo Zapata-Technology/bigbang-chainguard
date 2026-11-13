@@ -428,3 +428,11 @@ def test_installer_release_starts_from_an_older_big_bang_or_the_release_before()
         compat.release_pair(tags[:2], "previous-bigbang")
     with pytest.raises(SystemExit):
         compat.release_pair(tags, "oldest")
+
+
+def test_release_before_can_start_from_an_older_big_bang():
+    ls = "\n".join(["aa\trefs/tags/4.1.0-cg.3", "bb\trefs/tags/4.1.0-cg.2", "cc\trefs/tags/4.0.0-cg.29",
+                    "dd\trefs/tags/4.0.0-cg.9", "ee\trefs/tags/v1"])
+    assert compat.release_before(ls, "ff") == "4.1.0-cg.3"
+    assert compat.release_before(ls, "ff", older_than="4.1.0") == "4.0.0-cg.29"
+    assert compat.release_before(ls, "ff", older_than="4.0.0") is None

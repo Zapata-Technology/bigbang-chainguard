@@ -3,8 +3,10 @@
 # installed with that release's own bb-install.py and overlays (as the site installed it),
 # then this tree's `bb-install.py upgrade --to <newest release>` downloads the newest
 # release, checks its sha256 and Sigstore signature, and hands the upgrade to its installer
-# (bb-compat.py run_installer_release). Keycloak's database moves across the Big Bang
-# upgrade; Tempo on SeaweedFS shows the stored S3 keys carry over.
+# (bb-compat.py run_installer_release). Keycloak's version changes in the Big Bang upgrade
+# (4.0.0 -> 4.1.0: 26.8.0 -> 26.8.1): a realm, role and user written before it
+# (before_upgrade, compat/support/upgrade-data.py) must be there after, and the user log in
+# with its password. Tempo on SeaweedFS shows the stored S3 keys carry over.
 images: {}
 test:
   installer: true
@@ -13,7 +15,11 @@ test:
   namespaces: [tempo, keycloak, seaweedfs]
   expect: [tempo, keycloak, seaweedfs]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch"
+  before_upgrade:
+    - python3 compat/support/upgrade-data.py keycloak seed
   check:
+    # Keycloak's data survived its schema migration.
+    - python3 compat/support/upgrade-data.py keycloak verify
     # The cluster records the release it now runs, and runs that release's Big Bang.
     - |
       got=$(kubectl -n bigbang get secret bb-install -o jsonpath='{.data.release}' | base64 -d)

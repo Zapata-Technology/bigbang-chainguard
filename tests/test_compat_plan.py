@@ -118,7 +118,8 @@ def test_the_release_upgrade_data_tests_follow_their_packages_and_run_weekly():
     weekly = {t for t, _, _ in plan_mod.plan("schedule", [], [], True)}
     assert {"release-upgrade", "release-upgrade-keycloak", "release-upgrade-mattermost"} <= weekly
     jobs = _tests(plan_mod.plan("pull_request", [], ["compat/support/upgrade-data.py"], True))
-    assert jobs == [("release-upgrade-keycloak", "standard"), ("release-upgrade-mattermost", "standard")]
+    assert jobs == [("installer-upgrade-to", "standard"), ("release-upgrade-keycloak", "standard"),
+                    ("release-upgrade-mattermost", "standard")]
 
 
 def test_a_big_bang_ref_runs_the_preview_handful(tmp_path):

@@ -1,8 +1,11 @@
 # Release to release with data: Mattermost run by bigbang-mattermost-operator, as
 # compat/mattermost.yaml (PostgreSQL from the org's images through
-# compat/support/app-deps.py, files on SeaweedFS), installed from the newest release
-# (<Big Bang>-cg.<n>, its object-storage overlay too), then upgraded to this tree's Flux
-# and overlays. Before the upgrade the first user (a system admin) makes a team and a post
+# compat/support/app-deps.py, files on SeaweedFS), installed from the newest release of
+# the Big Bang version before this tree's (`release: previous-bigbang`; its object-storage
+# overlay too), then upgraded to this tree's Flux and overlays: Mattermost's version
+# changes in the upgrade (Big Bang 4.0.0 -> 4.1.0: chart 12.0.1 -> 12.0.2), so its
+# database migrations run. (The newest release's patches are what release-upgrade.yaml
+# and release-upgrade-keycloak.yaml start from.) Before the upgrade the first user (a system admin) makes a team and a post
 # with an attached file through the REST API. Passes when, after the upgrade (and a
 # restart of the server if the upgrade didn't replace it), the user logs in, the team and
 # post are there and the file's bytes come back from object storage: the server's
@@ -32,7 +35,7 @@ test:
   expect: [/mattermost, bigbang-mattermost-operator, postgres]
   forbid_log: "Problem with file storage settings|NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
   upgrade_from:
-    release: previous
+    release: previous-bigbang
     check:
       - sh compat/support/mattermost-ping.sh
       - python3 compat/support/upgrade-data.py mattermost seed
