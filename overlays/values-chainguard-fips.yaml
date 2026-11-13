@@ -393,25 +393,25 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee-fips
         - digest: sha256:3476beffc2b1cae2f33aaa2afbeffe683778d87936f50676e6904f7b1606c109
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee-fips
-        - digest: sha256:727a9f13b38040e451b5d0206f1282fa1b2397d7a3d9e2163977747fbc2dc737
+        - digest: sha256:5c839230bb25ba8ba2717843a8b9c3bdfb88f46ed24e5f093b1ee1656ab03143
           name: cgr.dev/zapatatechnology.com/gitaly-fips
         - digest: sha256:471c312e05182acfc74e684dacc5b7c87d624a8658bb77db219802af228ab203
           name: cgr.dev/zapatatechnology.com/gitlab-base-fips
-        - digest: sha256:c8d06bf66c47edb6e7c140867e32ea6a0f84eb3a6821f4a6ad15912b533f4240
+        - digest: sha256:ffa321dd4fb89abdcc521030e143acf0dcc8279978ac1196397c5b82f2a138b9
           name: cgr.dev/zapatatechnology.com/gitlab-certificates-fips
-        - digest: sha256:5d2e6f0ae88424fc263206148c8ebaadf305a550c2d5802f6529d0558298ed82
+        - digest: sha256:0072f177829c4450bb40b53e53d7d5d45d94a89fd9021e0411887595559c752f
           name: cgr.dev/zapatatechnology.com/gitlab-container-registry-fips
         - digest: sha256:345574d7bfa5fd5e93dda653a678e2ce1550ed27341a8190fed3a539e330fe21
           name: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
-        - digest: sha256:176ec724e216e7a643c0a66ab6e8a01871bf9cef797f58d464b9e166e739dd4c
+        - digest: sha256:0961d39b7649a3934232b4704a8b3878bd477c7b71aeb4401a5d041008a6eb4a
           name: cgr.dev/zapatatechnology.com/gitlab-kas-fips
         - digest: sha256:336c2694106d29d8bcb39160b87fca7f665cf22b4f0c204e95fd4681ef39faaf
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl-fips
         - digest: sha256:a1aa706555c3ab1b77d3e584be13156000abdc9e48e8f4bb3bbfef92630f26ab
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom-fips
-        - digest: sha256:29c2347d0416eae85cabb6d10405ed89d6ae304fb326ff29ffe724c10033803a
+        - digest: sha256:547484fcf0ad7c9536e4fd4917a0e487a0321a62192d0d4b7a483caf1348921b
           name: cgr.dev/zapatatechnology.com/gitlab-pages-fips
-        - digest: sha256:a1a8f0153ad6fa340efd26386666812274187f035b7f4a9a7a33f0f3ffca5281
+        - digest: sha256:574dc69e44a09f626c90c805a2368c74e0938e619fd6e5d11330386c3bcfc1fd
           name: cgr.dev/zapatatechnology.com/gitlab-shell-fips
         - digest: sha256:bd3d1ab3460159e590c627c87482fb803b85c34294f57fc990da854c1408b805
           name: cgr.dev/zapatatechnology.com/nginx-fips
@@ -517,9 +517,9 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:4a84886e3673321387427ae0d0a900713723a32becde60de2815d4a359a04296
+        - digest: sha256:54e1f5a4259579de3faae4201f5d7fc80bcfc937ca8ee3374714b63a2ac687d3
           name: cgr.dev/zapatatechnology.com/gitlab-runner-fips
-        - digest: sha256:e4920adb29d64e1b34f7f1b92bbf67aae0bf0427e1638b7436ef24339393acd6
+        - digest: sha256:bef86697ab7ca4b7677909485af0442eb19ccdcccfe87e1e56d37cc03d73fb5d
           name: cgr.dev/zapatatechnology.com/gitlab-runner-helper-fips
     values:
       upstream:
