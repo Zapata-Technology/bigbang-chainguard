@@ -1,0 +1,47 @@
+# Release to release with data: Mattermost run by bigbang-mattermost-operator, as
+# compat/mattermost.yaml (PostgreSQL from the org's images through
+# compat/support/app-deps.py, files on SeaweedFS), installed from the newest release
+# (<Big Bang>-cg.<n>, its object-storage overlay too), then upgraded to this tree's Flux
+# and overlays. Before the upgrade the first user (a system admin) makes a team and a post
+# with an attached file through the REST API. Passes when, after the upgrade (and a
+# restart of the server if the upgrade didn't replace it), the user logs in, the team and
+# post are there and the file's bytes come back from object storage: the server's
+# database migrations kept the data. Plus the release-upgrade checks.
+images: {}
+test:
+  enable: [mattermostOperator, mattermost]
+  namespaces: [mattermost-operator, mattermost, mattermost-deps]
+  values:
+    packages:
+      mattermost:
+        # As compat/mattermost.yaml: the chart's 2 CPUs / 4 GiB don't fit a kind node.
+        flux: {timeout: 20m}
+        values:
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: 2, memory: 2Gi}
+  setup:
+    - python3 compat/support/seaweedfs.py mattermost
+    - python3 compat/support/app-deps.py mattermost
+    - sh compat/support/watch.sh operator "kubectl -n mattermost-operator logs deploy/mattermost-operator --tail=30"
+    - sh compat/support/watch.sh server "kubectl -n mattermost logs -l app=mattermost --all-containers --previous --tail=60 || kubectl -n mattermost logs -l app=mattermost --all-containers --tail=60"
+  values_files:
+    - $COMPAT_OUT/overlays/values-object-storage.yaml
+    - $COMPAT_OUT/site-object-storage.yaml
+    - $COMPAT_OUT/site-mattermost.yaml
+  expect: [/mattermost, bigbang-mattermost-operator, postgres]
+  forbid_log: "Problem with file storage settings|NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
+  upgrade_from:
+    release: previous
+    check:
+      - sh compat/support/mattermost-ping.sh
+      - python3 compat/support/upgrade-data.py mattermost seed
+  check:
+    - sh compat/support/mattermost-ping.sh
+    - python3 compat/support/upgrade-data.py mattermost verify
+  debug:
+    - "cat $COMPAT_OUT/upgrade-mattermost.json"
+    - "kubectl get pods -n mattermost -o custom-columns=POD:.metadata.name,INIT:.spec.initContainers[*].image,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n mattermost get mattermost -o yaml | tail -40"
+    - "cat $COMPAT_OUT/watch-operator.log"
+    - "cat $COMPAT_OUT/watch-server.log"

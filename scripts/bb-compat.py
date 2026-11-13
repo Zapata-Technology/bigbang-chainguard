@@ -25,7 +25,10 @@ mapping and checks again (read the data back). With `release: previous` it start
 the newest release's overlays and Flux instead (what a site upgrading from its pinned
 release runs), and fails if a pod still runs an image digest that release had and this
 tree doesn't. `upgrade_from.values` adds values to the starting install only (a
-release on Big Bang 3 takes Big Bang 3's keys).
+release on Big Bang 3 takes Big Bang 3's keys); a `values_files` overlay
+($COMPAT_OUT/overlays/...) comes from the release on that install. Data a test must not
+lose: write it in upgrade_from.check, read it back in check
+(compat/release-upgrade-keycloak.yaml, compat/support/upgrade-data.py).
 
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
@@ -236,6 +239,17 @@ def run_checks(cmds, out, fips):
     return ok
 
 
+def values_file(f, out, overlays):
+    """A `values_files` entry's path. One of the generated overlays ($COMPAT_OUT/overlays/...,
+    e.g. values-object-storage.yaml) comes from the overlays being installed: a release's
+    own on a release-upgrade test's starting install, as the site upgrading ran it, when
+    that release has the file. Everything else (files `setup` wrote) is $COMPAT_OUT's."""
+    rel = f.removeprefix("$COMPAT_OUT/")
+    if rel.startswith("overlays/") and os.path.exists(os.path.join(overlays, rel)):
+        return os.path.join(overlays, rel)
+    return f.replace("$COMPAT_OUT", out)
+
+
 def helm_bigbang(a, test, overlays, out, tv, creds, label, chart=None):
     """helm upgrade -i Big Bang with the overlays in `overlays` (a bb-convert output dir,
     or a release's files), from `chart` (default: work/bigbang's)."""
@@ -243,7 +257,7 @@ def helm_bigbang(a, test, overlays, out, tv, creds, label, chart=None):
     if a.fips:
         args += ["-f", os.path.join(overlays, "overlays", "values-chainguard-fips.yaml")]
     for f in test.get("values_files", []):
-        args += ["-f", f.replace("$COMPAT_OUT", out)]
+        args += ["-f", values_file(f, out, overlays)]
     print(f"\n== bigbang ({'FIPS' if a.fips else 'standard'}{label}): {', '.join(test.get('enable', []))}",
           flush=True)
     sh("helm", "upgrade", "-i", "bigbang", chart or os.path.join(a.bigbang, "chart"), "-n", "bigbang",

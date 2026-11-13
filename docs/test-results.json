@@ -12,6 +12,16 @@
       "notes": "What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced"
     },
     {
+      "test": "release-upgrade-keycloak",
+      "runs": "Keycloak and Big Bang's PostgreSQL (on a PersistentVolume) installed from the newest release, a realm, realm role and user written with kcadm, then upgraded to the change's Flux and overlays",
+      "notes": "Data across a release upgrade (Keycloak's schema migration). Check: after the upgrade, and a restart of Keycloak and PostgreSQL if it didn't replace them, the same realm (its id), the user with its role, and the user logs in with the password set before; plus release-upgrade's stale-digest check"
+    },
+    {
+      "test": "release-upgrade-mattermost",
+      "runs": "Mattermost (operator, PostgreSQL from the org's images, files on SeaweedFS) installed from the newest release, a user, team and post with an attached file written through the REST API, then upgraded",
+      "notes": "Data across a release upgrade (Mattermost's database migrations, object storage). Check: after the upgrade, and a server restart if it didn't replace the server, the user logs in, the team and post are there, and the file's bytes come back; database status OK"
+    },
+    {
       "test": "vault-upgrade",
       "runs": "Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back",
       "notes": "Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist"

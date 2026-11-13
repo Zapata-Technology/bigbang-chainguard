@@ -45,7 +45,8 @@ Each `compat/<test>.yaml` names:
 - optional `setup` commands, `values`, `values_files`, `forbid_log`, and `debug` commands;
 - for an upgrade, `upgrade_from`: the mapping to install first, or `release: previous` to
   install the newest release's overlays and Flux first, and commands to run on it (write
-  data) and after Big Bang is upgraded to the test's mapping;
+  data) and after Big Bang is upgraded to the test's mapping (see "Release-to-release
+  upgrades" below);
 - `registry1: true` when it pulls from Iron Bank. Without `REGISTRY1_USERNAME` and
   `REGISTRY1_PASSWORD` (repository secrets in CI) such a test prints `RESULT ...: SKIPPED`
   and exits 0: a missing account is not an image failure.
@@ -79,6 +80,34 @@ Each test then:
    survives Flux uninstalling a failed release. At the end it adds events, pod
    descriptions, `kubectl describe nodes` (what each node has allocated) and Flux's view of
    every source and HelmRelease.
+
+### Release-to-release upgrades
+
+Three tests install the newest release (`<Big Bang>-cg.<n>`: its overlays, Flux and, when
+it is on another Big Bang, that chart), then upgrade to the change's Flux and overlays the
+way a site does, and fail if a pod still runs an image digest the release pinned and the
+change replaced:
+
+- `release-upgrade`: Kyverno in Enforce mode, Headlamp and Grafana. Kyverno must keep
+  admitting the new images; Grafana must reach its database.
+- `release-upgrade-keycloak` and `release-upgrade-mattermost`: **data across the upgrade**.
+  Before it, `compat/support/upgrade-data.py <app> seed` writes data through the
+  application (Keycloak: a realm, a realm role and a user with a password, with kcadm in
+  the pod, on Big Bang's PostgreSQL and its PersistentVolume; Mattermost: a user, a team
+  and a post with an attached file, through the REST API, on PostgreSQL and SeaweedFS).
+  After it, `verify` reads the data back: the same realm and team (their ids), the user
+  logs in with the password set before, the role assignment, the post and its file's
+  bytes. A schema migration that fails or loses rows fails the test, not just a pod that
+  didn't roll. When the upgrade didn't replace the application's pods (no image or spec
+  change for it), `verify` restarts them first, so the data is always read after a
+  restart by a pod on the change's spec. Mattermost's starting install takes the release's
+  own object-storage overlay.
+
+A pull request runs them when it changes their files or `upgrade-data.py`, when Keycloak's
+or Mattermost's overlay entry changes beyond its digests (a new version: when a migration
+happens), and for a new Big Bang; the weekly run runs all three in both modes. GitLab's
+upgrade isn't tested: its fresh install is already a large test (about 25 minutes on kind,
+weekly only), and an upgrade with its migrations would roughly double it.
 
 One kind test, as `compat.yml` runs it:
 
@@ -146,6 +175,8 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 |---|---|---|---|---|
 | vault-2 | Vault **2.2.1** (`bigbang-vault`) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | Big Bang pins 1.21. A fresh install; vault-upgrade covers existing data. Check: `vault status` initialized and unsealed; a KV v2 secret written and read back |
 | release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays. On 4.0 the newest release was `3.35.1-cg.62`, so the test crosses the major: Big Bang 3's keys and ClusterPolicies first, then Big Bang 4's `packages.*` and CEL policies | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
+| release-upgrade-keycloak | Keycloak and Big Bang's PostgreSQL (on a PersistentVolume) installed from the newest release, a realm, realm role and user written with kcadm, then upgraded to the change's Flux and overlays | no run recorded | no run recorded | Data across a release upgrade (Keycloak's schema migration). Check: after the upgrade, and a restart of Keycloak and PostgreSQL if it didn't replace them, the same realm (its id), the user with its role, and the user logs in with the password set before; plus release-upgrade's stale-digest check |
+| release-upgrade-mattermost | Mattermost (operator, PostgreSQL from the org's images, files on SeaweedFS) installed from the newest release, a user, team and post with an attached file written through the REST API, then upgraded | no run recorded | no run recorded | Data across a release upgrade (Mattermost's database migrations, object storage). Check: after the upgrade, and a server restart if it didn't replace the server, the user logs in, the team and post are there, and the file's bytes come back; database status OK |
 | vault-upgrade | Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back | **SKIPPED** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | **SKIPPED** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist |
 | sonarqube-26.10 | SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics |
 | alloy | grafana-alloy 1.21, config-reloader 0.94 | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | **PASS** on 4.0.0, 2026-11-08 ([run 42481242138](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138)) | With Loki as the destination. Check: Loki has pod logs and cluster events Alloy shipped |

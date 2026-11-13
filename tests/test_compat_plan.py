@@ -105,3 +105,17 @@ def test_named_tests_and_the_schedule(tmp_path):
         ("gitlab", "standard", 90), ("gitlab", "fips", 90)]
     assert [t for t, _, _ in plan_mod.plan("schedule", [], [], False, root)] == [
         "gitlab", "installer", "keycloak", "kyverno-enforce", "loki", "metrics-server", "velero"]
+
+
+def test_the_release_upgrade_data_tests_follow_their_packages_and_run_weekly():
+    # A Keycloak or Mattermost tag change is when a schema migration happens: that
+    # package's release-upgrade data test runs with the package's own test.
+    assert {"keycloak", "release-upgrade-keycloak"} <= {t for t in plan_mod.all_tests()
+                                                         if "keycloak" in plan_mod.enabled(t)}
+    assert "release-upgrade-mattermost" in {t for t in plan_mod.all_tests() if "mattermost" in plan_mod.enabled(t)}
+    for t in ("release-upgrade-keycloak", "release-upgrade-mattermost"):
+        assert not plan_mod.large(t)   # pull requests run them, not only the weekly run
+    weekly = {t for t, _, _ in plan_mod.plan("schedule", [], [], True)}
+    assert {"release-upgrade", "release-upgrade-keycloak", "release-upgrade-mattermost"} <= weekly
+    jobs = _tests(plan_mod.plan("pull_request", [], ["compat/support/upgrade-data.py"], True))
+    assert jobs == [("release-upgrade-keycloak", "standard"), ("release-upgrade-mattermost", "standard")]

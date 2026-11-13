@@ -1,5 +1,6 @@
 """bb-compat.py's decisions that need no cluster: the Iron Bank skip, its credentials, and which images count as run."""
 import json
+import os
 import sys
 
 import yaml
@@ -403,3 +404,16 @@ def test_a_helmrelease_counts_as_ready_only_once_flux_observed_its_generation(mo
     ok, problems = bbcluster.wait_ready(["monitoring"], 3600)
     assert ok and problems == []
     assert now[0] >= 100     # waited for Flux instead of trusting the stale Ready
+
+
+def test_a_release_upgrades_starting_install_takes_the_releases_overlay_files(tmp_path):
+    out, release = tmp_path / "out", tmp_path / "release"
+    (release / "overlays").mkdir(parents=True)
+    (release / "overlays" / "values-object-storage.yaml").write_text("x: 1\n")
+    f = "$COMPAT_OUT/overlays/values-object-storage.yaml"
+    assert compat.values_file(f, str(out), str(release)) == os.path.join(str(release), "overlays/values-object-storage.yaml")
+    # The upgrade (overlays = this tree's output) and files `setup` wrote: $COMPAT_OUT's.
+    assert compat.values_file(f, str(out), str(out)) == f"{out}/overlays/values-object-storage.yaml"
+    assert compat.values_file("$COMPAT_OUT/site-mattermost.yaml", str(out), str(release)) == f"{out}/site-mattermost.yaml"
+    # A release without the file: this tree's.
+    assert compat.values_file("$COMPAT_OUT/overlays/new.yaml", str(out), str(release)) == f"{out}/overlays/new.yaml"
