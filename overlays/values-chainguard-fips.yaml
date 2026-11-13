@@ -13,7 +13,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator-fips
         - digest: sha256:9dec00486050085c8d97261a79f291280b5dd779800323d7e0c4014112e4798a
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:3c3784c308abcaa0aa6d8ac1403268567358fb8bad7ef7d8282f01f052733ca5
+        - digest: sha256:bafa89eeb4aed0c00576c379e3e841f85adb1b4833558a547a473e895a5a062e
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
     values:
       autoRollingUpgrade:
@@ -41,7 +41,7 @@ packages:
               image:
                 registry: cgr.dev/zapatatechnology.com
                 repository: prometheus-config-reloader-fips
-                tag: 0.95.1
+                tag: 0.95.2
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: grafana-alloy-fips
@@ -1143,7 +1143,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
         - digest: sha256:139e3bd32f0ecbd10b164b9627dce87ae97279914bf94576e6226172ea4e6fd4
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
-        - digest: sha256:3c3784c308abcaa0aa6d8ac1403268567358fb8bad7ef7d8282f01f052733ca5
+        - digest: sha256:bafa89eeb4aed0c00576c379e3e841f85adb1b4833558a547a473e895a5a062e
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
         - digest: sha256:21e401855ff1467b1d56c3aacd936906f3494f078884e1fc8f7672fd78bb8083
           name: cgr.dev/zapatatechnology.com/prometheus-fips
@@ -1164,7 +1164,7 @@ packages:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-config-reloader-fips
-            tag: 0.95.1
+            tag: 0.95.2
         global:
           imageRegistry: ''
         image:
@@ -1180,7 +1180,7 @@ packages:
         configmapReload:
           image:
             repository: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
-            tag: 0.95.1
+            tag: 0.95.2
         image:
           repository: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
           tag: 0.31.0
@@ -1249,7 +1249,7 @@ packages:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: prometheus-config-reloader-fips
-              tag: 0.95.1
+              tag: 0.95.2
           thanosImage:
             registry: cgr.dev/zapatatechnology.com
             repository: thanos-fips
