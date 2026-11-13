@@ -157,3 +157,13 @@ def test_the_seed_keeps_every_test_the_hand_table_had():
         assert name in names
     assert {r["mode"] for r in seeded["results"] if r["test"] == "gitlab"} == {"standard", "fips"}
     assert all(tr.valid(r) for r in seeded["results"])
+
+
+def test_a_big_bang_ref_result_is_marked_and_never_enters_the_table():
+    env = {"GITHUB_RUN_ID": "7", "GITHUB_REPOSITORY": "o/r"}
+    r = tr.record("kyverno-enforce", "standard", "success", "", env, "release-4.2.0", preview=True)
+    assert r["preview"] is True and tr.valid(r)
+    assert "preview" not in tr.record("kyverno-enforce", "standard", "success", "", env, "4.1.0")
+    real = result(test="kyverno-enforce")
+    newer = dict(r, finished="2027-01-01T00:00:00Z")
+    assert tr.merge([real], [newer]) == [real]

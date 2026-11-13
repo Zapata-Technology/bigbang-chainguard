@@ -83,7 +83,7 @@ vs Chainguard grype counts, with each Critical and its fix and the most common H
 on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
 packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (daily:
 `bb-preview.py` against Big Bang's development branch and its untagged `release-X.Y.Z`
-branch; keeps one `bigbang-preview` issue per ref current), `codeql.yml` / `scorecard.yml` (public repo only).
+branch, which it also deploys on a few kind tests; keeps one `bigbang-preview` issue per ref current), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Maintaining this repo with an AI agent
 
@@ -164,7 +164,12 @@ and, while one is newer than the newest tag, the `release-X.Y.Z` branch Big Bang
 tagging (the next release as it will ship). It keeps one issue per ref (the ref in its title;
 a release branch's closes when its release is tagged) with what would break: a newer Kubernetes requirement, images added or
 removed, a package that doesn't render, unmapped images, new chart scan findings, and kind
-tests whose values the new charts refuse. Work it like a bot PR, ahead of time: each fix
+tests whose values the new charts refuse. For a release branch it also deploys a handful of
+kind tests on that ref (`compat.yml` called with `bigbang_ref`: discovery and overlays
+regenerated in the job, never committed; `compat-plan.py` `PREVIEW`), and their results join
+the issue (a marked section; the issue closes only when both are clean); they never reach
+`docs/testing.md`'s table. A failed one is triaged like any kind test
+(`ci-triage.py --run <id>`). Work it like a bot PR, ahead of time: each fix
 that is also right for the current release (a mapping, an override that both accept) can
 land now; the rest waits on a branch for the release. The issue closes itself when nothing
 would break. Run it locally with `python scripts/bb-preview.py [--ref <branch or tag>]`.

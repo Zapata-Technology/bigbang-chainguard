@@ -52,12 +52,13 @@ def outcome_result(outcome, log_text):
     return "fail" if outcome == "failure" else "error"
 
 
-def record(test, mode, outcome, log_text, env, bigbang, now=None):
-    """The JSON a job uploads; env is the job's GITHUB_* environment."""
+def record(test, mode, outcome, log_text, env, bigbang, now=None, preview=False):
+    """The JSON a job uploads; env is the job's GITHUB_* environment. `preview`: the job
+    deployed a Big Bang branch (compat.yml's bigbang_ref), not BIGBANG_VERSION."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     run_id = env.get("GITHUB_RUN_ID", "")
     server, repo = env.get("GITHUB_SERVER_URL", "https://github.com"), env.get("GITHUB_REPOSITORY", "")
-    return {
+    return ({"preview": True} if preview else {}) | {
         "test": test, "mode": mode, "result": outcome_result(outcome, log_text),
         "bigbang": bigbang, "finished": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "run_id": int(run_id) if run_id.isdigit() else run_id,
@@ -88,10 +89,12 @@ def order(r):
 
 
 def merge(old, new):
-    """The newest valid result per (test, mode), old and new together, sorted."""
+    """The newest valid result per (test, mode), old and new together, sorted. A preview
+    result (a Big Bang branch before its release, from bigbang-preview.yml) describes what
+    is coming, not what this repo deploys: it never enters the table."""
     best = {}
     for r in list(old) + list(new):
-        if not valid(r):
+        if not valid(r) or r.get("preview"):
             continue
         key = (r["test"], r["mode"])
         if key not in best or order(r) > order(best[key]):
@@ -232,6 +235,8 @@ def main():
     rec.add_argument("--outcome", required=True, help="the Deploy and check step's outcome")
     rec.add_argument("--log", help="the job's compat.log")
     rec.add_argument("--out", required=True, help="directory for <test>-<mode>.json")
+    rec.add_argument("--preview", action="store_true",
+                     help="the job deployed a Big Bang branch (bigbang_ref): kept out of the table")
     up = sub.add_parser("update")
     up.add_argument("--results", action="append", default=[], help="a directory of result JSONs")
     up.add_argument("--from-main", type=int, metavar="N", help="the last N compat.yml runs on main")
@@ -244,7 +249,7 @@ def main():
     if a.cmd == "record":
         log = read_text(a.log) if a.log and os.path.exists(a.log) else ""
         bigbang = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
-        r = record(a.test, a.mode, a.outcome, log, os.environ, bigbang)
+        r = record(a.test, a.mode, a.outcome, log, os.environ, bigbang, preview=a.preview)
         os.makedirs(a.out, exist_ok=True)
         save(r, os.path.join(a.out, f"{a.test}-{a.mode}.json"))
         print(json.dumps(r))
