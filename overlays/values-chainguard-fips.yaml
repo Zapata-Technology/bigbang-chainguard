@@ -381,7 +381,7 @@ packages:
         images:
         - digest: sha256:e965766ed6d34f46ba2090a9e181ac014de6808ed871cb42b141e273b6fd1076
           name: cgr.dev/zapatatechnology.com/busybox-fips
-        - digest: sha256:d8c5095677c745e73a48f3c80975cfd1ebf2955d7228bd0d9cd190fe10d3cb8e
+        - digest: sha256:d48c40e2e370e4d37968e8c973822d448a48d12c33f7d2440edd3b6fd43a8952
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign-fips
         - digest: sha256:7e2163caba1f65831e61ecfe01ae269bbc186a585b1a5354c3551c3f102ec71f
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee-fips
