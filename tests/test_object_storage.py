@@ -121,3 +121,36 @@ def test_in_cluster_seaweedfs_gets_network_policy_egress():
         assert rule == {"to": {"k8s": {"seaweedfs/seaweedfs:8333": True}}}
     overlay, _, _, _ = storage.build(SPEC, storage.tokens("https://s3.example.com", "r", "bb"), set())
     assert "bb-common" not in yaml.safe_dump(overlay)
+
+
+def test_the_bucket_job_creates_only_missing_buckets(tmp_path):
+    """bb-install.py re-creates the Job on every install and upgrade; weed shell fails on a
+    bucket that exists (`error: bucket ... already exists`), which stopped the upgrade
+    (compat/installer-upgrade-to.yaml)."""
+    import shutil
+    import stat
+    import subprocess
+    import objstore
+    if not shutil.which("sh"):
+        pytest.skip("no sh")
+    files = objstore.seaweedfs_files("i", "d", ["bigbang-tempo", "bigbang-velero"], "")
+    job = next(d for d in yaml.safe_load_all(files["seaweedfs.yaml"]) if d["kind"] == "Job")
+    script = job["spec"]["template"]["spec"]["containers"][0]["command"][2]
+    weed = tmp_path / "weed"
+    weed.write_text("""#!/bin/sh
+read -r cmd name
+case "$cmd" in
+  cluster.check) exit 0;;
+  s3.bucket.list) while read -r b; do printf '  %s\tsize:0\n' "$b"; done < "$DB";;
+  s3.bucket.create) n=${name#-name }; grep -qx "$n" "$DB" && { echo "error: bucket $n already exists"; exit 1; }
+                    echo "$n" >> "$DB";;
+esac
+""", encoding="utf-8", newline="\n")
+    weed.chmod(weed.stat().st_mode | stat.S_IEXEC)
+    db = tmp_path / "db"
+    db.write_text("bigbang-tempo\n", encoding="utf-8")
+    env = dict(os.environ, PATH=f"{tmp_path}{os.pathsep}{os.environ['PATH']}", DB=str(db))
+    for _ in range(2):   # the existing bucket, then every bucket, already there
+        p = subprocess.run(["sh", "-c", script], env=env, capture_output=True, text=True)
+        assert p.returncode == 0, p.stdout + p.stderr
+    assert db.read_text(encoding="utf-8").split() == ["bigbang-tempo", "bigbang-velero"]
