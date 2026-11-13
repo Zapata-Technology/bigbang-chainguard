@@ -52,7 +52,7 @@ packages:
         images:
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:c2445f44a6e0e47a2ccde15e1f85d3fb25f470154e69e76c470c900867c1f0d1
+        - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
           name: cgr.dev/zapatatechnology.com/redis
@@ -147,7 +147,7 @@ packages:
         images:
         - digest: sha256:06292373b33a67ce65508a7f1f622b3c459e73ecb307406464f74022d7495d92
           name: cgr.dev/zapatatechnology.com/authservice
-        - digest: sha256:c2445f44a6e0e47a2ccde15e1f85d3fb25f470154e69e76c470c900867c1f0d1
+        - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
           name: cgr.dev/zapatatechnology.com/redis
@@ -615,7 +615,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/nginx
         - digest: sha256:8e13da9133bc20868a4a0a13166470937a96dc0eadb0d6f9e9a600f9dea02355
           name: cgr.dev/zapatatechnology.com/postgres
-        - digest: sha256:c2445f44a6e0e47a2ccde15e1f85d3fb25f470154e69e76c470c900867c1f0d1
+        - digest: sha256:eeca72ffc412c457c8b0bffbd41e4710247a8fca69b2020ccbb20f23ac8a8aac
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:46272060c59c169f5c0687a59c721af4a11397adf03472951df0f1d28e202759
           name: cgr.dev/zapatatechnology.com/redis
