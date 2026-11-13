@@ -3,7 +3,10 @@
 #
 # A new Big Bang release re-runs discovery. If it deploys an image mapping.yaml
 # does not cover, or one with no org tag, the pull request still opens with the
-# failures in its body (and CI fails on it): add the mapping and push to the branch.
+# failures in its body (and CI fails on it). Fix it on main (mapping.yaml): a push to main
+# that changes what the overlays are made from runs this workflow again. Don't push to the
+# bot branch: each run rebuilds it from main, so a commit there is lost. A bot PR labeled
+# `hold` is left alone (no new commit) until the label goes.
 #
 # An image this repo builds whose tag moves (Grafana 13.3.0 -> 13.3.1) can't be in the
 # overlays until builds.yml has published it from main. scripts/bb-held-builds.py holds
@@ -16,6 +19,18 @@ on:
   schedule:
     - cron: "17 3 * * *"   # off the hour: GitHub delays scheduled runs most at :00
   workflow_dispatch:
+  # A fix on main to what the overlays are made from: regenerate now, not tomorrow night.
+  push:
+    branches: [main]
+    paths:
+      - mapping.yaml
+      - orgs/**
+      - object-storage.yaml
+      - scripts/bb-*.py
+      - scripts/bbcommon.py
+      - scripts/orgtags.py
+      - builds/*/recipe.yaml
+      - builds/*/Dockerfile
   # builds.yml finished on main: a held-back build may be published now.
   workflow_run:
     workflows: ["Build - Big Bang images"]
@@ -36,6 +51,8 @@ jobs:
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    # A typical run takes 15-20 minutes; a hang would hold the `update` group for 6 hours.
+    timeout-minutes: 60
     env:
       # Chainguard org (cgr.dev/<org>). Set the CHAINGUARD_ORG repository variable to
       # override the CHAINGUARD_ORG file without a commit.
@@ -197,11 +214,41 @@ jobs:
           python3 scripts/test-results.py update --from-main 20 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" \
             || echo "::warning::test-results.py failed; docs/testing.md's results unchanged"
 
+      # The bot's token: the GitHub App's when BOT_APP_CLIENT_ID is set, else RELEASE_PAT.
+      # Either lets CI run on the bot's pull requests; GITHUB_TOKEN would not.
+      - name: Bot token (GitHub App)
+        id: app
+        if: vars.BOT_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510  # v3.3.0
+        with:
+          client-id: ${{ vars.BOT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          # The bot branch is rebuilt from main; when main's workflow files changed since the
+          # last push, GitHub refuses the push without it ("refusing to allow ... to create or
+          # update workflow ... without `workflow` scope", 2026-11-13).
+          permission-workflows: write
+
+      # A person is working on a bot PR (label `hold`): leave its branch alone.
+      - name: Bot PRs on hold
+        id: hold
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for pr_branch in bigbang-update builds-update; do
+            held=$(gh api "repos/$GH_REPO/pulls?state=open&head=${GH_REPO%%/*}:bot/$pr_branch"               --jq '[.[].labels[].name] | index("hold") != null')
+            echo "$pr_branch=$held" >> "$GITHUB_OUTPUT"
+            [ "$held" = false ] || echo "::notice::bot/$pr_branch is labeled hold: not updating it"
+          done
+
       - name: Open the pull request
+        if: steps.hold.outputs.bigbang-update != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
-          # RELEASE_PAT lets CI run on the bot's pull request; GITHUB_TOKEN does not.
-          token: ${{ secrets.RELEASE_PAT || github.token }}
+          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
           base: main
           branch: bot/bigbang-update
           delete-branch: true
@@ -233,10 +280,10 @@ jobs:
         run: python3 scripts/bb-held-builds.py restore "${RUNNER_TEMP}/held"
 
       - name: Open the builds pull request
-        if: steps.run.outputs.held != ''
+        if: steps.run.outputs.held != '' && steps.hold.outputs.builds-update != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
-          token: ${{ secrets.RELEASE_PAT || github.token }}
+          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
           base: main
           branch: bot/builds-update
           delete-branch: true

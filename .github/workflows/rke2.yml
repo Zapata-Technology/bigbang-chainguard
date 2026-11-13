@@ -23,6 +23,12 @@ on:
 permissions:
   contents: read
 
+# The larger runner is billed: a new push to a pull request cancels its older run. Scheduled
+# and manual runs each get their own group (run_id), so none is cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   rke2:
     # Big Bang's default packages need more than a standard private-repository runner (2 CPUs,

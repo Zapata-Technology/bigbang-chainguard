@@ -125,14 +125,21 @@ Never print or copy secrets, and never change git config.
 
 ### The nightly bot PR (`bot/bigbang-update`) fails or reports something
 A green bot PR merges itself (`automerge.yml`), so one still open has a failed check, a
-`hold` label, or a new `BIGBANG_VERSION`. Label it `hold` while you work on it.
+`hold` label, or a new `BIGBANG_VERSION`. A failure that survived the automatic re-run, a
+new release, or a commit that isn't the bot's gets the `needs-attention` label and a comment
+saying which (remove the label once handled). Label the PR `hold` while you work on it:
+`update.yml` then leaves its branch alone.
 1. Read the PR body: it holds the bb-convert, bb-verify, bb-scan and bb-leftovers output.
 2. *Unmapped image* → "Add or fix an image mapping" below.
 3. *bb-scan NEW finding* → "A chart scan finding" below.
 4. *Leftover PUBLISHED* → "Chainguard published an Iron Bank leftover" below.
 5. *Version differences / MINOR AHEAD* are expected and documented; act only if a compat
    test fails.
-6. Push fixes to the bot branch or a new branch; never edit its generated files by hand.
+6. Fix on main (a PR from a new branch), never on the bot branch: `update.yml` rebuilds
+   that branch from main, and `automerge.yml` refuses a bot PR with any commit but the
+   bot's. A merged change to `mapping.yaml`, `orgs/`, the converter scripts or a build
+   recipe re-runs `update.yml` on main; otherwise dispatch it (`gh workflow run update.yml`).
+   Remove `hold` afterwards.
 7. *A built image's tag moved* (Grafana 13.3.0 → 13.3.1): builds.yml publishes a tag only
    from main, so the overlays can't use it yet. `scripts/bb-held-builds.py` holds that
    build.yaml back and update.yml opens it alone as `bot/builds-update`, which merges itself
@@ -365,7 +372,15 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   'origin\main;.github\...'"): MSYS rewrites the argument as a path. Prefix
   `MSYS_NO_PATHCONV=1`.
 - **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
-  token and uses `RELEASE_PAT` only for `gh pr merge`.
+  token and uses the bot token only for `gh pr merge`. The bot token is a GitHub App's
+  (repository variable `BOT_APP_CLIENT_ID`, secret `BOT_APP_PRIVATE_KEY`; the App needs
+  Contents, Pull requests and Workflows read/write on this repo) when set, else `RELEASE_PAT`
+  (which then needs the `workflow` scope: the bot branch is rebuilt from main, and a push
+  that brings main's workflow-file changes is refused without it).
+  GITHUB_TOKEN can't stand in: its pull requests and merges start no workflows.
+- **A shell guard must not read a failed call as "no"**: `if gh ... | grep -q x` under
+  `set -o pipefail` is false when gh fails, so automerge once would have merged a held PR on
+  an API error. Capture first (`labels=$(gh api ...)`, which `set -e` stops on), then test.
 
 - **Writing a check:** `kubectl get --raw` (the API server proxy) for reads; `kubectl create
   --raw` posts without a JSON content type (Loki 400, Tempo and Mimir 415, Argo CD
