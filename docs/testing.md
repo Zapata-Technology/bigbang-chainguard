@@ -443,6 +443,19 @@ and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run eve
 push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
 so the selection keeps a month's pull requests within the Actions allowance.
 
+### Big Bang's next release on kind
+
+While Big Bang has an untagged `release-X.Y.Z` branch, `bigbang-preview.yml` also calls
+`compat.yml` with `bigbang_ref` set to it. The plan job clones that ref with every package
+and rediscovers its images; each test job puts that discovery and the ref in place of
+`discovery/images.json` and `BIGBANG_VERSION` in its own checkout (nothing is committed),
+so `bb-compat.py` converts the overlays and Flux for the ref. With no `tests` it runs
+`compat-plan.py`'s `PREVIEW` handful: `kyverno-enforce` in both modes, `metrics-server`, and
+`release-upgrade` (the newest release of this repo upgraded to the branch), on standard
+runners. The results go in the ref's preview issue, and are marked `preview` so the table
+above never shows them. By hand, from main: `gh workflow run compat.yml --ref main -f
+bigbang_ref=release-X.Y.Z` (add `-f tests=<names>` for others).
+
 MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which CI has
 no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server with
 the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on SeaweedFS.

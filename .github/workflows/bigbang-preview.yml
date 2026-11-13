@@ -35,6 +35,7 @@ jobs:
       issues: write   # close a tagged release branch's issue
     outputs:
       refs: ${{ steps.refs.outputs.refs }}
+      release: ${{ steps.refs.outputs.release }}   # the release branch to deploy on kind, if any
     steps:
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
@@ -53,7 +54,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$REF" ]; then
-            echo "refs=[\"$REF\"]" | tee -a "$GITHUB_OUTPUT"; exit 0
+            echo "refs=[\"$REF\"]" | tee -a "$GITHUB_OUTPUT"
+            # A dispatched release branch gets the kind tests too.
+            if grep -qE '^release-[0-9]+\.[0-9]+\.[0-9]+$' <<<"$REF"; then
+              echo "release=$REF" | tee -a "$GITHUB_OUTPUT"
+            fi
+            exit 0
           fi
           remote=""
           for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
@@ -66,6 +72,7 @@ jobs:
           if [ -n "$branch" ] && [ -n "$latest" ] && [ "$branch" != "$latest" ] \
              && [ "$(printf '%s\n%s\n' "$latest" "$branch" | sort -V | tail -1)" = "$branch" ]; then
             refs+=",\"release-$branch\""
+            echo "release=release-$branch" | tee -a "$GITHUB_OUTPUT"
           fi
           echo "newest tag $latest, newest release branch ${branch:-none}"
           echo "refs=[$refs]" | tee -a "$GITHUB_OUTPUT"
@@ -164,6 +171,8 @@ jobs:
         env:
           REF: ${{ matrix.ref }}
           RC: ${{ steps.preview.outputs.rc }}
+          RELEASE: ${{ needs.refs.outputs.release }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh label create bigbang-preview --color FBCA04 \
             --description "Big Bang's next release against this repo (bigbang-preview.yml)" 2>/dev/null || true
@@ -172,11 +181,15 @@ jobs:
           issue=$(gh issue list --label bigbang-preview --state open --json number,title \
             | jq -r --arg t "$title" --arg r "$REF" \
             'map(select(.title == $t or ($r == "master" and .title == "Big Bang'"'"'s next release: what would break"))) | .[0].number // empty')
-          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           { cat "$RUNNER_TEMP/report.md" 2>/dev/null || echo "The preview produced no report: see the run."
-            echo; echo "Run: $run_url"; } > "$RUNNER_TEMP/body.md"
+            echo; echo "Run: $RUN_URL"; } > "$RUNNER_TEMP/body.md"
+          if [ "$RC" = 0 ] && [ "$REF" = "$RELEASE" ]; then
+            # The kind tests on this ref decide whether its issue closes (kind-report).
+            [ -n "$issue" ] && gh issue edit "$issue" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+            exit 0
+          fi
           if [ "$RC" = 0 ]; then
-            [ -n "$issue" ] && gh issue close "$issue" --comment "Nothing would break any more ($run_url)."
+            [ -n "$issue" ] && gh issue close "$issue" --comment "Nothing would break any more ($RUN_URL)."
             exit 0
           fi
           if [ -n "$issue" ]; then
@@ -184,3 +197,81 @@ jobs:
           else
             gh issue create --label bigbang-preview --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
+
+  # A release branch (not master: it moves daily and is weeks out) is what the next release
+  # will ship: deploy a handful of kind tests on it (compat.yml with bigbang_ref; the plan
+  # picks compat-plan.py PREVIEW), runtime breakage the render above can't see. Standard
+  # runners only. The results stay out of docs/testing.md's table (marked `preview`).
+  kind:
+    needs: refs
+    if: needs.refs.outputs.release != ''
+    permissions:
+      actions: read     # compat.yml's results job: this run's result artifacts
+      contents: read
+      id-token: write   # Log into Chainguard
+      packages: read    # BUILD_REGISTRY images
+    uses: ./.github/workflows/compat.yml
+    with:
+      bigbang_ref: ${{ needs.refs.outputs.release }}
+    secrets: inherit
+
+  # The kind results in the release branch's issue (a section the next run replaces). The
+  # preview job leaves that issue open when it found nothing; this closes it only if the
+  # kind tests passed too, and opens one if they failed.
+  kind-report:
+    needs: [refs, preview, kind]
+    if: ${{ !cancelled() && needs.refs.outputs.release != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read     # gh run download: the kind jobs' result artifacts
+      contents: read
+      issues: write
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            api.github.com:443
+            files.pythonhosted.org:443
+            github.com:443
+            pipelines.actions.githubusercontent.com:443
+            pypi.org:443
+            results-receiver.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Kind results into the preview issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ needs.refs.outputs.release }}
+          KIND: ${{ needs.kind.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet -r requirements.txt
+          gh run download "$GITHUB_RUN_ID" --pattern 'compat-result-*' -D "$RUNNER_TEMP/kind" \
+            || echo "no kind results to download"
+          title="Big Bang's next release: what would break ($REF)"
+          issue=$(gh issue list --label bigbang-preview --state open --json number,title \
+            | jq -r --arg t "$title" 'map(select(.title == $t)) | .[0].number // empty')
+          body="$RUNNER_TEMP/body.md"
+          if [ -n "$issue" ]; then gh issue view "$issue" --json body --jq .body > "$body"; else : > "$body"; fi
+          action=$(python3 scripts/bb-preview.py --ref "$REF" --kind-results "$RUNNER_TEMP/kind" \
+            --kind-outcome "$KIND" --kind-run "$RUN_URL" --body "$body" ${issue:+--have-issue} 2>"$RUNNER_TEMP/section.md")
+          cat "$RUNNER_TEMP/section.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "kind tests $KIND; issue ${issue:-none}: $action"
+          case "$action" in
+            create) gh issue create --label bigbang-preview --title "$title" --body-file "$body" ;;
+            edit) gh issue edit "$issue" --body-file "$body" ;;
+            close) gh issue edit "$issue" --body-file "$body"
+                   gh issue close "$issue" --comment "Nothing would break any more, and the kind tests passed ($RUN_URL)." ;;
+          esac
