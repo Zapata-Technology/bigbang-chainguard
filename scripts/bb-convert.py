@@ -325,6 +325,11 @@ class Converter:
                         set_path(vals, path + ["image"], repo.rsplit("/", 1)[1])
                     else:
                         set_path(vals, path + ["image"], repo)
+                    if "repository" in v:
+                        # an unused upstream default beside `image` (bbcommon.image_nodes):
+                        # point it at the same image, whichever key the template reads
+                        set_path(vals, path + ["repository"],
+                                 repo.rsplit("/", 1)[1] if "registry" in v else repo)
                     set_path(vals, path + ["tag"], tag)
         for vals, list_path, lst in lists.values():
             set_path(vals, list_path, lst)

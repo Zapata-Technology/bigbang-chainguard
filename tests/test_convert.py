@@ -494,3 +494,25 @@ def test_chart_registry_builds_move_the_built_image_to_build_registry(monkeypatc
     # registry in front of its Iron Bank repository; it goes back to registry1 at the chart's tag.
     c.build_registry = ""
     assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") ==         [{"name": "cgr.dev/org/ironbank/x", "newName": "registry1.dso.mil/ironbank/x"}]
+
+
+def test_an_image_beside_an_unused_repository_default_maps_by_image_and_sets_both():
+    """Big Bang 4.1's GitLab Runner values carry Big Bang's `image` and the upstream chart's
+    default `repository`; the chart renders `image`. Map by `image`, point both at the org."""
+    import yaml
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import bbcommon
+    values = {"upstream": {"image": {"registry": "registry1.dso.mil", "image": "gitlab/gitlab-org/gitlab-runner",
+                                     "repository": "gitlab-org/gitlab-runner", "tag": "ubi-fips-v19.5.2"}}}
+    nodes = [{"path": list(p), "shape": shape, "value": v} for p, shape, v in bbcommon.image_nodes(values)]
+    discovered = {"packages": {"gitlab-runner": {
+        "key": "gitlabRunner", "values": nodes,
+        "rendered": ["registry1.dso.mil/gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2"]}}}
+    mapping = {"images": {"gitlab/gitlab-org/gitlab-runner": "gitlab-runner"}}
+    files, c = convert.generate(discovered, mapping, FakeTags({"gitlab-runner": ["19.5.2"],
+                                                               "gitlab-runner-fips": ["19.5.2"]}), "4.1.0")
+    assert not c.unmapped
+    std = yaml.safe_load(files["overlays/values-chainguard.yaml"])
+    image = std["gitlabRunner"]["values"]["upstream"]["image"]
+    assert image["image"] == image["repository"] == "gitlab-runner"
+    assert image["registry"].startswith("cgr.dev/") and image["tag"] == "19.5.2"

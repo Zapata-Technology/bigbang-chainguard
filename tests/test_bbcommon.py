@@ -83,10 +83,15 @@ def test_image_nodes_shapes():
         "job": {"image": "registry1.dso.mil/ironbank/job:3"},
         "list": [{"image": "registry1.dso.mil/ironbank/inlist:4"}],
         "other": {"image": {"repository": "docker.io/library/nginx", "tag": "1"}},
+        # Big Bang 4.1's GitLab Runner: Big Bang's `image` and the upstream chart's unused
+        # default `repository` side by side. The chart renders `image`.
+        "runner": {"image": {"registry": "registry1.dso.mil", "image": "gitlab/gitlab-org/gitlab-runner",
+                             "repository": "gitlab-org/gitlab-runner", "tag": "ubi-fips-v19.5.2"}},
     }
     found = {(".".join(map(str, p)), shape) for p, shape, _ in bbcommon.image_nodes(values)}
     assert found == {("global.imageRegistry", "registry"), ("app.image", "repo"), ("split.image", "repo"),
-                     ("istio", "hub"), ("job.image", "string"), ("list.0.image", "string")}
+                     ("istio", "hub"), ("job.image", "string"), ("list.0.image", "string"),
+                     ("runner.image", "name")}
 
 
 def test_mapping_overlays_apply_after_the_org_file_and_drop_test(repo):
