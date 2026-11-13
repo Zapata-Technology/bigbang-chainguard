@@ -6,12 +6,12 @@ ironbank:
 image:
   standard:
     name: bigbang-vault
-    tag: v2.2.1
-    dev: cgr.dev/zapatatechnology.com/vault:v2.2.1-dev@sha256:22ba46b6737beae8b1ac7dfde7c2936a013f834c9ee23f173d3425d82c490499
+    tag: v2.2.2
+    dev: cgr.dev/zapatatechnology.com/vault:v2.2.2-dev@sha256:29338ac4ae940c03121d9996bbf54c0fe8da352ee6cc6f0db04dcf46f8296969
   fips:
     name: bigbang-vault-fips
-    tag: v2.2.1
-    dev: cgr.dev/zapatatechnology.com/vault-fips:v2.2.1-dev@sha256:2a317d67a1265ad5937d212276186c5921c8cd51797b9214f8cb21e2d73ef348
+    tag: v2.2.2
+    dev: cgr.dev/zapatatechnology.com/vault-fips:v2.2.2-dev@sha256:6704ba328ef3c93cb282d496a6a4186ef07b91a358653da2bce191f894ef32a6
 packages:
 - curl
 notes:
