@@ -59,7 +59,10 @@ BLOCKED = re.compile(r'"https?://(?P<host>[A-Za-z0-9.-]+)[^"]*": dial tcp [\d.]+
 EVIDENCE = re.compile(r"^(RESULT|PROBLEM|EXITED|CHECK FAILED|FORBIDDEN LOG|IMAGE POLICY|NOT EXERCISED)"
                       r"|^\d\d:\d\d:\d\d LIVE |^\d\d:\d\d:\d\d source: ")
 # Lines worth showing from any other job's log.
-ERROR = re.compile(r"##\[error\]|^(ERROR|FAIL|FAILED|Error:)\b|Traceback|AssertionError|^E +", re.I)
+ERROR = re.compile(r"##\[error\]|^(ERROR|FAIL|FAILED|Error:)\b|Traceback|AssertionError|^E +"
+                   # bb-convert / bb-verify findings (CI's "Overlays are current", "Verify ...")
+                   r"|^Images not in mapping|^Images with no usable org tag|^ {2}FAIL |is out of date"
+                   r"|^ {2}\S+: \S+ -> .*(no .* tag|UNRESOLVED)|^ {2}[\w.-]+/[\w./-]+$", re.I)
 ARTIFACT_JOB = re.compile(r"^(?P<test>[\w.-]+) \((?P<mode>standard|fips)\)$")
 
 
@@ -143,6 +146,15 @@ def artifact_log(repo, run, name):
         return None
 
 
+def failed_steps(job):
+    """Names of a job's steps that failed or were cancelled ([] if GitHub doesn't say)."""
+    try:
+        steps = (ghrest.api(f"actions/jobs/{job}") or {}).get("steps") or []
+    except ghrest.GhError:
+        return []
+    return [s["name"] for s in steps if s.get("conclusion") in ("failure", "cancelled", "timed_out")]
+
+
 def triage(repo, jobs):
     """[(job, run, flake reason or None, lines)]."""
     report = []
@@ -150,6 +162,12 @@ def triage(repo, jobs):
         m = ARTIFACT_JOB.match(name)
         log = artifact_log(repo, run, f"compat-{m['test']}-{m['mode']}") if m else None
         lines = evidence(log) if log else errors(gh("api", "--allow-escape-sequences", f"repos/{repo}/actions/jobs/{job}/logs") or "")
+        # The failed step's name, from the job itself: it says where to look even when the log
+        # has no recognisable line (setup-chainctl and cosign-installer echo their error
+        # templates on every run, which reads like a failed login but isn't one).
+        steps = failed_steps(job)
+        if steps:
+            lines = [f"failed step: {', '.join(steps)}"] + lines
         report.append((name, run, classify(lines), lines))
     return report
 

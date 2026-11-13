@@ -103,3 +103,24 @@ def test_flakes_count_failed_attempts_of_runs_that_passed_after_a_rerun():
     assert fix == ["Compat / tempo-query (standard)"]
     assert lines[0].strip().startswith("FIX") and "3x" in lines[0]
     assert triage.flake_report({}, 3) == (["no re-run jobs in this period"], [])
+
+
+def test_bb_convert_findings_are_evidence_and_the_failed_step_is_named(monkeypatch):
+    log = "\n".join([
+        '2026-11-13T05:16:12.0Z echo "::error Unable to assume the identity ${IDENTITY}."',
+        "2026-11-13T05:17:07.1Z Images not in mapping.yaml (add them):",
+        "2026-11-13T05:17:07.1Z   gitlab-org/gitlab-runner",
+        "2026-11-13T05:17:07.1Z Images with no usable org tag:",
+        "2026-11-13T05:17:07.2Z   sonarqube: ironbank/sonarsource/sonarqube/x:26.11 -> sonarqube: no 26.x tag at or above 26.11",
+        "2026-11-13T05:17:07.2Z ##[error]Process completed with exit code 1.",
+    ])
+    lines = triage.errors(log)
+    assert "Images not in mapping.yaml (add them):" in lines and "  gitlab-org/gitlab-runner" in lines
+    assert any("no 26.x tag" in ln for ln in lines)
+    assert triage.classify(lines) is None
+    monkeypatch.setattr(triage, "gh", lambda *a, **k: log)
+    monkeypatch.setattr(triage.ghrest, "api", lambda path: {"steps": [
+        {"name": "Log into Chainguard", "conclusion": "success"},
+        {"name": "Overlays are current", "conclusion": "failure"}]})
+    [(name, run, flake, out)] = triage.triage("o/r", [("verify", "1", "2")])
+    assert out[0] == "failed step: Overlays are current" and flake is None
