@@ -774,7 +774,7 @@ packages:
         images:
         - digest: sha256:f27ddc6041d42b3862eab2aae139023a9ac9e058865c8628898fe020151e7a43
           name: cgr.dev/zapatatechnology.com/kiali-fips
-        - digest: sha256:f3299971d5948691bb86fa731aead3b231e678762a55bcf30c75632c4cebe415
+        - digest: sha256:d7e06a36504084b78133084ae6a78b114eb5ab2bcaf6354c1200632885187b03
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -935,7 +935,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:8c56731593322dc5bf13f0216de0cc554ddfd008481b27324d57702cc20f23c1
           name: cgr.dev/zapatatechnology.com/loki-canary-fips
-        - digest: sha256:d735d9ef688be18ade79710cd4d009b17906f1149a49faa1917e1335d74e344c
+        - digest: sha256:2f1bd680d985a1ae5a9851f73fdb5b0749201f7c8c6179672c876feb876d4821
           name: cgr.dev/zapatatechnology.com/loki-fips
         - digest: sha256:51a9b80eb1c10c313bf031df66ffdffb3a901b8682bd984b153fda7f5cb7e105
           name: cgr.dev/zapatatechnology.com/memcached-exporter-fips
@@ -962,7 +962,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: loki-fips
-          tag: 3.7.9
+          tag: 3.7.10
         podSecurityContext:
           seccompProfile:
             type: RuntimeDefault
@@ -1149,7 +1149,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-fips
         - digest: sha256:97357224fad6f309598d4ffeb8637ba63acae8d6e29e1ba25d0c44d8e6f0a427
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
-        - digest: sha256:feb1249a27b699d5ce062d393659fe9897be76c56b8b1e4c47bcc30fa96a6789
+        - digest: sha256:b85fcd928bca77242722802c6d7dda5dbbb43338d02351f004de1a231fa09bc1
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
         - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
@@ -1244,7 +1244,7 @@ packages:
           image:
             registry: cgr.dev/zapatatechnology.com
             repository: prometheus-operator-fips
-            tag: 0.95.1
+            tag: 0.95.2
           prometheusConfigReloader:
             image:
               registry: cgr.dev/zapatatechnology.com

@@ -15,8 +15,8 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | newer minor | 10 |
-| newer patch | 25 |
-| same | 76 |
+| newer patch | 26 |
+| same | 75 |
 | numbered differently | 8 |
 | stays on Iron Bank | 19 |
 | **total** | **139** |
@@ -37,7 +37,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.1` | `flux-source-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
 
-## Newer patch, same line (25)
+## Newer patch, same line (26)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -64,10 +64,11 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/istio/ztunnel:1.31.3` | `ztunnel:1.31.4` | `ztunnel-fips:1.31.4` | Chainguard | newer patch | ztunnel |
 | `ironbank/opensource/keycloak/keycloak:26.8.1` | `keycloak:26.8.2` | `keycloak-fips:26.8.2` | Chainguard | newer patch | keycloak |
 | `ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1` | `prometheus-config-reloader:0.95.2` | `prometheus-config-reloader-fips:0.95.2` | Chainguard | newer patch | alloy, monitoring |
+| `ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1` | `prometheus-operator:0.95.2` | `prometheus-operator-fips:0.95.2` | Chainguard | newer patch | monitoring |
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (76)
+## Same version (75)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -103,7 +104,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/external-secrets/external-secrets:v2.14.0` | `external-secrets:2.14.0` | `external-secrets-fips:2.14.0` | Chainguard | same | external-secrets |
 | `ironbank/opensource/fluent/fluent-bit:v5.1.5` | `fluent-bit:5.1.5` | `fluent-bit-fips:5.1.5` | Chainguard | same | fluentbit |
 | `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:1.21.3` | `grafana-alloy-fips:1.21.3` | Chainguard | same | alloy |
-| `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.9` | `loki-fips:3.7.9` | Chainguard | same | logging-loki |
+| `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.9` | `loki-fips:3.7.10` | Chainguard | same | logging-loki |
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:0.41.1` | `grafana-rollout-operator-fips:0.41.1` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/grafana/tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1` | built here | same | tempo |
 | `ironbank/opensource/grafana/tempo:3.1.1` | `tempo:3.1.1` | `tempo-fips:3.1.1` | Chainguard | same | tempo |
@@ -135,7 +136,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/nginx/nginx:1.31.8` | `nginx:1.31.8` | `nginx-fips:1.31.8` | Chainguard | same | gitlab, harbor, logging-loki, mimir |
 | `ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1` | `gatekeeper:3.23.1` | `gatekeeper-fips:3.23.1` | Chainguard | same | gatekeeper |
 | `ironbank/opensource/postgres/postgresql:18.6` | `postgres:18.6` | `postgres-fips:18.6` | Chainguard | same | harbor, keycloak, mattermost |
-| `ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1` | `prometheus-operator:0.95.1` | `prometheus-operator-fips:0.95.1` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:0.34.2` | `prometheus-alertmanager-fips:0.34.2` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/blackbox_exporter:v0.29.1` | `prometheus-blackbox-exporter:0.29.1` | `prometheus-blackbox-exporter-fips:0.29.1` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/jmx-exporter:1.7.0` | `ghcr.io/zapata-technology/bigbang-jmx-exporter:1.7.0-busybox1.38.0` | `ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.7.0-busybox1.38.0` | built here | same | sonarqube |
