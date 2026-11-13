@@ -264,7 +264,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:685e6811f46319f7d69f90c1268f6872693a34671d15d9344ae9d5e0c7c27c83
+        - digest: sha256:0f380dc36fbe7280a706d6918ab0546ea9a16b36c33032741c71d7b09972ef5e
           name: cgr.dev/zapatatechnology.com/external-secrets
     values:
       bbtests:
