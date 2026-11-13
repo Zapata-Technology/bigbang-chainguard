@@ -2,7 +2,7 @@ name: Auto-merge - nightly update
 
 # Merges the nightly bot pull requests (update.yml: bot/bigbang-update, the routine track;
 # bot/bigbang-release, a new Big Bang release; and bot/builds-update / bot/builds-release
-# with build.yaml files held back until published) once every check on its head commit has
+# with build.yaml, or the release track's release.yaml, files held back until published) once every check on its head commit has
 # passed: CI, the image builds and every kind test. Branch
 # protection only requires `verify`, so GitHub's own auto-merge would not wait for the
 # kind tests; this does. It runs each time one of those workflows finishes and merges on
@@ -129,19 +129,25 @@ jobs:
           fi
 
           # The PR must be the bot's own: one commit, touching only what update.yml writes.
-          files=""; page=1
+          # Each line "<status> <filename>" (status: added, modified, removed, ...).
+          changes=""; page=1
           while :; do
-            batch=$(gh api "repos/$GH_REPO/pulls/$pr/files?per_page=100&page=$page" --jq '.[].filename')
-            files+="$batch"$'\n'
+            batch=$(gh api "repos/$GH_REPO/pulls/$pr/files?per_page=100&page=$page" --jq '.[] | "\(.status) \(.filename)"')
+            changes+="$batch"$'\n'
             [ "$(grep -c . <<<"$batch" || true)" -lt 100 ] && break
             page=$((page + 1))
           done
+          files=$(sed 's/^[^ ]* //' <<<"$changes")
           commits=$(gh api "repos/$GH_REPO/pulls/$pr/commits?per_page=100" --jq 'length')
           foreign=""
-          while IFS= read -r f; do
+          while read -r status f; do
             [ -n "$f" ] || continue
             case "$BRANCH:$f" in
               bot/builds-update:builds/*/build.yaml|bot/builds-release:builds/*/build.yaml) ;;
+              # The release track's held build (bb-held-builds.py --release); a Big Bang PR
+              # only deletes one (published, or its release no longer ahead).
+              bot/builds-release:builds/*/release.yaml) ;;
+              bot/bigbang-*:builds/*/release.yaml) [ "$status" = removed ] || foreign+=" $f" ;;
               bot/bigbang-*:BIGBANG_VERSION|bot/bigbang-*:discovery/images.json) ;;
               bot/bigbang-*:overlays/*.yaml|bot/bigbang-*:flux/kustomization.yaml) ;;
               bot/bigbang-*:flux-fips/kustomization.yaml|bot/bigbang-*:builds/*/build.yaml) ;;
@@ -151,7 +157,7 @@ jobs:
               bot/bigbang-*:docs/test-results.json|bot/bigbang-release:docs/upgrades/*.md) ;;
               *) foreign+=" $f" ;;
             esac
-          done <<<"$files"
+          done <<<"$changes"
           if [ -n "$foreign" ] || [ "$commits" != 1 ]; then
             attention "it isn't only the bot's commit ($commits commit(s); files update.yml doesn't write:${foreign:- none}). Fix on main instead; update.yml rebuilds this branch from main."
             exit 0
