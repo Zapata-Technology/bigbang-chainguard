@@ -53,14 +53,6 @@ jobs:
           REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
-          if [ -n "$REF" ]; then
-            echo "refs=[\"$REF\"]" | tee -a "$GITHUB_OUTPUT"
-            # A dispatched release branch gets the kind tests too.
-            if grep -qE '^release-[0-9]+\.[0-9]+\.[0-9]+$' <<<"$REF"; then
-              echo "release=$REF" | tee -a "$GITHUB_OUTPUT"
-            fi
-            exit 0
-          fi
           remote=""
           for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
             remote=$(git ls-remote --heads --tags https://repo1.dso.mil/big-bang/bigbang.git) && break
@@ -72,17 +64,25 @@ jobs:
           if [ -n "$branch" ] && [ -n "$latest" ] && [ "$branch" != "$latest" ] \
              && [ "$(printf '%s\n%s\n' "$latest" "$branch" | sort -V | tail -1)" = "$branch" ]; then
             refs+=",\"release-$branch\""
-            echo "release=release-$branch" | tee -a "$GITHUB_OUTPUT"
+            [ -n "$REF" ] || echo "release=release-$branch" | tee -a "$GITHUB_OUTPUT"
           fi
           echo "newest tag $latest, newest release branch ${branch:-none}"
+          if [ -n "$REF" ]; then
+            # Dispatched: that ref alone (a release branch gets the kind tests too).
+            if grep -qE '^release-[0-9]+\.[0-9]+\.[0-9]+$' <<<"$REF"; then
+              echo "release=$REF" | tee -a "$GITHUB_OUTPUT"
+            fi
+            refs="\"$REF\""
+          fi
           echo "refs=[$refs]" | tee -a "$GITHUB_OUTPUT"
-          # A release branch whose release is out: its issue is done.
+          # A release branch whose release is out: its issue is done (on every run, the
+          # dispatched ones too; not the ref this run previews).
           [ -n "$remote" ] || exit 0
           gh api "repos/$GH_REPO/issues?labels=bigbang-preview&state=open&per_page=100" \
             --jq '.[] | "\(.number) \(.title)"' > open.txt
           while read -r num title; do
             ref=$(grep -oE '\(release-[0-9.]+\)$' <<<"$title" | tr -d '()' || true)
-            [ -n "$ref" ] || continue
+            [ -n "$ref" ] && [ "$ref" != "$REF" ] || continue
             if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "${ref#release-}" "$latest" | sort -V | tail -1)" = "$latest" ]; then
               gh api -X POST "repos/$GH_REPO/issues/$num/comments" \
                 -f body="Big Bang $latest is tagged: the nightly release pull request (bot/bigbang-release) takes over from this preview." >/dev/null
