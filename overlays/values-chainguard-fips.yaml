@@ -937,7 +937,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/loki-canary-fips
         - digest: sha256:d735d9ef688be18ade79710cd4d009b17906f1149a49faa1917e1335d74e344c
           name: cgr.dev/zapatatechnology.com/loki-fips
-        - digest: sha256:602a7143f99fc892a7dbd9bb4119ecadcc5c0831dc0d9f1267e89729664d3b61
+        - digest: sha256:51a9b80eb1c10c313bf031df66ffdffb3a901b8682bd984b153fda7f5cb7e105
           name: cgr.dev/zapatatechnology.com/memcached-exporter-fips
         - digest: sha256:c44570c9eddddf558a614c508b32d220195508d40b090de00add0dc02dd22f20
           name: cgr.dev/zapatatechnology.com/memcached-fips
@@ -1035,7 +1035,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:afd4cd84940b619bed42705fc8be96f735a712e5d1238a5c22cab2eaf8036928
+        - digest: sha256:a9bbc7a349ba3a14a94bfaa9477d17aa129d42f4a370819911a64a7b2e423597
           name: cgr.dev/zapatatechnology.com/metrics-server-fips
     values:
       upstream:
@@ -1052,7 +1052,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
         - digest: sha256:e7f52e982454ed8afb79aa7e06b3b063f47215c3362b690cc9701729e36a8dfc
           name: cgr.dev/zapatatechnology.com/kafka-native
-        - digest: sha256:602a7143f99fc892a7dbd9bb4119ecadcc5c0831dc0d9f1267e89729664d3b61
+        - digest: sha256:51a9b80eb1c10c313bf031df66ffdffb3a901b8682bd984b153fda7f5cb7e105
           name: cgr.dev/zapatatechnology.com/memcached-exporter-fips
         - digest: sha256:c44570c9eddddf558a614c508b32d220195508d40b090de00add0dc02dd22f20
           name: cgr.dev/zapatatechnology.com/memcached-fips
@@ -1153,7 +1153,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
         - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:7073e83e78795e36f668a14446e737b38bc99f381365e5cfba85c2928a6d5ccb
+        - digest: sha256:37835c3decf045022946c08903d1dab2c4bd991328335db125736efa5a8a5b35
           name: cgr.dev/zapatatechnology.com/thanos-fips
     values:
       bbtests:
@@ -1387,7 +1387,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:7073e83e78795e36f668a14446e737b38bc99f381365e5cfba85c2928a6d5ccb
+        - digest: sha256:37835c3decf045022946c08903d1dab2c4bd991328335db125736efa5a8a5b35
           name: cgr.dev/zapatatechnology.com/thanos-fips
     values:
       upstream:
