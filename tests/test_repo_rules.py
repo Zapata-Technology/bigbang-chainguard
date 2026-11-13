@@ -118,6 +118,20 @@ def test_workflows_parse_and_declare_permissions(path):
     assert "permissions" in doc, "top-level permissions keep the default token least-privilege"
 
 
+def test_every_workflow_pins_the_same_cosign():
+    """ci.yml checks builds.yml's signing flags on the cosign it installs, so both (and
+    release.yml) must install the same one, named, not the installer's moving default."""
+    found = {}
+    for path in WORKFLOWS:
+        for job in (yaml.safe_load(open(path, encoding="utf-8")).get("jobs") or {}).values():
+            for step in job.get("steps", []):
+                if "sigstore/cosign-installer@" in step.get("uses", ""):
+                    found[os.path.basename(path)] = (step.get("with") or {}).get("cosign-release")
+    assert {"builds.yml", "ci.yml", "release.yml"} <= set(found)
+    assert None not in found.values(), f"set cosign-release: {found}"
+    assert len(set(found.values())) == 1, f"one cosign version everywhere: {found}"
+
+
 # --- the VM tests (fips-kernel.yml, rke2.yml): every download pinned, every host allowed ---
 
 GITHUB_DIR = os.path.join(ROOT, ".github")

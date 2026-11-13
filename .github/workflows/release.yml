@@ -67,6 +67,11 @@ jobs:
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+        with:
+          # Pinned: the installer's default moves with each release (4.1.3: cosign 3.1.4,
+          # which deprecates the signing flags builds.yml uses). Same version in every
+          # workflow (tests/test_repo_rules.py); raise it on purpose, with builds.yml's flags.
+          cosign-release: v3.0.6
 
       - name: Release
         env:
