@@ -782,7 +782,7 @@ packages:
         images:
         - digest: sha256:5282a659767cfe007bf80c24750b06922c9db64d34ec62d34be4d13a666d455d
           name: cgr.dev/zapatatechnology.com/kiali
-        - digest: sha256:e463423a0d43623e96c24190c21c4251f5b4dd4176fd0bf30d3d51a405ed4e07
+        - digest: sha256:8e663972feca529166e2ea4d1c598624a9ff554804f172bc6617b8439b962239
           name: cgr.dev/zapatatechnology.com/kiali-operator
         - digest: sha256:1bf41f1ca1cac6af4898388f50604170e408a85ec9d66c556bc3e5f7c0bdf3c3
           name: cgr.dev/zapatatechnology.com/kubectl
