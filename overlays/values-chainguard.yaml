@@ -212,7 +212,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:ab4983be84614691588a03dd397d01d1c56c723ba7747ba1b9eaca7b553a648c
+        - digest: sha256:cbeba32d56583865bc6f5a955215d91834f90b368d65c3be0bf76b7178a201dd
           name: cgr.dev/zapatatechnology.com/eck-operator
     values:
       upgradeCrds:
