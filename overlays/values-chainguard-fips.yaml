@@ -86,7 +86,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/busybox-fips
         - digest: sha256:99399dbf2b5ed268eeb11997c01cd0a53d2e1ac237b9d94d28074a68084c41d5
           name: cgr.dev/zapatatechnology.com/dex-fips
-        - digest: sha256:e16bdcd6cf759b1f23dbc07be171b051475c400c158cf618da6ddd68432fbc7c
+        - digest: sha256:af952f3c4dca4d5d106dde15c9ea36309931b3eb397e4329d3091729c8c15d95
           name: cgr.dev/zapatatechnology.com/haproxy
     values:
       bbtests:
