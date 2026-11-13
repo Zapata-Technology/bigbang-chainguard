@@ -1,14 +1,16 @@
 name: Auto-merge - nightly update
 
-# Merges the nightly bot pull requests (update.yml: bot/bigbang-update, and
-# bot/builds-update with build.yaml files held back until published) once every
-# check on its head commit has passed: CI, the image builds and every kind test. Branch
+# Merges the nightly bot pull requests (update.yml: bot/bigbang-update, the routine track;
+# bot/bigbang-release, a new Big Bang release; and bot/builds-update / bot/builds-release
+# with build.yaml files held back until published) once every check on its head commit has
+# passed: CI, the image builds and every kind test. Branch
 # protection only requires `verify`, so GitHub's own auto-merge would not wait for the
 # kind tests; this does. It runs each time one of those workflows finishes and merges on
 # the run that sees nothing pending or failed.
 #
-# Not merged automatically: a new Big Bang release (BIGBANG_VERSION changes; a person
-# reads the report first), a pull request labeled `hold`, and a bot PR that carries anything
+# Not merged automatically: a new Big Bang release (bot/bigbang-release; a person reads its
+# upgrade notes and report first), except a patch release (same MAJOR.MINOR) when the
+# AUTOMERGE_BIGBANG_PATCHES repository variable is `true`; a pull request labeled `hold`, and a bot PR that carries anything
 # but the bot's one commit touching the files update.yml writes (a person's commit on the
 # bot branch would otherwise land on main unreviewed, under the bot's title).
 #
@@ -46,7 +48,9 @@ jobs:
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       (github.event.workflow_run.head_branch == 'bot/bigbang-update' ||
-       github.event.workflow_run.head_branch == 'bot/builds-update') &&
+       github.event.workflow_run.head_branch == 'bot/bigbang-release' ||
+       github.event.workflow_run.head_branch == 'bot/builds-update' ||
+       github.event.workflow_run.head_branch == 'bot/builds-release') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -97,6 +101,7 @@ jobs:
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           MENTION: ${{ vars.ALERT_MENTION }}
+          PATCHES: ${{ vars.AUTOMERGE_BIGBANG_PATCHES }}
         run: |
           set -euo pipefail
           [ -n "$MERGE_TOKEN" ] || { echo "::warning::no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT); not merging"; exit 0; }
@@ -136,14 +141,14 @@ jobs:
           while IFS= read -r f; do
             [ -n "$f" ] || continue
             case "$BRANCH:$f" in
-              bot/builds-update:builds/*/build.yaml) ;;
-              bot/bigbang-update:BIGBANG_VERSION|bot/bigbang-update:discovery/images.json) ;;
-              bot/bigbang-update:overlays/*.yaml|bot/bigbang-update:flux/kustomization.yaml) ;;
-              bot/bigbang-update:flux-fips/kustomization.yaml|bot/bigbang-update:builds/*/build.yaml) ;;
-              bot/bigbang-update:seaweedfs/*.yaml|bot/bigbang-update:seaweedfs-fips/*.yaml) ;;
-              bot/bigbang-update:docs/images.md|bot/bigbang-update:docs/required-images.md) ;;
-              bot/bigbang-update:docs/version-differences.md|bot/bigbang-update:docs/testing.md) ;;
-              bot/bigbang-update:docs/test-results.json) ;;
+              bot/builds-update:builds/*/build.yaml|bot/builds-release:builds/*/build.yaml) ;;
+              bot/bigbang-*:BIGBANG_VERSION|bot/bigbang-*:discovery/images.json) ;;
+              bot/bigbang-*:overlays/*.yaml|bot/bigbang-*:flux/kustomization.yaml) ;;
+              bot/bigbang-*:flux-fips/kustomization.yaml|bot/bigbang-*:builds/*/build.yaml) ;;
+              bot/bigbang-*:seaweedfs/*.yaml|bot/bigbang-*:seaweedfs-fips/*.yaml) ;;
+              bot/bigbang-*:docs/images.md|bot/bigbang-*:docs/required-images.md) ;;
+              bot/bigbang-*:docs/version-differences.md|bot/bigbang-*:docs/testing.md) ;;
+              bot/bigbang-*:docs/test-results.json|bot/bigbang-release:docs/upgrades/*.md) ;;
               *) foreign+=" $f" ;;
             esac
           done <<<"$files"
@@ -151,9 +156,21 @@ jobs:
             attention "it isn't only the bot's commit ($commits commit(s); files update.yml doesn't write:${foreign:- none}). Fix on main instead; update.yml rebuilds this branch from main."
             exit 0
           fi
+          # A new Big Bang release: a person merges it, unless it is a patch release (same
+          # MAJOR.MINOR as main's) and AUTOMERGE_BIGBANG_PATCHES is `true`.
           if grep -qx BIGBANG_VERSION <<<"$files"; then
-            attention "it moves to a new Big Bang release, which a person merges after reading the report in the PR body."
-            exit 0
+            if [ "$BRANCH" != bot/bigbang-release ]; then
+              attention "it changes BIGBANG_VERSION, which only the release track (bot/bigbang-release) does."
+              exit 0
+            fi
+            content=$(gh api "repos/$GH_REPO/contents/BIGBANG_VERSION?ref=$SHA" --jq .content)
+            new=$(base64 -d <<<"$content" | tr -d '[:space:]')
+            old=$(tr -d '[:space:]' < BIGBANG_VERSION)
+            if [ "$PATCHES" != true ] || [ -z "$new" ] || [ "${old%.*}" != "${new%.*}" ]; then
+              attention "it moves to Big Bang $new (from $old), which a person merges after reading the upgrade notes (docs/upgrades/$new.md) and the report in the PR body."
+              exit 0
+            fi
+            echo "Big Bang $old -> $new is a patch release and AUTOMERGE_BIGBANG_PATCHES is true: merging it when green"
           fi
 
           # A kind test cut off by its time limit (repo1.dso.mil) ends the run as cancelled.

@@ -5,7 +5,8 @@ agent) start maintaining it. Needs `gh` logged in.
   python scripts/repo-status.py
 
   - open pull requests, each with its checks (passed / failed / running) and labels;
-    the nightly bot PRs (bot/bigbang-update, bot/builds-update) first
+    the nightly bot PRs (bot/bigbang-update, bot/bigbang-release, bot/builds-update,
+    bot/builds-release) first
   - the latest run of each workflow on main (CI, builds, release, the nightly update, the
     weekly kind tests, automerge) and whether it passed
   - the latest release and the Big Bang version
@@ -28,7 +29,7 @@ import ghrest  # noqa: E402
 
 ROOT = ghrest.ROOT
 WORKFLOWS = ["ci.yml", "builds.yml", "release.yml", "update.yml", "compat.yml", "automerge.yml", "cve-report.yml"]
-BOT_BRANCHES = ("bot/bigbang-update", "bot/builds-update")
+BOT_BRANCHES = ("bot/bigbang-update", "bot/bigbang-release", "bot/builds-update", "bot/builds-release")
 
 
 def check_summary(checks):

@@ -95,7 +95,49 @@ def upgrade(a):
         install(argparse.Namespace(**{**vars(a), "plan": True}))
         if sys.stdin.isatty() and not a.yes and not confirm("Apply this?", default=False):
             raise SystemExit("not upgrading (--yes skips this question)")
+        if not getattr(a, "no_backup", False):
+            backup_before_upgrade(getattr(a, "backup_timeout", 1800))
     return install(a)
+
+
+VELERO_NS = "velero"
+
+
+def backup_before_upgrade(timeout, now=time.time, sleep=time.sleep):
+    """A Velero backup of the whole cluster before an upgrade changes it, when Velero runs
+    with a backup location it can write to. Returns the backup's name, or None when there is
+    no Velero to back up with. A backup that fails or doesn't finish stops the upgrade
+    (--no-backup skips this): a database migration can't be undone by `rollback`, only by
+    restoring (velero restore create --from-backup <name>)."""
+    if not kubectl("get", "crd", "backups.velero.io", "-o", "name", check=False):
+        say("note: Velero isn't installed: upgrading without a backup")
+        return None
+    locations = json.loads(kubectl("-n", VELERO_NS, "get", "backupstoragelocations.velero.io", "-o", "json",
+                                   check=False) or "{}").get("items", [])
+    if not any((x.get("status") or {}).get("phase") == "Available" for x in locations):
+        raise SystemExit("Velero has no Available backup storage location, so no backup can be taken before "
+                         "the upgrade. Fix Velero (velero backup-location get), or upgrade with --no-backup.")
+    name = "bb-upgrade-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime(now()))
+    step(f"Velero backup {name} before upgrading")
+    manifest = {"apiVersion": "velero.io/v1", "kind": "Backup",
+                "metadata": {"name": name, "namespace": VELERO_NS,
+                             "labels": {"app.kubernetes.io/managed-by": "bb-install"}},
+                "spec": {"includedNamespaces": ["*"], "ttl": "720h0m0s"}}
+    sh("kubectl", "apply", "-f", "-", stdin=json.dumps(manifest), capture=True)
+    deadline = now() + timeout
+    phase = ""
+    while now() < deadline:
+        out = kubectl("-n", VELERO_NS, "get", "backups.velero.io", name, "-o", "json", check=False)
+        phase = ((json.loads(out) if out else {}).get("status") or {}).get("phase", "")
+        if phase == "Completed":
+            say(f"backup {name} completed (restore: velero restore create --from-backup {name})")
+            return name
+        if phase in ("Failed", "PartiallyFailed", "FailedValidation"):
+            raise SystemExit(f"Velero backup {name} ended {phase} (velero backup describe {name} --details); "
+                             "not upgrading. --no-backup upgrades without one.")
+        sleep(15)
+    raise SystemExit(f"Velero backup {name} didn't finish in {timeout} s (last phase {phase or 'none'}); "
+                     "not upgrading. --backup-timeout waits longer; --no-backup upgrades without one.")
 
 
 def status(a):

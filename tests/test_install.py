@@ -1,6 +1,7 @@
 """bb-install.py decisions that don't need a cluster (kubectl/helm calls are stubbed)."""
 import argparse
 import getpass
+import json
 import os
 import shutil
 import subprocess
@@ -849,3 +850,47 @@ def test_node_inotify_reads_each_node_and_deletes_its_namespace(monkeypatch):
     assert unread == ["n2"]                       # never finished: a note, not a problem
     assert any(c[0] == "secret" for c in calls)
     assert calls[-1][:3] == ("delete", "namespace", nodes.PROBE_NAMESPACE)
+
+
+def velero_cluster(monkeypatch, phases, crd=True, location="Available"):
+    """Stub kubectl for backup_before_upgrade: the Backup goes through `phases`."""
+    applied = []
+    seq = iter(phases)
+
+    def kubectl(*a, **k):
+        if a[:2] == ("get", "crd"):
+            return "customresourcedefinition/backups.velero.io" if crd else ""
+        if "backupstoragelocations.velero.io" in a:
+            return json.dumps({"items": [{"status": {"phase": location}}]})
+        if "backups.velero.io" in a:
+            return json.dumps({"status": {"phase": next(seq)}})
+        raise AssertionError(a)
+    monkeypatch.setattr(commands, "kubectl", kubectl)
+    monkeypatch.setattr(commands, "sh", lambda *a, stdin=None, **k: applied.append(json.loads(stdin)))
+    return applied
+
+
+def test_an_upgrade_backs_up_with_velero_first(monkeypatch):
+    applied = velero_cluster(monkeypatch, ["New", "InProgress", "Completed"])
+    name = commands.backup_before_upgrade(600, now=lambda: 0, sleep=lambda s: None)
+    assert name.startswith("bb-upgrade-")
+    assert applied[0]["kind"] == "Backup" and applied[0]["spec"]["includedNamespaces"] == ["*"]
+
+
+def test_no_velero_upgrades_without_a_backup(monkeypatch):
+    applied = velero_cluster(monkeypatch, [], crd=False)
+    assert commands.backup_before_upgrade(600) is None and applied == []
+
+
+def test_a_failed_or_impossible_backup_stops_the_upgrade(monkeypatch):
+    velero_cluster(monkeypatch, ["InProgress", "PartiallyFailed"])
+    with pytest.raises(SystemExit, match="PartiallyFailed"):
+        commands.backup_before_upgrade(600, now=lambda: 0, sleep=lambda s: None)
+    velero_cluster(monkeypatch, [], location="Unavailable")
+    with pytest.raises(SystemExit, match="--no-backup"):
+        commands.backup_before_upgrade(600)
+    clock = [0]
+    velero_cluster(monkeypatch, ["InProgress"] * 10)
+    with pytest.raises(SystemExit, match="didn't finish"):
+        commands.backup_before_upgrade(30, now=lambda: clock[0],
+                                       sleep=lambda s: clock.__setitem__(0, clock[0] + s))

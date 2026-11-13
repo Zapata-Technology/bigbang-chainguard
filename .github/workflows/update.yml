@@ -1,5 +1,16 @@
 # Nightly: move the overlays to the newest org patches, and to a new Big Bang
-# release when one is out.
+# release when one is out, in separate pull requests (one job per track):
+#
+#   routine  bot/bigbang-update   the Big Bang release main deploys, with the newest org
+#                                 patches and builds; automerge.yml merges it when green
+#   release  bot/bigbang-release  a newer Big Bang release, only while one is out: discovery
+#                                 re-run, upgrade notes (docs/upgrades/<version>.md, by
+#                                 scripts/bb-release-notes.py) in the PR body; a person merges
+#                                 it (automerge.yml merges a patch release itself when the
+#                                 AUTOMERGE_BIGBANG_PATCHES variable is `true`)
+#
+# So a release that needs work never holds back the routine updates. Each track's PR is
+# rebuilt from main on every run, so after one merges the other follows main again.
 #
 # A new Big Bang release re-runs discovery. If it deploys an image mapping.yaml
 # does not cover, or one with no org tag, the pull request still opens with the
@@ -11,8 +22,11 @@
 # An image this repo builds whose tag moves (Grafana 13.3.0 -> 13.3.1) can't be in the
 # overlays until builds.yml has published it from main. scripts/bb-held-builds.py holds
 # such a build.yaml back: the overlays stay on the published tag, and the build.yaml goes
-# in its own pull request (bot/builds-update; automerge.yml merges it when green). Once
-# builds.yml has published from main, this workflow runs again and moves the overlays.
+# in its own pull request (bot/builds-update, or bot/builds-release for the release track;
+# automerge.yml merges both when green). Once builds.yml has published from main, this
+# workflow runs again and moves the overlays. (A release's builds on main are pinned for
+# the new release until the routine track's next PR re-pins them for the deployed one; the
+# published tags stay, so both tracks' overlays then use published images.)
 name: Update - Big Bang and Chainguard tags
 
 on:
@@ -31,6 +45,10 @@ on:
       - scripts/orgtags.py
       - builds/*/recipe.yaml
       - builds/*/Dockerfile
+      # A track's PR merged: rebuild the other one from the new main (a merged release
+      # moves the routine track to it; a merged routine PR leaves the release PR stale).
+      - BIGBANG_VERSION
+      - overlays/values-chainguard.yaml
   # builds.yml finished on main: a held-back build may be published now.
   workflow_run:
     workflows: ["Build - Big Bang images"]
@@ -45,11 +63,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  update:
+  # Which tracks run: routine always; release while repo1 has a Big Bang release newer than
+  # BIGBANG_VERSION. A repo1 that doesn't answer runs routine alone (and leaves an open
+  # release PR as it is).
+  plan:
     # After builds.yml only when it published (a push to main that succeeded).
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tracks: ${{ steps.bb.outputs.tracks }}
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            repo1.dso.mil:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Newest Big Bang release
+        id: bb
+        run: |
+          current=$(cat BIGBANG_VERSION)
+          latest=""
+          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
+            latest=$(git ls-remote --tags https://repo1.dso.mil/big-bang/bigbang.git \
+              | grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' | sed 's#refs/tags/##' | sort -V | tail -1) || true
+            [ -n "$latest" ] && break
+            sleep $((30 * i))
+          done
+          echo "current=$current latest=$latest"
+          tracks='{"track":"routine","version":"'"$current"'","branch":"bot/bigbang-update","builds_branch":"bot/builds-update","title":"update Chainguard tags in the Big Bang overlays"}'
+          if [ -n "$latest" ] && [ "$latest" != "$current" ] \
+             && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+            tracks+=',{"track":"release","version":"'"$latest"'","branch":"bot/bigbang-release","builds_branch":"bot/builds-release","title":"Big Bang '"$latest"' on Chainguard images"}'
+          fi
+          echo "tracks=[$tracks]" | tee -a "$GITHUB_OUTPUT"
+
+  update:
+    needs: plan
+    name: update (${{ matrix.track }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.tracks) }}
     runs-on: ubuntu-latest
     # A typical run takes 15-20 minutes; a hang would hold the `update` group for 6 hours.
     timeout-minutes: 60
@@ -130,25 +194,14 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
 
-      - name: Newest Big Bang release
-        id: bb
+      # The release track moves to the new release; main's discovery is kept for its notes.
+      - name: Big Bang version (${{ matrix.version }})
+        env:
+          VERSION: ${{ matrix.version }}
         run: |
-          current=$(cat BIGBANG_VERSION)
-          latest=""
-          for i in 1 2 3 4; do   # repo1.dso.mil intermittently refuses GitHub runners
-            latest=$(git ls-remote --tags https://repo1.dso.mil/big-bang/bigbang.git \
-              | grep -oE 'refs/tags/[0-9]+\.[0-9]+\.[0-9]+$' | sed 's#refs/tags/##' | sort -V | tail -1) || true
-            [ -n "$latest" ] && break
-            sleep $((30 * i))
-          done
-          echo "current=$current latest=$latest"
-          if [ -n "$latest" ] && [ "$latest" != "$current" ] \
-             && [ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)" = "$latest" ]; then
-            echo "$latest" > BIGBANG_VERSION
-            echo "title=Big Bang $latest on Chainguard images" >> "$GITHUB_OUTPUT"
-          else
-            echo "title=update Chainguard tags in the Big Bang overlays" >> "$GITHUB_OUTPUT"
-          fi
+          echo "previous=$(cat BIGBANG_VERSION)" | tee -a "$GITHUB_ENV"
+          cp discovery/images.json "${RUNNER_TEMP}/previous-images.json"
+          echo "$VERSION" > BIGBANG_VERSION
 
       - name: Discover, convert, verify
         id: run
@@ -200,6 +253,13 @@ jobs:
             # The plan's per-tier room, and needed repositories that don't fit it.
             python3 scripts/bb-org-repos.py --quota 2>&1 || true
             echo '```'
+            # A new release: what moves underneath (docs/upgrades/<version>.md, in this PR).
+            if [ "$previous" != "$(cat BIGBANG_VERSION)" ]; then
+              echo
+              python3 scripts/bb-release-notes.py --from "$previous" --to "$(cat BIGBANG_VERSION)" \
+                --old-images "${RUNNER_TEMP}/previous-images.json" \
+                -o "docs/upgrades/$(cat BIGBANG_VERSION).md" 2>&1 | sed '1s/^# /## /' || true
+            fi
           } > "${RUNNER_TEMP}/report.md"
           cat "${RUNNER_TEMP}/report.md" >> "$GITHUB_STEP_SUMMARY"
           {
@@ -240,26 +300,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ matrix.branch }}
+          BUILDS_BRANCH: ${{ matrix.builds_branch }}
         run: |
           set -euo pipefail
-          for pr_branch in bigbang-update builds-update; do
-            held=$(gh api "repos/$GH_REPO/pulls?state=open&head=${GH_REPO%%/*}:bot/$pr_branch"               --jq '[.[].labels[].name] | index("hold") != null')
-            echo "$pr_branch=$held" >> "$GITHUB_OUTPUT"
-            [ "$held" = false ] || echo "::notice::bot/$pr_branch is labeled hold: not updating it"
+          for pr_branch in "$BRANCH" "$BUILDS_BRANCH"; do
+            held=$(gh api "repos/$GH_REPO/pulls?state=open&head=${GH_REPO%%/*}:$pr_branch" \
+              --jq '[.[].labels[].name] | index("hold") != null')
+            echo "${pr_branch#bot/}=$held" >> "$GITHUB_OUTPUT"
+            [ "$held" = false ] || echo "::notice::$pr_branch is labeled hold: not updating it"
           done
 
       - name: Open the pull request
-        if: steps.hold.outputs.bigbang-update != 'true'
+        if: steps.hold.outputs.bigbang-update != 'true' && steps.hold.outputs.bigbang-release != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
           token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
           base: main
-          branch: bot/bigbang-update
+          branch: ${{ matrix.branch }}
           delete-branch: true
-          title: "chore: ${{ steps.bb.outputs.title }}"
-          commit-message: "chore: ${{ steps.bb.outputs.title }}"
+          title: "chore: ${{ matrix.title }}"
+          commit-message: "chore: ${{ matrix.title }}"
           add-paths: |
             BIGBANG_VERSION
+            docs/upgrades/*.md
             discovery/images.json
             overlays/*.yaml
             flux/kustomization.yaml
@@ -284,15 +348,17 @@ jobs:
         run: python3 scripts/bb-held-builds.py restore "${RUNNER_TEMP}/held"
 
       - name: Open the builds pull request
-        if: steps.run.outputs.held != '' && steps.hold.outputs.builds-update != 'true'
+        if: >-
+          steps.run.outputs.held != '' &&
+          steps.hold.outputs.builds-update != 'true' && steps.hold.outputs.builds-release != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
           token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
           base: main
-          branch: bot/builds-update
+          branch: ${{ matrix.builds_branch }}
           delete-branch: true
-          title: "chore: build the images built here at their new versions"
-          commit-message: "chore: build the images built here at their new versions"
+          title: "chore: build the images built here at their new versions (Big Bang ${{ matrix.version }})"
+          commit-message: "chore: build the images built here at their new versions (Big Bang ${{ matrix.version }})"
           add-paths: ${{ steps.run.outputs.held }}
           body: |
             Automated by `.github/workflows/update.yml`.
@@ -305,4 +371,4 @@ jobs:
             ```
 
             Nothing deployed changes here. When this merges, builds.yml pushes and signs the
-            new tags, then update.yml runs again and moves the overlays in `bot/bigbang-update`.
+            new tags, then update.yml runs again and moves the overlays in `${{ matrix.branch }}`.

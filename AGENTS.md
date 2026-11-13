@@ -90,8 +90,8 @@ current), `codeql.yml` / `scorecard.yml` (public repo only).
 The loop, for a person or an agent picking the repo up:
 
 1. **Start:** `gh api user --jq .login` (the account that may push), then
-   `python scripts/repo-status.py`. An open `bot/bigbang-update` PR or a failed run on main
-   comes first.
+   `python scripts/repo-status.py`. An open bot PR (`bot/bigbang-update`, `bot/bigbang-release`,
+   `bot/builds-*`) or a failed run on main comes first.
 2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
    failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
    a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
@@ -111,7 +111,10 @@ The loop, for a person or an agent picking the repo up:
    reports its own progress (`LIVE` lines, an early stop) in its log and artifact.
 5. **Merge** when every check passed (`gh pr merge <n> --squash --delete-branch`); branch
    protection requires only `verify`, so check the rest yourself. The nightly bot PR merges
-   itself (`automerge.yml`) unless it moves Big Bang or carries `hold`.
+   itself (`automerge.yml`) unless it moves Big Bang or carries `hold`. A new Big Bang
+   release comes in its own PR (`bot/bigbang-release`); a person merges it after reading
+   `docs/upgrades/<version>.md` (a patch release merges itself when the
+   `AUTOMERGE_BIGBANG_PATCHES` variable is `true`).
 6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
    and, if a site must act, the README; a new trap goes below. `docs/testing.md`'s
    results table is generated: the nightly bot PR brings main's newest compat.yml results
@@ -123,9 +126,13 @@ Never print or copy secrets, and never change git config.
 
 ## Playbooks
 
-### The nightly bot PR (`bot/bigbang-update`) fails or reports something
-A green bot PR merges itself (`automerge.yml`), so one still open has a failed check, a
-`hold` label, or a new `BIGBANG_VERSION`. `automerge.yml` triages a failed first attempt
+### The nightly bot PR (`bot/bigbang-update` or `bot/bigbang-release`) fails or reports something
+`update.yml` has two tracks: `bot/bigbang-update` keeps the deployed Big Bang release on
+the newest org patches and builds, and `bot/bigbang-release` (only while repo1 has a newer
+release) moves to the new release, with upgrade notes (`scripts/bb-release-notes.py`,
+`docs/upgrades/<version>.md`) in its body. Work on a release never holds back the routine
+track. A green routine PR merges itself (`automerge.yml`), so one still open has a failed
+check or a `hold` label; a release PR waits for a person. `automerge.yml` triages a failed first attempt
 with main's `ci-triage.py --run` and re-runs it only when every failure is a known flake; a
 real failure isn't re-run. A real failure, a failure that survived the re-run, a triage
 that couldn't read GitHub, a new release, or a commit that isn't the bot's gets the
@@ -146,8 +153,8 @@ pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it 
    Remove `hold` afterwards.
 7. *A built image's tag moved* (Grafana 13.3.0 → 13.3.1): builds.yml publishes a tag only
    from main, so the overlays can't use it yet. `scripts/bb-held-builds.py` holds that
-   build.yaml back and update.yml opens it alone as `bot/builds-update`, which merges itself
-   when green; builds.yml then publishes from main and update.yml runs again to move the
+   build.yaml back and update.yml opens it alone as `bot/builds-update` (`bot/builds-release`
+   for the release track), which merges itself when green; builds.yml then publishes from main and update.yml runs again to move the
    overlays. A bot PR failing on `MANIFEST_UNKNOWN` / `ImagePullBackOff` for
    `<BUILD_REGISTRY>/bigbang-*` means that didn't happen: check builds.yml's last run on main.
 
