@@ -212,7 +212,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:476ea4003f90288909a4078e53339cd113e35926e87e892e220f93aa947b0142
+        - digest: sha256:976a8857c7312dc1a89bff1eec203807eb5080cbbc50938d2f92d786098214aa
           name: cgr.dev/zapatatechnology.com/eck-operator-fips
     values:
       upgradeCrds:
@@ -401,7 +401,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-certificates-fips
         - digest: sha256:5d2e6f0ae88424fc263206148c8ebaadf305a550c2d5802f6529d0558298ed82
           name: cgr.dev/zapatatechnology.com/gitlab-container-registry-fips
-        - digest: sha256:89c80beae8157b69e31218d12132615bda1723a6409e6b6fbd473e718f4430ca
+        - digest: sha256:345574d7bfa5fd5e93dda653a678e2ce1550ed27341a8190fed3a539e330fe21
           name: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
         - digest: sha256:176ec724e216e7a643c0a66ab6e8a01871bf9cef797f58d464b9e166e739dd4c
           name: cgr.dev/zapatatechnology.com/gitlab-kas-fips
@@ -671,7 +671,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:81e2b6c97232f82290d4282019499cc59bd533357cb298e1832c967a8834489c
+        - digest: sha256:910f82354b9b9f4bfa2a3da9d87d4dabb13bf5c6ebdd4bb2edddb6fd42791f9f
           name: cgr.dev/zapatatechnology.com/headlamp-fips
         - digest: sha256:305bd1772b58bbd02c5180e7b90cce97480b787c063f8ca72fc137ddd635ccbc
           name: cgr.dev/zapatatechnology.com/kubectl-fips
