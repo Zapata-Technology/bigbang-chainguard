@@ -81,9 +81,9 @@ when every check passed; not a new Big Bang release or a `hold` label), `release
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix and the most common Highs), `fips-kernel.yml` (weekly: the FIPS overlay
 on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
-packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (weekly:
-`bb-preview.py` against Big Bang's development branch; keeps one `bigbang-preview` issue
-current), `codeql.yml` / `scorecard.yml` (public repo only).
+packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (daily:
+`bb-preview.py` against Big Bang's development branch and its untagged `release-X.Y.Z`
+branch; keeps one `bigbang-preview` issue per ref current), `codeql.yml` / `scorecard.yml` (public repo only).
 
 ## Maintaining this repo with an AI agent
 
@@ -159,8 +159,10 @@ pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it 
    `<BUILD_REGISTRY>/bigbang-*` means that didn't happen: check builds.yml's last run on main.
 
 ### The Big Bang preview issue (`bigbang-preview`)
-`bigbang-preview.yml` runs this repo against Big Bang's development branch every Monday and
-keeps one issue with what would break: a newer Kubernetes requirement, images added or
+`bigbang-preview.yml` runs this repo daily against Big Bang's development branch (`master`)
+and, while one is newer than the newest tag, the `release-X.Y.Z` branch Big Bang cuts before
+tagging (the next release as it will ship). It keeps one issue per ref (the ref in its title;
+a release branch's closes when its release is tagged) with what would break: a newer Kubernetes requirement, images added or
 removed, a package that doesn't render, unmapped images, new chart scan findings, and kind
 tests whose values the new charts refuse. Work it like a bot PR, ahead of time: each fix
 that is also right for the current release (a mapping, an override that both accept) can
