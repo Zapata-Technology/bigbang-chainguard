@@ -10,7 +10,7 @@ from conftest import ROOT
 
 FILES = sorted(glob.glob(os.path.join(ROOT, "compat", "*.yaml")))
 KNOWN = {"enable", "expect", "values", "values_files", "setup", "debug", "forbid_log", "no_pods", "namespaces",
-         "installer", "installer_args", "installer_release", "check", "large", "timeout", "registry1", "upgrade_from"}
+         "installer", "installer_args", "installer_release", "before_upgrade", "check", "large", "timeout", "registry1", "upgrade_from"}
 UPGRADE_FROM = {"images", "release", "check", "upgrade", "values"}
 
 
@@ -25,13 +25,14 @@ def test_compat_file(path):
     assert test.get("no_pods") or test.get("expect") or doc.get("images"), "nothing to check"
     for f in test.get("values_files", []):
         assert f.startswith("$COMPAT_OUT/"), f
+    assert not test.get("before_upgrade") or test.get("installer_release"), "before_upgrade needs installer_release"
     frm = test.get("upgrade_from")
     if frm:
         assert set(frm) <= UPGRADE_FROM, f"unknown upgrade_from keys {set(frm) - UPGRADE_FROM}"
         assert not test.get("installer"), "upgrade_from doesn't work with installer: true"
         # Start from an older mapping (`images`) or from the previous release (`release`).
         assert bool(frm.get("images")) != bool(frm.get("release")), "upgrade_from needs images or release"
-        assert frm.get("release") in (None, "previous"), frm.get("release")
+        assert frm.get("release") in (None, "previous", "previous-bigbang"), frm.get("release")
         # Starting from an Iron Bank image needs Iron Bank pulls: mark it, so CI skips the
         # test without an Iron Bank account instead of failing on the pull.
         if any(isinstance(v, dict) and "stays" in v for v in (frm.get("images") or {}).values()):

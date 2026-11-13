@@ -35,8 +35,14 @@ installs a published release with that release's own bb-install.py and overlays 
 newest release of the Big Bang version before the newest release's; or the release just
 before the newest), then runs this tree's `bb-install.py upgrade --to <newest release>`:
 the download, checksum and signature check, and handoff to the release's installer, on a
-real cluster. Checks see the two tags as $COMPAT_FROM_RELEASE and $COMPAT_TO_RELEASE
-(compat/installer-upgrade-to.yaml).
+real cluster. `before_upgrade` runs on the first release's install (write data, as
+upgrade_from.check does); checks see the two tags as $COMPAT_FROM_RELEASE and
+$COMPAT_TO_RELEASE (compat/installer-upgrade-to.yaml).
+
+`upgrade_from.release: previous-bigbang` starts a release upgrade from the newest release
+of the Big Bang version before this tree's instead of the newest release, so the
+packages' versions (and their database migrations) change in the upgrade
+(compat/release-upgrade-mattermost.yaml).
 
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
@@ -64,7 +70,7 @@ from bbcommon import (ROOT, bigbang_packages, build_registry, deep_merge, is_big
                       load_mapping, running_image_problems)
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
-                       install_flux, kubectl, report, sh, wait_ready)
+                       install_flux, kubectl, reconcile_helmreleases, report, sh, wait_ready)
 from release import previous_tag  # noqa: E402
 from bbinstall import releases  # noqa: E402
 
@@ -152,10 +158,11 @@ def registry1_skip(test, env):
     return f"needs Iron Bank pulls (registry1: true); {' and '.join(missing)} not set"
 
 
-def release_before(ls_remote, head):
+def release_before(ls_remote, head, older_than=None):
     """The newest release tag (from `git ls-remote --tags` output) not at commit `head`: on
     a pull request that is the release sites run now; on main, once the release workflow
-    has tagged it, the one before."""
+    has tagged it, the one before. With `older_than` (a Big Bang version), the newest
+    release of an older Big Bang version: an upgrade that moves the packages' versions."""
     at = {}
     for line in ls_remote.splitlines():
         sha, ref = line.split("\t")
@@ -164,19 +171,28 @@ def release_before(ls_remote, head):
             at[tag[:-3]] = sha   # an annotated tag's commit
         else:
             at.setdefault(tag, sha)
-    return previous_tag([t for t, sha in at.items() if sha != head])
+    tags = [t for t, sha in at.items() if sha != head]
+    if older_than:
+        tags = [t for t in tags if releases.tag_key(t)
+                and releases.version_key(releases.bigbang_of(t)) < releases.version_key(older_than)]
+    return previous_tag(tags)
 
 
 BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
 
 
-def fetch_release(dest):
+def fetch_release(dest, start="previous"):
     """Extract the previous release's overlays, Flux kustomizations and BIGBANG_VERSION
-    into `dest` (git archive of its tag; works in a shallow checkout). Returns the tag and
-    the Big Bang chart it deploys: work/bigbang's when the versions match, else a clone of
-    its Big Bang tag."""
+    into `dest` (git archive of its tag; works in a shallow checkout). `start`: previous
+    (the newest release) or previous-bigbang (the newest release of the Big Bang version
+    before this tree's: its packages' versions change in the upgrade, so their database
+    migrations run). Returns the tag and the Big Bang chart it deploys: work/bigbang's when
+    the versions match, else a clone of its Big Bang tag."""
+    if start not in ("previous", "previous-bigbang"):
+        raise SystemExit(f"upgrade_from.release: {start!r} isn't previous or previous-bigbang")
+    older = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip() if start == "previous-bigbang" else None
     head = sh("git", "-C", ROOT, "rev-parse", "HEAD", capture=True).strip()
-    tag = release_before(sh("git", "-C", ROOT, "ls-remote", "--tags", "origin", capture=True), head)
+    tag = release_before(sh("git", "-C", ROOT, "ls-remote", "--tags", "origin", capture=True), head, older)
     if not tag:
         raise SystemExit("upgrade_from.release: no earlier release to upgrade from")
     sh("git", "-C", ROOT, "fetch", "-q", "--depth", "1", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
@@ -295,6 +311,11 @@ def upgrade(a, test, out, tv, creds, abort):
             print("PROBLEM: Flux from this tree did not become ready")
             return False
     helm_bigbang(a, test, out, out, tv, creds, ", upgrade")
+    # New values that reach a package only through its values Secret don't change its
+    # HelmRelease: have Flux apply them now, not at its interval (after the checks).
+    late = reconcile_helmreleases()
+    if late:
+        print(f"note: Flux hadn't reconciled {', '.join(late)} yet; waiting for them as usual", flush=True)
     env = dict(os.environ, COMPAT_OUT=out, COMPAT_FIPS="1" if a.fips else "")
     for cmd in frm.get("upgrade", []):
         print(f"\n== upgrade: {cmd}", flush=True)
@@ -344,7 +365,7 @@ def run_installer(a, test, out):
     base = [sys.executable, os.path.join(HERE, "bb-install.py"), "--overlays", out]
     flags = ["--site", site, "--small-cluster", "--yes", "--timeout", str(a.timeout)] + (["--fips"] if a.fips else [])
     if test.get("installer_release"):
-        return run_installer_release(a, test, flags, env)
+        return run_installer_release(a, test, flags, env, out)
     install = base + ["install"] + flags + test.get("installer_args", [])
     print(f"\n== bb-install.py install ({'FIPS' if a.fips else 'standard'})", flush=True)
     rc = subprocess.run(install, env=env, cwd=ROOT).returncode
@@ -354,9 +375,10 @@ def run_installer(a, test, out):
         print(f"PROBLEM: bb-install.py install exited {rc}")
 
 
-def run_installer_release(a, test, flags, env):
-    """`installer_release`: install a published release with its own installer, then
-    upgrade --to the newest release with this tree's."""
+def run_installer_release(a, test, flags, env, out):
+    """`installer_release`: install a published release with its own installer, run the
+    test's `before_upgrade` commands on it (write data), then upgrade --to the newest
+    release with this tree's."""
     repo = releases.release_repo()
     start, target = release_pair(releases.list_releases(repo), test["installer_release"])
     os.environ.update(COMPAT_FROM_RELEASE=start, COMPAT_TO_RELEASE=target)   # for the checks
@@ -367,6 +389,9 @@ def run_installer_release(a, test, flags, env):
     rc = subprocess.run(old + ["install"] + flags, env=env, cwd=root).returncode
     if rc:
         print(f"PROBLEM: release {start}'s bb-install.py install exited {rc}")
+        return
+    if not run_checks(test.get("before_upgrade", []), out, a.fips):
+        print(f"PROBLEM: before_upgrade failed on release {start}; not upgrading")
         return
     # This tree's installer, as a site with this checkout (or a newer release) runs it.
     new = [sys.executable, os.path.join(HERE, "bb-install.py")]
@@ -440,7 +465,7 @@ def main():
             raise SystemExit("upgrade_from is not supported with installer: true")
         first = tempfile.mkdtemp(prefix="bb-compat-from-")
     if test.get("upgrade_from", {}).get("release"):
-        release, first_chart = fetch_release(first)
+        release, first_chart = fetch_release(first, test["upgrade_from"]["release"])
         print(f"\n== upgrade from: release {release}", flush=True)
     elif first:
         frm_images = test["upgrade_from"].get("images", {})

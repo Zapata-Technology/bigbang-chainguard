@@ -4,6 +4,8 @@
   python3 compat/support/upgrade-data.py keycloak seed     # upgrade_from.check: on the release
   python3 compat/support/upgrade-data.py keycloak verify   # check: after the upgrade
   python3 compat/support/upgrade-data.py mattermost seed|verify
+  python3 compat/support/upgrade-data.py <app> verify --migrated   # and fail unless the
+                                       # application's version changed (a schema migration ran)
 
 `seed` writes data through the application, on the release a site runs now, and keeps
 what it wrote (ids, the pods it ran on, their images) in $COMPAT_OUT/upgrade-<app>.json.
@@ -27,6 +29,7 @@ Test-only credentials for a throwaway kind cluster (14+ characters for FIPS).
 """
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -89,6 +92,25 @@ def unchanged(before, now):
     """Selectors whose pods are the very ones `seed` ran on (same uids): the upgrade
     didn't replace them."""
     return [sel for sel, uids in before.items() if uids and set(uids) == set(now.get(sel, {}))]
+
+
+def tags(images):
+    """The tags of image refs, without digests (a nightly rebuild changes only the digest)."""
+    return sorted({re.sub(r"@sha256:[0-9a-f]+$", "", i).rsplit(":", 1)[-1] for i in images})
+
+
+def migrated(app, before):
+    """Why the upgrade didn't move the application to another version, or None. Its pod
+    group is the last in APPS (the database comes first)."""
+    ns, groups = APPS[app]
+    sel, what, _ = groups[-1]
+    old = tags(i for _, imgs in before.get(sel, {}).values() for i in imgs)
+    new = tags(i for _, imgs in pods(ns, sel).values() for i in imgs)
+    if not old or old == new:
+        return (f"{what} ran {' '.join(old) or 'nothing'} before the upgrade and {' '.join(new) or 'nothing'} "
+                "after: no new version, so no schema migration was tested")
+    print(f"{what}: {' '.join(old)} -> {' '.join(new)}: a new version, its schema migration ran")
+    return None
 
 
 def compare(app, before):
@@ -297,9 +319,13 @@ def mattermost(mode, state):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in APPS or sys.argv[2] not in ("seed", "verify"):
-        sys.exit(f"usage: upgrade-data.py {{{','.join(APPS)}}} {{seed,verify}}")
-    app, mode = sys.argv[1:]
+    args = sys.argv[1:]
+    must_migrate = "--migrated" in args
+    args = [x for x in args if x != "--migrated"]
+    if len(args) != 2 or args[0] not in APPS or args[1] not in ("seed", "verify") \
+            or (must_migrate and args[1] != "verify"):
+        sys.exit(f"usage: upgrade-data.py {{{','.join(APPS)}}} {{seed,verify [--migrated]}}")
+    app, mode = args
     step = {"keycloak": keycloak, "mattermost": mattermost}[app]
     if mode == "seed":
         state = {"pods": snapshot(app)}
@@ -310,6 +336,10 @@ def main():
     if not os.path.exists(state_path(app)):
         sys.exit(f"{state_path(app)} is missing: upgrade_from.check didn't seed {app}")
     state = json.load(open(state_path(app)))
+    if must_migrate:
+        problem = migrated(app, state["pods"])
+        if problem:
+            sys.exit(problem)
     compare(app, state["pods"])
     for attempt in range(4):   # an application can take a minute after a restart to answer
         try:
