@@ -16,6 +16,9 @@ line. update.yml sends them in their own pull request (bot/builds-update): it pa
 the overlays don't change, and once it merges builds.yml publishes the new tag and
 update.yml runs again to move the overlays.
 
+A standalone build (the installer) is never held: the overlays don't use it, and it
+bundles BIGBANG_VERSION's chart, so it ships with the Big Bang PR that moves it.
+
 A registry it can't ask counts as not published: holding back is the safe side. Needs
 `docker` and, for a private registry, its credentials in the Docker config.
 """
@@ -60,7 +63,12 @@ def to_hold(registry, root=ROOT, head=head_spec, exists=published):
         path = os.path.join(root, rel)
         if not os.path.exists(path):
             continue
-        new = refs(yaml.safe_load(open(path, encoding="utf-8")), registry)
+        spec = yaml.safe_load(open(path, encoding="utf-8"))
+        if spec.get("standalone"):
+            # Not in the overlays (the installer): nothing waits on it being published, and
+            # it bundles BIGBANG_VERSION's chart, so it must ship with that version's PR.
+            continue
+        new = refs(spec, registry)
         old = head(rel, root)
         old = refs(old, registry) if old else {}
         moved = [ref for v, ref in new.items() if ref != old.get(v)]

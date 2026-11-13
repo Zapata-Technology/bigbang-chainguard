@@ -12,11 +12,9 @@ test:
   expect: [kyverno, headlamp, grafana]
   upgrade_from:
     release: previous
-    # Big Bang 3's ClusterPolicies render require-non-root-*'s preconditions.all: null
-    # (rejected by Kyverno) unless some container is excluded; Istio, which usually
-    # supplies that list, is off. Big Bang 4's CEL policies don't need it, and its chart
-    # refuses this key.
-    values: {kyvernoPolicies: {values: {excludeContainers: [compat-none]}}}
+    # No `values`: the Big Bang 3 starting point needed kyvernoPolicies.excludeContainers,
+    # which Big Bang 4's chart refuses. bb-compat applies upgrade_from.values whenever the
+    # release's Big Bang differs from this tree's, so it broke the first 4.0 -> 4.1 run.
     check:
       - sh compat/support/kyverno-admission.sh headlamp
   check:

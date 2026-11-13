@@ -177,6 +177,10 @@ jobs:
                 cat "$out/$b.log"
               done
               echo "builders (in parallel): $(( $(date +%s) - start )) s"
+              # The installer last: it pins base's kubectl -dev images, and its tag carries
+              # BIGBANG_VERSION (Big Bang 4.1.0's bot PR built it as 4.0.0-..., whose bundled
+              # chart the smoke test didn't find).
+              python3 scripts/bb-build.py installer 2>&1 || true
               # A moved tag builds.yml hasn't published yet: keep the overlays on the
               # published one; the new build.yaml goes in bot/builds-update below.
               held=$(python3 scripts/bb-held-builds.py hold "${RUNNER_TEMP}/held") || held=""

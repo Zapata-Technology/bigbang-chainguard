@@ -607,3 +607,6 @@ def test_update_workflow_regenerates_every_recipe_in_parallel():
     # The installer reads base's build.yaml, so it can't run in the parallel loop.
     assert sorted(loops[0].split()) == sorted(set(RECIPES) - {"installer"})
     assert 'python3 scripts/bb-build.py "$b"' in workflow("update.yml")
+    # ... so it runs after them, before bb-convert.
+    wf = workflow("update.yml")
+    assert wf.index("wait") < wf.index("python3 scripts/bb-build.py installer") < wf.index("bb-convert.py")

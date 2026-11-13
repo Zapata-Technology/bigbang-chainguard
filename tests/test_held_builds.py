@@ -79,3 +79,10 @@ def test_restore_puts_held_files_back(tmp_path):
     (root / "builds" / "grafana-plugins" / "build.yaml").write_text("tag: old\n", encoding="utf-8")
     assert held.restore(str(out), str(root)) == ["builds/grafana-plugins/build.yaml"]
     assert (root / "builds" / "grafana-plugins" / "build.yaml").read_text(encoding="utf-8") == "tag: new\n"
+
+
+def test_a_standalone_build_is_never_held(tmp_path):
+    root = tree(tmp_path, {"installer": {**build("4.1.0-kubectl1.36.6", "bigbang-installer"), "standalone": True}})
+    got = held.to_hold(REG, root, head=lambda rel, _root: build("4.0.0-kubectl1.36.6", "bigbang-installer"),
+                       exists=lambda ref: False)
+    assert got == []
