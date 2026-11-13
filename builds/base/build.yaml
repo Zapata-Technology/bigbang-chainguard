@@ -5,7 +5,7 @@
 ironbank:
   image: ironbank/big-bang/base:2.1.0
   source: https://repo1.dso.mil/dsop/big-bang/base
-  commit: 5833ec00e068f38e3a4b498af076eeaacd85fd4b
+  commit: 364e988ffc4b2c61c73f05c03f7e6115476986ff
   manifest_tags:
   - 2.1.0
   - latest

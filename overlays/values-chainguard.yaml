@@ -280,7 +280,7 @@ packages:
         images:
         - digest: sha256:4c647cc0c0f4546df62fbdd0ec55f73a94fb2b1a0050aedb17e2c9c3ec154579
           name: cgr.dev/zapatatechnology.com/configmap-reload
-        - digest: sha256:8ed5ad402caf3170bcb6ae7c89fa5fc80aa601ab178ba7bb013e2d58792a3288
+        - digest: sha256:aeb451afef1b1e50fbe6c150dcc40e45e2d399232bf4da60f9ab92d9d1148fbb
           name: cgr.dev/zapatatechnology.com/fluent-bit
     values:
       bbtests:
@@ -955,7 +955,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/loki-canary
         - digest: sha256:eda02b86d647e1481e52dc9d8a231bea561cdcf633e1f996c5045364bba5cecd
           name: cgr.dev/zapatatechnology.com/memcached
-        - digest: sha256:453a48d5b5962468b0a0e4fb95d2d3aba28e94c7247ba8d21145b8c92ec68f38
+        - digest: sha256:00f58e7b8a4a3fa5dd543544fd22f7fea176a45c8eab3ab6ebd76f92181fa326
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:3ac37832a728ed3d34a981c4c1c52fbcc6bf76760d08f509937e2b895db6e05c
           name: cgr.dev/zapatatechnology.com/nginx
@@ -1019,7 +1019,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:5873ab2567037f2e16ec3f6d5f35788e77dd767f9024bd1c2711320465f0a0c7
+        - digest: sha256:3d8a6b9c0a954ae6a74ddf30beb951874ee1540c7d856c13cbffe65e99f46f3c
           name: cgr.dev/zapatatechnology.com/mattermost
         - digest: sha256:8e13da9133bc20868a4a0a13166470937a96dc0eadb0d6f9e9a600f9dea02355
           name: cgr.dev/zapatatechnology.com/postgres
@@ -1070,7 +1070,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kafka-native
         - digest: sha256:eda02b86d647e1481e52dc9d8a231bea561cdcf633e1f996c5045364bba5cecd
           name: cgr.dev/zapatatechnology.com/memcached
-        - digest: sha256:453a48d5b5962468b0a0e4fb95d2d3aba28e94c7247ba8d21145b8c92ec68f38
+        - digest: sha256:00f58e7b8a4a3fa5dd543544fd22f7fea176a45c8eab3ab6ebd76f92181fa326
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:3ac37832a728ed3d34a981c4c1c52fbcc6bf76760d08f509937e2b895db6e05c
           name: cgr.dev/zapatatechnology.com/nginx
@@ -1169,7 +1169,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-operator
         - digest: sha256:14d88f24a71733e6ca70dba8666d94889261a04615546d3e280a8e1c1ac22221
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:0eb2910f3ce5939c696fb4e890cc922b6d21d99813c0ac1c49975fa16a64a954
+        - digest: sha256:681a642285ce64d52724cf2ac0c17ae937405366d1445a11f0be9efc9c2fada0
           name: cgr.dev/zapatatechnology.com/thanos
     values:
       bbtests:
@@ -1403,7 +1403,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:0eb2910f3ce5939c696fb4e890cc922b6d21d99813c0ac1c49975fa16a64a954
+        - digest: sha256:681a642285ce64d52724cf2ac0c17ae937405366d1445a11f0be9efc9c2fada0
           name: cgr.dev/zapatatechnology.com/thanos
     values:
       upstream:
