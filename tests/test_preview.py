@@ -1,5 +1,10 @@
 """bb-preview.py: what Big Bang's next release would break, decided without a network."""
-from conftest import load_script
+import os
+
+import pytest
+import yaml
+
+from conftest import ROOT, load_script
 
 pv = load_script("bb-preview")
 
@@ -165,3 +170,42 @@ wrote docs/images.md
         "  mattermost: registry1.dso.mil/x -> UNRESOLVED"]
     assert pv.conversion_problems("wrote flux/kustomization.yaml") == []
     assert pv.conversion_problems("Traceback (most recent call last):") == ["Traceback (most recent call last):"]
+
+
+
+def _refs_step(tmp_path, ref):
+    """Run bigbang-preview.yml's refs step with a fake repo1 (tags 4.0.0, 4.1.0; branches
+    release-4.1.0, release-4.2.0) and a fake gh listing an issue for release-4.1.0."""
+    import shutil
+    import subprocess
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("no bash")
+    wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "bigbang-preview.yml"), encoding="utf-8"))
+    run = next(st for st in wf["jobs"]["refs"]["steps"] if st.get("id") == "refs")["run"]
+    bin_ = tmp_path / "bin"
+    bin_.mkdir(parents=True)
+    (bin_ / "git").write_text('#!/bin/sh\nprintf "a\\trefs/tags/4.0.0\\nb\\trefs/tags/4.1.0\\n'
+                              'c\\trefs/heads/release-4.1.0\\nd\\trefs/heads/release-4.2.0\\n"\n',
+                              encoding="utf-8", newline="\n")
+    (bin_ / "gh").write_text('#!/bin/sh\necho "gh $*" >> "$LOG"\ncase "$*" in *"issues?labels"*) '
+                             'echo "216 Big Bang next release: what would break (release-4.1.0)";; esac\n',
+                             encoding="utf-8", newline="\n")
+    for f in bin_.iterdir():
+        f.chmod(0o755)
+    out, log = tmp_path / "out", tmp_path / "log"
+    out.write_text("", encoding="utf-8")
+    log.write_text("", encoding="utf-8")
+    env = dict(os.environ, PATH=f"{bin_}{os.pathsep}{os.environ['PATH']}", REF=ref, GITHUB_OUTPUT=str(out),
+               LOG=str(log), GH_REPO="o/r")
+    p = subprocess.run([bash, "-c", run], env=env, cwd=tmp_path, capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr
+    return out.read_text(encoding="utf-8").split(), "state=closed" in log.read_text(encoding="utf-8")
+
+
+def test_every_preview_run_closes_a_tagged_release_branchs_issue(tmp_path):
+    # A dispatched run (its ref defaults to master) used to stop before this step.
+    assert _refs_step(tmp_path / "a", "master") == (['refs=["master"]'], True)
+    assert _refs_step(tmp_path / "b", "") == (["release=release-4.2.0", 'refs=["master","release-4.2.0"]'], True)
+    # Previewing that tagged branch on purpose leaves its own issue to the run.
+    assert _refs_step(tmp_path / "c", "release-4.1.0") == (["release=release-4.1.0", 'refs=["release-4.1.0"]'], False)
