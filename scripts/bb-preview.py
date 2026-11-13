@@ -99,7 +99,7 @@ def conversion_problems(text):
     for ln in text.splitlines():
         if ln.startswith(CONVERT_PROBLEMS):
             block = True
-        elif not ln.startswith((" ", "	")):
+        elif not ln.startswith((" ", "\t")):
             block = False
         if block or re.search(r"(?i)traceback|error", ln):
             out.append(ln.rstrip())
