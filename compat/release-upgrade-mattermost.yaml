@@ -2,10 +2,11 @@
 # compat/mattermost.yaml (PostgreSQL from the org's images through
 # compat/support/app-deps.py, files on SeaweedFS), installed from the newest release of
 # the Big Bang version before this tree's (`release: previous-bigbang`; its object-storage
-# overlay too), then upgraded to this tree's Flux and overlays: Mattermost's version
-# changes in the upgrade (Big Bang 4.0.0 -> 4.1.0: chart 12.0.1 -> 12.0.2), so its
-# database migrations run. (The newest release's patches are what release-upgrade.yaml
-# and release-upgrade-keycloak.yaml start from.) Before the upgrade the first user (a system admin) makes a team and a post
+# overlay too), then upgraded to this tree's Flux and overlays: Big Bang's chart, the
+# operator and the overlays move under the data. (The org image is the newest patch of
+# its line in both releases, so the server's version may not change;
+# mattermost-migration.yaml moves it on purpose. The newest release is what
+# release-upgrade.yaml and release-upgrade-keycloak.yaml start from.) Before the upgrade the first user (a system admin) makes a team and a post
 # with an attached file through the REST API. Passes when, after the upgrade (and a
 # restart of the server if the upgrade didn't replace it), the user logs in, the team and
 # post are there and the file's bytes come back from object storage: the server's

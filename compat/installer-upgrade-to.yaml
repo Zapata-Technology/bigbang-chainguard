@@ -3,10 +3,10 @@
 # installed with that release's own bb-install.py and overlays (as the site installed it),
 # then this tree's `bb-install.py upgrade --to <newest release>` downloads the newest
 # release, checks its sha256 and Sigstore signature, and hands the upgrade to its installer
-# (bb-compat.py run_installer_release). Keycloak's version changes in the Big Bang upgrade
-# (4.0.0 -> 4.1.0: 26.8.0 -> 26.8.1): a realm, role and user written before it
+# (bb-compat.py run_installer_release). A Keycloak realm, role and user written before it
 # (before_upgrade, compat/support/upgrade-data.py) must be there after, and the user log in
-# with its password. Tempo on SeaweedFS shows the stored S3 keys carry over.
+# with its password (keycloak-migration.yaml moves Keycloak's version on purpose). Tempo on
+# SeaweedFS shows the stored S3 keys carry over.
 images: {}
 test:
   installer: true
@@ -28,8 +28,9 @@ test:
       chart=$(helm -n bigbang list -o json | python3 -c 'import json,sys; print(next(r["chart"] for r in json.load(sys.stdin) if r["name"] == "bigbang"))')
       echo "bigbang chart $chart"
       [ "$chart" = "bigbang-${COMPAT_TO_RELEASE%-cg.*}" ] || exit 1
-    # Nothing newer to move to, and going back to the starting release is refused.
-    - python3 scripts/bb-install.py upgrade --list | tee /dev/stderr | grep -q "no newer release"
+    # upgrade --list knows the release it runs (a release published meanwhile may be
+    # listed), and going back to the starting release is refused.
+    - python3 scripts/bb-install.py upgrade --list | tee /dev/stderr | grep -q "the cluster runs release $COMPAT_TO_RELEASE$"
     - |
       out=$(python3 scripts/bb-install.py upgrade --to "$COMPAT_FROM_RELEASE" --site "$COMPAT_OUT/site.yaml" --yes --plan ${COMPAT_FIPS:+--fips} 2>&1)
       echo "$out" | tail -3
