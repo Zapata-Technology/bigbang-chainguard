@@ -193,14 +193,15 @@ def test_docs_reference_existing_files(path):
     assert not missing, f"{os.path.basename(path)} references missing files: {missing}"
 
 
-# --- hand-written docs quote generated counts; they must agree ---
+# --- hand-written docs don't quote counts that the nightly regenerates ---
 
-def test_readme_iron_bank_count_matches_docs_images():
-    images = open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read()
+def test_readme_does_not_hard_code_the_iron_bank_count():
+    """docs/images.md's "Stays on Iron Bank (N)" changes whenever Chainguard publishes an image
+    or Big Bang adds one. README.md isn't in the nightly bot PR (update.yml add-paths), so a
+    count quoted there failed the bot PR's CI until a person edited it: link to the list."""
     readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
-    generated = re.search(r"^## Stays on Iron Bank \((\d+)\)", images, re.M).group(1)
-    quoted = re.findall(r"(\d+) images stay on Iron Bank", readme)
-    assert quoted and set(quoted) == {generated}, f"README says {quoted}, docs/images.md says {generated}"
+    assert not re.search(r"\d+ images stay on Iron Bank", readme), "link to docs/images.md instead of a count"
+    assert "docs/images.md" in readme
 
 
 def test_docs_list_every_image_built_here():
