@@ -10,7 +10,11 @@ FIPS:     the same, and every converted image is a -fips image unless mapping.ya
           says the image has no FIPS variant.
 Both:     every org image is pinned by digest (bb-convert's post-renderer pins), except in
           `no_post_renderers` packages, images mapping.yaml lists in `unpinned`, and where a
-          release renders one repository at two tags.
+          release renders one repository at two tags. A repository bb-convert itself set at
+          two tags in one release's values (docs/images.md records it) is left unpinned on
+          purpose, even when only one of them renders (a subchart Big Bang turns off): that is
+          a NOTE, not a failure. (Argo CD's redis-exporter: redis-bb's 1.96 and redis-ha's
+          newest; the nightly failed each time Chainguard published a new exporter.)
 """
 import argparse
 import json
@@ -49,6 +53,32 @@ def digest_gaps(packages, prefix, tag_only, unpinned=None):
         gaps += [(rel, img) for img in mine if "@sha256:" not in img
                  and len(tags[img.rsplit(":", 1)[0]]) == 1 and img.rsplit(":", 1)[0] not in allowed]
     return gaps
+
+
+def two_tag_repos(images_md, prefix, fips=False):
+    """{release: {org repo}} that bb-convert set at two or more tags in one release, read from
+    docs/images.md (its record of every conversion): Converter.digest_pins leaves those
+    unpinned, because kustomize pins one digest per image name."""
+    tags = {}
+    for line in images_md.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 4 or cells[0] in ("Package", "---") or not cells[1].startswith(("ironbank/", "big-bang/")):
+            continue
+        new = cells[3 if fips else 2]
+        if ":" not in new or "/" in new.split(":")[0]:   # Iron Bank, UNRESOLVED, a build registry
+            continue
+        repo, _, tag = (prefix + new).rpartition(":")
+        tags.setdefault(cells[0], {}).setdefault(repo, set()).add(tag)
+    return {rel: {r for r, t in repos.items() if len(t) > 1} for rel, repos in tags.items()}
+
+
+def split_deliberate(gaps, two_tag):
+    """(failures, notes): the gaps bb-convert didn't explain, and those it left on purpose."""
+    fail, notes = [], []
+    for rel, img in gaps:
+        repo = img.split("@")[0].rsplit(":", 1)[0]
+        (notes if repo in two_tag.get(rel, set()) else fail).append((rel, img))
+    return fail, notes
 
 
 def main():
@@ -142,11 +172,18 @@ def main():
     full = load_mapping(org)
     unpinned = digest_gaps(found["packages"], f"{REGISTRY}/{org}/", set(full.get("no_post_renderers", {})),
                            full.get("unpinned", {}))
+    images_md = os.path.join(ROOT, "docs", "images.md")
+    two_tag = two_tag_repos(open(images_md, encoding="utf-8").read() if os.path.exists(images_md) else "",
+                            f"{REGISTRY}/{org}/", a.fips)
+    unpinned, deliberate = split_deliberate(unpinned, two_tag)
     problems += [f"{rel}: {img} is not pinned by digest (pin it, or list it in mapping.yaml `unpinned`)"
                  for rel, img in unpinned]
 
     mode = "FIPS" if a.fips else "standard"
     print(f"{mode}: {counts['ours']} images converted, {counts['ironbank']} documented Iron Bank images")
+    for rel, img in deliberate:
+        print(f"  NOTE {rel}: {img} stays on its tag: bb-convert sets that repository at two tags in "
+              "this release (docs/images.md) and kustomize pins one digest per name")
     for pr in problems:
         print("  FAIL", pr)
     return 1 if problems else 0

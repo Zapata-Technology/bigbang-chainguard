@@ -471,7 +471,9 @@ no_post_renderers:
   packages.keycloak: Big Bang 4.0.0's keycloak/helmrelease.yaml writes postRenderers without the key
 
 # Org images that stay on their exact tag instead of a digest pin (release: {org repo: why}).
-# bb-verify.py fails on any other org image without a digest.
+# bb-verify.py fails on any other org image without a digest, except a repository
+# bb-convert sets at two tags in one release (docs/images.md): it notes that one, since
+# kustomize pins one digest per name. The argocd entries below predate that and say why.
 unpinned:
   istiod:
     istio-proxy: injected into pods from istiod's ConfigMap, which a post-renderer can't reach
