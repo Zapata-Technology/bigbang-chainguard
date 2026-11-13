@@ -22,10 +22,30 @@ def test_a_failed_first_attempt_is_re_run_once():
     assert JOB["permissions"]["actions"] == "write"
 
 
-def test_only_the_bot_branch_from_this_repository_is_handled():
+def test_only_the_bot_branches_from_this_repository_are_handled():
     cond = " ".join(JOB["if"].split())
     assert "github.event.workflow_run.head_branch == 'bot/bigbang-update'" in cond
+    assert "github.event.workflow_run.head_branch == 'bot/builds-update'" in cond
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in cond
+    # The branch reaches the script as an env var, never interpolated into it.
+    assert STEP["env"]["BRANCH"] == "${{ github.event.workflow_run.head_branch }}"
+    assert "${{" not in STEP["run"]
+
+
+def test_update_holds_unpublished_builds_and_reruns_after_publishing():
+    wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "update.yml"), encoding="utf-8"))
+    on = wf[True] if True in wf else wf["on"]   # PyYAML reads the key `on` as True
+    assert on["workflow_run"]["workflows"] == ["Build - Big Bang images"]
+    assert on["workflow_run"]["branches"] == ["main"]
+    steps = wf["jobs"]["update"]["steps"]
+    run = next(s for s in steps if s.get("id") == "run")["run"]
+    assert run.index("bb-held-builds.py hold") < run.index("bb-convert.py")
+    names = [s.get("name") for s in steps]
+    assert names.index("Open the pull request") < names.index("Put the held-back builds back") \
+        < names.index("Open the builds pull request")
+    builds_pr = next(s for s in steps if s.get("name") == "Open the builds pull request")
+    assert builds_pr["with"]["branch"] == "bot/builds-update"
+    assert builds_pr["with"]["add-paths"] == "${{ steps.run.outputs.held }}"
 
 
 def test_the_merge_script_is_valid_bash(tmp_path):

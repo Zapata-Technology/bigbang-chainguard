@@ -133,6 +133,12 @@ A green bot PR merges itself (`automerge.yml`), so one still open has a failed c
 5. *Version differences / MINOR AHEAD* are expected and documented; act only if a compat
    test fails.
 6. Push fixes to the bot branch or a new branch; never edit its generated files by hand.
+7. *A built image's tag moved* (Grafana 13.3.0 → 13.3.1): builds.yml publishes a tag only
+   from main, so the overlays can't use it yet. `scripts/bb-held-builds.py` holds that
+   build.yaml back and update.yml opens it alone as `bot/builds-update`, which merges itself
+   when green; builds.yml then publishes from main and update.yml runs again to move the
+   overlays. A bot PR failing on `MANIFEST_UNKNOWN` / `ImagePullBackOff` for
+   `<BUILD_REGISTRY>/bigbang-*` means that didn't happen: check builds.yml's last run on main.
 
 ### The Big Bang preview issue (`bigbang-preview`)
 `bigbang-preview.yml` runs this repo against Big Bang's development branch every Monday and
