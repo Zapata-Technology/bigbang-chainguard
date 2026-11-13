@@ -280,7 +280,7 @@ packages:
         images:
         - digest: sha256:1336085e3d13cd6042a3873af2639b38157fc1a54ec7cc27929a223b9d891fb2
           name: cgr.dev/zapatatechnology.com/configmap-reload-fips
-        - digest: sha256:b5a886121d2813eb26c76fce11aa36ecf5d7a673353bc8d356233e66681f9192
+        - digest: sha256:ef9114b3658ff0af3d7437fb40ef7c654b049d27516b84bef3ad37b90c9919e2
           name: cgr.dev/zapatatechnology.com/fluent-bit-fips
     values:
       bbtests:
