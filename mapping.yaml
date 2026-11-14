@@ -16,6 +16,7 @@
 #     same_patch: <name>   group members with the same name use one patch: the newest all have
 #     min_version: <M.m>   an Iron Bank tag on an older line takes the newest release instead
 #                          (end-of-life lines the org stops rebuilding)
+#     max_version: <M.m.p> never a tag newer than this. version: "*" ignores it.
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release; a pin to another
@@ -221,7 +222,10 @@ images:
   # tag. mail_room and kubectl carry their own versions on Chainguard: newest.
   # same_patch: rails pins the Rails images (one codebase, one database schema) and
   # gitlab-base to the newest patch all of them have, standard and FIPS.
-  gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
+  # max_version holds that patch at 19.5.3. 19.5.5 of the commercial Rails images has
+  # fixable Critical CVEs (handlebars 1.0.0, activestorage 7.2.4). Remove max_version
+  # when a rescan of a newer 19.5 tag is clean. version: "*" (mailroom, kubectl) ignores it.
+  gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, max_version: "19.5.3", cg: gitlab-certificates}
   gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
   gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
   gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, same_patch: rails, cg: gitlab-base}

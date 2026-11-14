@@ -127,6 +127,7 @@ class Converter:
                     notes.append(f"org has no {name}")
                     continue
                 want = self.version(m, ib_tag)
+                tags = capped(tags, m.get("max_version"), m.get("suffix"), m.get("version"))
                 if below_floor(want, m.get("min_version")):
                     # An end-of-life line (vault's kubectl 1.30): the org stops rebuilding it,
                     # so its CVEs pile up, and it is outside kubectl's skew for the clusters
@@ -232,7 +233,8 @@ class Converter:
                     elif m.get("same_patch"):
                         line = parse(self.version(m, self.ib_tags[ib_repo]))[0][:2]
                         key = (m["same_patch"], line)
-                        have = {p[0] for t in tags if (p := parse(t)) and p[1] == m.get("suffix")
+                        have = {p[0] for t in capped(tags, m.get("max_version"), m.get("suffix"), m.get("version"))
+                                if (p := parse(t)) and p[1] == m.get("suffix")
                                 and len(p[0]) >= 3 and p[0][:2] == line}
                         common[key] = have if key not in common else common[key] & have
                     if self._groups[group]:
@@ -731,6 +733,17 @@ BASH_WAIT = ('if [ -d /src ]; then cp /src/* /wait/ 2>/dev/null || true; fi\n'
              '  echo "---"; echo "Running $script..."; echo "---"\n'
              '  bash "./$script" || exit 1\n'
              'done\n')
+
+
+def capped(tags, ceiling, suffix, version):
+    """Drop tags newer than max_version. A `version: "*"` image keeps every tag."""
+    if not ceiling or str(version) == "*":
+        return tags
+    cap = parse(str(ceiling))
+    if not cap:
+        return tags
+    return [t for t in tags or []
+            if not ((p := parse(t)) and p[1] == suffix and p[0] > cap[0])]
 
 
 def below_floor(version, floor):
