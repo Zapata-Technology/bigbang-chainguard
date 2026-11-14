@@ -109,15 +109,16 @@ flowchart LR
     G -- "no, on main" --> ST[push &lt;tag&gt;-staging]
     ST --> SIG[cosign keyless sign<br/>the digest, bundle +<br/>classic .sig formats]
     SIG --> P[(push &lt;tag&gt;<br/>BUILD_REGISTRY<br/>ghcr.io/&lt;owner&gt;)]
-    P --> AT[attest SPDX SBOM +<br/>SLSA provenance]
+    P --> AT["attest SPDX SBOM +<br/>SLSA v1 predicate<br/>written by the build job"]
 ```
 
 With `SIGN_IMAGES=keyless`, each image is signed **before its release tag moves to it**:
 `builds.yml` pushes `<tag>-staging`, signs that digest, then pushes `<tag>`. A cluster
 enforcing signatures never sees the tag on an unsigned image. Pushes are retried (GHCR
 refuses a new package's first push now and then). The provenance record
-(`scripts/bb-provenance.py`) names the workflow run, the commit and every pinned input from
-`build.yaml`.
+(`scripts/bb-provenance.py`) is a SLSA v1 predicate the build job writes. It is not a
+SLSA Build L3 attestation. It names the workflow run, the commit and every pinned input
+from `build.yaml`.
 
 | Image | Iron Bank source | Built FROM |
 |---|---|---|
@@ -182,6 +183,9 @@ flowchart TB
 
 - **The render** catches a misspelled key, a value of the wrong type, or a Big Bang 3 key
   (`tempo:`, `addons.keycloak:`), with the chart's own error, before any HelmRelease fails.
+- **GitLab's database.** When GitLab is enabled, preflight adds a note: PostgreSQL
+  `max_locks_per_transaction` must be 256. The chart does not set that on the external
+  server. The note does not stop the install.
 - **The pull test** asks each registry for every image's manifest with the login it was
   given. A refused pull from the org is usually an image the Chainguard plan doesn't cover.
   `check` uses a short-lived token from your chainctl login and stores nothing; `install`
@@ -230,19 +234,23 @@ sequenceDiagram
     N->>N: bb-convert (tags and today's digests) + bb-verify (standard, FIPS)
     N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
     N->>PR: open bot/bigbang-update (deployed release, newest patches)<br/>and, for a newer Big Bang, bot/bigbang-release<br/>with upgrade notes (docs/upgrades/)
-    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test images, every package on kind
-    CI-->>PR: checks
+    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test changed images,<br/>kind tests the change reaches, or the smoke set<br/>for a digest-only change
+    CI-->>PR: checks, including results-gate<br/>(a recorded standard matrix for this Big Bang version)
     PR->>M: automerge.yml when every check passed<br/>(bot/bigbang-release: you, or itself for a patch<br/>release with AUTOMERGE_BIGBANG_PATCHES)
     M->>B: push to main
-    B->>G: build, scan, sign, then move the tag,<br/>SBOM + provenance, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
+    B->>G: build, scan, sign, then move the tag,<br/>SBOM + SLSA v1 predicate, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
 ```
 
 Every org image is pinned to the digest its tag had when the overlays were generated
 (a Flux post-renderer swaps each pod image to `repo@sha256:...`; values keep the tag,
 which charts reuse in labels). Chainguard rebuilds images under the same tag, so without
 the pin a rebuild would reach clusters on the next pod restart, untested. With it, a
-rebuild arrives only as a new digest in the nightly pull request, which `compat.yml`
-deploys on kind before it merges.
+rebuild arrives only as a new digest in the nightly pull request. `compat.yml` then
+runs the smoke kind tests (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero),
+not every package. The weekly run deploys every package, including GitLab.
+`results-gate` fails the pull request while this Big Bang version has no recorded
+standard-mode matrix. A skipped run is not a pass. Tests marked `registry1: true`
+stay outside that gate.
 
 `compat.yml` runs on pull requests that change what clusters run (`overlays/`, `flux*/`,
 `mapping.yaml`, `orgs/`, `compat/`, the installer) and weekly with the large tests
@@ -299,7 +307,7 @@ missing `mimir` namespace.
 flowchart LR
     subgraph trusted[What a cluster pulls]
         CG[(cgr.dev/&lt;org&gt;<br/>Chainguard, signed,<br/>pinned by digest)]
-        BR[(BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed,<br/>SBOM + provenance)]
+        BR["BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed,<br/>SBOM + SLSA v1 predicate"]
         IBR[(registry1.dso.mil<br/>documented leftovers)]
         SR[(site registry<br/>disconnected sites:<br/>copies of the above)]
     end
@@ -334,8 +342,8 @@ flowchart LR
 - The installer keeps credentials in one Secret, `bigbang/bb-install`. Anyone who can read
   Secrets in the `bigbang` namespace can read them (SECURITY.md, "Credentials in the cluster").
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
-  digest, and each base image by digest. The SLSA provenance attached to each built image
-  lists them.
+  digest, and each base image by digest. The SLSA v1 provenance predicate the build job
+  writes (not a SLSA Build L3 attestation) lists them.
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's
   `main` branch and pull requests. GitHub Actions are pinned to commit SHAs.
 - The CI, build and nightly runners block every outbound call they don't list

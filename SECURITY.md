@@ -84,8 +84,9 @@ boundaries.
   build.
 - With `SIGN_IMAGES=keyless`, pushed images get a cosign keyless signature (both cosign
   formats), signed before the release tag moves to them (a `<tag>-staging` push first), so
-  the enforcing signature policy never sees an unsigned tag; then SPDX SBOM and SLSA
-  provenance attestations. Provenance names the workflow run,
+  the enforcing signature policy never sees an unsigned tag; then an SPDX SBOM and a
+  SLSA v1 provenance predicate the build job writes (not a SLSA Build L3 attestation).
+  Provenance names the workflow run,
   the commit, and every pinned input (base images by digest, downloads by sha256).
 
 **The pipeline**
@@ -137,7 +138,7 @@ latest run's summary for current numbers.
 
 - **Sigstore's public log** records each release and image signature, with this
   repository's name and image names, even while the repository is private.
-- **Tag-only images** (Keycloak in Big Bang 4.0.0, custom resources) pick up a Chainguard
+- **Tag-only images** (Keycloak in Big Bang 4, custom resources) pick up a Chainguard
   rebuild without the nightly tests; the README's "Known gaps" lists them.
 - **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
   patch schedule, not Chainguard's.

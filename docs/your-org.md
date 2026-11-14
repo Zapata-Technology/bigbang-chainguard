@@ -125,5 +125,5 @@ already build. `orgs/zapatatechnology.com.yaml` is an example.
 - `RELEASE_PAT` secret (optional): lets CI run on the nightly bot's pull requests.
 - `SIGN_IMAGES=keyless` repository variable (optional): signs the images this repo pushes
   with cosign keyless (in both cosign's bundle format and the classic `.sig` one Kyverno
-  reads) and attaches an SPDX SBOM and SLSA provenance (`scripts/bb-provenance.py`: the run,
+  reads) and attaches an SPDX SBOM and a SLSA v1 provenance predicate the build job writes, not a SLSA Build L3 attestation (`scripts/bb-provenance.py`: the run,
   the commit and every pinned input). The signatures go to the public Sigstore log.

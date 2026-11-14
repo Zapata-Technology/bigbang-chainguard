@@ -243,3 +243,33 @@ jobs:
         run: |
           export PATH="$(dirname "$GRYPE"):$PATH"
           python3 scripts/bb-cve.py --changed-from "$BASE"
+
+  # Not part of verify: verify stays green on unit tests, and this job fails until the
+  # current BIGBANG_VERSION has a recorded standard-mode compat matrix. automerge.yml
+  # treats any red check as a block, so a digest pull request cannot merge on smoke
+  # tests alone. A skipped run (vault-upgrade without registry1) is not a pass.
+  results-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: compat matrix recorded for this Big Bang version
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            api.github.com:443
+            codeload.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            pipelines.actions.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: This Big Bang version has a recorded compat matrix
+        run: python3 scripts/results-gate.py

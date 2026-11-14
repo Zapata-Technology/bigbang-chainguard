@@ -63,7 +63,8 @@ def test_a_digest_only_overlay_change_runs_the_smoke_tests(tmp_path):
     (tmp_path / "overlays" / "values-chainguard.yaml").write_text(_overlay("3.5", D2))
     old = {"overlays/values-chainguard.yaml": _overlay("3.5", D1)}
     jobs = plan_mod.plan("pull_request", [], list(old), True, root, read_base=old.get)
-    assert _tests(jobs) == [("kyverno-enforce", "standard"), ("metrics-server", "standard")]
+    assert _tests(jobs) == [("keycloak", "standard"), ("kyverno-enforce", "standard"),
+                            ("metrics-server", "standard"), ("velero", "standard")]
 
 
 def test_harness_flux_and_mapping_changes_run_the_smoke_tests_standard_only(tmp_path):
@@ -71,7 +72,8 @@ def test_harness_flux_and_mapping_changes_run_the_smoke_tests_standard_only(tmp_
     for changed in (["scripts/bb-compat.py"], ["flux/kustomization.yaml"], ["mapping.yaml"],
                     [".github/workflows/compat.yml"]):
         assert _tests(plan_mod.plan("pull_request", [], changed, True, root)) == [
-            ("kyverno-enforce", "standard"), ("metrics-server", "standard")], changed
+            ("keycloak", "standard"), ("kyverno-enforce", "standard"),
+            ("metrics-server", "standard"), ("velero", "standard")], changed
 
 
 def test_installer_support_file_and_object_storage_changes(tmp_path):
@@ -105,6 +107,17 @@ def test_named_tests_and_the_schedule(tmp_path):
         ("gitlab", "standard", 90), ("gitlab", "fips", 90)]
     assert [t for t, _, _ in plan_mod.plan("schedule", [], [], False, root)] == [
         "gitlab", "installer", "keycloak", "kyverno-enforce", "loki", "metrics-server", "velero"]
+
+
+def test_a_digest_change_runs_the_widened_smoke_list_when_those_files_exist(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "compat" / "object-storage.yaml").write_text("test:\n  enable: [tempo]\n")
+    (tmp_path / "compat" / "kiali.yaml").write_text("test:\n  enable: [kiali]\n")
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(_overlay("3.5", D2))
+    old = {"overlays/values-chainguard.yaml": _overlay("3.5", D1)}
+    jobs = plan_mod.plan("pull_request", [], list(old), True, root, read_base=old.get)
+    assert _tests(jobs) == [(t, "standard") for t in sorted(plan_mod.SMOKE)]
 
 
 def test_the_release_upgrade_data_tests_follow_their_packages_and_run_weekly():

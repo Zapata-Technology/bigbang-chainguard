@@ -294,6 +294,20 @@ def test_bash_commands_swap_sh_for_bash():
                                            "path": "/spec/template/spec/initContainers/1/command/0"}]
 
 
+def test_progress_deadline_patches_deployments_beside_the_digest_pins():
+    import json
+    trees = _generate({"progress_deadline": {"packages.gitlab": 2400}}, key="packages.gitlab")
+    for tree in trees:
+        [p] = _patches(tree, "packages", "gitlab")
+        assert p["target"] == {"kind": "Deployment"}
+        assert json.loads(p["patch"]) == [{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]
+    # A package whose template can't take post-renderers gets neither this patch nor digest pins.
+    skipped = _generate({"progress_deadline": {"packages.keycloak": 2400},
+                         "no_post_renderers": {"packages.keycloak": "template"}}, key="packages.keycloak")
+    for tree in skipped:
+        assert "postRenderers" not in tree.get("packages", {}).get("keycloak", {})
+
+
 def test_plain_override_values_reach_both_overlays():
     spec = {"upstream": {"config": "receivers: {{ omit .Values.r \"opencensus\" }}", "x": None}}
     for tree in _generate({"overrides": {"pkg": spec}}, key="tempo"):

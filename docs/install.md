@@ -289,7 +289,9 @@ The kind tests found these; each applies to a real cluster too.
 
 - **PostgreSQL:** GitLab loads its schema in one transaction. With PostgreSQL's default
   `max_locks_per_transaction` (64) the migrations fail with `out of shared memory` and
-  GitLab never starts. Raise it on your external PostgreSQL (the test uses 256).
+  GitLab never starts. Raise it to 256 on the database GitLab uses. The chart does not
+  configure that server. `bb-install.py` notes this when GitLab is enabled. The kind
+  test sets it in `compat/support/app-deps.py`.
 - **GitLab Runner needs Kyverno.** Big Bang hands the runner GitLab's registration token
   with a Kyverno policy (`autoRegister`). Kyverno is on by default; if you turn it off, give
   the runner a token yourself, or it logs `The registration-token needs to be entered`
@@ -298,12 +300,12 @@ The kind tests found these; each applies to a real cluster too.
   the directory the chart mounts; the Chainguard image's user has another home, and the
   runner crashed writing `/.gitlab-runner` without it.
 - **Small or FIPS clusters:** the migrations can take longer than Kubernetes' 10-minute
-  rollout deadline, and Rails longer than the liveness probe's ~3 minutes to boot. If
-  Helm stops with `failed early due to stalled resources` or the probe keeps restarting
-  webservice and sidekiq, raise `progressDeadlineSeconds` (through
-  `packages.gitlab.postRenderers`, after the overlays' digest pins) and
-  `upstream.gitlab.webservice.deployment.livenessProbe` /
-  `upstream.gitlab.sidekiq.livenessProbe` `failureThreshold`, as `compat/gitlab.yaml` does.
+  rollout deadline, and Rails longer than the liveness probe's ~3 minutes to boot.
+  `mapping.yaml` sets both. `progress_deadline` patches every GitLab Deployment to
+  `progressDeadlineSeconds` 2400, beside the digest pins. `overrides.gitlab` sets
+  webservice and sidekiq liveness `failureThreshold` to 15. Those values reach the
+  overlay on the next online `bb-convert.py`. A release cut before that conversion
+  still needs the same settings the kind test applies. Leave `GODEBUG=tlsmlkem=0`.
 
 ## Other package notes
 

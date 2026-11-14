@@ -4,8 +4,11 @@
 # unsafe kernel settings, real persistent volumes. kind (compat.yml) and k3s (fips-kernel.yml)
 # have none of that, so a package that needs a privilege PSA refuses, or a volume, passes
 # there and fails at a site. Each run boots an AlmaLinux 9 VM under KVM, installs a pinned
-# RKE2 in it (.github/rke2-vm.sh), installs Big Bang with the standard overlays, and fails on
+# RKE2 in it (.github/rke2-vm.sh), installs Big Bang, and fails on
 # any pod not Ready, any restart, an image that can't be pulled, or an admission refusal.
+# A pull request installs the standard overlay only. The weekly run and a manual run also
+# install once with --fips (a second job). kind's --kubelet-insecure-tls stays in the
+# metrics-server kind test.
 name: RKE2 - Big Bang on RKE2 with the CIS profile
 
 on:
@@ -39,7 +42,13 @@ jobs:
     # every other pull request's runs are unchanged.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
     timeout-minutes: 150
-    name: default packages (RKE2, CIS profile)
+    strategy:
+      fail-fast: false
+      matrix:
+        # JSON booleans. A pull request is standard only; schedule and workflow_dispatch
+        # run standard and FIPS. Two jobs, so a FIPS failure still uploads the standard logs.
+        fips: ${{ fromJSON(github.event_name == 'pull_request' && '[false]' || '[false, true]') }}
+    name: default packages (RKE2, CIS, ${{ matrix.fips && 'FIPS' || 'standard' }})
     env:
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
@@ -178,7 +187,7 @@ jobs:
 
       # What a site runs: a site file with Big Bang's defaults, `check` (nothing changes),
       # then `install`. --small-cluster only lowers Flux's requests on the one-node VM.
-      - name: bb-install.py check, then install (standard images)
+      - name: bb-install.py check, then install (${{ matrix.fips && 'FIPS' || 'standard' }} images)
         env:
           BUILD_REGISTRY_TOKEN: ${{ github.token }}
           REGISTRY1_USERNAME: ${{ secrets.REGISTRY1_USERNAME }}
@@ -203,11 +212,14 @@ jobs:
           yaml.safe_dump(site, open(sys.argv[1], "w"), sort_keys=False)
           PY
           cat "$SITE"
-          python scripts/bb-install.py check --site "$SITE" --yes 2>&1 | tee "$RUNNER_TEMP/check.log"
+          # Pull requests stay standard. Schedule and workflow_dispatch pass --fips on the FIPS job.
+          extra=""
+          if [ "${{ matrix.fips }}" = "true" ]; then extra=--fips; fi
+          python scripts/bb-install.py check --site "$SITE" --yes $extra 2>&1 | tee "$RUNNER_TEMP/check.log"
           # check's node probe (bbinstall/nodes.py) must run under PSA restricted and read the
           # VM's raised inotify limits, not fall back to a note.
           grep -q "node(s) read" "$RUNNER_TEMP/check.log" || { echo "check didn't read the nodes' inotify limits"; exit 1; }
-          python scripts/bb-install.py install --site "$SITE" --yes --small-cluster --timeout 3600 2>&1 \
+          python scripts/bb-install.py install --site "$SITE" --yes --small-cluster --timeout 3600 $extra 2>&1 \
             | tee "$RUNNER_TEMP/install.log"
 
       # Run even when the install failed: it names every unhealthy pod and refused admission.
@@ -257,7 +269,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: rke2-default-packages
+          name: rke2-default-packages${{ matrix.fips && '-fips' || '' }}
           path: |
             ${{ runner.temp }}/diag
             ${{ runner.temp }}/check.log

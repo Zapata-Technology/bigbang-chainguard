@@ -540,6 +540,22 @@ def test_install_writes_the_site_file_first(tmp_path, monkeypatch):
     assert doc["domain"] == "bb.example.com" and doc["packages"]["keycloak"]["enabled"]
 
 
+def test_gitlab_preflight_notes_the_postgres_lock_setting(monkeypatch):
+    monkeypatch.setattr(preflight.shutil, "which", lambda tool: "tool")
+    monkeypatch.setattr(preflight, "kubectl", lambda *a, **k: '{"serverVersion":{"major":"1","minor":"35"}}')
+    monkeypatch.setattr(preflight, "render_problems", lambda *a, **k: [])
+    monkeypatch.setattr(preflight, "merged_values", lambda *a, **k: {})
+    monkeypatch.setattr(preflight, "enabled_packages", lambda values: ["packages.gitlab"])
+    monkeypatch.setattr(preflight, "iron_bank_leftovers", lambda *a, **k: {})
+    monkeypatch.setattr(preflight, "legacy_keys", lambda *a, **k: [])
+    args = argparse.Namespace(fips=False, site="site.yaml")
+    co = argparse.Namespace(org="example.com", version="4.1.0", overlays=lambda fips: [],
+                            in_cluster_seaweedfs=lambda: False)
+    _enabled, problems, notes = preflight.preflight(args, co, {"domain": "bb.test"}, {})
+    assert problems == []
+    assert any("max_locks_per_transaction=256" in note for note in notes)
+
+
 def test_build_images_are_the_deployed_refs():
     co = checkout.Checkout(ROOT)
     prefix = checkout._build_registry(co)

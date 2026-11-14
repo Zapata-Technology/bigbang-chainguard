@@ -213,7 +213,8 @@ and verification accepts them.
 - Every change builds and smoke-tests the images.
 - A merge to `main` pushes them to `BUILD_REGISTRY`. With `SIGN_IMAGES=keyless` each
   image is signed before its tag moves to it (pushed as `<tag>-staging`, signed, then
-  tagged), then gets an SBOM and SLSA provenance. GHCR pushes are retried.
+  tagged), then gets an SBOM and a SLSA v1 provenance predicate the build job writes
+  (not a SLSA Build L3 attestation). GHCR pushes are retried.
 - The nightly job regenerates the build specs, so a new Grafana or kubectl patch, or a
   plugin added by Iron Bank, arrives as a pull request.
 
@@ -271,10 +272,12 @@ can't express, `mapping.yaml` has these escape hatches:
   post-renderer runs those scripts with bash (Kyverno policies' wait job).
 - `bash_commands`: containers whose `/bin/sh -c` script is really bash; a post-renderer
   makes the command `/bin/bash` (Fortify's keystore job).
+- `progress_deadline`: Deployments that must outlast Kubernetes' 600s progress deadline
+  (GitLab's migrations, 2400s). A post-renderer patch, so it does not replace the digest pins.
 - `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
   a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
-  (Keycloak in 4.0.0); their images stay on tags instead of digests.
+  (Keycloak in Big Bang 4, still true on 4.1.0); their images stay on tags instead of digests.
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
   (kubectl `1.34`: Vault pins the end-of-life 1.30).
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
