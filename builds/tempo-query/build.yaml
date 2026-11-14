@@ -14,13 +14,13 @@ image:
   standard:
     name: bigbang-tempo-query
     tag: 3.1.1
-    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:ccaee80cca45c610d4293ec4e072204d95f12baba81e40d4e909a3fb2b9ee89b
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:e6cc68967c85a2013c3cd14cd5acdd5d07119c7e034f27c11f7a827451601ea5
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:0d6fae5bc1cd3408951f82dc08369426827217195c80fd43b59269f6cbc3f624
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:6a6637d593c66d1cf5ff25f4603ad0532cd99cd12334dedd958e7ef31817729a
     go_package: ''
   fips:
     name: bigbang-tempo-query-fips
     tag: 3.1.1
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:7888ab6b725f89511599f017b321f261cb0f0d769005dd7b8a2237fc5dba47f7
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:ce2d86dd8878ecb44592b8f47259bbd0013d8fc2236f2662ac0ab73b966b32b9
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:5da8b875e5318e8a9aa9c0fb882398f9f87b3a33fb15b7a602d5ec4e19c3e5e0
     go_package: ''
     fips: toolchain
