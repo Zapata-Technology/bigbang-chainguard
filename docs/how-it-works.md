@@ -280,6 +280,9 @@ can't express, `mapping.yaml` has these escape hatches:
   (Keycloak in Big Bang 4, still true on 4.1.0); their images stay on tags instead of digests.
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
   (kubectl `1.34`: Vault pins the end-of-life 1.30).
+- `max_version` (on an image): never a tag newer than this. GitLab's group holds at
+  `19.5.3` while `19.5.5` of the commercial Rails images has fixable Critical CVEs.
+  `version: "*"` ignores it.
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
 

@@ -377,6 +377,21 @@ def test_discovery_keeps_big_bangs_order_while_rendering_in_parallel(tmp_path, m
     assert sorted(out["packages"]) == ["flux", "one", "two"]
 
 
+def test_max_version_holds_the_group_and_lets_a_star_version_float():
+    tags = {"web": ["19.5.3", "19.5.5"], "web-fips": ["19.5.3", "19.5.5"],
+            "sidekiq": ["19.5.3", "19.5.5"], "sidekiq-fips": ["19.5.3", "19.5.5"],
+            "mail": ["1.1.0", "1.2.0"], "mail-fips": ["1.1.0", "1.2.0"]}
+    cap = {"group": "gl", "strict": True, "max_version": "19.5.3"}
+    m = {"images": {"gitlab/web": {**cap, "cg": "web", "same_patch": "rails"},
+                    "gitlab/sidekiq": {**cap, "cg": "sidekiq", "same_patch": "rails"},
+                    "gitlab/mail": {**cap, "cg": "mail", "version": "*"}}}
+    ib = {"gitlab/web": "v19.5.3-ubi", "gitlab/sidekiq": "v19.5.3-ubi", "gitlab/mail": "v19.5.3-ubi"}
+    c = convert.Converter(m, FakeTags(tags), ib_tags=ib)
+    assert c.target("gitlab/web", "v19.5.3-ubi", "gitlab")[0].endswith("web:19.5.3")
+    assert c.target("gitlab/sidekiq", "v19.5.3-ubi", "gitlab")[0].endswith("sidekiq:19.5.3")
+    assert c.target("gitlab/mail", "v19.5.3-ubi", "gitlab")[0].endswith("mail:1.2.0")
+
+
 def test_min_version_raises_an_end_of_life_line_to_the_newest_release():
     m = {"images": {"k/kubectl": {"cg": "kubectl", "suffix": "dev", "min_version": "1.34"}}}
     tags = {"kubectl": ["1.30.14-dev", "1.37.2-dev"], "kubectl-fips": ["1.30.14-dev", "1.37.2-dev"]}
