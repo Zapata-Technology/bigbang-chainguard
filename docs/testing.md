@@ -27,7 +27,7 @@ flowchart LR
 | **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | the tests a pull request's change reaches; the smoke set for a digest-only change; the full matrix weekly; or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
-| **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for the release-upgrade and migration tests. Large tests and `registry1: true` tests are outside it. A skip is not a pass. It does not run the matrix |
+| **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for <!-- required-tests -->`release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`<!-- /required-tests -->. Large tests and `registry1: true` tests are outside it. A skip is not a pass. It does not run the matrix |
 | **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
 | **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips`; a pull request that touches it stays standard | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
 
@@ -446,6 +446,10 @@ These are kind-on-GitHub-Actions limits, not image problems:
 
 ### Large tests
 
+<!-- compat-flags -->
+Tests with `large: true`: `gitlab`, `gitlab-runner`. Tests with `registry1: true`: `vault-upgrade`.
+<!-- /compat-flags -->
+
 A compat file with `large: true` (GitLab, GitLab Runner) needs more memory and time than
 the other tests (`timeout:` in seconds; the job gets 90 minutes). It runs in the weekly
 `compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes only that test's
@@ -458,7 +462,9 @@ A pull request runs only the tests its change reaches (`scripts/compat-plan.py`)
 `compat/<test>.yaml` (both modes), the tests that enable a package whose overlay changed beyond
 its digests (in that overlay's mode), the tests that use a changed `compat/support/` file, the
 installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and the smoke tests
+<!-- smoke-tests -->
 (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
+<!-- /smoke-tests -->
 for harness, Flux, mapping and digest-only changes. GitLab stays out of that list. Docs
 and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test; a new
 push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
