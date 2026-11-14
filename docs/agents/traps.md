@@ -109,7 +109,10 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   with `page=N`); `tests/test_ghrest.py` refuses the rest. In that sandbox, do the same by
   hand: `gh api repos/<owner>/<repo>/pulls`, `.../commits/<sha>/check-runs`,
   `.../actions/runs/<run>/artifacts` then `.../actions/artifacts/<id>/zip`. An empty answer
-  is not "nothing to do" unless the call succeeded.
+  is not "nothing to do" unless the call succeeded. `gh pr view --json statusCheckRollup`
+  lists every run of a name, including one a later push cancelled. `checks(sha)` keeps the
+  newest run of each name (`tests/test_ghrest.py`). A cancelled run beside a later success
+  of the same name is not a failure. Decide from `python scripts/ci-triage.py <pr>`.
 - On Windows Git Bash, `git show origin/main:.github/...` fails ("ambiguous argument
   'origin\main;.github\...'"): MSYS rewrites the argument as a path. Prefix
   `MSYS_NO_PATHCONV=1`.
