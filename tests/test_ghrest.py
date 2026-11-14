@@ -44,8 +44,10 @@ def test_lists_page_by_number_not_by_link_headers(monkeypatch):
 
 def test_checks_keep_the_newest_run_of_each_name_and_bucket_like_gh(monkeypatch):
     runs = [
+        # A later push cancels the older run. The higher id is the one that counts.
+        {"id": 0, "name": "verify", "status": "completed", "conclusion": "cancelled", "html_url": "u0"},
         {"id": 1, "name": "verify", "status": "completed", "conclusion": "failure", "html_url": "u1"},
-        {"id": 5, "name": "verify", "status": "completed", "conclusion": "success", "html_url": "u5"},  # re-run
+        {"id": 5, "name": "verify", "status": "completed", "conclusion": "success", "html_url": "u5"},
         {"id": 2, "name": "grafana (fips)", "status": "completed", "conclusion": "timed_out", "html_url": "u2"},
         {"id": 3, "name": "results", "status": "completed", "conclusion": "skipped", "html_url": "u3"},
         {"id": 4, "name": "build (base)", "status": "in_progress", "conclusion": None, "html_url": "u4"},

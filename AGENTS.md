@@ -111,11 +111,18 @@ GitHub answer is not "nothing to do" unless the call succeeded.
    docs); the weekly run and a new `BIGBANG_VERSION` run them all. Runner minutes are billed:
    push a branch once it is ready, not after every edit (a new push cancels the PR's older
    runs), and don't run several agents that each push PRs touching the overlays at once.
+   A pull request stacked on another: after the base merges, rebase onto `origin/main`,
+   `git push --force-with-lease` that feature branch only, then `gh pr edit <n> --base main`.
+   Do not merge the stacked branch into the base while the base's CI is still running.
+   Do not force-push `main` or a `bot/*` branch.
 4. **Wait without polling hard:** check every 3 minutes or more; parallel agents share the
    GitHub API rate limit. GitHub releases a job's log only when the job ends, so a kind test
    reports its own progress (`LIVE` lines, an early stop) in its log and artifact.
 5. **Merge** when every check passed (`gh pr merge <n> --squash --delete-branch`), with one
-   exception. `results-gate` (the check named `compat matrix recorded for this Big Bang version`)
+   exception. Read checks with `python scripts/ci-triage.py <pr>`. It uses `scripts/ghrest.py`
+   `checks(sha)`, which keeps the newest run of each name. `gh pr view --json statusCheckRollup`
+   lists every run, including one a later push or base change cancelled. A cancelled run
+   beside a later success of the same name is not a failure. `results-gate` (the check named `compat matrix recorded for this Big Bang version`)
    stays red while this `BIGBANG_VERSION` has no recorded standard-mode matrix. `ci-triage.py`
    prints EXPECTED when the log says `compat results are missing`, and exits 4. Do not write
    pass rows. `verify` is the required check. Record real artifacts with
@@ -152,6 +159,7 @@ Never print or copy secrets, and never change git config. Do not commit `.claude
 | Change an image this repo builds | [docs/agents/change-build.md](docs/agents/change-build.md) |
 | Add an image this repo builds | [docs/agents/add-build.md](docs/agents/add-build.md) |
 | Traps already hit | [docs/agents/traps.md](docs/agents/traps.md) |
+| Update the briefing PDF | [docs/agents/briefing.md](docs/agents/briefing.md) |
 
 ## Traps that stop the expensive mistakes
 
@@ -180,10 +188,17 @@ agent hits before it finishes reading that file.
 - **The scheduled agent's sandbox reaches GitHub only through REST**
   `repos/<owner>/<repo>/...`, via `scripts/ghrest.py`. GraphQL (`gh pr list`, `gh pr checks`)
   and an empty answer are not "nothing to do."
-- **On Windows,** git checks out with CRLF, `C:\Windows\System32\bash.exe` is not `/bin/bash`
-  (two tests fail locally; CI is Ubuntu; do not change product code for that), Git Bash
-  rewrites `origin/main:path` unless `MSYS_NO_PATHCONV=1`, a heredoc eats backslashes (write
-  a `.py` file and run it), and paths past 260 characters fail. Do not commit `.claude/`.
+- **On Windows,** git checks out with CRLF. `C:\Windows\System32\bash.exe` is the WSL
+  relay, so `bash -c true` fails and the two bash script tests skip (`require_bash` in
+  `tests/conftest.py`). CI is Ubuntu. Do not change product scripts for that skip.
+  Git Bash rewrites `origin/main:path` unless `MSYS_NO_PATHCONV=1`, a heredoc eats
+  backslashes (write a `.py` file and run it), and paths past 260 characters fail.
+  Do not commit `.claude/`.
+
+Waiting on a person: REGISTRY1 credentials, the Helm provenance identity
+(`AZURE_PROVENANCE_CLIENT_ID` in helm-charts), and the LogIT `GH_REPO_TOKEN`.
+Do not open a pull request to rotate or invent them. A skipped `vault-upgrade`
+or an empty Iron Bank column in the CVE report is that wait, not a code bug.
 
 ## Where to look
 

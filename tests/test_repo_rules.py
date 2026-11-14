@@ -220,6 +220,23 @@ def _marked(text, name):
     return set(re.findall(r"`([^`]+)`", found.group(1)))
 
 
+def test_agent_guide_states_the_check_run_rebase_and_briefing_rules():
+    """Sentences an agent acts on. A deleted one fails here, not on the next pull request."""
+    guide = open(os.path.join(ROOT, "AGENTS.md"), encoding="utf-8").read()
+    traps = open(os.path.join(ROOT, "docs", "agents", "traps.md"), encoding="utf-8").read()
+    briefing = open(os.path.join(ROOT, "docs", "agents", "briefing.md"), encoding="utf-8").read()
+    assert "bash -c true" in guide and "require_bash" in guide
+    assert "force-with-lease" in guide and "gh pr edit" in guide
+    assert "newest run of each name" in guide and "newest run of each name" in traps
+    assert "statusCheckRollup" in guide
+    for name in ("REGISTRY1", "AZURE_PROVENANCE_CLIENT_ID", "GH_REPO_TOKEN"):
+        assert name in guide
+    assert "2026-11-02" in briefing and "840" in briefing and "6,688" in briefing
+    assert "SLSA v1" in briefing and "reportlab" in briefing
+    assert "version-differences.md" in briefing and "failureThreshold" in briefing
+    assert "docs/agents/briefing.md" in guide
+
+
 def test_smoke_required_and_compat_flags_match_the_code():
     """The smoke set, the results-gate required tests, and large/registry1 flags have one
     source (compat-plan.py, results-gate.py, compat/*.yaml). The marked lists in the docs
