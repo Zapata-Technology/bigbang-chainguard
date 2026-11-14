@@ -41,7 +41,7 @@ def setting(name, arg=None):
 # refuses it instead of silently ignoring it.
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
                     "bash_wait_jobs", "bash_commands", "post_renderers", "chart_registry_builds", "no_post_renderers",
-                    "unpinned", "ignore",
+                    "progress_deadline", "unpinned", "ignore",
                     "scan_reviewed"}
 IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,

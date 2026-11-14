@@ -158,7 +158,7 @@ images:
   # No Chainguard mattermost-operator image: scripts/bb-build.py mattermost-operator builds it from
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
-  ironbank/opensource/go-gitea/gitea: {stays: "org gitea is 28.x; Big Bang renovate pins 1.27 (test fixture)"}
+  ironbank/opensource/go-gitea/gitea: {stays: "catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture)"}
   ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank}
   ironbank/container-hardening-tools/renovate/renovate: renovate
   ironbank/opensource/goharbor/harbor-core: harbor-core
@@ -174,9 +174,11 @@ images:
   # org's newest release (docs/images.md flags it).
   ironbank/opensource/minio/minio: {cg: minio, version: "*"}
   ironbank/opensource/minio/mc: {cg: minio-client, version: "*"}
-  # No Chainguard MinIO Operator images: scripts/bb-build.py minio-operator and
-  # minio-operator-sidecar build both from minio/operator's source (archived upstream
-  # and on Iron Bank) FROM the org's images; with BUILD_REGISTRY empty they stay on Iron Bank.
+  # The public catalog publishes minio-operator (7.1.1). These builds stay until that
+  # image is compared with Big Bang's pin. scripts/bb-build.py minio-operator and
+  # minio-operator-sidecar build both from minio/operator's source FROM the org's images;
+  # with BUILD_REGISTRY empty they stay on Iron Bank. The MinIO server stays on Iron Bank
+  # by the org file (Zapata removed the org minio repos) and has no kind test.
   ironbank/opensource/minio/operator: {build: minio-operator}
   ironbank/opensource/minio/operator-sidecar: {build: minio-operator-sidecar}
 
@@ -326,9 +328,20 @@ overrides:
     # removed tlskyber, and Go refuses to start with a removed setting ("fatal error:
     # removed GODEBUG \"tlskyber\" set to old value", compat/gitlab.yaml). Keep the chart's
     # intent (no ML-KEM key exchange) with the setting current Go has.
+    #
+    # Rails on a small or FIPS cluster takes longer than the chart's liveness probe
+    # (20s, then 3 failures 60s apart). 15 failures is about 15 minutes (compat/gitlab.yaml).
+    # PostgreSQL max_locks_per_transaction is the site's database, not a chart value:
+    # the installer notes it. The Deployment progress deadline is progress_deadline below.
     global:
       extraEnv:
         GODEBUG: tlsmlkem=0
+    upstream:
+      gitlab:
+        webservice:
+          deployment: {livenessProbe: {failureThreshold: 15}}
+        sidekiq:
+          livenessProbe: {failureThreshold: 15}
   grafana:
     # builds/grafana-plugins rebuilds the Redis datasource's Go backend from source (its
     # release ships Go 1.19 binaries with 8 fixable Critical CVEs) and drops the signed
@@ -459,6 +472,12 @@ post_renderers:
   packages.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
 
+# Deployments whose work exceeds Kubernetes' 600s progressDeadlineSeconds. A patch,
+# because a values postRenderers list would replace the digest pins. GitLab's migrations
+# take about 10 minutes on a small cluster (compat/gitlab.yaml).
+progress_deadline:
+  packages.gitlab: 2400
+
 # Value paths that hold Iron Bank strings but are not images to replace.
 ignore:
   - {release: neuvector, path: upstream.controller.image}  # set by overrides.neuvector
@@ -473,7 +492,7 @@ ignore:
 # Big Bang keys whose HelmRelease template can't take post-renderers (bb-scan.py finds
 # them): bb-convert gives them none, so their images stay on tags (no digest pin).
 no_post_renderers:
-  packages.keycloak: Big Bang 4.0.0's keycloak/helmrelease.yaml writes postRenderers without the key
+  packages.keycloak: Big Bang 4's keycloak/helmrelease.yaml writes postRenderers without the key (still true on 4.1.0)
 
 # Org images that stay on their exact tag instead of a digest pin (release: {org repo: why}).
 # bb-verify.py fails on any other org image without a digest, except a repository

@@ -73,6 +73,10 @@ def preflight(a, co, site, defaults):
         # monitoring's certificates need cert-manager. Both are on by default.
         if on & {"packages.monitoring", "packages.thanos"} and f"packages.{needs}" not in on:
             problems.append(f"monitoring/Thanos need {needs}: leave it on in the site file")
+    if "packages.gitlab" in on:
+        notes.append("GitLab's migrations need PostgreSQL max_locks_per_transaction=256 "
+                     "(the chart default 64 fails with out of shared memory). Set it on the "
+                     "database GitLab uses; the chart does not configure that server")
     if co.in_cluster_seaweedfs() and server:
         scs = json.loads(kubectl("get", "storageclass", "-o", "json", check=False) or '{"items": []}')["items"]
         if not any(s["metadata"].get("annotations", {}).get("storageclass.kubernetes.io/is-default-class") == "true"
