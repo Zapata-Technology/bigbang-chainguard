@@ -7,7 +7,7 @@ Big Bang itself is not forked. This repo turns the unmodified upstream chart int
 deployment on Chainguard images, tests it, and releases it; you install it with one tool.
 
 **[Read the briefing (PDF, 19 slides)](docs/big-bang-on-chainguard-briefing.pdf)**: why run
-Big Bang on Chainguard images, what this repo's scans and tests show, and how to start.
+Big Bang 4.1.0 on Chainguard images, what this repo's scans and tests show, and how to start.
 
 ```mermaid
 flowchart TB
@@ -233,8 +233,9 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 ## Learn more
 
-- [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang on
-  Chainguard in 19 slides, with this repo's CVE counts and tests (November 2026).
+- [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang 4.1.0 on
+  Chainguard in 19 slides (November 2026). CVE counts are the 2026-11-02 grype snapshot.
+  Live image counts are in [version-differences.md](docs/version-differences.md).
 - [Quickstart](docs/quickstart.md): install from a pinned, signed release.
 - [Installer details](docs/install.md): every option, registry logins, TLS, signatures,
   air-gapped sites, upgrading from Big Bang 3.

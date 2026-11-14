@@ -1,10 +1,9 @@
 """bb-preview.py: what Big Bang's next release would break, decided without a network."""
 import os
 
-import pytest
 import yaml
 
-from conftest import ROOT, load_script
+from conftest import ROOT, load_script, require_bash
 
 pv = load_script("bb-preview")
 
@@ -176,11 +175,8 @@ wrote docs/images.md
 def _refs_step(tmp_path, ref):
     """Run bigbang-preview.yml's refs step with a fake repo1 (tags 4.0.0, 4.1.0; branches
     release-4.1.0, release-4.2.0) and a fake gh listing an issue for release-4.1.0."""
-    import shutil
     import subprocess
-    bash = shutil.which("bash")
-    if not bash:
-        pytest.skip("no bash")
+    bash = require_bash()
     wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "bigbang-preview.yml"), encoding="utf-8"))
     run = next(st for st in wf["jobs"]["refs"]["steps"] if st.get("id") == "refs")["run"]
     bin_ = tmp_path / "bin"

@@ -9,8 +9,9 @@ agent) start maintaining it. Needs `gh` logged in.
     bot/builds-release) first
   - the latest run of each workflow on main (CI, builds, release, the nightly update, the
     weekly kind tests, automerge) and whether it passed
-  - the branch, dirty files, the Big Bang version, and whether results-gate is expected
-    red on this checkout (those are local; they print even when GitHub doesn't answer)
+  - the branch, dirty files, the Big Bang version, whether results-gate is expected
+    red, and when mapping.yaml is ahead of the overlays (local; they print even when
+    GitHub doesn't answer)
   - the latest release
   - jobs re-run often lately (ci-triage.py --flakes), and, with chainctl logged in, the
     Chainguard plan's room per tier (bb-org-repos.py --quota has the detail)
@@ -23,6 +24,7 @@ then 2: never read a missing answer as "nothing open".
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -94,17 +96,51 @@ def format_local(branch, dirty, version, gate_rc, gate_text):
     return lines
 
 
+def overlay_lag(root):
+    """Notes when mapping.yaml is ahead of the overlays.
+
+    update.yml on main writes the overlays. An agent must not run bb-convert.py offline
+    or hand-edit them. Quiet once either overlay already contains the setting.
+    """
+    mapping_path = os.path.join(root, "mapping.yaml")
+    if not os.path.exists(mapping_path):
+        return []
+    mapping = open(mapping_path, encoding="utf-8").read()
+    parts = []
+    for name in ("values-chainguard.yaml", "values-chainguard-fips.yaml"):
+        path = os.path.join(root, "overlays", name)
+        if os.path.exists(path):
+            parts.append(open(path, encoding="utf-8").read())
+    text = "\n".join(parts)
+    notes = []
+    block = re.search(r"(?m)^progress_deadline:\n((?:[ \t].*\n)*)", mapping)
+    has_deadline = block and re.search(r"(?m)^[ \t]+packages\.\S+:\s+\d+\s*$", block.group(1))
+    if has_deadline and "progressDeadlineSeconds" not in text:
+        notes.append(
+            "mapping.yaml progress_deadline is not in the overlays yet. "
+            "The next online update.yml writes it. "
+            "Do not run bb-convert.py offline. Do not hand-edit overlays.")
+    if re.search(r"failureThreshold:\s*15\b", mapping) and not re.search(r"failureThreshold:\s*15\b", text):
+        notes.append(
+            "mapping.yaml sets GitLab liveness failureThreshold 15, and the overlays do not. "
+            "The next online update.yml writes it. "
+            "Do not run bb-convert.py offline. Do not hand-edit overlays.")
+    return notes
+
+
 def local_lines():
-    """Branch, dirty files, BIGBANG_VERSION, and this checkout's results-gate."""
+    """Branch, dirty files, BIGBANG_VERSION, this checkout's results-gate, and overlay lag."""
     branch = git_text("rev-parse", "--abbrev-ref", "HEAD")
     dirty = git_text("status", "--porcelain")
     version = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
     gate = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "results-gate.py")],
                           cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return format_local(
+    lines = format_local(
         branch.strip() if branch else "(unknown)",
         None if dirty is None else [ln for ln in dirty.splitlines() if ln.strip()],
         version, gate.returncode, gate.stderr + gate.stdout)
+    lines.extend(overlay_lag(ROOT))
+    return lines
 
 
 def org_name():
