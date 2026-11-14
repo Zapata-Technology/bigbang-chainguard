@@ -17,22 +17,26 @@ built it and offers it to the Big Bang community under Apache-2.0.
 - **Honest about gaps.** `docs/images.md` lists every image that stays on Iron Bank, with
   the reason, and every image that runs a different version than Big Bang tested.
 
-## Current coverage (Big Bang 4.0.0)
+## Current coverage (Big Bang 4.1.0)
 
-- Every image Big Bang 4.0.0 deploys is converted or listed with a reason
-  (`docs/images.md`): 118 image references convert in each mode, and 19 images stay on
-  Iron Bank, none of them in the default packages:
-  - vendor products (Twistlock, Anchore Enterprise, Fortify)
-  - parts of the GitLab CNG set and Red Hat UBI bases its scripts expect
-  - a few with no Chainguard image yet
-- Eleven images Chainguard doesn't publish are built here FROM Chainguard images: Big Bang's
-  own (`base`, `grafana-plugins`, `devops-tester`) from Iron Bank's recipes, and Vault, the
-  JMX exporter, the Mattermost Operator, tempo-query, the MinIO Operator and its sidecar,
-  GitLab's gitaly-init-cgroups and NeuVector's registry adapter from upstream source.
-- Verified by rendering every package in standard and FIPS mode, and by running each
-  package on kind in both modes (37 tests, each with a functional check), on each pull
-  request that changes what clusters run (the two GitLab tests weekly). Upgrading from the newest 3.35.1 release to Big Bang 4 is one of those tests.
-  A weekly run puts the FIPS overlay on a kernel in FIPS mode.
+- Every image Big Bang 4.1.0 deploys is converted or listed with a reason
+  (`docs/images.md`, `docs/version-differences.md`). The version table counts each Iron
+  Bank image and tag. The image map counts image names, so an image pinned at two tags
+  is one name there and two rows in the version table. What stays on Iron Bank includes
+  vendor products (Twistlock, Anchore Enterprise, Fortify), parts of the GitLab CNG set,
+  Red Hat UBI bases its scripts expect, and the MinIO server (Zapata's org file).
+- Images Chainguard doesn't publish are built here FROM Chainguard images. The list is
+  in [how-it-works.md](how-it-works.md). The installer image is in [install.md](install.md).
+- Rendering checks every package in standard and FIPS mode on every pull request. Kind
+  runs the tests the change reaches (`compat/*.yaml`, each with a functional check). A
+  digest-only change runs the smoke set: Kyverno, metrics-server, Tempo, Keycloak, Kiali
+  and Velero. GitLab and GitLab Runner run weekly. `results-gate` fails while this Big
+  Bang version has no recorded standard-mode matrix. The full recorded matrix is still
+  Big Bang 4.0.0 (2026-11-08). On 4.1.0, the Keycloak and Mattermost release-upgrade and
+  migration tests, and `bb-install.py upgrade --to`, passed on 2026-11-14
+  ([testing.md](testing.md)). Upgrading from the newest 3.35.1 release to Big Bang 4 is
+  one of the kind tests. A weekly run puts the FIPS overlay on a kernel in FIPS mode.
+  The weekly and manual RKE2 runs also install the default packages with `--fips`.
 - **Not yet run on a production-sized, multi-node cluster.** That is the next milestone,
   and help is welcome.
 

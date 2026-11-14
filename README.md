@@ -18,11 +18,11 @@ flowchart TB
         BB ~~~ CG
     end
 
-    subgraph REPO["2 · This repo, every night"]
+    subgraph REPO["2 · This repo"]
         direction LR
         D["Discover<br/>every image<br/>Big Bang deploys"] --> M["Map and pin<br/>each to its Chainguard<br/>image, by digest"]
-        M --> T["Test<br/>render + run every package,<br/>standard and FIPS"]
-        T --> R["Release<br/>signed, e.g. 4.0.0-cg.3"]
+        M --> T["Test<br/>render both modes;<br/>kind smoke on a digest change,<br/>full matrix weekly"]
+        T --> R["Release<br/>signed, e.g. 4.1.0-cg.n"]
     end
 
     subgraph YOU["3 · You"]
@@ -43,8 +43,12 @@ flowchart TB
     class K done
 ```
 
-When Chainguard patches an image, the nightly run tests it and releases it on its own; a
-new Big Bang version gets its own pull request, with the same tests and upgrade notes
+When Chainguard patches an image, the nightly run opens a pull request that moves the
+digest. That pull request renders both modes and runs the smoke kind tests (Kyverno,
+metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
+`results-gate` sees no recorded standard-mode matrix for this Big Bang version. The
+weekly run records that matrix. GitLab stays on the weekly run. A new Big Bang version
+gets its own pull request, with upgrade notes
 ([docs/upgrades/](docs/upgrades/)), and a person merges it. Moving
 a cluster to a new release is `bb-install.py upgrade`.
 

@@ -14,6 +14,7 @@ flowchart LR
     V --> B[Image builds<br/>builds.yml<br/>smoke test + grype]
     S --> C[Run on kind<br/>compat.yml<br/>one package per job]
     B --> C
+    C --> RG[results-gate<br/>recorded standard matrix<br/>for this Big Bang version]
 ```
 
 | Layer | Runs | Catches |
@@ -25,9 +26,10 @@ flowchart LR
 | **Image age** (`bb-age.py`) | every PR | An org image not rebuilt in 30 days: a release line Chainguard stopped maintaining. Vault's kubectl 1.30 (19 Critical CVEs in FIPS) was one. |
 | **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
-| **Run on kind** (`compat.yml`) | PRs that touch `compat/`, or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
+| **Run on kind** (`compat.yml`) | the tests a pull request's change reaches; the smoke set for a digest-only change; the full matrix weekly; or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
+| **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for the release-upgrade and migration tests. Large tests and `registry1: true` tests are outside it. A skip is not a pass. It does not run the matrix |
 | **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
-| **RKE2, CIS profile** (`rke2.yml`) | weekly, PRs that touch it, or by hand | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. See below |
+| **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips`; a pull request that touches it stays standard | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
 
 ## Running packages on kind
 
@@ -475,6 +477,7 @@ runners. The results go in the ref's preview issue, and are marked `preview` so 
 above never shows them. By hand, from main: `gh workflow run compat.yml --ref main -f
 bigbang_ref=release-X.Y.Z` (add `-f tests=<names>` for others).
 
-MinIO and the MinIO operator have no kind test: their images stay on Iron Bank, which CI has
-no credentials for. Mattermost is not large: `compat/mattermost.yaml` runs the server with
+The MinIO server has no kind test. Zapata's org file keeps it on Iron Bank, and CI has no
+registry1 credentials. The MinIO operator does: `compat/minio-operator.yaml` passed on
+Big Bang 4.0.0. Mattermost is not large: `compat/mattermost.yaml` runs the server with
 the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on SeaweedFS.
