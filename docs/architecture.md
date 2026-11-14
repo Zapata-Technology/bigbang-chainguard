@@ -246,7 +246,11 @@ Every org image is pinned to the digest its tag had when the overlays were gener
 which charts reuse in labels). Chainguard rebuilds images under the same tag, so without
 the pin a rebuild would reach clusters on the next pod restart, untested. With it, a
 rebuild arrives only as a new digest in the nightly pull request. `compat.yml` then
-runs the smoke kind tests (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero),
+runs the smoke kind tests
+<!-- smoke-tests -->
+(`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
+<!-- /smoke-tests -->
+(Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero),
 not every package. The weekly run deploys every package, including GitLab.
 `results-gate` fails the pull request while this Big Bang version has no recorded
 standard-mode matrix. A skipped run is not a pass. Tests marked `registry1: true`

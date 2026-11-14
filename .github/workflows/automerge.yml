@@ -16,12 +16,14 @@ name: Auto-merge - nightly update
 #
 # A workflow run on the bot PR that fails on its first attempt is triaged with main's
 # scripts/ci-triage.py --run: its failed jobs are re-run once only when every failure is a
-# known flake (repo1.dso.mil refusing the runner, a network timeout, a download's 5xx). A real
-# failure (a check, a missing image, a policy refusal) isn't re-run: it fails the same way
-# again and only delays the person. That, a failure that survives the re-run, or triage that
-# couldn't read GitHub waits for a person: the PR gets the `needs-attention` label and one
-# comment saying what failed (python scripts/ci-triage.py <pr>), mentioning the ALERT_MENTION
-# repository variable (e.g. a maintainer's login) when it is set.
+# known flake (repo1.dso.mil refusing the runner, a network timeout, a download's 5xx; exit 2).
+# Exit 4 is results-gate saying this Big Bang version has no recorded compat matrix. The pull
+# request stays open. It is not re-run, not merged, and not labeled needs-attention. Do not
+# write pass rows. A real failure (a check, a missing image, a policy refusal; exit 1) isn't
+# re-run: it fails the same way again and only delays the person. That, a failure that survives
+# the re-run, or triage that couldn't read GitHub waits for a person: the PR gets the
+# `needs-attention` label and one comment saying what failed (python scripts/ci-triage.py <pr>),
+# mentioning the ALERT_MENTION repository variable (e.g. a maintainer's login) when it is set.
 #
 # Every read is captured before it is tested: under `set -e` a failed gh call stops the
 # run. (Piping gh into `grep -q` inside an `if` read a failed call as "no hold label".)
@@ -191,6 +193,8 @@ jobs:
               2)
                 echo "run $RUN failed on its first attempt, only on known flakes: re-running its failed jobs once"
                 gh run rerun "$RUN" --failed ;;
+              4)
+                echo "run $RUN is red because this Big Bang version has no recorded standard compat matrix. Not merging. Not re-running. Not labeling needs-attention. Do not write pass rows. Record real artifacts with scripts/test-results.py update." ;;
               1)
                 attention "$RUN_NAME failed, and ci-triage.py finds a real failure (not re-run; the log above has the evidence): $RUN_URL" ;;
               *)

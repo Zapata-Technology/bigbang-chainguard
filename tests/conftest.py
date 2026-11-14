@@ -1,6 +1,8 @@
 """Make scripts/ importable; load the hyphenated command scripts as modules."""
 import importlib.util
 import os
+import shutil
+import subprocess
 import sys
 
 import pytest
@@ -43,3 +45,17 @@ class FakeTags:
 @pytest.fixture
 def fake_tags():
     return FakeTags
+
+
+def require_bash():
+    """A bash that can run `bash -c true`.
+
+    shutil.which("bash") is true on Windows when the WSL relay is installed, and that
+    relay fails with execvpe(/bin/bash). Ubuntu CI has a real bash. Skip only then.
+    """
+    bash = shutil.which("bash")
+    if not bash:
+        pytest.skip("no bash")
+    if subprocess.run([bash, "-c", "true"], capture_output=True).returncode != 0:
+        pytest.skip("bash -c true failed (the Windows WSL relay cannot exec /bin/bash)")
+    return bash

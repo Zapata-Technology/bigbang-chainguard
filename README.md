@@ -7,7 +7,7 @@ Big Bang itself is not forked. This repo turns the unmodified upstream chart int
 deployment on Chainguard images, tests it, and releases it; you install it with one tool.
 
 **[Read the briefing (PDF, 19 slides)](docs/big-bang-on-chainguard-briefing.pdf)**: why run
-Big Bang on Chainguard images, what this repo's scans and tests show, and how to start.
+Big Bang 4.1.0 on Chainguard images, what this repo's scans and tests show, and how to start.
 
 ```mermaid
 flowchart TB
@@ -44,8 +44,11 @@ flowchart TB
 ```
 
 When Chainguard patches an image, the nightly run opens a pull request that moves the
-digest. That pull request renders both modes and runs the smoke kind tests (Kyverno,
-metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
+digest. That pull request renders both modes and runs the smoke kind tests
+<!-- smoke-tests -->
+(`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
+<!-- /smoke-tests -->
+(Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
 `results-gate` sees no recorded standard-mode matrix for this Big Bang version. The
 weekly run records that matrix. GitLab stays on the weekly run. A new Big Bang version
 gets its own pull request, with upgrade notes
@@ -230,8 +233,9 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 
 ## Learn more
 
-- [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang on
-  Chainguard in 19 slides, with this repo's CVE counts and tests (November 2026).
+- [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang 4.1.0 on
+  Chainguard in 19 slides (November 2026). CVE counts are the 2026-11-02 grype snapshot.
+  Live image counts are in [version-differences.md](docs/version-differences.md).
 - [Quickstart](docs/quickstart.md): install from a pinned, signed release.
 - [Installer details](docs/install.md): every option, registry logins, TLS, signatures,
   air-gapped sites, upgrading from Big Bang 3.

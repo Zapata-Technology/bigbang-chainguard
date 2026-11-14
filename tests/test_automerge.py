@@ -128,7 +128,8 @@ sys.stdout.write(text)
 def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1, branch="bot/bigbang-update",
               patches="", main_version="4.1.0"):
     """Run the merge step with a fake gh, and a stub ci-triage.py that exits triage_rc
-    (0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer)."""
+    (0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer,
+    4 results-gate is red because the compat matrix is not recorded yet)."""
     import shutil
     import subprocess
     import pytest
@@ -200,6 +201,21 @@ def test_a_first_failure_is_re_run_only_when_triage_finds_only_flakes(tmp_path):
     assert p.returncode == 0, p.stderr
     assert "triage --run 9" in log and "run rerun 9 --failed" in log
     assert "needs-attention" not in log and "pr merge" not in log
+
+
+def test_exit_4_is_the_missing_matrix_and_does_not_call_attention():
+    run = STEP["run"]
+    arm = run.split("case \"$rc\" in", 1)[1].split("esac", 1)[0]
+    assert "4)" in arm and "no recorded standard compat matrix" in arm
+    assert "Not labeling needs-attention" in arm
+    assert arm.index("4)") < arm.index("1)")
+
+
+def test_a_missing_matrix_sits_without_a_rerun_or_a_label(tmp_path):
+    p, log = run_merge(tmp_path, green(), conclusion="failure", attempt="1", triage_rc=4)
+    assert p.returncode == 0, p.stderr
+    assert "run rerun" not in log and "pr merge" not in log and "needs-attention" not in log
+    assert "no recorded standard compat matrix" in p.stdout
 
 
 def test_a_real_first_failure_asks_for_a_person_without_a_re_run(tmp_path):

@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from conftest import ROOT, FakeTags, load_script
+from conftest import ROOT, FakeTags, load_script, require_bash
 
 convert = load_script("bb-convert")
 
@@ -315,11 +315,8 @@ def test_plain_override_values_reach_both_overlays():
 
 
 def test_bash_wait_script_runs_sh_scripts_with_bash(tmp_path):
-    import shutil
     import subprocess
-    bash = shutil.which("bash")
-    if not bash:
-        pytest.skip("no bash")
+    bash = require_bash()
     ok = tmp_path / "ok"
     ok.mkdir()
     (ok / "wait.sh").write_text('#!/bin/sh\nA=(x y)\necho "got ${A[1]}"\n', newline="\n")
