@@ -22,6 +22,21 @@
       "notes": "Data across a release upgrade (Mattermost's database migrations, object storage). Check: after the upgrade, and a server restart if it didn't replace the server, the user logs in, the team and post are there, and the file's bytes come back; database status OK"
     },
     {
+      "test": "installer-upgrade-to",
+      "runs": "`bb-install.py upgrade --to` from the previous Big Bang release's own installer to the newest release, with Tempo on SeaweedFS and a Keycloak realm written before the upgrade",
+      "notes": "Check: the realm, role and user survive and the user logs in; the cluster records the new release; Tempo's stored S3 keys still work"
+    },
+    {
+      "test": "keycloak-migration",
+      "runs": "Keycloak and Big Bang's PostgreSQL installed on the org's previous Keycloak line, a realm, role and user written with kcadm, then upgraded to this tree's Keycloak",
+      "notes": "A real schema migration. Check: Keycloak's version changed, and the realm, the user with its role, and the login survive"
+    },
+    {
+      "test": "mattermost-migration",
+      "runs": "Mattermost (operator, PostgreSQL, files on SeaweedFS) installed on the org's previous major line, a team, post and file written, then upgraded to this tree's Mattermost",
+      "notes": "A real database migration. Check: the server version changed, the user logs in, and the team, post and file bytes are still there"
+    },
+    {
       "test": "vault-upgrade",
       "runs": "Iron Bank's Vault 1.21 with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back",
       "notes": "Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist"
@@ -568,6 +583,32 @@
       "branch": "main"
     },
     {
+      "test": "installer-upgrade-to",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:47:26Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "installer-upgrade-to",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:45:17Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
       "test": "istio-ambient",
       "mode": "fips",
       "result": "pass",
@@ -643,6 +684,32 @@
       "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138",
       "commit": "813cfccee9c4088797a62abbcb070334d10070a6",
       "event": "schedule",
+      "branch": "main"
+    },
+    {
+      "test": "keycloak-migration",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:44:32Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "keycloak-migration",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:43:13Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
       "branch": "main"
     },
     {
@@ -773,6 +840,32 @@
       "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138",
       "commit": "813cfccee9c4088797a62abbcb070334d10070a6",
       "event": "schedule",
+      "branch": "main"
+    },
+    {
+      "test": "mattermost-migration",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:42:36Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "mattermost-migration",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:45:53Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
       "branch": "main"
     },
     {
@@ -1007,6 +1100,58 @@
       "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/42481242138",
       "commit": "813cfccee9c4088797a62abbcb070334d10070a6",
       "event": "schedule",
+      "branch": "main"
+    },
+    {
+      "test": "release-upgrade-keycloak",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:43:47Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "release-upgrade-keycloak",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:43:09Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "release-upgrade-mattermost",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:43:15Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
+      "branch": "main"
+    },
+    {
+      "test": "release-upgrade-mattermost",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-14T04:42:59Z",
+      "run_id": 43557263229,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43557263229",
+      "commit": "3da57f4eb48b9c86c82c07592ef66a918d95ba3b",
+      "event": "workflow_dispatch",
       "branch": "main"
     },
     {
