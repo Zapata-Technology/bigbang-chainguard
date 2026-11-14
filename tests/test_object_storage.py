@@ -34,6 +34,12 @@ def test_build_disables_minio_and_skips_optional_packages():
     assert "loki" not in chosen and "loki" not in overlay["packages"]
     assert overlay["packages"]["thanos"]["objectStorage"]["endpoint"] == "s3:8333"
     assert overlay["packages"]["gitlab"]["objectStorage"]["endpoint"] == "http://s3:8333"
+    mattermost = overlay["packages"]["mattermost"]["objectStorage"]
+    assert mattermost["disableSSL"] is True and mattermost["forcePathStyle"] is True
+    assert "mattermostEnvs" not in overlay["packages"]["mattermost"].get("values", {})
+    https = storage.tokens("https://s3.example.com", "us-east-1", "bb")
+    https_overlay, _, _, _ = storage.build(SPEC, https, set())
+    assert https_overlay["packages"]["mattermost"]["objectStorage"]["disableSSL"] is False
     assert "bb-velero" in buckets
     assert all(not str(v).startswith("<") for v in yaml.safe_dump(overlay).split())  # no credentials
 

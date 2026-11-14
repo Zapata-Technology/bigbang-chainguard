@@ -1,6 +1,6 @@
 # External S3 object storage for Big Bang (SeaweedFS, or any S3-compatible service)
 # instead of the MinIO that Big Bang deploys or bundles. scripts/bb-object-storage.py
-# fills the tokens below and writes an overlay. Checked against Big Bang 4.0.0's
+# fills the tokens below and writes an overlay. Checked against Big Bang 4.1.0's
 # templates; recheck this file when BIGBANG_VERSION changes.
 #
 # Tokens:
@@ -46,12 +46,14 @@ packages:
     buckets: [mimir]
 
   mattermost:
-    note: Big Bang installs Mattermost's bundled MinIO unless endpoint, keys and bucket are all set.
+    note: >-
+      Big Bang installs Mattermost's bundled MinIO unless endpoint, keys and bucket
+      are all set. Big Bang 4.1.0 writes MM_FILESETTINGS_AMAZONS3SSL from
+      objectStorage.disableSSL and MM_FILESETTINGS_AMAZONS3PATHSTYLE from
+      objectStorage.forcePathStyle. SeaweedFS is path-style, and disableSSL follows
+      the endpoint scheme.
     values:
-      packages.mattermost.objectStorage: {endpoint: "{host}", bucket: "{bucket:mattermost}"}
-      # The operator sets MM_FILESETTINGS_AMAZONS3SSL=true for every external file store
-      # (false only for a MinIO it manages); the chart's env overrides it.
-      packages.mattermost.values.mattermostEnvs.MM_FILESETTINGS_AMAZONS3SSL: "{ssl}"
+      packages.mattermost.objectStorage: {endpoint: "{host}", bucket: "{bucket:mattermost}", disableSSL: "{insecure}", forcePathStyle: true}
     credentials: [packages.mattermost.objectStorage.accessKey, packages.mattermost.objectStorage.accessSecret]
     buckets: [mattermost]
 
