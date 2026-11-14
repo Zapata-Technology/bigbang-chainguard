@@ -1,8 +1,9 @@
 # AGENTS.md: maintaining bigbang-chainguard
 
 Read this first if you are an AI agent (or a person new to the repo). It says what is
-source and what is generated, the rules that must hold, the commands, and step-by-step
-playbooks for the jobs that recur. Details live in the docs it links.
+source and what is generated, the rules that must hold, the commands, and the loop.
+One playbook per job lives in [docs/agents/](docs/agents/). The long trap list is
+[docs/agents/traps.md](docs/agents/traps.md). Details live in the docs this file links.
 
 ## What this repo is
 
@@ -59,16 +60,16 @@ org-neutral.
 python scripts/check.py              # before every commit: unit tests, ruff (+ chart scan if work/ exists)
 python scripts/check.py --online     # + overlays current + verify std/FIPS (chainctl, work/)
 python scripts/bb-run.py             # fetch, discover, scan, convert, verify: the whole pipeline
-python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml
+python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml (online only; see traps)
 python scripts/bb-compat.py compat/<test>.yaml [--fips]   # one package on a kind cluster
 python scripts/bb-install.py check --site my-site.yaml [--fips]     # every setting tested, nothing changed
 python scripts/bb-install.py install --site my-site.yaml [--fips]   # what a user runs to deploy
 python scripts/bb-install.py upgrade --site my-site.yaml [--fips]   # a running cluster; converts a Big Bang 3 site file
 scripts/bb-docker.sh install                                       # the same, from the installer image
 python scripts/bb-install.py status                              # health of a deployed cluster
-python scripts/repo-status.py         # where the repo stands: open PRs + checks, last run per workflow
+python scripts/repo-status.py         # branch, dirty files, version, results-gate, open PRs
 python scripts/bb-preview.py          # Big Bang's development branch against this repo: what would break
-python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE or FAILED (--rerun-flakes)
+python scripts/ci-triage.py <pr>      # why a PR's checks failed; FLAKE, FAILED, or EXPECTED
 python scripts/test-results.py update # docs/testing.md's results table (--from-main N: main's runs)
 python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
 python scripts/egress-audit.py        # hosts a workflow reached that its harden-runner list doesn't name
@@ -77,7 +78,8 @@ python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what'
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
 `compat/` or the installer), `update.yml` (nightly bot PR), `automerge.yml` (merges that PR
-when every check passed; not a new Big Bang release or a `hold` label), `release.yml` (tags
+when every check passed; not a new Big Bang release, a `hold` label, or an expected red
+`results-gate`), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix and the most common Highs), `fips-kernel.yml` (weekly: the FIPS overlay
 on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
@@ -87,363 +89,105 @@ branch, which it also deploys on a few kind tests; keeps one `bigbang-preview` i
 
 ## Maintaining this repo with an AI agent
 
-The loop, for a person or an agent picking the repo up:
+Start with `python scripts/repo-status.py`. It prints the branch, dirty files, `BIGBANG_VERSION`,
+and whether `results-gate` is expected red on this checkout, before it asks GitHub. An empty
+GitHub answer is not "nothing to do" unless the call succeeded.
 
 1. **Start:** `gh api user --jq .login` (the account that may push), then
    `python scripts/repo-status.py`. An open bot PR (`bot/bigbang-update`, `bot/bigbang-release`,
    `bot/builds-*`) or a failed run on main comes first.
 2. **A failed check:** `python scripts/ci-triage.py <pr>` (or `--run <id>`). It prints each
-   failed job's evidence (a kind test's from its artifact) and says FLAKE (repo1.dso.mil,
-   a network timeout, a 5xx download, a rate limit) or FAILED. Re-run flakes once
+   failed job's evidence and says FLAKE (repo1.dso.mil, a network timeout, a 5xx download, a
+   rate limit), FAILED, or EXPECTED (the compat matrix is not recorded yet). Re-run flakes once
    (`--rerun-flakes`); a second failure is real. A job that `ci-triage.py --flakes` marks
-   FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, follow the playbook below that
-   matches, with the artifact's `diag/` logs (`gh run download <run> -n compat-<test>-<mode>`).
+   FIX (re-run 3+ times in 30 days) needs its cause found, not another re-run. For FAILED, open
+   the matching file in [docs/agents/](docs/agents/), with the artifact's `diag/` logs
+   (`gh run download <run> -n compat-<test>-<mode>`).
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
    generated ones), `python scripts/check.py`, a PR. A pull request runs only the kind tests
    its change reaches (`scripts/compat-plan.py`: a changed `compat/<test>.yaml`, a package
    whose overlay tag changed, the installer tests for `scripts/bbinstall/`, the smoke tests
-   (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
-   for harness, Flux, mapping and digest-only changes, nothing for docs); the weekly run and
-   a new `BIGBANG_VERSION` run them all. Runner minutes are billed: push a branch once it is
-   ready, not after every edit (a new push cancels the PR's older runs), and don't run
-   several agents that each push PRs touching the overlays at once.
+   in the marked list below for harness, Flux, mapping and digest-only changes, nothing for
+   docs); the weekly run and a new `BIGBANG_VERSION` run them all. Runner minutes are billed:
+   push a branch once it is ready, not after every edit (a new push cancels the PR's older
+   runs), and don't run several agents that each push PRs touching the overlays at once.
 4. **Wait without polling hard:** check every 3 minutes or more; parallel agents share the
    GitHub API rate limit. GitHub releases a job's log only when the job ends, so a kind test
    reports its own progress (`LIVE` lines, an early stop) in its log and artifact.
-5. **Merge** when every check passed (`gh pr merge <n> --squash --delete-branch`); branch
-   protection requires only `verify`, so check the rest yourself. The nightly bot PR merges
-   itself (`automerge.yml`) unless it moves Big Bang or carries `hold`. A new Big Bang
-   release comes in its own PR (`bot/bigbang-release`); a person merges it after reading
-   `docs/upgrades/<version>.md` (a patch release merges itself when the
-   `AUTOMERGE_BIGBANG_PATCHES` variable is `true`).
+5. **Merge** when every check passed (`gh pr merge <n> --squash --delete-branch`), with one
+   exception. `results-gate` (the check named `compat matrix recorded for this Big Bang version`)
+   stays red while this `BIGBANG_VERSION` has no recorded standard-mode matrix. `ci-triage.py`
+   prints EXPECTED when the log says `compat results are missing`, and exits 4. Do not write
+   pass rows. `verify` is the required check. Record real artifacts with
+   `python scripts/test-results.py update` after a compat run. A red gate after that matrix
+   exists is a real failure. Branch protection requires only `verify`, so check the rest
+   yourself. The nightly bot PR merges itself (`automerge.yml`) unless it moves Big Bang,
+   carries `hold`, or the gate is still red. A new Big Bang release comes in its own PR
+   (`bot/bigbang-release`); a person merges it after reading `docs/upgrades/<version>.md`
+   (a patch release merges itself when the `AUTOMERGE_BIGBANG_PATCHES` variable is `true`).
 6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
-   and, if a site must act, the README; a new trap goes below. `docs/testing.md`'s
-   results table is generated: the nightly bot PR brings main's newest compat.yml results
-   (`scripts/test-results.py update --from-main 20` does the same by hand).
+   and, if a site must act, the README; a new trap goes in [docs/agents/traps.md](docs/agents/traps.md).
+   `docs/testing.md`'s results table is generated: the nightly bot PR brings main's newest
+   compat.yml results (`scripts/test-results.py update --from-main 20` does the same by hand).
 
 Parallel agents: give each its own worktree and its own files (one per `compat/*.yaml`
 test, say); keep shared files (the README, `docs/testing.md`, this file) with one agent.
-Never print or copy secrets, and never change git config.
+Never print or copy secrets, and never change git config. Do not commit `.claude/`.
 
 ## Playbooks
 
-### The nightly bot PR (`bot/bigbang-update` or `bot/bigbang-release`) fails or reports something
-`update.yml` has two tracks: `bot/bigbang-update` keeps the deployed Big Bang release on
-the newest org patches and builds, and `bot/bigbang-release` (only while repo1 has a newer
-release) moves to the new release, with upgrade notes (`scripts/bb-release-notes.py`,
-`docs/upgrades/<version>.md`) in its body. Work on a release never holds back the routine
-track. A green routine PR merges itself (`automerge.yml`), so one still open has a failed
-check or a `hold` label; a release PR waits for a person. `automerge.yml` triages a failed first attempt
-with main's `ci-triage.py --run` and re-runs it only when every failure is a known flake; a
-real failure isn't re-run. A real failure, a failure that survived the re-run, a triage
-that couldn't read GitHub, a new release, or a commit that isn't the bot's gets the
-`needs-attention` label and a comment saying which (remove the label once handled). A flake
-pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it to its
-`FLAKES` (with a test) rather than re-running by hand each time. Label the PR `hold` while you work on it:
-`update.yml` then leaves its branch alone.
-1. Read the PR body: it holds the bb-convert, bb-verify, bb-scan and bb-leftovers output.
-2. *Unmapped image* → "Add or fix an image mapping" below.
-3. *bb-scan NEW finding* → "A chart scan finding" below.
-4. *Leftover PUBLISHED* → "Chainguard published an Iron Bank leftover" below.
-5. *Version differences / MINOR AHEAD* are expected and documented; act only if a compat
-   test fails.
-6. Fix on main (a PR from a new branch), never on the bot branch: `update.yml` rebuilds
-   that branch from main, and `automerge.yml` refuses a bot PR with any commit but the
-   bot's. A merged change to `mapping.yaml`, `orgs/`, the converter scripts or a build
-   recipe re-runs `update.yml` on main; otherwise dispatch it (`gh workflow run update.yml`).
-   Remove `hold` afterwards.
-7. *A built image's tag moved* (Grafana 13.3.0 → 13.3.1): builds.yml publishes a tag only
-   from main, so the overlays can't use it yet. `scripts/bb-held-builds.py` holds that
-   build.yaml back and update.yml opens it alone as `bot/builds-update` (`bot/builds-release`
-   for the release track, as `builds/<name>/release.yaml`, so main's build.yaml stays the
-   deployed release's), which merges itself when green; builds.yml then publishes from main and update.yml runs again to move the
-   overlays (the release PR then deletes release.yaml). A bot PR failing on `MANIFEST_UNKNOWN` / `ImagePullBackOff` for
-   `<BUILD_REGISTRY>/bigbang-*` means that didn't happen: check builds.yml's last run on main.
+| Job | File |
+|---|---|
+| Nightly bot PR (`bot/bigbang-update`, `bot/bigbang-release`) | [docs/agents/nightly-bot.md](docs/agents/nightly-bot.md) |
+| Big Bang preview issue | [docs/agents/preview.md](docs/agents/preview.md) |
+| Add or fix an image mapping | [docs/agents/mapping.md](docs/agents/mapping.md) |
+| A kind test fails | [docs/agents/compat-failure.md](docs/agents/compat-failure.md) |
+| A chart scan finding | [docs/agents/chart-scan.md](docs/agents/chart-scan.md) |
+| Add a repository to the org | [docs/agents/add-repository.md](docs/agents/add-repository.md) |
+| Chainguard published an Iron Bank leftover | [docs/agents/iron-bank-leftover.md](docs/agents/iron-bank-leftover.md) |
+| Change how Big Bang is deployed | [docs/agents/installer.md](docs/agents/installer.md) |
+| Write a compat test | [docs/agents/compat-test.md](docs/agents/compat-test.md) |
+| Disconnected sites | [docs/agents/airgap.md](docs/agents/airgap.md) |
+| Add a cluster-side setting | [docs/agents/cluster-setting.md](docs/agents/cluster-setting.md) |
+| Change an image this repo builds | [docs/agents/change-build.md](docs/agents/change-build.md) |
+| Add an image this repo builds | [docs/agents/add-build.md](docs/agents/add-build.md) |
+| Traps already hit | [docs/agents/traps.md](docs/agents/traps.md) |
 
-### The Big Bang preview issue (`bigbang-preview`)
-`bigbang-preview.yml` runs this repo daily against Big Bang's development branch (`master`)
-and, while one is newer than the newest tag, the `release-X.Y.Z` branch Big Bang cuts before
-tagging (the next release as it will ship). It keeps one issue per ref (the ref in its title;
-a release branch's closes when its release is tagged) with what would break: a newer Kubernetes requirement, images added or
-removed, a package that doesn't render, unmapped images, new chart scan findings, and kind
-tests whose values the new charts refuse. For a release branch it also deploys a handful of
-kind tests on that ref (`compat.yml` called with `bigbang_ref`: discovery and overlays
-regenerated in the job, never committed; `compat-plan.py` `PREVIEW`), and their results join
-the issue (a marked section; the issue closes only when both are clean); they never reach
-`docs/testing.md`'s table. A failed one is triaged like any kind test
-(`ci-triage.py --run <id>`). Work it like a bot PR, ahead of time: each fix
-that is also right for the current release (a mapping, an override that both accept) can
-land now; the rest waits on a branch for the release. The issue closes itself when nothing
-would break. Run it locally with `python scripts/bb-preview.py [--ref <branch or tag>]`.
+## Traps that stop the expensive mistakes
 
-### Add or fix an image mapping
-Follow [docs/adding-a-package.md](docs/adding-a-package.md). In short: find the image in
-`discovery/images.json`, find the Chainguard name (`chainctl images catalog --name <n>`),
-add the entry, `bb-convert.py`, `check.py --online`. If the org lacks the repository
-(`bb-convert.py --missing` lists them), add it as below ("Add a repository to the org").
+The rest are in [docs/agents/traps.md](docs/agents/traps.md). These five are the ones an
+agent hits before it finishes reading that file.
 
-### A compat (kind) test fails
-1. `python scripts/ci-triage.py <pr>` shows each failure's evidence and whether it's a flake.
-   For more, download the evidence: `gh run download <run id> -n compat-<test>-<mode>` (pass or fail;
-   `docs/testing.md` "Reading a test's logs" lists the files). Start with `compat.log`
-   (`PROBLEM` (a `stopped early:` one names the cause), `LIVE` (each container's first
-   error line, when it happened), `RESULT`, `EXITED`), then `diag/exits.txt` and the crashed container's
-   `diag/logs/<ns>/<pod>.<container>.previous.log`; Pending pods: `diag/cluster/nodes.txt`.
-2. Flux uninstalls a release whose install fails, so `kubectl logs` after the fact finds
-   nothing; the harness keeps every container's log while the test runs. For anything
-   else (a CR's status, a file in a pod), add a `setup:` line
-   `sh compat/support/watch.sh <name> "<kubectl command>"` and a `debug:` line
-   `cat $COMPAT_OUT/watch-<name>.log`.
-3. Fix the cause in `mapping.yaml` (or a builder), not in the test, unless the test itself
-   is wrong. Record what you found in `docs/testing.md` ("What the runtime tests found").
-
-### A chart scan finding (`bb-scan.py` NEW)
-- *sh script needs bash* on a Chainguard `-dev` image (its `sh` is busybox; UBI's is bash):
-  a wait job → `bash_wait_jobs`; a `/bin/sh -c` container → `bash_commands`; an image built
-  here → it already links `sh` to bash.
-- *Empty default written with toYaml* into an app's config: check whether the app rejects
-  it (the Tempo case). Fix with `overrides`.
-- Then add the finding's key to `scan_reviewed` with one line saying how it is handled.
-
-### Add a repository to the org
-Add what the conversion needs, but check the plan first: per-image plans count images
-against a quota per tier, and a `CATALOG` plan has no limit in its active tiers
-(`python scripts/bb-org-repos.py --quota` shows each tier's room,
-what still needs adding and which counted images Big Bang doesn't use). For each name,
-standard and `-fips`:
-
-```bash
-chainctl images catalog --name <name> -o json          # its id and catalog_tier
-chainctl images repos create <name> --parent <org> --tier <catalog_tier>
-chainctl images repos update <name> --parent <org> --source <id>   # start syncing tags
-```
-
-Tags appear after the sync; `bb-convert.py` converts the image on its next run.
-`scripts/bb-org-repos.py --apply [names]` does both steps for each name (default: what
-`bb-convert.py --missing` lists). If the sync fails with `PermissionDenied ... does not
-have an active entitlement`, the plan doesn't cover the image. Don't retry; report it for
-a person (`chainctl images entitlements summary` shows the per-tier quotas). Only
-Chainguard can add it.
-
-### Chainguard published an Iron Bank leftover
-Add the repository (above, standard and `-fips`), wait for tags,
-replace the `{stays, until}` entry with a `cg:` entry, `bb-convert.py`, run the package's
-compat test if it has one.
-
-### Change how Big Bang is deployed
-The user-facing path is `scripts/bb-install.py`, and users never run the steps by hand:
-add a new step to the installer (and to `check` when it can fail before anything changes),
-not to the docs. `bb-install.py` is the command line (flags, help); the installer is the
-`scripts/bbinstall/` package, one module per concern (its `__init__.py` lists them):
-`install.py` runs the steps, `preflight.py` the checks they start with, `commands.py` the
-other commands. Tests patch a name in the module that looks it up (`credentials.read_secret`). `docs/install.md` describes the installer. Cluster helpers it shares with the kind harness live in
-`scripts/bbcluster.py`. `compat/installer.yaml` (`installer: true`) runs it end to end on
-kind, then `check`, and `upgrade` of the same site file in Big Bang 3's keys; `tests/test_install.py` covers its decisions without a cluster. A new credential or
-generated value goes in the `bigbang/bb-install` Secret through `Credentials`
-(`bbinstall/credentials.py`; a pull token it makes with chainctl too: `chainctl_pull_token`
-captures the output), never on a
-command line or in output.
-
-### Write a compat test
-`compat/<name>.yaml`: `enable` (package names, e.g. `[kyverno, headlamp]`), `namespaces`, `expect` (image fragments that
-must run; none running fails the test), `check` (required: commands that prove the app does
-its job, not just that pods are Ready), and as needed `setup`, `values`, `values_files`, `forbid_log`, `debug`, `check`
-(commands that must exit 0), `installer: true` with `installer_args`, `installer_release`
-(`previous-bigbang` or `previous`: install that published release with its own installer, run
-`before_upgrade` on it, then this tree's `upgrade --to` the newest; `compat/installer-upgrade-to.yaml`), `large: true` and
-`timeout` (weekly, slow packages), `registry1: true` (pulls from Iron Bank: SKIPPED, exit 0,
-without `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`), and `upgrade_from` (`images`: the mapping
-to install first; `check`: commands on that install; `upgrade`: commands after Big Bang is
-upgraded to the test's mapping, before the wait; `values`: values for the starting install
-only; see `compat/vault-upgrade.yaml`; data a release upgrade must keep: `compat/release-upgrade-keycloak.yaml`;
-`release: previous-bigbang` starts from the previous Big Bang version's newest release
-(`compat/release-upgrade-mattermost.yaml`; the org image is often the same on both sides, so
-for a real schema migration pin `upgrade_from.images` to an older line and verify with
-`upgrade-data.py <app> verify --migrated`: `compat/keycloak-migration.yaml`,
-`compat/mattermost-migration.yaml`). Unknown
-keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
-
-### Disconnected sites
-`scripts/bb-airgap.py` writes the bundle (chart, rendered Flux, bare git clones, images.txt);
-`bb-install.py --git-mirror/--registry-mirror` installs from the site's copies
-(`bbinstall/checkout.py` `mirrored_checkout` rewrites `cgr.dev/<org>` and the build registry,
-keeping headers). The
-tooling never copies or pushes images: that is the site's step (repo rule 2).
-
-### Add a cluster-side setting to the installer
-Settings applied after Big Bang (TLS, the signature policy) follow one pattern, a module
-each in `scripts/bbinstall/` (`tls.py`, `signatures.py`): a `*_choice` that reads the flag
-or the remembered value from `Credentials`, a manifest function,
-`apply_when_ready(docs, crd, namespace, check, wait)` (`common.py`: waits for the package's
-CRD and namespace and its admission webhook) and a `*_problem` that `status_report`
-(`status.py`) reports. `install.py` calls the first three; the flag goes in `bb-install.py`.
-
-### Change an image this repo builds
-Edit `builds/<name>/Dockerfile`, `builds/<name>/recipe.yaml` (what the build is: names,
-Iron Bank project, modules to raise, notes, build arguments, a declarative smoke test) or
-its hook `scripts/buildhooks/<hook>.py` (the Python it needs); regenerate `build.yaml` with
-`python scripts/bb-build.py <name>` (`--all` for every build); the smoke test (the hook's,
-or the recipe's `smoke`) must cover the change. `builds.yml` builds on the PR and pushes on
-merge.
-
-### Add an image this repo builds
-A new `builds/<name>/` with a `Dockerfile` and a `recipe.yaml` (`scripts/bb-build.py`'s
-docstring lists the keys), and a hook in `scripts/buildhooks/` only if no existing one
-fits (`buildhooks/__init__.py` says what a hook has). Add `<name>` to `builds.yml`'s matrix
-and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
-`{build: <name>}` entry in `mapping.yaml`, and a row in docs/how-it-works.md's table.
-
-## Traps already hit (don't rediscover them)
-
-- **Chainguard `-dev` images' `/bin/sh` is busybox**; Iron Bank's UBI `sh` is bash. Scripts
-  that say `sh` but use arrays or `<<<` die. `bb-scan.py` finds them.
-- **Flux's render keeps null chart defaults** that local Helm 3 drops, even when our values
-  set them to null (Tempo's `opencensus` receiver). Test with Flux, not only `helm template`.
-- **Big Bang creates Mimir's credential Secret whenever its keys are set**, even with Mimir
-  off: set object-storage credentials only for enabled packages.
-- **Big Bang 3's Kyverno policies render `preconditions.all: null`** unless some container is
-  excluded (`excludeContainers`); Big Bang 4's CEL policies don't, and its chart refuses that key.
-- **Big Bang's chart creates every package namespace itself** (`monitoring` comes from the
-  `prometheusOperatorCRDs` package): never pre-create one, Helm refuses to adopt it. With
-  monitoring or Thanos on, keep `prometheusOperatorCRDs` and `certManager` on (the installer checks).
-- **Flux fetches package charts from repo1 git at runtime**, so a repo1 outage shows up as
-  a HelmRelease "chart is not ready". `bbcluster.source_problems` names the host and
-  nudges Flux to retry; `--git-mirror` moves every package `git.repo` to a site mirror.
-- **registry1's OCI copy of the Big Bang chart needs an Iron Bank login**; repo1's git
-  archive of the same tag doesn't. `bb-install.py` downloads the archive (`fetch_chart`).
-- **Big Bang charts pin Iron Bank's uid** (Keycloak: 1000). Chainguard images run as their
-  own user (65532) and may keep files unreadable to others: Keycloak 26.8.1's
-  `quarkus-application.dat` is 0770 65532/65532, so `overrides.keycloak` unsets runAsUser.
-  A crash on the first file read after a Chainguard rebuild is this.
-- **Go refuses removed GODEBUG settings**: GitLab's chart sets `tlskyber=0`, which the Go
-  Chainguard builds with removed, so Gitaly, Shell and the registry died at start;
-  `overrides.gitlab` sets `GODEBUG=tlsmlkem=0`. Expect this for any chart that pins Go knobs.
-- **Nightly digest changes are normal**: Chainguard rebuilds images daily; the bot's pull
-  request then changes only digests, and the smoke kind tests decide whether it merges
-  (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`;
-  the weekly run deploys every package). `ci.yml`'s `results-gate` job also fails while
-  the current `BIGBANG_VERSION` has no recorded standard-mode compat matrix. A skipped
-  run is not a pass. `registry1: true` tests stay outside that gate until Iron Bank
-  credentials exist. That job is not the required `verify` check.
-- **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
-- **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
-  object storage the overlay sets no snapshot locations.
-- **Keycloak FIPS** rejects Big Bang's default admin password (`password`) and database
-  password (`keycloak`, via the PostgreSQL driver's SCRAM hashing): both need 14+ characters.
-  The database password can't change on a running Keycloak (PostgreSQL keeps it).
-- **cgr.dev serves layers and signatures from `*.r2.cloudflarestorage.com`**: harden-runner
-  must allow it.
-- **harden-runner's block let unlisted hosts through until 2026-11-11**, then refused them:
-  the runner answers the name with an address that isn't the host's (54.185.253.63) and the
-  call fails with `connect: connection refused`. Hosts that had worked unlisted:
-  `timestamp.sigstore.dev` (cosign 3's `sign-blob` timestamps there), `storage.googleapis.com`
-  (proxy.golang.org serves module zips from it), `grafana.com`, Docker Hub's
-  `production.cloudfront.docker.com` and `index.docker.io`, SUSE's registry storage. A passing
-  run doesn't prove its list: compare the `domain resolved:` lines in its harden-runner post
-  step with the workflow's `allowed-endpoints`, for a run of each event (a pull request's
-  build never signs or pushes; `builds.yml` on main does, and needs `timestamp.sigstore.dev`).
-  `scripts/egress-audit.py` does that comparison; `ci-triage.py` names the host that refused
-  a job's connections.
-- Chainguard's Flux controllers can be a minor ahead of Big Bang's CRDs: `flux/` installs
-  the matching upstream Flux release (`fluxrelease.py`).
-- GHCR refuses the first push to a new package from Actions: `builds.yml` retries the
-  push three times; re-run the job if all three fail. repo1.dso.mil intermittently refuses
-  GitHub runners: the scripts retry, and `compat.yml` reruns a kind test once.
-- **chainctl and cosign are pinned**, one version each in every workflow
-  (`tests/test_repo_rules.py`): `setup-chainctl`'s `version` (it installs `latest`
-  otherwise, from dl.enforce.dev, checked against that release's `chainctl_checksums.txt`)
-  and `cosign-installer`'s `cosign-release`. To raise chainctl: find the newest release
-  (`curl -fsSL https://dl.enforce.dev/chainctl/latest/chainctl_checksums.txt` and match
-  its checksum against `https://dl.enforce.dev/chainctl/<version>/chainctl_checksums.txt`),
-  then change every `version:` at once. A Dependabot bump of either action leaves the
-  pinned tool alone.
-- **Sign before the tag moves.** With enforce the default, a tag that points at an unsigned
-  digest even for a minute refuses Pods. `builds.yml` pushes `<tag>-staging`, signs, then
-  pushes `<tag>`; keep that order in any new publish step.
-- On Windows: git checks out with CRLF (render charts from a Linux checkout if line endings
-  matter), `docker-credential-cgr` may be blocked (no local cgr.dev pulls; debug in CI),
-  Git Bash heredocs collapse backslashes (`\n` becomes a newline, `\b` a backspace, `\\(`
-  becomes `\(`; write a Python script with the Write tool and run the file), and paths
-  past 260 characters fail (Big Bang's chart has deep test paths: build bundles under a
-  short directory). Offline `bb-convert.py` drops images
-  without `work/`; the update workflow can't log into Chainguard from a branch (the
-  identity trusts main and pull requests), so a mapping change lands first and
-  `update.yml` on main regenerates the overlays.
-- **An org image stops being rebuilt** when Chainguard drops its line (Vault's kubectl 1.30):
-  `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
-- `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
-  regenerate online.
-- **Large kind tests (GitLab) run on a PR that changes only their `compat/<test>.yaml`**, or
-  by hand from main (`gh workflow run compat.yml --ref main -f tests=gitlab`). A manual run
-  from any other branch fails at "Log into Chainguard" (the identity trusts main and pull
-  requests), and other pull requests skip large tests.
-- **GitLab on a small cluster** needs values under `upstream:` (the package chart ignores
-  top-level ones). PostgreSQL `max_locks_per_transaction` 256 is the site database: the
-  installer notes it, and the kind test sets it. `progress_deadline` sets Deployment
-  `progressDeadlineSeconds` to 2400 as a post-renderer patch beside the digest pins.
-  `overrides.gitlab` sets the Rails liveness `failureThreshold` to 15. Both reach the
-  overlay on the next online `bb-convert.py` (do not run it offline). The kind test still
-  patches the deadline. GitLab Runner needs Kyverno for its token and
-  `HOME=/home/gitlab-runner` (`overrides`). Leave `GODEBUG=tlsmlkem=0`.
-- **A Ready pod isn't a working app**: GitLab Runner stayed Ready while it panicked without a
-  token. Give a test a `check` that proves the app did its job, and a `forbid_log`.
-- **The test watcher's thresholds are tuned**: Harbor's jobservice crashes 3 times while core
-  starts, so a crash loop stops a test only at 6 restarts; GitLab's `dependencies` init
-  container exits 1 while it waits, without an error line. Iron Bank images can't be pulled
-  without `REGISTRY1_*` and don't stop a test. Check a new rule against a full PR run.
-- **The scheduled agent's cloud sandbox reaches GitHub through a proxy that passes only
-  REST `repos/<owner>/<repo>/...` paths.** GraphQL (`gh pr list`, `gh pr checks`,
-  `gh pr view`, `gh repo view`) and numeric-ID paths (`gh run download`, `gh api --paginate`'s
-  next-page links) fail there. `repo-status.py` once turned that failure into "Open pull
-  requests: 0", and the daily agent reported all green for a week while bot PRs sat red.
-  Maintenance scripts go through `scripts/ghrest.py` (REST only, raises on any failure, pages
-  with `page=N`); `tests/test_ghrest.py` refuses the rest. In that sandbox, do the same by
-  hand: `gh api repos/<owner>/<repo>/pulls`, `.../commits/<sha>/check-runs`,
-  `.../actions/runs/<run>/artifacts` then `.../actions/artifacts/<id>/zip`. An empty answer
-  is not "nothing to do" unless the call succeeded.
-- On Windows Git Bash, `git show origin/main:.github/...` fails ("ambiguous argument
-  'origin\main;.github\...'"): MSYS rewrites the argument as a path. Prefix
-  `MSYS_NO_PATHCONV=1`.
-- **`RELEASE_PAT` can't read check runs** (403): `automerge.yml` reads with the workflow
-  token and uses the bot token only for `gh pr merge`. The bot token is a GitHub App's
-  (repository variable `BOT_APP_CLIENT_ID`, secret `BOT_APP_PRIVATE_KEY`; the App needs
-  Contents, Pull requests and Workflows read/write on this repo) when set, else `RELEASE_PAT`
-  (which then needs the `workflow` scope: the bot branch is rebuilt from main, and a push
-  that brings main's workflow-file changes is refused without it).
-  GITHUB_TOKEN can't stand in: its pull requests and merges start no workflows.
-- **A shell guard must not read a failed call as "no"**: `if gh ... | grep -q x` under
-  `set -o pipefail` is false when gh fails, so automerge once would have merged a held PR on
-  an API error. Capture first (`labels=$(gh api ...)`, which `set -e` stops on), then test.
-
-- **Writing a check:** `kubectl get --raw` (the API server proxy) for reads; `kubectl create
-  --raw` posts without a JSON content type (Loki 400, Tempo and Mimir 415, Argo CD
-  UnsupportedMediaType), so POST JSON through `kubectl port-forward` and curl or the
-  runner's Python. STRICT mTLS (Kiali) refuses the API server proxy: port-forward. The
-  org's `busybox` has no httpd or wget: use its `nginx` and the `kubectl` `-dev` image. Big
-  Bang's Keycloak serves under `/auth`. Pass secrets on stdin, never print them.
-- **Big Bang's `istioEgressGateway` renders only in ambient mode** (`istioCNI`, `ztunnel`).
-- **The log keeper polls every 30 s**: a pod that lives less (cert-manager's
-  startupapicheck, Helm wait jobs) may leave no log in the artifact.
-- **Sigstore's log can answer late**: Rekor stores the entry, cosign times out, and its own
-  retry gets `409 createLogEntryConflict`. `builds.yml` re-runs cosign (new ephemeral keys,
-  a new entry); `ci-triage.py` calls it a flake, as it does a Go proxy `stream error`.
-- **Parallel `cosign verify` races on its Sigstore cache** ("trusted root is required"):
-  `bb-signatures.py --jobs` verifies a failed image again alone before reporting it.
-- **Big Bang 4 keys:** every package is `packages.<name>` (3.x had `<name>` and
-  `addons.<name>`, which 4's chart refuses). mapping.yaml's per-package sections use that
-  key; `bbcommon.bigbang_packages` reads either layout, so a release-upgrade test can start
-  from a 3.x release (`bb-compat.legacy_values`). Big Bang 4 needs Kubernetes 1.35+ (kind
-  node image, `bb-images.KUBE_VERSION`, the FIPS VM's k3s) and turns Istio ambient on by
-  default; a test without istiod turns it off (`test_values`).
-- **Big Bang 4's Kyverno policies are CEL `ValidatingPolicy`** objects
-  (`validatingpolicies.policies.kyverno.io`); the installer's signature policy is still a
-  `ClusterPolicy` (Kyverno 1.19 runs both).
-- **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when
-  PyYAML has it): the pure-Python parser was most of `bb-images`' 75 s.
+- **Do not run `bb-convert.py` offline, and do not hand-edit generated files.** Offline
+  conversion rewrites overlays with a stale tag list. A mapping change lands in source;
+  `update.yml` on main regenerates the overlays. The identity trusts main and pull requests,
+  not an arbitrary branch.
+- **Push a branch once.** A new push cancels that pull request's kind, build, and RKE2
+  jobs. Those runs are billed. Put the docs change in the same commit as the code, or on
+  a second branch.
+- **`results-gate` red is expected until the matrix exists.** The smoke set is
+  <!-- smoke-tests -->
+  `kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`
+  <!-- /smoke-tests -->
+  . The gate also requires a standard pass for
+  <!-- required-tests -->
+  `release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`
+  <!-- /required-tests -->
+  . Large tests and `registry1: true` tests stay outside the gate (the marked list in
+  [docs/testing.md](docs/testing.md)). A skip is not a pass. Do not write pass rows.
+  `verify` is the required check. `python scripts/test-results.py update` records real
+  artifacts. A red gate after the matrix is recorded is a real failure.
+- **The scheduled agent's sandbox reaches GitHub only through REST**
+  `repos/<owner>/<repo>/...`, via `scripts/ghrest.py`. GraphQL (`gh pr list`, `gh pr checks`)
+  and an empty answer are not "nothing to do."
+- **On Windows,** git checks out with CRLF, `C:\Windows\System32\bash.exe` is not `/bin/bash`
+  (two tests fail locally; CI is Ubuntu; do not change product code for that), Git Bash
+  rewrites `origin/main:path` unless `MSYS_NO_PATHCONV=1`, a heredoc eats backslashes (write
+  a `.py` file and run it), and paths past 260 characters fail. Do not commit `.claude/`.
 
 ## Where to look
 
 [README.md](README.md) (using it), [docs/architecture.md](docs/architecture.md) (how it
 works), [docs/testing.md](docs/testing.md) (test layers, results, findings),
 [docs/adding-a-package.md](docs/adding-a-package.md), [SECURITY.md](SECURITY.md),
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md), [docs/agents/](docs/agents/) (playbooks).

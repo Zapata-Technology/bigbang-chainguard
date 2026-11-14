@@ -44,8 +44,11 @@ flowchart TB
 ```
 
 When Chainguard patches an image, the nightly run opens a pull request that moves the
-digest. That pull request renders both modes and runs the smoke kind tests (Kyverno,
-metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
+digest. That pull request renders both modes and runs the smoke kind tests
+<!-- smoke-tests -->
+(`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
+<!-- /smoke-tests -->
+(Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
 `results-gate` sees no recorded standard-mode matrix for this Big Bang version. The
 weekly run records that matrix. GitLab stays on the weekly run. A new Big Bang version
 gets its own pull request, with upgrade notes

@@ -126,6 +126,27 @@ def test_bb_convert_findings_are_evidence_and_the_failed_step_is_named(monkeypat
     assert out[0] == "failed step: Overlays are current" and flake is None
 
 
+def test_a_missing_compat_matrix_is_expected_and_a_gate_crash_is_real():
+    raw = "4.1.0: compat results are missing\n  no standard pass for: release-upgrade-keycloak\n  a SKIPPED run is not a pass.\n"
+    assert triage.outcome("compat matrix recorded for this Big Bang version", raw, []) == "expected"
+    assert triage.outcome("results-gate", raw, []) == "expected"
+    lines = triage.gate_lines(raw, ["failed step: This Big Bang version has a recorded compat matrix"])
+    assert "Do not write pass rows. verify is the required check." in lines
+    assert "python scripts/test-results.py update" in lines[-1]
+    assert triage.outcome("compat matrix recorded for this Big Bang version", "Traceback (most recent call last):\n", ["Traceback"]) is None
+    assert triage.outcome("verify", raw, []) is None
+
+
+def test_triage_marks_the_gate_expected_and_counts_it_apart_from_flakes(monkeypatch):
+    raw = "4.1.0: compat results are missing\n"
+    monkeypatch.setattr(triage, "gh", lambda *a, **k: raw)
+    monkeypatch.setattr(triage, "failed_steps", lambda job: ["This Big Bang version has a recorded compat matrix"])
+    [(name, run, code, lines)] = triage.triage("o/r", [("compat matrix recorded for this Big Bang version", "9", "3")])
+    assert name.startswith("compat matrix") and run == "9" and code == "expected"
+    assert lines[0].startswith("failed step:")
+    assert any("Do not write pass rows" in ln for ln in lines)
+
+
 def test_a_kind_test_that_stopped_before_deploying_on_repo1_is_a_flake():
     log = "\n".join([
         "== release-upgrade.yaml: trial mapping {}",

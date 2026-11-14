@@ -9,10 +9,13 @@ agent) start maintaining it. Needs `gh` logged in.
     bot/builds-release) first
   - the latest run of each workflow on main (CI, builds, release, the nightly update, the
     weekly kind tests, automerge) and whether it passed
-  - the latest release and the Big Bang version
+  - the branch, dirty files, the Big Bang version, and whether results-gate is expected
+    red on this checkout (those are local; they print even when GitHub doesn't answer)
+  - the latest release
   - jobs re-run often lately (ci-triage.py --flakes), and, with chainctl logged in, the
     Chainguard plan's room per tier (bb-org-repos.py --quota has the detail)
-Then: a failed check -> python scripts/ci-triage.py <pr>; AGENTS.md has the playbooks.
+Then: a failed check -> python scripts/ci-triage.py <pr>; AGENTS.md has the loop, and
+docs/agents/ has one playbook per job.
 
 GitHub is read through REST only (scripts/ghrest.py), so this works from the scheduled
 agent's cloud sandbox too. A section GitHub didn't answer says ERROR, and the exit code is
@@ -58,6 +61,52 @@ def plan_line(summary):
     return ", ".join(parts) or "no per-tier quotas"
 
 
+def git_text(*args):
+    """stdout of a git command in this repo, or None when git fails."""
+    p = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    return None if p.returncode else p.stdout
+
+
+def format_local(branch, dirty, version, gate_rc, gate_text):
+    """The lines an agent needs before it edits: where it is, and whether the red gate is expected."""
+    lines = [f"Branch: {branch}"]
+    if dirty is None:
+        lines.append("Dirty files: UNKNOWN (git status failed)")
+    elif not dirty:
+        lines.append("Dirty files: none")
+    else:
+        lines.append(f"Dirty files: {len(dirty)}")
+        lines.extend(f"  {ln}" for ln in dirty[:20])
+        if len(dirty) > 20:
+            lines.append(f"  (+{len(dirty) - 20} more)")
+    lines.append(f"Big Bang {version}")
+    text = gate_text or ""
+    if gate_rc == 0:
+        lines.append(f"results-gate: recorded for {version}")
+    elif gate_rc == 1 and "compat results are missing" in text:
+        lines.append(
+            f"results-gate: EXPECTED RED for {version} (compat results are missing). "
+            "Do not write pass rows. verify is the required check. "
+            "Record real artifacts with: python scripts/test-results.py update")
+    else:
+        lines.append(f"results-gate: FAILED (exit {gate_rc}). Read scripts/results-gate.py's output.")
+    return lines
+
+
+def local_lines():
+    """Branch, dirty files, BIGBANG_VERSION, and this checkout's results-gate."""
+    branch = git_text("rev-parse", "--abbrev-ref", "HEAD")
+    dirty = git_text("status", "--porcelain")
+    version = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
+    gate = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "results-gate.py")],
+                          cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return format_local(
+        branch.strip() if branch else "(unknown)",
+        None if dirty is None else [ln for ln in dirty.splitlines() if ln.strip()],
+        version, gate.returncode, gate.stderr + gate.stdout)
+
+
 def org_name():
     org = os.environ.get("CHAINGUARD_ORG", "")
     if not org:
@@ -78,11 +127,12 @@ def main():
             print(f"  ERROR reading {what}: {e}")
             return default
 
-    version = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
+    for ln in local_lines():
+        print(ln)
+
     rel = attempt("the latest release", lambda: ghrest.api("releases/latest"), {})
-    print(f"Big Bang {version}; latest release "
-          f"{rel.get('tag_name', '(unknown)')} ({rel.get('published_at', '?')})" if rel else
-          f"Big Bang {version}; latest release (unknown)")
+    print(f"\nLatest release {rel.get('tag_name', '(unknown)')} ({rel.get('published_at', '?')})"
+          if rel else "\nLatest release (unknown)")
 
     prs = attempt("open pull requests", ghrest.open_prs)
     if prs is None:
@@ -123,7 +173,8 @@ def main():
         if q.returncode == 0 and "{" in out:
             print(f"\nChainguard plan ({org}): {plan_line(json.loads(out[out.find('{'):]))}"
                   "   (bb-org-repos.py --quota: what's needed, what's unused)")
-    print("\nA failed check: python scripts/ci-triage.py <pr>   (AGENTS.md: playbooks)")
+    print("\nA failed check: python scripts/ci-triage.py <pr>   "
+          "(AGENTS.md for the loop; docs/agents/ for the playbook)")
     if errors:
         print(f"\nINCOMPLETE: GitHub didn't answer for {', '.join(errors)}. This is not a clean bill of health.")
         return 2

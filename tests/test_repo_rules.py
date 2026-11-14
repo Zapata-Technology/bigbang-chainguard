@@ -194,7 +194,8 @@ def test_every_script_has_a_module_docstring(path):
 # --- docs don't point at files that no longer exist ---
 
 DOCS = [os.path.join(ROOT, f) for f in ("AGENTS.md", "README.md", "CONTRIBUTING.md", "SECURITY.md")] + \
-    sorted(glob.glob(os.path.join(ROOT, "docs", "*.md")))
+    sorted(glob.glob(os.path.join(ROOT, "docs", "*.md")) +
+           glob.glob(os.path.join(ROOT, "docs", "agents", "*.md")))
 
 
 @pytest.mark.parametrize("path", DOCS, ids=lambda p: os.path.relpath(p, ROOT))
@@ -212,6 +213,33 @@ def test_docs_reference_existing_files(path):
 
 
 # --- hand-written docs don't quote counts that the nightly regenerates ---
+
+def _marked(text, name):
+    found = re.search(rf"<!-- {name} -->(.*?)<!-- /{name} -->", text, re.S)
+    assert found, f"missing <!-- {name} --> markers"
+    return set(re.findall(r"`([^`]+)`", found.group(1)))
+
+
+def test_smoke_required_and_compat_flags_match_the_code():
+    """The smoke set, the results-gate required tests, and large/registry1 flags have one
+    source (compat-plan.py, results-gate.py, compat/*.yaml). The marked lists in the docs
+    are that set, so a renamed test fails here instead of in the next agent's prompt."""
+    from conftest import load_script
+    plan, gate = load_script("compat-plan"), load_script("results-gate")
+    smoke_docs = ["AGENTS.md", "README.md", "docs/testing.md", "docs/architecture.md", "docs/for-big-bang.md"]
+    for rel in smoke_docs:
+        text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+        assert _marked(text, "smoke-tests") == set(plan.SMOKE), rel
+    required_docs = ["AGENTS.md", "docs/testing.md"]
+    for rel in required_docs:
+        text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+        assert _marked(text, "required-tests") == set(gate.REQUIRED), rel
+    testing = open(os.path.join(ROOT, "docs", "testing.md"), encoding="utf-8").read()
+    flags = _marked(testing, "compat-flags")
+    assert "large: true" in flags and "registry1: true" in flags
+    names = flags - {"large: true", "registry1: true"}
+    assert names == gate.flagged("large") | gate.flagged("registry1")
+
 
 def test_readme_does_not_hard_code_the_iron_bank_count():
     """docs/images.md's "Stays on Iron Bank (N)" changes whenever Chainguard publishes an image
