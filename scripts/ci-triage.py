@@ -14,7 +14,11 @@ diag/, see docs/testing.md); any other job's from its log. Needs `gh` logged in;
 read through REST only (scripts/ghrest.py), so it works from the scheduled agent's sandbox. A job whose
 connections were refused gets the hosts named: in a workflow whose harden-runner blocks egress,
 that means a host missing from its allowed-endpoints (a re-run won't help).
-Exit code: 0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer.
+Exit code: 0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't answer,
+4 the only failure is results-gate reporting that this Big Bang version has no
+recorded compat matrix. That one is expected: do not write pass rows. verify is
+the required check. Record real artifacts with scripts/test-results.py update.
+A results-gate failure with any other message is a real failure (exit 1).
 
 --flakes counts, per job, the failed attempts of runs that were re-run (by a person or
 --rerun-flakes) and passed in the end, over the last --days. A job re-run --threshold times
@@ -64,6 +68,12 @@ ERROR = re.compile(r"##\[error\]|^(ERROR|FAIL|FAILED|Error:)\b|Traceback|Asserti
                    r"|^Images not in mapping|^Images with no usable org tag|^ {2}FAIL |is out of date"
                    r"|^ {2}\S+: \S+ -> .*(no .* tag|UNRESOLVED)|^ {2}[\w.-]+/[\w./-]+$", re.I)
 ARTIFACT_JOB = re.compile(r"^(?P<test>[\w.-]+) \((?P<mode>standard|fips)\)$")
+# ci.yml names the job; the check run uses the `name:` field.
+GATE_JOB = re.compile(r"^(results-gate|compat matrix recorded for this Big Bang version)$")
+EXPECTED_NOTE = (
+    "Do not write pass rows. verify is the required check.",
+    "Record real artifacts with: python scripts/test-results.py update",
+)
 
 
 def gh(*args, binary=False):
@@ -118,6 +128,27 @@ def classify(lines):
     return None
 
 
+def outcome(name, raw, lines):
+    """'expected' when results-gate says the compat matrix is missing, else classify().
+
+    A red gate after the matrix exists, or a crash of the gate script, stays a real
+    failure: the log does not contain 'compat results are missing'."""
+    if GATE_JOB.match(name) and "compat results are missing" in (raw or ""):
+        return "expected"
+    return classify(lines)
+
+
+def gate_lines(raw, lines):
+    """The gate's own sentences (errors() drops them) plus what not to do about them."""
+    kept = []
+    for ln in (raw or "").splitlines():
+        ln = ln.strip()[:300]
+        if "compat results are missing" in ln or "no standard pass" in ln or "SKIPPED run is not a pass" in ln:
+            if ln not in lines and ln not in kept:
+                kept.append(ln)
+    return lines + kept[:6] + list(EXPECTED_NOTE)
+
+
 def failed_jobs(pr=None, run=None):
     """[(job name, run id, job id)] of failed jobs."""
     if pr:
@@ -160,19 +191,26 @@ def failed_steps(job):
 
 
 def triage(repo, jobs):
-    """[(job, run, flake reason or None, lines)]."""
+    """[(job, run, flake reason or 'expected' or None, lines)]."""
     report = []
     for name, run, job in jobs:
         m = ARTIFACT_JOB.match(name)
-        log = artifact_log(repo, run, f"compat-{m['test']}-{m['mode']}") if m else None
-        lines = evidence(log) if log else errors(gh("api", "--allow-escape-sequences", f"repos/{repo}/actions/jobs/{job}/logs") or "")
+        artifact = artifact_log(repo, run, f"compat-{m['test']}-{m['mode']}") if m else None
+        if artifact:
+            raw, lines = artifact, evidence(artifact)
+        else:
+            raw = gh("api", "--allow-escape-sequences", f"repos/{repo}/actions/jobs/{job}/logs") or ""
+            lines = errors(raw)
         # The failed step's name, from the job itself: it says where to look even when the log
         # has no recognisable line (setup-chainctl and cosign-installer echo their error
         # templates on every run, which reads like a failed login but isn't one).
         steps = failed_steps(job)
         if steps:
             lines = [f"failed step: {', '.join(steps)}"] + lines
-        report.append((name, run, classify(lines), lines))
+        code = outcome(name, raw, lines)
+        if code == "expected":
+            lines = gate_lines(raw, lines)
+        report.append((name, run, code, lines))
     return report
 
 
@@ -252,8 +290,14 @@ def run_main():
     if not report:
         print("no failed jobs")
         return 0
-    for name, run, flake, lines in report:
-        print(f"\n== {name} (run {run}): {'FLAKE: ' + flake if flake else 'FAILED'}")
+    for name, run, code, lines in report:
+        if code == "expected":
+            status = "EXPECTED"
+        elif code:
+            status = "FLAKE: " + code
+        else:
+            status = "FAILED"
+        print(f"\n== {name} (run {run}): {status}")
         for ln in lines or ["(no evidence found: open the job's log)"]:
             print("   " + ln)
         hosts = blocked(lines)
@@ -261,14 +305,21 @@ def run_main():
             print(f"   refused: {', '.join(hosts)}. If the workflow's harden-runner blocks egress, add "
                   f"{', '.join(h + ':443' for h in hosts)} to its allowed-endpoints "
                   "(AGENTS.md, the harden-runner trap; scripts/egress-audit.py)")
-    real = [r for r in report if not r[2]]
-    if a.rerun_flakes:
-        runs_with_real = {run for _, run, flake, _ in real}
-        for run in sorted({run for _, run, flake, _ in report if flake} - runs_with_real):
+    real = [r for r in report if r[2] is None]
+    expected = [r for r in report if r[2] == "expected"]
+    flake_jobs = [r for r in report if r[2] not in (None, "expected")]
+    # A missing matrix will not go green on a re-run, so leave those runs alone.
+    if a.rerun_flakes and not real and not expected:
+        for run in sorted({run for _, run, _, _ in flake_jobs}):
             print(f"\nre-running the failed jobs of run {run}")
             ghrest.rerun_failed(run)
-    print(f"\n{len(real)} real failure(s), {len(report) - len(real)} flake(s)")
-    return 1 if real else 2
+    print(f"\n{len(real)} real failure(s), {len(flake_jobs)} flake(s), "
+          f"{len(expected)} expected missing-matrix failure(s)")
+    if real:
+        return 1
+    if expected:
+        return 4
+    return 2
 
 
 if __name__ == "__main__":

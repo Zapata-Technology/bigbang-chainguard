@@ -17,8 +17,8 @@ your improvements back so everyone's Big Bang conversion gets better.
 2. Regenerate and verify (`scripts/bb-run.py`, or the steps in the README), then run
    `python scripts/check.py --online`: unit tests, chart scan, overlays current, and both
    `bb-verify.py` runs (standard and `--fips`) must pass.
-   [AGENTS.md](AGENTS.md) has the rules and step-by-step playbooks (written for AI agents,
-   useful for anyone).
+   [AGENTS.md](AGENTS.md) has the rules and the agent loop. The step-by-step playbooks
+   are in [docs/agents/](docs/agents/) (written for AI agents, useful for anyone).
 3. Keep org-specific choices out of the shared files: the org belongs in
    `CHAINGUARD_ORG`, and exceptions for one org belong in `orgs/<org>.yaml`.
 4. Never commit pull tokens, `registryCredentials`, or other secrets.

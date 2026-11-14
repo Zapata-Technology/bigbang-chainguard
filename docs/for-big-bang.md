@@ -29,8 +29,11 @@ built it and offers it to the Big Bang community under Apache-2.0.
   in [how-it-works.md](how-it-works.md). The installer image is in [install.md](install.md).
 - Rendering checks every package in standard and FIPS mode on every pull request. Kind
   runs the tests the change reaches (`compat/*.yaml`, each with a functional check). A
-  digest-only change runs the smoke set: Kyverno, metrics-server, Tempo, Keycloak, Kiali
-  and Velero. GitLab and GitLab Runner run weekly. `results-gate` fails while this Big
+  digest-only change runs the smoke set:
+  <!-- smoke-tests -->
+  `kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`
+  <!-- /smoke-tests -->
+  (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). GitLab and GitLab Runner run weekly. `results-gate` fails while this Big
   Bang version has no recorded standard-mode matrix. The full recorded matrix is still
   Big Bang 4.0.0 (2026-11-08). On 4.1.0, the Keycloak and Mattermost release-upgrade and
   migration tests, and `bb-install.py upgrade --to`, passed on 2026-11-14
