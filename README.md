@@ -139,11 +139,15 @@ refreshes them.
   the newest patch in your org, pinned by digest. CI rejects any image Chainguard hasn't
   rebuilt in 30 days, so an abandoned release line can't stay deployed.
   - Where your org doesn't have Iron Bank's minor version, the replacement is a newer
-    minor (31 image references), never an older one. Each case is listed in `docs/images.md`.
+    minor, never an older one. The current count is the "newer minor" row in
+    `docs/version-differences.md` (one row per Iron Bank image and tag). `docs/images.md`
+    lists the same images once per package. Its "Stays on Iron Bank" heading counts
+    image names; the version table counts image and tag, so Cypress's two tags are
+    one name there and two rows here.
 - **A supply chain you can verify.**
   - Every Chainguard image's signature is checked on every pull request.
-  - The images this repo builds are signed keylessly, with an SBOM and SLSA provenance
-    attached.
+  - The images this repo builds are signed keylessly, with an SBOM and a SLSA v1
+    provenance predicate the build job writes (not a SLSA Build L3 attestation).
   - Every image is pinned by digest, so a cluster runs exactly what CI tested.
   - The installer adds a Kyverno policy that refuses unsigned images (enforce mode by
     default).
@@ -166,8 +170,11 @@ refreshes them.
   - A **release-to-release upgrade test** on every change.
   - **About 600 unit tests**.
 - **Problems found and fixed before you hit them.** The runtime tests found **40 problems**
-  that rendering alone would miss, each fixed in the overlays and listed in
-  [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Examples:
+  that rendering alone would miss. The list is
+  [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Most fixes are in
+  the overlays. GitLab's PostgreSQL lock setting is the site database (the installer
+  notes it). The liveness probe and the Deployment progress deadline are in
+  `mapping.yaml` and reach the overlay on the next conversion. Examples:
   - an Istio sidecar still pulled from Iron Bank;
   - Gatekeeper refusing every non-Iron Bank image;
   - GitLab's migrations running out of PostgreSQL locks;
@@ -211,7 +218,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 |---|---|---|
 | Some images stay on Iron Bank (none in the default packages; [the current list](docs/images.md)) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
 | Release-to-release upgrades are tested for a few packages only, and data across them for Keycloak and Mattermost only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; `release-upgrade-keycloak` and `release-upgrade-mattermost` write data before the upgrade (a realm and user; a team, post and file) and read it back after, so a failed database migration fails them (they run when those packages' versions change, and weekly). Other packages' upgrades rely on Flux and Helm rolling new digests, which the tests check; GitLab's migrations are untested (too slow for kind's runner) | More packages as kind's runner allows; a staging cluster that follows releases |
-| Keycloak's images stay on tags, not digests | Big Bang 4.0.0's Keycloak template can't take a post-renderer (`no_post_renderers`) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
+| Keycloak's images stay on tags, not digests | Big Bang 4's Keycloak template can't take a post-renderer (`no_post_renderers`; still true on 4.1.0) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
 | Iron Bank's side of the weekly CVE report is empty, and the Vault 1.21 to 2.x upgrade test (`compat/vault-upgrade.yaml`) is skipped | Both need an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |

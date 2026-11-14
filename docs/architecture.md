@@ -334,8 +334,8 @@ flowchart LR
 - The installer keeps credentials in one Secret, `bigbang/bb-install`. Anyone who can read
   Secrets in the `bigbang` namespace can read them (SECURITY.md, "Credentials in the cluster").
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
-  digest, and each base image by digest. The SLSA provenance attached to each built image
-  lists them.
+  digest, and each base image by digest. The SLSA v1 provenance predicate the build job
+  writes (not a SLSA Build L3 attestation) lists them.
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's
   `main` branch and pull requests. GitHub Actions are pinned to commit SHAs.
 - The CI, build and nightly runners block every outbound call they don't list

@@ -522,6 +522,19 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
                     "patch": json.dumps([{"op": "replace", "path": f"/spec/template/spec/{container}/command/0",
                                           "value": "/bin/bash"}])})
                 set_path(tree, key + ["postRenderers"], pr)
+        # A Deployment that waits longer than Kubernetes' 600s progress deadline (GitLab's
+        # migrations). A values change would replace the post-renderer list, so this is a
+        # patch beside the digest pins. Packages whose template can't take post-renderers
+        # are skipped with the digest pins.
+        seconds = mapping.get("progress_deadline", {}).get(info["key"])
+        if seconds and info["key"] not in mapping.get("no_post_renderers", {}):
+            patch = {"target": {"kind": "Deployment"},
+                     "patch": json.dumps([{"op": "add", "path": "/spec/progressDeadlineSeconds",
+                                           "value": int(seconds)}])}
+            for tree in (std, fips):
+                pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                pr[0]["kustomize"].setdefault("patches", []).append(patch)
+                set_path(tree, key + ["postRenderers"], pr)
         if release in mapping.get("overrides", {}):
             spec = mapping["overrides"][release]
             _merge_into(s, c.overrides(release, spec, False))
@@ -841,7 +854,10 @@ def report(rows, version, cg):
         seen.add(r)
         lines.append("| " + " | ".join(x.replace(f"{cg}/", "").replace("|", "\\|") for x in r) + " |")
     stays = sorted({(r[1].split(":")[0], r[4]) for r in rows if r[2] == "Iron Bank"})
-    lines += ["", f"## Stays on Iron Bank ({len(stays)})", ""] + [f"- `{i}`: {why}" for i, why in stays]
+    lines += ["", f"## Stays on Iron Bank ({len(stays)})", "",
+              "One line per image name. `docs/version-differences.md` counts each Iron Bank",
+              "image and tag, so an image pinned at two tags (Cypress) is two rows there and one name here.",
+              ""] + [f"- `{i}`: {why}" for i, why in stays]
     ahead = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "MINOR AHEAD" in r[4]})
     older = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "is older than Iron Bank" in r[4]})
     newest = sorted({(r[0], r[1], r[2].replace(f"{cg}/", "")) for r in rows if "newest org release" in r[4]})

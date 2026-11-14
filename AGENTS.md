@@ -101,7 +101,8 @@ The loop, for a person or an agent picking the repo up:
 3. **Change:** a branch from `origin/main`, the smallest fix in source files (never the
    generated ones), `python scripts/check.py`, a PR. A pull request runs only the kind tests
    its change reaches (`scripts/compat-plan.py`: a changed `compat/<test>.yaml`, a package
-   whose overlay tag changed, the installer tests for `scripts/bbinstall/`, two smoke tests
+   whose overlay tag changed, the installer tests for `scripts/bbinstall/`, the smoke tests
+   (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
    for harness, Flux, mapping and digest-only changes, nothing for docs); the weekly run and
    a new `BIGBANG_VERSION` run them all. Runner minutes are billed: push a branch once it is
    ready, not after every edit (a new push cancels the PR's older runs), and don't run
@@ -318,8 +319,12 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   Chainguard builds with removed, so Gitaly, Shell and the registry died at start;
   `overrides.gitlab` sets `GODEBUG=tlsmlkem=0`. Expect this for any chart that pins Go knobs.
 - **Nightly digest changes are normal**: Chainguard rebuilds images daily; the bot's pull
-  request then changes only digests, and the two smoke kind tests decide whether it merges
-  (the weekly run deploys every package).
+  request then changes only digests, and the smoke kind tests decide whether it merges
+  (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`;
+  the weekly run deploys every package). `ci.yml`'s `results-gate` job also fails while
+  the current `BIGBANG_VERSION` has no recorded standard-mode compat matrix. A skipped
+  run is not a pass. `registry1: true` tests stay outside that gate until Iron Bank
+  credentials exist. That job is not the required `verify` check.
 - **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
@@ -372,12 +377,14 @@ and `update.yml`'s two builder loops (`tests/test_recipes.py` checks both), a
   by hand from main (`gh workflow run compat.yml --ref main -f tests=gitlab`). A manual run
   from any other branch fails at "Log into Chainguard" (the identity trusts main and pull
   requests), and other pull requests skip large tests.
-- **GitLab on a small cluster** needs, in its test and possibly at a site: values under
-  `upstream:` (the package chart ignores top-level ones), PostgreSQL
-  `max_locks_per_transaction` 256, a Deployment `progressDeadlineSeconds` past the
-  migrations (`compat/support/progress-deadline.py`: Helm replaces lists, so it repeats the
-  overlays' digest-pin post-renderer), and a liveness allowance for Rails' boot. GitLab
-  Runner needs Kyverno for its token and `HOME=/home/gitlab-runner` (`overrides`).
+- **GitLab on a small cluster** needs values under `upstream:` (the package chart ignores
+  top-level ones). PostgreSQL `max_locks_per_transaction` 256 is the site database: the
+  installer notes it, and the kind test sets it. `progress_deadline` sets Deployment
+  `progressDeadlineSeconds` to 2400 as a post-renderer patch beside the digest pins.
+  `overrides.gitlab` sets the Rails liveness `failureThreshold` to 15. Both reach the
+  overlay on the next online `bb-convert.py` (do not run it offline). The kind test still
+  patches the deadline. GitLab Runner needs Kyverno for its token and
+  `HOME=/home/gitlab-runner` (`overrides`). Leave `GODEBUG=tlsmlkem=0`.
 - **A Ready pod isn't a working app**: GitLab Runner stayed Ready while it panicked without a
   token. Give a test a `check` that proves the app did its job, and a `forbid_log`.
 - **The test watcher's thresholds are tuned**: Harbor's jobservice crashes 3 times while core

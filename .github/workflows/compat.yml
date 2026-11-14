@@ -12,7 +12,8 @@ on:
     paths:
       # What a cluster runs changes. scripts/compat-plan.py then picks only the tests the
       # change reaches: a package's new tag runs that package's tests; digest-only, Flux and
-      # harness changes run two small smoke tests; the weekly run covers everything.
+      # harness changes run the smoke tests (kyverno-enforce, metrics-server, object-storage,
+      # keycloak, kiali, velero); the weekly run covers everything. GitLab stays large.
       - BIGBANG_VERSION
       - mapping.yaml
       - orgs/**

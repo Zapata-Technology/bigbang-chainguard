@@ -1,4 +1,4 @@
-"""bb-provenance.py: the SLSA predicate builds.yml attests to each pushed image."""
+"""bb-provenance.py: the SLSA v1 predicate the build job attests to each pushed image."""
 from conftest import load_script
 
 prov = load_script("bb-provenance")

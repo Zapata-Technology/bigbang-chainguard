@@ -41,9 +41,11 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEST_FILE = re.compile(r"^compat/([^/]+)\.yaml$")
-# Small tests that still deploy Flux, the overlays' post-renderers and Kyverno's policies:
-# what a harness, Flux or digest-only change can break.
-SMOKE = ["kyverno-enforce", "metrics-server"]
+# Small tests that still deploy Flux, the overlays' post-renderers and Kyverno's policies,
+# plus the packages whose last real bugs were runtime-only (Tempo's null receiver, Keycloak,
+# Istio/Kiali, Velero). A digest-only change runs these, standard mode. GitLab stays out:
+# it is large.
+SMOKE = ["kyverno-enforce", "metrics-server", "object-storage", "keycloak", "kiali", "velero"]
 # A Big Bang branch before its release: small tests that deploy Flux, Kyverno's policies and
 # the overlays' post-renderers (FIPS too), and the upgrade a site will run from the newest
 # release. Each is 10-15 minutes on a free standard runner.

@@ -217,7 +217,18 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 
 ## What the runtime tests found
 
-None of these showed up when rendering. All are fixed in the overlays:
+None of these showed up when rendering. Most are in the overlays. These are not a chart
+value, or they are not in the committed overlays yet:
+
+- GitLab's PostgreSQL `max_locks_per_transaction` 256 is the site database. The installer
+  notes it when GitLab is enabled. The kind test sets it in `compat/support/app-deps.py`.
+- GitLab's liveness `failureThreshold` 15 is `overrides.gitlab` in `mapping.yaml`. The
+  Deployment `progressDeadlineSeconds` 2400 is `progress_deadline`. Both reach the overlay
+  the next time `bb-convert.py` runs online. They are not in the committed overlays until that run.
+- metrics-server `--kubelet-insecure-tls` stays in `compat/metrics-server.yaml` only.
+- The org's `neuvector-manager-fips` repository has no tags, so `orgs/zapatatechnology.com.yaml`
+  keeps the standard manager (`fips: null`). A Ready manager pod on the FIPS overlay is
+  still that standard image.
 
 | Found by | Problem | Fix |
 |---|---|---|
@@ -249,9 +260,9 @@ None of these showed up when rendering. All are fixed in the overlays:
 | every PR (block mode) | cgr.dev serves layers and signatures from Cloudflare R2 | harden-runner allows `*.r2.cloudflarestorage.com` |
 | keycloak | A Chainguard rebuild of 26.8.1 made `quarkus-application.dat` 0770 65532/65532; Big Bang's uid 1000 couldn't read it | `overrides.keycloak` runs as the image's user; digest pins stop a rebuild arriving untested |
 | gitlab | Its chart sets `GODEBUG=tlskyber=0`, which newer Go refuses: Gitaly, Shell and the registry died at start | `overrides.gitlab` sets `tlsmlkem=0` |
-| gitlab | Its migrations load the whole schema in one transaction; PostgreSQL's default `max_locks_per_transaction` (64) fails it with `out of shared memory`, so GitLab never starts | The test's PostgreSQL runs with 256. **A site's external PostgreSQL for GitLab needs it raised too** |
-| gitlab | On a 2-CPU runner the migrations take about 10 minutes; webservice and sidekiq wait on them past Kubernetes' 10-minute `progressDeadlineSeconds`, the Deployment turns Failed and Helm stops the install (`failed early due to stalled resources`) | The test patches every GitLab Deployment to 2400 s (`compat/support/progress-deadline.py`, a post-renderer after the digest pins). A slow site cluster needs the same through `addons.gitlab.postRenderers` |
-| gitlab | Webservice and Sidekiq (Rails) take more than the liveness probe's ~3 minutes (20 s, then 3 failures 60 s apart) to boot on a 2-CPU runner in FIPS mode; the probe killed them mid-boot until the test timed out | The test allows 15 failures (~15 minutes). A small or FIPS site cluster may need the same: `upstream.gitlab.webservice.deployment.livenessProbe` and `upstream.gitlab.sidekiq.livenessProbe` |
+| gitlab | Its migrations load the whole schema in one transaction; PostgreSQL's default `max_locks_per_transaction` (64) fails it with `out of shared memory`, so GitLab never starts | The test's PostgreSQL runs with 256. The installer notes the same when GitLab is enabled. **A site's external PostgreSQL for GitLab needs it raised too.** The chart does not configure that server |
+| gitlab | On a 2-CPU runner the migrations take about 10 minutes; webservice and sidekiq wait on them past Kubernetes' 10-minute `progressDeadlineSeconds`, the Deployment turns Failed and Helm stops the install (`failed early due to stalled resources`) | `mapping.yaml` `progress_deadline` is 2400 for `packages.gitlab` (a post-renderer patch beside the digest pins). It reaches the overlay on the next online `bb-convert.py`. The kind test still patches the same field (`compat/support/progress-deadline.py`); JSON Patch `add` replaces an existing value |
+| gitlab | Webservice and Sidekiq (Rails) take more than the liveness probe's ~3 minutes (20 s, then 3 failures 60 s apart) to boot on a 2-CPU runner in FIPS mode; the probe killed them mid-boot until the test timed out | `overrides.gitlab` sets `failureThreshold` 15 (~15 minutes) on webservice and sidekiq. It reaches the overlay on the next online `bb-convert.py` |
 | gatekeeper | Big Bang's `allowed-docker-registries` constraint (deny) admits only Iron Bank's registries: with Gatekeeper on, every org image was refused ("invalid repository for image") | `bb-convert.py` writes Gatekeeper's allow list like Kyverno's (`registry_policies`): Iron Bank's registries, the org, `BUILD_REGISTRY` and every `ref` owner |
 | thanos | Thanos Query had no stores: its default DNS resolver (miekgdns) tries the search domains first and stops at the first empty answer, and CI's Azure runners add one (AKS nodes do too). Pods were Ready the whole time. Not image-specific | `overrides.thanos` sets `--store.sd-dns-resolver=golang` (ships to deployments) |
 | istio-egress-gateway | The test passed with its gateway never deployed ("0 of 1 expected images ran"): Big Bang renders `istioEgressGateway` only in ambient mode | The test enables `istioCNI` and `ztunnel`; `bb-compat.py` now fails a test where none of the expected images ran |
@@ -339,8 +350,9 @@ test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
 4. checks the profile is in effect (etcd runs as `etcd`; PSA refuses a privileged pod in
    `default`) before the install and again after it;
 5. writes a site file with Big Bang's defaults (`bb-install.py init`), runs
-   `bb-install.py check`, then `bb-install.py install` (standard images; `--small-cluster`
-   only lowers Flux's requests on the one node);
+   `bb-install.py check`, then `bb-install.py install` (`--small-cluster` only lowers
+   Flux's requests on the one node). A pull request uses the standard overlay. The weekly
+   run and a manual run also install once with `--fips`.
 6. `scripts/cluster-check.py`: fails on any HelmRelease that isn't Ready, any pod in any namespace that isn't Ready (or a
    finished Job), any container restart, an image that can't be pulled, and any pod refused
    by PSA or an admission webhook. Events are kept for the whole run (the API server forgets
@@ -360,10 +372,12 @@ It runs weekly (Sunday 11:00 UTC), on pull requests that change it, and by hand 
 for the kind tests). The harden-runner egress policy blocks every host it doesn't list, the
 VM's traffic included (it leaves through the runner): Sigstore's hosts are on the list because
 Kyverno fetches its trust roots to check each image's signature for the installer's signature
-policy; blocked, every Deployment timed out in Kyverno's webhook. The artifact `rke2-default-packages`
-holds the `check`, `install` and `cluster-check` logs, every pod's log, the events, and the
-VM's RKE2, kubelet, audit and kernel logs. Not covered: SELinux (permissive in the VM;
-`rke2-selinux` is another package repository), several nodes, and the FIPS overlay on RKE2.
+policy; blocked, every Deployment timed out in Kyverno's webhook. The artifacts
+`rke2-default-packages` and `rke2-default-packages-fips` hold the `check`, `install` and
+`cluster-check` logs, every pod's log, the events, and the VM's RKE2, kubelet, audit and
+kernel logs. Not covered: SELinux (permissive in the VM; `rke2-selinux` is another package
+repository) and several nodes. The FIPS overlay runs on the weekly and manual jobs, not
+on a pull request. kind's `--kubelet-insecure-tls` stays in `compat/metrics-server.yaml`.
 
 **Results (2026-11-04, PR #137, runs 41784393791 to 41812789877):** not passing yet, because
 a standard private-repository runner (2 CPUs, 7 GB) can't hold Big Bang's default packages.
@@ -441,8 +455,9 @@ requests only.
 A pull request runs only the tests its change reaches (`scripts/compat-plan.py`): a changed
 `compat/<test>.yaml` (both modes), the tests that enable a package whose overlay changed beyond
 its digests (in that overlay's mode), the tests that use a changed `compat/support/` file, the
-installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and two small smoke tests
-(`kyverno-enforce`, `metrics-server`) for harness, Flux, mapping and digest-only changes. Docs
+installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and the smoke tests
+(`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
+for harness, Flux, mapping and digest-only changes. GitLab stays out of that list. Docs
 and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test; a new
 push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
 so the selection keeps a month's pull requests within the Actions allowance.

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Write a SLSA v1 provenance predicate for one image this repo builds.
 
+The build job attests this predicate. It is not a SLSA Build L3 attestation.
+
   bb-provenance.py <name> <image@digest> -o predicate.json [--spec release.yaml]
 
 builds.yml attests it to each pushed image (cosign attest --type slsaprovenance1), next to
