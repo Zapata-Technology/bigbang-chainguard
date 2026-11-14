@@ -5,9 +5,9 @@
 ironbank:
   image: ironbank/big-bang/grafana/grafana-plugins:13.3.0
   source: https://repo1.dso.mil/dsop/big-bang/grafana/grafana-plugins
-  commit: 56072031815d54f64d333f35cad21f9d69315e3e
+  commit: 28b0137425c8c862ae3833c03c3c9ff7048679b1
   manifest_tags:
-  - 13.3.0
+  - 13.3.1
   - latest
 image:
   standard:

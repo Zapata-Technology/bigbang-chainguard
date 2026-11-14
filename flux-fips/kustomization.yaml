@@ -6,11 +6,11 @@
 # kubectl apply --server-side -k flux-fips/   (needs the private-registry pull secret in flux-system)
 apiVersion: kustomize.config.k8s.io/v1beta1
 images:
-- digest: sha256:0e36bab429df526163d3839fe4e94f260c7b5f62b18af9612d605184fde5426c
+- digest: sha256:db530342ec3bb8cbcf91ef092b8b3b2bf8c3832cdc4d6799d1aa82332879b192
   name: ghcr.io/fluxcd/helm-controller
   newName: cgr.dev/zapatatechnology.com/flux-helm-controller-fips
   newTag: 1.7.1
-- digest: sha256:ce8fa7f55c6213dd6c5e35c316c551124157e4b18a504742ea47fab46130d879
+- digest: sha256:f94eaaa262e165f29894903bec41f13a5bd6d514f9af1c2b2f6d94a44ddb9e98
   name: ghcr.io/fluxcd/kustomize-controller
   newName: cgr.dev/zapatatechnology.com/flux-kustomize-controller-fips
   newTag: 1.10.1
