@@ -9,11 +9,11 @@ packages:
         images:
         - digest: sha256:44f0c77d4a9395be5758154559c552c6c8b130bb5dfe1484ceeddef357b0fa0b
           name: cgr.dev/zapatatechnology.com/grafana-alloy-fips
-        - digest: sha256:9255879830c0ae7450ff81e8abd9006da023b4bb2203eed309faace6bdf9d49c
+        - digest: sha256:9e109519853f7f2c70a98e428462f6c73de0295986d757a281865fcfffef0d28
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator-fips
         - digest: sha256:ff59c04fcbd9a2d382e9b4959321fe89a20414c8917302639e14eec7ab57678d
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:48d3ed9bad3b478002e7bc9881e005cc29a32af0a4ecd85d12777c3444b38244
+        - digest: sha256:635bf19b2ec453bc44b8637bad07aa5c87435e8a72d16572c01677c8f5c23d7a
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
     values:
       autoRollingUpgrade:
@@ -52,9 +52,9 @@ packages:
         images:
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:4453a442c2ba7eff9763ccf744b4ccba3c3865c8b6d57086a11a51241dac6cfa
+        - digest: sha256:7059c8effa314ec39b183fca01d1739be58985f4138520d4cdae7970621296a2
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:174bd914cfe8a2d5267d85f24f7505ab5a23a3b54bb0df5976f829ba7363fd9e
+        - digest: sha256:1ed5b02fb32563bfa7a48cfa16b6c2bc593b1279293241c842eaaaf7399dbd2f
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       ui-redis:
@@ -80,13 +80,13 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:aab5d382944a5dcd85c5f2c5c8102f30118714726fb096dde926afd2384b1b0e
+        - digest: sha256:83e0f131019cc4f1860a5476d4db22278811e3cb4b3507c44a0214b3f8a6d06c
           name: cgr.dev/zapatatechnology.com/argocd-fips
-        - digest: sha256:5b2a320fda73acc0381c745d5113b7d2b029005a1c77f52b29dfed501913ed98
+        - digest: sha256:8a5c76519d39689eb9d38bd28bd269092d71930d26c0d4bb06075bd4120cd9ce
           name: cgr.dev/zapatatechnology.com/busybox-fips
-        - digest: sha256:99399dbf2b5ed268eeb11997c01cd0a53d2e1ac237b9d94d28074a68084c41d5
+        - digest: sha256:18324c9c67697b0f4699ec52ef2f9eacc8029e21af0ec00a6d6e1cb407856ee3
           name: cgr.dev/zapatatechnology.com/dex-fips
-        - digest: sha256:a61b4b0dd220bbe6e2d786dc06f92f9264bf45528ea1619d6d767a78580a87de
+        - digest: sha256:f9a3e4d86b5ea6e35766a7b9c8e7f617dc68a41567780d2cf49546551a875fbb
           name: cgr.dev/zapatatechnology.com/haproxy
     values:
       bbtests:
@@ -145,11 +145,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:ae189271786ed52fbe656c66b19a69a141c106adc6be61c4ccbc3ba7148e3c71
+        - digest: sha256:8e6681adeb929a52778e7453f5c02fa0ab4c9d7d12e24c199dce60f19e1c6c45
           name: cgr.dev/zapatatechnology.com/authservice-fips
-        - digest: sha256:4453a442c2ba7eff9763ccf744b4ccba3c3865c8b6d57086a11a51241dac6cfa
+        - digest: sha256:7059c8effa314ec39b183fca01d1739be58985f4138520d4cdae7970621296a2
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:174bd914cfe8a2d5267d85f24f7505ab5a23a3b54bb0df5976f829ba7363fd9e
+        - digest: sha256:1ed5b02fb32563bfa7a48cfa16b6c2bc593b1279293241c842eaaaf7399dbd2f
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       image:
@@ -172,15 +172,15 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:19b3ddcff1ec7f5f462cb57863e9f8540e27a3a3b4ec20fd6276a91b48e657dd
+        - digest: sha256:379031538d63f3bfe4eb0dfd7421379bea303104e54c31efdfc4470e2fbc4056
           name: cgr.dev/zapatatechnology.com/cert-manager-acmesolver-fips
-        - digest: sha256:a17dbdb110c56396edcf7242ce0baa121b8eba950fdbbcb43a7b146489d3d0e3
+        - digest: sha256:48d86b3bfcfa34a3397037384a7feeacd9890fdd6a650b0b06a0f8bf7f8d0b7e
           name: cgr.dev/zapatatechnology.com/cert-manager-cainjector-fips
-        - digest: sha256:1812ece39724d15f488d1f39cfb42ff0a83384bd7f5dc52d013217d85cb3e71d
+        - digest: sha256:e3cb8152d10630f1b81d393e0df1cc876678963e1209284e943e959df915667b
           name: cgr.dev/zapatatechnology.com/cert-manager-controller-fips
-        - digest: sha256:6f741121f908ef7aec9f7bf93b174cd8316301a76b88325ee7c9fa453cc66284
+        - digest: sha256:8d94eeb110c36029cfd98f61017f079a3ce9d203790b10b04c74e3850303bd88
           name: cgr.dev/zapatatechnology.com/cert-manager-startupapicheck-fips
-        - digest: sha256:2b59e919f38da05365e0abdc4c499eac47e74f65ad5615d3559af0a163531c26
+        - digest: sha256:083a76a0e4951b0d5eb6f26450d7df1ce6c1e8ea073c59e50b2a3e8633296b95
           name: cgr.dev/zapatatechnology.com/cert-manager-webhook-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -212,7 +212,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:d84f898fa6868c2d1bbf2b5f3a939197bd9916811b2f646b208434a7e278e8eb
+        - digest: sha256:2309c1060e937ce7e8cacf54520b34c40b562eeeb65f6e84680cff7cfaba3248
           name: cgr.dev/zapatatechnology.com/eck-operator-fips
     values:
       upgradeCrds:
@@ -227,13 +227,13 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:be22700677f2398d5356ac7bc96a73dee67e1eecfa517b27345d0c3626ff6c18
+        - digest: sha256:9fdfdffa4f003a0c9780c851870281aa6775e79d5dc648439bfe1d47e4a6eba1
           name: cgr.dev/zapatatechnology.com/elasticsearch-fips
-        - digest: sha256:12f6aa047313752c938b3b2a5bd23514e7ffaa4ce7cab2e444e440f0688fa59b
+        - digest: sha256:2be302d780a18b784f6bafc5c4e1d94a4d09ced73e178c626f93c6086b1958c2
           name: cgr.dev/zapatatechnology.com/kibana-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:5852871ef9ee3b7e555a61ceb292566f85c534af5569d5fe47edde595fafab70
+        - digest: sha256:5279b47e5879ff1b43322e8c57fc5ad77d923659df8791980f2f0e8d1d247f6f
           name: cgr.dev/zapatatechnology.com/prometheus-elasticsearch-exporter-fips
     values:
       bbtests:
@@ -264,7 +264,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:35d82bd3c8f357a9338117537011dd09421a1bb890144272c51b4e143c053a91
+        - digest: sha256:4c0b0b9854e6662579c222d370fcd52bc2735c859bbb71e6c3888e6a3ecc81e9
           name: cgr.dev/zapatatechnology.com/external-secrets-fips
     values:
       bbtests:
@@ -278,9 +278,9 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:4499cb25887b78292dee0f2b908e695cd97b9e862b0142425c07ae7d92ca68c6
+        - digest: sha256:0b5c27afeea295651da0253cfb02ea6a24c57afddf836470e8f4984cd7dddb7f
           name: cgr.dev/zapatatechnology.com/configmap-reload-fips
-        - digest: sha256:ef9114b3658ff0af3d7437fb40ef7c654b049d27516b84bef3ad37b90c9919e2
+        - digest: sha256:08ed22cf7878218d312ac621654ce77fda9ccfe4bdbd20bdc54704cebeba74d3
           name: cgr.dev/zapatatechnology.com/fluent-bit-fips
     values:
       bbtests:
@@ -304,9 +304,9 @@ packages:
           newTag: 1.37-dev
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:85ba2ebbee12aeeeb75e3ccb0182917931f99b5eaa7e4b0c6ae7cc1cf66e23f3
+        - digest: sha256:82ab7a69eea7f30c5ac0c28fc0cb6e9221480483979cdb3bd078384315c98346
           name: cgr.dev/zapatatechnology.com/mysql-fips
-        - digest: sha256:82e76f05e1987ff5aa4443862ab4ea20b4dead57959dbb405c03f16505ab9454
+        - digest: sha256:a97ec223ea3ad0346685a51fae79585bba6855f0d88bed34f1d2f4f26f7d29dc
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-fips
         patches:
         - patch: '[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value": "/bin/bash"}]'
@@ -332,7 +332,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:1a4b10332707e20f1ac05c4376008d7f5dfce0f3b399e685c63308d1600c70c9
+        - digest: sha256:8792e42381a52cd1f9ecfd666ee4cd87ece76bbd465aaa87a68a95d5ed976a6d
           name: cgr.dev/zapatatechnology.com/gatekeeper-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -379,7 +379,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:5b2a320fda73acc0381c745d5113b7d2b029005a1c77f52b29dfed501913ed98
+        - digest: sha256:8a5c76519d39689eb9d38bd28bd269092d71930d26c0d4bb06075bd4120cd9ce
           name: cgr.dev/zapatatechnology.com/busybox-fips
         - digest: sha256:0f369323cd10a08ed5ed5b2e73d72317d1c7639bc2f909e4eec0e927d3d34c99
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign-fips
@@ -405,7 +405,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
         - digest: sha256:af496ede84c2da07c8030fba11e5971971a086a406ff77903b95e9f5eb661f2b
           name: cgr.dev/zapatatechnology.com/gitlab-kas-fips
-        - digest: sha256:4f4b71057cd5c3d67ead7387b8b0c38924919ba01b11847ff3e7e2d6288e3983
+        - digest: sha256:ec29f6bab95c5dbbe37aa990ed4f7d551fafa821f53305be5ae93d49dbcc6795
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl-fips
         - digest: sha256:a1aa706555c3ab1b77d3e584be13156000abdc9e48e8f4bb3bbfef92630f26ab
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom-fips
@@ -413,7 +413,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-pages-fips
         - digest: sha256:b6dc058d0306aeef31bae2a01bf720b51c1d92ad9573f7af76051108ff6b26f3
           name: cgr.dev/zapatatechnology.com/gitlab-shell-fips
-        - digest: sha256:e16f83327ded0295095757e3d4a1fa1405f190c52df576aab67e19b887bf58ed
+        - digest: sha256:be62fa4a8a80357d72752c5c9a2269969191d8de473370e28b79f7f5c575fac4
           name: cgr.dev/zapatatechnology.com/nginx-fips
         patches:
         - patch: '[{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]'
@@ -548,11 +548,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:7b83e49b11229006e89dbcb903f720baafb2f250c470058d51a2531ac469dca6
+        - digest: sha256:a57438df0210dc5b4f80b6dc3da1640a50be081a8b8161f2741c20bca901acd1
           name: cgr.dev/zapatatechnology.com/bats-fips
-        - digest: sha256:9515861f0d8ddc8fb94f21a622cd5036a3ced61f19bb6496c8908e6ca2a11c81
+        - digest: sha256:2c01dd911ada08b15bc49660e8f76e52cd94151b580c5924f200446bd6191c6e
           name: cgr.dev/zapatatechnology.com/grafana-image-renderer
-        - digest: sha256:6114db9eb1c1cc97e891a0515ca9489c493f930f038af8cb2bdc0d67e7a46a61
+        - digest: sha256:5a6359d56be42c3d91e9663b544d0bc2887364a0b7536e47dbc0f22616b7d24c
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
     values:
       autoRollingUpgrade:
@@ -598,27 +598,27 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:35a215d049bdd65d6ac5919add7761af3932ffe4134a724b26fc8c3d4810a988
+        - digest: sha256:4c04ed4aa00d22d00ae4953dd040cf969b23c74a771dc7c272d091bc15560860
           name: cgr.dev/zapatatechnology.com/harbor-core-fips
-        - digest: sha256:61c6b69a466367dd768072217a9ded861dd1579b24194f859b86dd4d35ed270f
+        - digest: sha256:71409f28f978db32012401343444077bf9345af8bfcdc9afaf92c71257e79b03
           name: cgr.dev/zapatatechnology.com/harbor-exporter-fips
-        - digest: sha256:fa43fbea2cf255bf3ba14aca6d5a33ace7e585554bb596f6207dd13229b45c4c
+        - digest: sha256:e2f53f75767af6b2eaef4d349e8b618f9e0eed92ed8fd8170ce650505e18f6f7
           name: cgr.dev/zapatatechnology.com/harbor-jobservice-fips
-        - digest: sha256:b16caaf08dc3863b037df3ef8c7b66c153f93cc35d18643d726191c7a07d83c7
+        - digest: sha256:8e09dda9ce9eacd49a88622ffaa019303d4881eb95b4a6611746b2ca4be5eae1
           name: cgr.dev/zapatatechnology.com/harbor-portal-fips
-        - digest: sha256:d42a357f8a3cf33c1869fbd7d3dbaceb559b3c4b4be96c0b76bd3ce8519556bc
+        - digest: sha256:483a3aab8ca2c6fed7398adfabe51af5e2ea140354b68cf468b686677841d13c
           name: cgr.dev/zapatatechnology.com/harbor-registry-fips
-        - digest: sha256:44626872a5bc51157bec19bc9e7cb5004c055f307680afe5d02e47c3f53543f1
+        - digest: sha256:57c850b49788879dc32193403ef4723684e7c6818482ec7d6428593714e54b24
           name: cgr.dev/zapatatechnology.com/harbor-registryctl-fips
-        - digest: sha256:91b1f236b467e162526180c25961e756f5bb06456b14caf2d5fb9eb99fb620cc
+        - digest: sha256:b560defed388b0348b3292d5e16a0a85c7a1ec79f5f3fdc18fdbca601a75e563
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter-fips
-        - digest: sha256:e16f83327ded0295095757e3d4a1fa1405f190c52df576aab67e19b887bf58ed
+        - digest: sha256:be62fa4a8a80357d72752c5c9a2269969191d8de473370e28b79f7f5c575fac4
           name: cgr.dev/zapatatechnology.com/nginx-fips
         - digest: sha256:21074230865a6a8cf69119ef9f45a748f1417e82ade782dd4b5d5c53fae10a31
           name: cgr.dev/zapatatechnology.com/postgres-fips
-        - digest: sha256:4453a442c2ba7eff9763ccf744b4ccba3c3865c8b6d57086a11a51241dac6cfa
+        - digest: sha256:7059c8effa314ec39b183fca01d1739be58985f4138520d4cdae7970621296a2
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
-        - digest: sha256:174bd914cfe8a2d5267d85f24f7505ab5a23a3b54bb0df5976f829ba7363fd9e
+        - digest: sha256:1ed5b02fb32563bfa7a48cfa16b6c2bc593b1279293241c842eaaaf7399dbd2f
           name: cgr.dev/zapatatechnology.com/redis-fips
     values:
       bbtests:
@@ -680,7 +680,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:910f82354b9b9f4bfa2a3da9d87d4dabb13bf5c6ebdd4bb2edddb6fd42791f9f
+        - digest: sha256:59c5b452e618ac5d3d99153ba66119a661ad315599516e024b6e26d9a613996f
           name: cgr.dev/zapatatechnology.com/headlamp-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -698,7 +698,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:dcb0a9c573c2e815b1fadc446ae7395cc770f0bd4333f728dc1dc4d3cc4e72b1
+        - digest: sha256:c43591765f0ba8805e01bb906631a41fc83bc8e844def92438ec66678a8faf60
           name: cgr.dev/zapatatechnology.com/istio-install-cni-fips
     values:
       upstream:
@@ -741,7 +741,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:dd0594ed438985b40c9d9be67f57c21fbf85741dd729053567a01ed69c6ea880
+        - digest: sha256:5688ada8b0def02bda078ea7165ceab8b6ffdaead26e0f22d7e065441e4ad848
           name: cgr.dev/zapatatechnology.com/istio-pilot-fips
         patches:
         - patch: '[{"op": "add", "path": "/metadata/labels/app.kubernetes.io~1version", "value": "1.31.4"}]'
@@ -781,9 +781,9 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:f27ddc6041d42b3862eab2aae139023a9ac9e058865c8628898fe020151e7a43
+        - digest: sha256:eeeb0c977a87f188c8b5ec962524f4cd8a95d2945f7b7c3d4a19cef9a770a815
           name: cgr.dev/zapatatechnology.com/kiali-fips
-        - digest: sha256:dfc02ceeedb8644caf1962647350cea2e65e0b000e5866f583207adcd0a1564b
+        - digest: sha256:e3783d3ffbbd287b08b05999c96a67ef931fff2cacb2ae743a30dfd62241fba2
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -813,19 +813,19 @@ packages:
         images:
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:4d3ed5bf774b799d98dba54970136d2348e899309e12a406c91e4a3f97c14757
+        - digest: sha256:1aa36c6e4b6970203ac8f2a1ea89213602f62b8b12f8353c16e32d36d832abfe
           name: cgr.dev/zapatatechnology.com/kyverno-background-controller-fips
-        - digest: sha256:4211dcf23fb3b61a1b0cec777f67fef1963edec881abca8640e970114154dfaf
+        - digest: sha256:08329b08810616d35abc6ba746776429ae9c6272bbc9ebde922df7b0908d110e
           name: cgr.dev/zapatatechnology.com/kyverno-cleanup-controller-fips
-        - digest: sha256:bf0c95ebd8d736f5ea141a1304361bd3edd6c1461578ad2ebf6ab6fbf353fc7b
+        - digest: sha256:adf4a29deecef875c4543b1c08d227d76b0bbf8d809463cfe70a1cf11b7ecdc4
           name: cgr.dev/zapatatechnology.com/kyverno-cli-fips
-        - digest: sha256:7b08bc54f556f598a40fc06d5c9c865a9e50896c2782626d94302839e07a27a7
+        - digest: sha256:c73fee2d95ad9f9bce6a389d3017d49e8f41aeec8670154e8f8372888862ac6e
           name: cgr.dev/zapatatechnology.com/kyverno-fips
-        - digest: sha256:37da897b5d781128674b69c4d97ea18cf97f46b4ea4e89185253887a43250ef1
+        - digest: sha256:ba682cea5dbb238e9910e6d89c91bea84f0d10edc93d10a36bf82b4524e4c76b
           name: cgr.dev/zapatatechnology.com/kyverno-readiness-checker-fips
-        - digest: sha256:f3dcc91108c1f242e8619fbd1176781d1358b90b2e369a15a22d6fa2e4da2d11
+        - digest: sha256:cde99ebd95e40866d50a89a5d5940e1a8104fd01571536eda439a3b1ca62ce24
           name: cgr.dev/zapatatechnology.com/kyverno-reports-controller-fips
-        - digest: sha256:0f94e875a41fbd2c57885aa63ccf42d4133b6e2cd78bf7adb670f5930c7647a1
+        - digest: sha256:461d54b971c528972127405da262208d6d3fdcce1cb54c23ae1e466d1c866d80
           name: cgr.dev/zapatatechnology.com/kyvernopre
     values:
       bbtests:
@@ -909,11 +909,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:2b4c4ddffe2a30d2cf9ef5e578e91336045e0044713b4ac939bd5c450a119514
+        - digest: sha256:bf1b27f6a3a8f5e69943be3343924abeaa5e5041a20e3ec5ecb845095c72bb24
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-fips
-        - digest: sha256:b6054040c48a93dffd5a451a9ddea0d0950e84690c7005b23484cf590afd87eb
+        - digest: sha256:6fdd7ab3f243becade64e56aad2cd1366a75fab557f68ad3d6eb57c8f04faf9e
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno-fips
-        - digest: sha256:c9a5c09373daf23db80f48d725f5b24028320f5e34f89b2b354401f73344e0fd
+        - digest: sha256:5574c4ac2f0971e78cd86bf2bdfe4ffb1953f4e522a2270e2383327af322a707
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-ui-fips
     values:
       upstream:
@@ -938,19 +938,19 @@ packages:
         images:
         - digest: sha256:c90280cabb7d27e48a95fe5ebf35d4bd1f6168cb3ef388eb1f9875427f562723
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
-        - digest: sha256:6114db9eb1c1cc97e891a0515ca9489c493f930f038af8cb2bdc0d67e7a46a61
+        - digest: sha256:5a6359d56be42c3d91e9663b544d0bc2887364a0b7536e47dbc0f22616b7d24c
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:1c028c55e018ec50a78cdb7a8f49dd9dae7688d295b05eda684811987d6696d0
+        - digest: sha256:774394998d2541ce6b867be541e6dc27492c98e747887eb7550127fa0bbddf74
           name: cgr.dev/zapatatechnology.com/loki-canary-fips
-        - digest: sha256:2f1bd680d985a1ae5a9851f73fdb5b0749201f7c8c6179672c876feb876d4821
+        - digest: sha256:3995d233f0ea683dcbb1ca4d7582759708b2e9d3095e4ad0782b28f1ca057edb
           name: cgr.dev/zapatatechnology.com/loki-fips
-        - digest: sha256:24265130069a1e8c1e813eba2983682fd9e7b1afb9ec803ef71d621f9573b75d
+        - digest: sha256:cf55848bed1ee2b1fcb9f2ab7015358f0da435a3a01176725d613f367799fe85
           name: cgr.dev/zapatatechnology.com/memcached-exporter-fips
-        - digest: sha256:f9af1bee5850f188c9f051d60b21722716d09221568a604b395f6df491a05373
+        - digest: sha256:28654a6e0af8a122fde69c5b817168aeeb879ba1401576c12ee9abee9c8f407d
           name: cgr.dev/zapatatechnology.com/memcached-fips
-        - digest: sha256:e16f83327ded0295095757e3d4a1fa1405f190c52df576aab67e19b887bf58ed
+        - digest: sha256:be62fa4a8a80357d72752c5c9a2269969191d8de473370e28b79f7f5c575fac4
           name: cgr.dev/zapatatechnology.com/nginx-fips
     values:
       bbtests:
@@ -1012,7 +1012,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:a1d92630e284a9d5bbc97fdc16a89ca1437816e663bb9212d1af05d79792d015
+        - digest: sha256:8381589ca310fe2e3702e6bb3b652480e1621410734fedec2a49161005196567
           name: cgr.dev/zapatatechnology.com/mattermost-fips
         - digest: sha256:21074230865a6a8cf69119ef9f45a748f1417e82ade782dd4b5d5c53fae10a31
           name: cgr.dev/zapatatechnology.com/postgres-fips
@@ -1044,7 +1044,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:908c9c109975b8a954f38e5cb40a14bcc83fcdd842f143366eb1c966b6e19c6a
+        - digest: sha256:2bf19712c0f655f8a100ef065f8d0c1fa892783328674a2137cc11f40909f526
           name: cgr.dev/zapatatechnology.com/metrics-server-fips
     values:
       upstream:
@@ -1055,17 +1055,17 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:f8db8f449fd5cff86f90270558537985dc54895a0d3566fe20b5ab3404f399e0
+        - digest: sha256:befc289affb62d4a1f5295c5fda50c002c992016ab3a4ddd9f22aad350d5d1ea
           name: cgr.dev/zapatatechnology.com/grafana-mimir-fips
         - digest: sha256:c90280cabb7d27e48a95fe5ebf35d4bd1f6168cb3ef388eb1f9875427f562723
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
         - digest: sha256:e7f52e982454ed8afb79aa7e06b3b063f47215c3362b690cc9701729e36a8dfc
           name: cgr.dev/zapatatechnology.com/kafka-native
-        - digest: sha256:24265130069a1e8c1e813eba2983682fd9e7b1afb9ec803ef71d621f9573b75d
+        - digest: sha256:cf55848bed1ee2b1fcb9f2ab7015358f0da435a3a01176725d613f367799fe85
           name: cgr.dev/zapatatechnology.com/memcached-exporter-fips
-        - digest: sha256:f9af1bee5850f188c9f051d60b21722716d09221568a604b395f6df491a05373
+        - digest: sha256:28654a6e0af8a122fde69c5b817168aeeb879ba1401576c12ee9abee9c8f407d
           name: cgr.dev/zapatatechnology.com/memcached-fips
-        - digest: sha256:e16f83327ded0295095757e3d4a1fa1405f190c52df576aab67e19b887bf58ed
+        - digest: sha256:be62fa4a8a80357d72752c5c9a2269969191d8de473370e28b79f7f5c575fac4
           name: cgr.dev/zapatatechnology.com/nginx-fips
     values:
       upgradeJob:
@@ -1140,11 +1140,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:7b83e49b11229006e89dbcb903f720baafb2f250c470058d51a2531ac469dca6
+        - digest: sha256:a57438df0210dc5b4f80b6dc3da1640a50be081a8b8161f2741c20bca901acd1
           name: cgr.dev/zapatatechnology.com/bats-fips
-        - digest: sha256:6114db9eb1c1cc97e891a0515ca9489c493f930f038af8cb2bdc0d67e7a46a61
+        - digest: sha256:5a6359d56be42c3d91e9663b544d0bc2887364a0b7536e47dbc0f22616b7d24c
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
-        - digest: sha256:6c3cadd1e04e78de9e03849f1fa467294c04c6a85ba3ccd0a6b2687244268533
+        - digest: sha256:e9394bb4ae1aceddb98e63d069174b7d92efb659b538640a615bfa2015befea5
           name: cgr.dev/zapatatechnology.com/kube-state-metrics-fips
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -1152,17 +1152,17 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
         - digest: sha256:922c816b3f76e3058083a57af03c94080c2cf00c7bd2378c31cab8d611124116
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
-        - digest: sha256:48d3ed9bad3b478002e7bc9881e005cc29a32af0a4ecd85d12777c3444b38244
+        - digest: sha256:635bf19b2ec453bc44b8637bad07aa5c87435e8a72d16572c01677c8f5c23d7a
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
         - digest: sha256:e898cca445a106744fcc3ec81347183fd832167d46cd5680ae8541f0f23417d9
           name: cgr.dev/zapatatechnology.com/prometheus-fips
-        - digest: sha256:3b08698673e9bfd2540870a1bc1f421fc4937745dbc3d7d8971d2ba85738b820
+        - digest: sha256:e749efae15db7e4c154ee3a7515ec603d91e0da969b5b5a50a7db912a19ec6da
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
-        - digest: sha256:879258c48dff640832a4ba0efa8389a9422362a6fe7330617a1e47e3a3b560b6
+        - digest: sha256:c78df95087d8658cea898d60f376d425b0feb7600c99665c4f9ce89c98e87c75
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
         - digest: sha256:09951e27488af0558751e9aabd5158f96fee449c79609fddcd77d9127eab26b2
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:59a7c3ee05ffde7928585cf5601ba208db3b55946d8f58131d2972a723985e3d
+        - digest: sha256:6057d5a7774a02e6657c8a958926cc970a122bd3ab873cb1f4ec885752b7e5c2
           name: cgr.dev/zapatatechnology.com/thanos-fips
     values:
       bbtests:
@@ -1273,15 +1273,15 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:ed39999618d146fddf296988784fb77e3e24d1b27462401e9b5525b43087bda2
+        - digest: sha256:cb5d07ac4e8f2b0faa72d1e1cdb1ffa20b21956779de95e600c73ad70536cbc4
           name: cgr.dev/zapatatechnology.com/neuvector-controller-fips
-        - digest: sha256:32407d6c64df9e3af6bf91466e9eab5a7dc109490f7658ea38b4c05d193870ac
+        - digest: sha256:723ecab7abdc2f3da2a0258bb72a8579f7e831ed1c25a2e17dbc7b55b468fc82
           name: cgr.dev/zapatatechnology.com/neuvector-enforcer-fips
-        - digest: sha256:ec6df6961a68bea33dd968114ff2e98878742d3cd3721c409407f840379d54ca
+        - digest: sha256:27f63e0e17597b2fdc04170c51dde75a01db571ad0d848fd250f3f2fa4b2b26d
           name: cgr.dev/zapatatechnology.com/neuvector-manager
-        - digest: sha256:e48d4eb235ee2717d4d22ecbf41493dbfc8151f8a5444c744b994dc4b0cd64ba
+        - digest: sha256:b20cb9105ce2c8b949cb2e321acfa66beaa2f668814a1db5c8880912f0719593
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter-fips
-        - digest: sha256:7f9d32b61b9995ad8976337857b4c358b8cfac676e653c99b5bcb84de7cf06e3
+        - digest: sha256:ffadb7302ad3b721923f71b36f5535ec81d4620d3cbdd7615d3d66d36b79ed68
           name: cgr.dev/zapatatechnology.com/neuvector-scanner-fips
         - name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter-fips
           newName: ghcr.io/zapata-technology/bigbang-registry-adapter-fips
@@ -1331,7 +1331,7 @@ packages:
         images:
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:9bebb3f9e9e9aad57f82b4223499b6ce2c1e7803134238aae1a7e3b096280331
+        - digest: sha256:375a96872e20694cb8489244854102ded333f95d85e78e6be09df17e239949b9
           name: cgr.dev/zapatatechnology.com/renovate-fips
     values:
       bbtests:
@@ -1343,7 +1343,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate-fips
-          tag: 44.238.0
+          tag: 44.239.1
   sonarqube:
     postRenderers:
     - kustomize:
@@ -1367,7 +1367,7 @@ packages:
         images:
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:a39173a0a4f26fa9713bf3928a0814df202bf582087fc07c8455d0b5ec6d6660
+        - digest: sha256:bc18e967f8fd4e05c06ad5804d35f9e257ba1728741856d2670025f24944fd61
           name: cgr.dev/zapatatechnology.com/tempo-fips
     values:
       bbtests:
@@ -1396,7 +1396,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:59a7c3ee05ffde7928585cf5601ba208db3b55946d8f58131d2972a723985e3d
+        - digest: sha256:6057d5a7774a02e6657c8a958926cc970a122bd3ab873cb1f4ec885752b7e5c2
           name: cgr.dev/zapatatechnology.com/thanos-fips
     values:
       upstream:
@@ -1429,9 +1429,9 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:539b5c8d85c670e2438e683bc428830f1765080174a142b9623f648efed994a2
+        - digest: sha256:7b326efe2fddeff7de085b35af52e6828bf32a71015ad3a495ad82011c912e3b
           name: cgr.dev/zapatatechnology.com/vault-csi-provider-fips
-        - digest: sha256:67814121481101df9ea0cca98bb6c3c3dd249c29187c76199a0a48ab64f70280
+        - digest: sha256:bac3ebfeea2865e0827a90c6453102b3ef8e4ea191d4145c26180ddf29ff6ce0
           name: cgr.dev/zapatatechnology.com/vault-k8s-fips
     values:
       bbtests:
@@ -1461,9 +1461,9 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:db799f81d0e379dd8904a7f9b5bb11d5ab58d4d7c318b00efcd871ebdb14f814
+        - digest: sha256:882a089f64db9187a53522d9e9989f69ca5cddfab40eb2cbcafd6683f19164b1
           name: cgr.dev/zapatatechnology.com/velero-fips
-        - digest: sha256:f80e2b6eedcfa986fb38e44cd0680e1a512cdc42eee521e1ef7a7c69b10cf814
+        - digest: sha256:9086ddb40631b58905706aba9e54d8e8b1b5a3151ed057111d825ca3ac205e71
           name: cgr.dev/zapatatechnology.com/velero-plugin-for-aws-fips
     values:
       bbtests:
@@ -1499,7 +1499,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:536f78c8864b41865a64adf0de14c3981d4c3f2d6a3421c5c1f392f91317ba95
+        - digest: sha256:eeb643d59a61375bcf67e7b15f4b9e2c450a746d3b436ee52b5758cace07af14
           name: cgr.dev/zapatatechnology.com/ztunnel-fips
     values:
       upstream:
