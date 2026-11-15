@@ -1,8 +1,9 @@
-# Authservice 1.1.8 and its Redis. Redis is off in the chart default; the test turns it on.
+# Authservice 1.1.8 and its Redis. Big Bang renders the package only when Istio is on.
+# Redis is off in the chart default; the test turns it on.
 # The health port is the chart's liveness probe (TCP 10003), not an HTTP path.
 images: {}
 test:
-  enable: [authservice]
+  enable: [istioCRDs, istiod, authservice]
   expect: [authservice, redis]
   values:
     packages:
