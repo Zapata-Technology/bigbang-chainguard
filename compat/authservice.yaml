@@ -1,5 +1,7 @@
 # Authservice 1.1.8 and its Redis. Big Bang renders the package only when Istio is on.
-# Redis is off in the chart default; the test turns it on.
+# Istio stays on Big Bang 4's ambient default: the kubelet probe then reaches the process
+# directly. Redis is off in the chart default; the test turns it on.
+# The wrapper emits no chain unless one is set, and authservice exits on an empty list.
 # The health port is the chart's liveness probe (TCP 10003), not an HTTP path.
 images: {}
 test:
@@ -8,6 +10,14 @@ test:
   values:
     packages:
       authservice:
+        chains:
+          compat:
+            match:
+              header: ":authority"
+              prefix: "authservice.bigbang.test"
+            callback_uri: https://authservice.bigbang.test/login
+            client_id: compat
+            client_secret: compat
         values:
           redis:
             enabled: true
@@ -29,7 +39,9 @@ test:
       for pod in pods["items"]:
           got = names(pod)
           ref = (pod["metadata"]["namespace"], pod["metadata"]["name"])
-          if redis is None and any(n in ("redis", "redis-fips") for n in got):
+          # The replica is read-only. A SET has to land on the master.
+          if redis is None and "master" in pod["metadata"]["name"] and any(
+              n in ("redis", "redis-fips") for n in got):
               redis = ref
           if auth is None and any(n in ("authservice", "authservice-fips") for n in got):
               auth = ref
@@ -41,8 +53,8 @@ test:
       print("redis", redis, "authservice", auth)
       PY
       set -a; . "$COMPAT_OUT/compat-pods.env"; set +a
-      kubectl -n "$REDIS_NS" exec "$REDIS_POD" -- redis-cli set compat:probe ok
-      got=$(kubectl -n "$REDIS_NS" exec "$REDIS_POD" -- redis-cli get compat:probe)
+      kubectl -n "$REDIS_NS" exec "$REDIS_POD" -c redis -- redis-cli set compat:probe ok
+      got=$(kubectl -n "$REDIS_NS" exec "$REDIS_POD" -c redis -- redis-cli get compat:probe)
       [ "$got" = ok ] || { echo "redis returned '$got'"; exit 1; }
       kubectl -n "$AUTH_NS" port-forward "pod/$AUTH_POD" 10003:10003 > "$COMPAT_OUT/auth-pf.log" 2>&1 &
       pf=$!

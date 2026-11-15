@@ -219,7 +219,7 @@
     {
       "test": "authservice",
       "runs": "Authservice 1.1.8 with Istio and its Redis",
-      "notes": "Redis is enabled for the test. Check: Redis stores a key and returns it; authservice accepts a connection on TCP 10003, the chart liveness port"
+      "notes": "Redis is enabled for the test, and the test sets a chain because Big Bang's wrapper emits none. Check: the Redis master stores a key and returns it; authservice accepts a connection on TCP 10003, the chart liveness port"
     },
     {
       "test": "eck-operator",
