@@ -14,6 +14,11 @@ test:
       version=${image##*:}
       echo "elasticsearch image $image"
       kubectl create namespace compat-eck --dry-run=client -o yaml | kubectl apply -f -
+      # The org registry refuses anonymous pulls. Big Bang's package namespaces already
+      # hold private-registry; a hand-made namespace does not, so the node cannot start.
+      src=$(kubectl get secret -A --field-selector metadata.name=private-registry -o jsonpath='{.items[0].metadata.namespace}')
+      [ -n "$src" ] || { echo "no private-registry secret in the cluster"; exit 1; }
+      kubectl -n "$src" get secret private-registry -o json | python3 -c 'import json,sys; s=json.load(sys.stdin); s["metadata"]={"name":"private-registry","namespace":"compat-eck"}; json.dump(s, sys.stdout)' | kubectl apply -f -
       kubectl wait crd/elasticsearches.elasticsearch.k8s.elastic.co --for=condition=Established --timeout=180s
       cat <<EOF | kubectl apply -f -
       apiVersion: elasticsearch.k8s.elastic.co/v1
@@ -28,6 +33,7 @@ test:
               node.store.allow_mmap: false
             podTemplate:
               spec:
+                imagePullSecrets: [{name: private-registry}]
                 containers:
                   - name: elasticsearch
                     image: $image
