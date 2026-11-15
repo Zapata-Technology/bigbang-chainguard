@@ -21,7 +21,9 @@ packages:
   mattermost:
     objectStorage:
       bucket: bigbang-mattermost
+      disableSSL: true
       endpoint: seaweedfs-s3.seaweedfs.svc.cluster.local:8333
+      forcePathStyle: true
     values:
       bb-common:
         networkPolicies:
@@ -31,8 +33,6 @@ packages:
                 to:
                   k8s:
                     seaweedfs/seaweedfs:8333: true
-      mattermostEnvs:
-        MM_FILESETTINGS_AMAZONS3SSL: 'false'
   mimir:
     s3ObjectStorage:
       bucketName: bigbang-mimir
