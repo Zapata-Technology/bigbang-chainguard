@@ -281,6 +281,58 @@
       "branch": "main"
     },
     {
+      "test": "authservice",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:24:02Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "authservice",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:23:41Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "eck-operator",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:22:17Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "eck-operator",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:22:00Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
       "test": "external-secrets",
       "mode": "fips",
       "result": "pass",
