@@ -1012,7 +1012,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:8381589ca310fe2e3702e6bb3b652480e1621410734fedec2a49161005196567
+        - digest: sha256:f629d2ad758d3c6225e0c86c8bbc92315a0ac34f4098109c075e016459f07553
           name: cgr.dev/zapatatechnology.com/mattermost-fips
         - digest: sha256:21074230865a6a8cf69119ef9f45a748f1417e82ade782dd4b5d5c53fae10a31
           name: cgr.dev/zapatatechnology.com/postgres-fips
@@ -1331,7 +1331,7 @@ packages:
         images:
         - digest: sha256:3b8539fa86175017e90410213be3fb9ee24392834a7f915926ea7592308a0fc6
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:375a96872e20694cb8489244854102ded333f95d85e78e6be09df17e239949b9
+        - digest: sha256:b56adddbc6d6abf2a440fb2176a195bffcdfd3f28d06563ef2830ea3e7d05e96
           name: cgr.dev/zapatatechnology.com/renovate-fips
     values:
       bbtests:
