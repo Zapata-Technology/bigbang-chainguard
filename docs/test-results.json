@@ -215,6 +215,16 @@
       "test": "gitlab-runner",
       "runs": "GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token)",
       "notes": "Passed on 3.35.1 since 2026-11-02 too. The runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use"
+    },
+    {
+      "test": "authservice",
+      "runs": "Authservice 1.1.8 with its Redis",
+      "notes": "Redis is enabled for the test. Check: Redis stores a key and returns it; authservice accepts a connection on TCP 10003, the chart liveness port"
+    },
+    {
+      "test": "eck-operator",
+      "runs": "ECK operator 3.5 reconciling one Elasticsearch node on the org image (the elasticsearchKibana tag, mmap off)",
+      "notes": "Check: the Elasticsearch phase becomes Ready"
     }
   ],
   "results": [
