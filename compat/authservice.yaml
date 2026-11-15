@@ -1,0 +1,70 @@
+# Authservice 1.1.8 and its Redis. Big Bang renders the package only when Istio is on.
+# Istio stays on Big Bang 4's ambient default: the kubelet probe then reaches the process
+# directly. Redis is off in the chart default; the test turns it on.
+# The wrapper emits no chain unless one is set, and authservice exits on an empty list.
+# The health port is the chart's liveness probe (TCP 10003), not an HTTP path.
+images: {}
+test:
+  enable: [istioCRDs, istiod, authservice]
+  expect: [authservice, redis]
+  values:
+    packages:
+      authservice:
+        chains:
+          compat:
+            match:
+              header: ":authority"
+              prefix: "authservice.bigbang.test"
+            callback_uri: https://authservice.bigbang.test/login
+            client_id: compat
+            client_secret: compat
+        values:
+          redis:
+            enabled: true
+  check:
+    # Redis stores a key, and authservice accepts a connection on the port its probe uses.
+    - |
+      set -e
+      python3 - <<'PY'
+      import json, os, subprocess, sys
+      pods = json.loads(subprocess.check_output(["kubectl", "get", "pods", "-A", "-o", "json"]))
+      def names(pod):
+          spec = pod["spec"]
+          out = []
+          for c in spec.get("containers", []) + spec.get("initContainers", []):
+              image = c.get("image", "")
+              out.append(image.rsplit("/", 1)[-1].split(":")[0].split("@")[0])
+          return out
+      redis = auth = None
+      for pod in pods["items"]:
+          got = names(pod)
+          ref = (pod["metadata"]["namespace"], pod["metadata"]["name"])
+          # The replica is read-only. A SET has to land on the master.
+          if redis is None and "master" in pod["metadata"]["name"] and any(
+              n in ("redis", "redis-fips") for n in got):
+              redis = ref
+          if auth is None and any(n in ("authservice", "authservice-fips") for n in got):
+              auth = ref
+      if not redis or not auth:
+          print("redis", redis, "authservice", auth)
+          sys.exit(1)
+      path = os.environ["COMPAT_OUT"] + "/compat-pods.env"
+      open(path, "w").write(f"REDIS_NS={redis[0]}\nREDIS_POD={redis[1]}\nAUTH_NS={auth[0]}\nAUTH_POD={auth[1]}\n")
+      print("redis", redis, "authservice", auth)
+      PY
+      set -a; . "$COMPAT_OUT/compat-pods.env"; set +a
+      kubectl -n "$REDIS_NS" exec "$REDIS_POD" -c redis -- redis-cli set compat:probe ok
+      got=$(kubectl -n "$REDIS_NS" exec "$REDIS_POD" -c redis -- redis-cli get compat:probe)
+      [ "$got" = ok ] || { echo "redis returned '$got'"; exit 1; }
+      kubectl -n "$AUTH_NS" port-forward "pod/$AUTH_POD" 10003:10003 > "$COMPAT_OUT/auth-pf.log" 2>&1 &
+      pf=$!
+      trap 'kill $pf' EXIT
+      i=0
+      until python3 -c 'import socket; socket.create_connection(("127.0.0.1", 10003), 5).close()'; do
+        i=$((i+1)); [ $i -lt 20 ] || { echo "authservice health port closed"; cat "$COMPAT_OUT/auth-pf.log"; exit 1; }
+        sleep 3
+      done
+      echo "redis stored compat:probe; authservice accepted a connection on port 10003"
+  debug:
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image,READY:.status.containerStatuses[*].ready"
+    - "cat $COMPAT_OUT/auth-pf.log"

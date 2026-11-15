@@ -215,6 +215,16 @@
       "test": "gitlab-runner",
       "runs": "GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token)",
       "notes": "Passed on 3.35.1 since 2026-11-02 too. The runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use"
+    },
+    {
+      "test": "authservice",
+      "runs": "Authservice 1.1.8 with Istio and its Redis",
+      "notes": "Redis is enabled for the test, and the test sets a chain because Big Bang's wrapper emits none. Check: the Redis master stores a key and returns it; authservice accepts a connection on TCP 10003, the chart liveness port"
+    },
+    {
+      "test": "eck-operator",
+      "runs": "ECK operator 3.5 reconciling one Elasticsearch node on the org image (the elasticsearchKibana tag, mmap off)",
+      "notes": "Check: the Elasticsearch phase becomes Ready"
     }
   ],
   "results": [
@@ -269,6 +279,58 @@
       "commit": "d55508ae4d51fb888212a28533f7822c89548091",
       "event": "schedule",
       "branch": "main"
+    },
+    {
+      "test": "authservice",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:24:02Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "authservice",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:23:41Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "eck-operator",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:22:17Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
+    },
+    {
+      "test": "eck-operator",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.0",
+      "finished": "2026-11-15T15:22:00Z",
+      "run_id": 43728926819,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43728926819",
+      "commit": "6cfd1548f12e23ee726810c2cab73e9c6649ccaf",
+      "event": "pull_request",
+      "branch": "236/merge"
     },
     {
       "test": "external-secrets",

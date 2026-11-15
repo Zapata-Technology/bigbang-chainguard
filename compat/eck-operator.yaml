@@ -1,0 +1,61 @@
+# ECK operator 3.5. The test asks it to run one Elasticsearch node on the org image
+# (the same tag the elasticsearchKibana overlay pins) with mmap off, which kind needs.
+images: {}
+test:
+  enable: [eckOperator]
+  expect: [eck-operator]
+  check:
+    # The operator admits an Elasticsearch and takes that one node to Ready.
+    - |
+      set -e
+      overlay=values-chainguard.yaml
+      [ "${COMPAT_FIPS:-}" = 1 ] && overlay=values-chainguard-fips.yaml
+      image=$(python3 -c "import os, yaml; v = yaml.safe_load(open(os.environ['COMPAT_OUT'] + '/overlays/${overlay}'))['packages']['elasticsearchKibana']['values']['elasticsearch']['image']; print(v['repository'] + ':' + str(v['tag']))")
+      version=${image##*:}
+      echo "elasticsearch image $image"
+      kubectl create namespace compat-eck --dry-run=client -o yaml | kubectl apply -f -
+      # The org registry refuses anonymous pulls. Big Bang's package namespaces already
+      # hold private-registry; a hand-made namespace does not, so the node cannot start.
+      src=$(kubectl get secret -A --field-selector metadata.name=private-registry -o jsonpath='{.items[0].metadata.namespace}')
+      [ -n "$src" ] || { echo "no private-registry secret in the cluster"; exit 1; }
+      kubectl -n "$src" get secret private-registry -o json | python3 -c 'import json,sys; s=json.load(sys.stdin); s["metadata"]={"name":"private-registry","namespace":"compat-eck"}; json.dump(s, sys.stdout)' | kubectl apply -f -
+      kubectl wait crd/elasticsearches.elasticsearch.k8s.elastic.co --for=condition=Established --timeout=180s
+      cat <<EOF | kubectl apply -f -
+      apiVersion: elasticsearch.k8s.elastic.co/v1
+      kind: Elasticsearch
+      metadata: {name: compat, namespace: compat-eck}
+      spec:
+        version: "$version"
+        nodeSets:
+          - name: default
+            count: 1
+            config:
+              node.store.allow_mmap: false
+            podTemplate:
+              spec:
+                imagePullSecrets: [{name: private-registry}]
+                containers:
+                  - name: elasticsearch
+                    image: $image
+                    env: [{name: ES_JAVA_OPTS, value: "-Xms512m -Xmx512m"}]
+                    resources:
+                      requests: {memory: 1536Mi, cpu: "250m"}
+                      limits: {memory: 1536Mi}
+      EOF
+      i=0
+      phase=""
+      until phase=$(kubectl -n compat-eck get elasticsearch compat -o jsonpath='{.status.phase}') && [ "$phase" = Ready ]; do
+        i=$((i+1))
+        if [ $i -ge 60 ]; then
+          echo "Elasticsearch compat is '$phase' after 15 minutes"
+          kubectl -n compat-eck get elasticsearch compat -o yaml | tail -40
+          kubectl -n compat-eck get pods -o wide
+          kubectl -n compat-eck describe pods | tail -60
+          exit 1
+        fi
+        sleep 15
+      done
+      echo "Elasticsearch compat: $phase on $image"
+  debug:
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image,READY:.status.containerStatuses[*].ready"
+    - "kubectl -n compat-eck get elasticsearch,sts,pods"
