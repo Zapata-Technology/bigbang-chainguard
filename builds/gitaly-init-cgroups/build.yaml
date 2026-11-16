@@ -11,13 +11,13 @@ image:
   standard:
     name: bigbang-gitaly-init-cgroups
     tag: v19.5.3-ubi
-    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:00d2b8169c0ddeabb22fdd7dfd20046ecd09e515475636518d19ef88203678d9
+    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:69c64fa649222662c85129b844f05cbdf970e34756874d70ff360d85c59500ff
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:5c78eceb0114f26e8268747961130f2f9bfa003b88a3ec3153453f7897087894
     go_package: ''
   fips:
     name: bigbang-gitaly-init-cgroups-fips
     tag: v19.5.3-ubi
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:f6acc1aadea183fa71e251940d45c849ef31d569035a91fec74e83f13a0d1e1b
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:832b87407c9ee409f1a8e5e3d52197bada374a27f1491857cec0b1860d4db11b
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:374815e731e918ed7867bdacf6874899aaceb59a6b408dd3d54ca07a8d2ee2d0
     go_package: ''
     fips: toolchain
