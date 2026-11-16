@@ -552,7 +552,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/bats-fips
         - digest: sha256:bdddbadd6414733a127336b289bcfd9f261f41e7bd597677abcf78277cb239f4
           name: cgr.dev/zapatatechnology.com/grafana-image-renderer
-        - digest: sha256:a4e2e48ffb95c7213a76c849ff400ad32895cb2c84db36f1bc32530f7c403c18
+        - digest: sha256:3e07fd870b4117371338dd21671e84be1e4e3ca297ebcb995623fd860cb65984
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
     values:
       autoRollingUpgrade:
@@ -938,7 +938,7 @@ packages:
         images:
         - digest: sha256:c90280cabb7d27e48a95fe5ebf35d4bd1f6168cb3ef388eb1f9875427f562723
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
-        - digest: sha256:a4e2e48ffb95c7213a76c849ff400ad32895cb2c84db36f1bc32530f7c403c18
+        - digest: sha256:3e07fd870b4117371338dd21671e84be1e4e3ca297ebcb995623fd860cb65984
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
         - digest: sha256:024663316a742c259960f20eec6b3956c0af13072d91ff900a2ad2a25a22d179
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -1142,7 +1142,7 @@ packages:
         images:
         - digest: sha256:a57438df0210dc5b4f80b6dc3da1640a50be081a8b8161f2741c20bca901acd1
           name: cgr.dev/zapatatechnology.com/bats-fips
-        - digest: sha256:a4e2e48ffb95c7213a76c849ff400ad32895cb2c84db36f1bc32530f7c403c18
+        - digest: sha256:3e07fd870b4117371338dd21671e84be1e4e3ca297ebcb995623fd860cb65984
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
         - digest: sha256:bb7c382e32788aa0fb5d673b8909cb77f9418cad3c33b699e91e4e764064b020
           name: cgr.dev/zapatatechnology.com/kube-state-metrics-fips
