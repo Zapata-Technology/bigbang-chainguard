@@ -783,7 +783,7 @@ packages:
         images:
         - digest: sha256:eeeb0c977a87f188c8b5ec962524f4cd8a95d2945f7b7c3d4a19cef9a770a815
           name: cgr.dev/zapatatechnology.com/kiali-fips
-        - digest: sha256:86a65d9858196d1ee5194a11039893bab56d5e6bf16a6258ac35f6e8e0c9054f
+        - digest: sha256:1f618e701738b41b4ab65be0910f1976405e874b1fbb4bba2254a139a6c2e2f1
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:024663316a742c259960f20eec6b3956c0af13072d91ff900a2ad2a25a22d179
           name: cgr.dev/zapatatechnology.com/kubectl-fips

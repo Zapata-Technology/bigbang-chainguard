@@ -178,7 +178,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/cert-manager-cainjector
         - digest: sha256:ce4375e662eb2b804590e8b6a58ff823f05dd555e6142287c9785ef0edafa277
           name: cgr.dev/zapatatechnology.com/cert-manager-controller
-        - digest: sha256:d374e29fb8bd7f8a142f592e8ac438ebfa3dbee965be386ba041a4b80bb0eb7b
+        - digest: sha256:d73a684433ef0abe73aef84d9f563831b395cf7f8bb853768dd665654ec40ccc
           name: cgr.dev/zapatatechnology.com/cert-manager-startupapicheck
         - digest: sha256:c9c934b2147cc5ccf0970c3440a6bc8748feb569479b41e457fcc192fdf95886
           name: cgr.dev/zapatatechnology.com/cert-manager-webhook
