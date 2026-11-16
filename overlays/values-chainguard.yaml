@@ -413,7 +413,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-exporter
         - digest: sha256:5afcb24c93090552d18dde8c83e14a24ec99675b0984b8481a47646cd10d77cf
           name: cgr.dev/zapatatechnology.com/gitlab-kas
-        - digest: sha256:1f34d47d9e5bfbf14f45a620706a8aac5022579e90337dfe85eeac2a936a3689
+        - digest: sha256:53c97558be2fb1477d154cab0fd9e350a41e9ca79b8c799a1cfba5a650e0bc14
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl
         - digest: sha256:62990cd907ef7dbfe5f102b832180a2ba7c5282489246b7259b612ce6160ac31
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom
