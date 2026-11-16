@@ -560,7 +560,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/bats
         - digest: sha256:bdddbadd6414733a127336b289bcfd9f261f41e7bd597677abcf78277cb239f4
           name: cgr.dev/zapatatechnology.com/grafana-image-renderer
-        - digest: sha256:5ee5ffdd3be0b13241ab14dc9dd1bff3b7b86e25ae94d6ddae1498286191b95c
+        - digest: sha256:8572b8ae9d43c552ea707924ddadd2c2dc579e92de4fb12ee8dc115e23bca66d
           name: cgr.dev/zapatatechnology.com/k8s-sidecar
     values:
       autoRollingUpgrade:
@@ -954,7 +954,7 @@ packages:
         images:
         - digest: sha256:42dc1e45e544a0eef3c5ee5aa5aa0576213758273a894b04384f0bd5f366efbe
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator
-        - digest: sha256:5ee5ffdd3be0b13241ab14dc9dd1bff3b7b86e25ae94d6ddae1498286191b95c
+        - digest: sha256:8572b8ae9d43c552ea707924ddadd2c2dc579e92de4fb12ee8dc115e23bca66d
           name: cgr.dev/zapatatechnology.com/k8s-sidecar
         - digest: sha256:d4431b4e97d08c646607671b5d3a2b6272460d58581e00dbb0c40f55e2274644
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -1158,7 +1158,7 @@ packages:
         images:
         - digest: sha256:04782fd25e57454684f5f187cb1f7ac621f7d9d0235959deea0c1596f4b3af27
           name: cgr.dev/zapatatechnology.com/bats
-        - digest: sha256:5ee5ffdd3be0b13241ab14dc9dd1bff3b7b86e25ae94d6ddae1498286191b95c
+        - digest: sha256:8572b8ae9d43c552ea707924ddadd2c2dc579e92de4fb12ee8dc115e23bca66d
           name: cgr.dev/zapatatechnology.com/k8s-sidecar
         - digest: sha256:544cfa8eb1cd458f192dfa1892aa8b17578d3f394d6dc486439b934586b2ed49
           name: cgr.dev/zapatatechnology.com/kube-state-metrics
