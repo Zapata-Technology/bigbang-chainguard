@@ -233,8 +233,8 @@ jobs:
         id: grype
         uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
 
-      # A pull request may not move to an image with a fixable Critical CVE (the nightly
-      # update included): scripts/bb-cve.py --changed-from.
+      # A pull request may not move to an image with a fixable Critical CVE the image it
+      # replaces didn't already have (the nightly update included): scripts/bb-cve.py --changed-from.
       - name: No fixable Critical CVEs in new images
         if: github.event_name == 'pull_request' && env.FORK != 'true'
         env:

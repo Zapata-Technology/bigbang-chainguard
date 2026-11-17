@@ -127,3 +127,49 @@ def test_the_highs_in_the_most_chainguard_images_come_first():
                "ghcr.io/o/bigbang-base:2.1.0": {**cve.counts(b), "high": cve.findings(b, "High")}}
     section = cve.report(cve.image_pairs(MAP), results, False, False).split("## Most common High")[1]
     assert section.index("| CVE-7 | glibc | 2.42-r5 | 2 |") < section.index("| CVE-6 | openssl | no fix yet | 1 |")
+
+
+def _crit(i, pkg, path="/usr/lib/x", kind="apk"):
+    return {"vulnerability": {"id": i, "severity": "Critical", "fix": {"versions": ["9"]}},
+            "artifact": {"name": pkg, "version": "1.0.0", "type": kind, "locations": [{"path": path}]}}
+
+
+def test_web_ide_extension_manifests_are_not_the_npm_libraries():
+    # GitLab 19.5.5: VS Code's Handlebars language extension read as handlebars 1.0.0.
+    ext = "/srv/gitlab/public/assets/webpack/gitlab-web-ide-vscode-workbench-0.0.1/vscode/extensions/handlebars/package.json"
+    found = {"matches": [_crit("GHSA-765h", "handlebars", ext, "npm"), _crit("GHSA-f3w6", "activestorage", kind="gem")]}
+    assert [c[0] for c in cve.criticals(found)] == ["GHSA-f3w6"]
+    assert cve.counts(found)["Critical"] == 1
+    # The same library anywhere else still counts.
+    assert cve.criticals({"matches": [_crit("GHSA-765h", "handlebars", "/app/node_modules/handlebars/package.json", "npm")]})
+
+
+def test_gate_carries_over_criticals_the_replaced_image_already_has():
+    old, new = json.dumps({"matches": [_crit("CVE-1", "activestorage")]}), json.dumps(
+        {"matches": [_crit("CVE-1", "activestorage"), _crit("CVE-2", "glibc")]})
+    before = cve.before_ids(cve.gate_result(0, old, "")[1])
+    status, detail = cve.gate_result(0, new, "", before=before, prev="cgr.dev/o/web:19.5.3")
+    assert status == "FIXABLE CRITICAL" and detail[0].startswith("CVE-2 glibc")
+    assert "carried over from cgr.dev/o/web:19.5.3" in detail[1]
+    assert cve.gate_result(0, old, "", before=before, prev="cgr.dev/o/web:19.5.3")[0] == "ok"
+
+
+def test_replaced_is_the_same_repository_at_the_old_tag_only_when_there_is_one():
+    assert cve.replaced(MAP, "cgr.dev/example.com/tempo-fips:2.8.2") == "cgr.dev/example.com/tempo-fips:2.8.1"
+    assert cve.replaced(MAP, "cgr.dev/example.com/loki:3.0.0") is None
+    two = MAP + "| e | ironbank/x/tempo:2.9.0 | tempo:2.9.1 | tempo-fips:2.9.1 |  |\n"
+    assert cve.replaced(two, "cgr.dev/example.com/tempo:2.9.2") is None
+
+
+def test_gate_passes_a_newer_tag_that_is_no_worse(monkeypatch):
+    newer = MAP.replace("tempo:2.8.1 | tempo-fips:2.8.1", "tempo:2.8.2 | tempo-fips:2.8.1")
+    monkeypatch.setattr(cve.subprocess, "run", lambda *a, **k: type("P", (), {"stdout": MAP, "returncode": 0})())
+    monkeypatch.setattr(cve, "open", lambda *a, **k: __import__("io").StringIO(newer), raising=False)
+    scans = {"cgr.dev/example.com/tempo:2.8.2": json.dumps({"matches": [_crit("CVE-1", "x")]}),
+             "cgr.dev/example.com/tempo:2.8.1": json.dumps({"matches": [_crit("CVE-1", "x")]})}
+    monkeypatch.setattr(cve, "fixable_scan", lambda ref: (0, scans[ref], ""))
+    lines, failed = cve.gate("origin/main")
+    assert not failed and lines[1] == "ok  cgr.dev/example.com/tempo:2.8.2"
+    scans["cgr.dev/example.com/tempo:2.8.1"] = json.dumps({"matches": []})
+    lines, failed = cve.gate("origin/main")
+    assert failed and lines[1] == "FIXABLE CRITICAL  cgr.dev/example.com/tempo:2.8.2"
