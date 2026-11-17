@@ -399,7 +399,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
         - digest: sha256:cdb070c77dc11cf00c1cf59a195af2bc1f629d336fa39cec531502bf0f31efb4
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee
-        - digest: sha256:cdf9e52140b4c389a5e3d65a95bc033197e6cfd229bcffc4f41c5bd94b995231
+        - digest: sha256:9c0f37f2fbd1eb7eba46d98be6be3931811627d1d5f3350329203396fa649edd
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
         - digest: sha256:da7496cdea6441690b66888394aca0f63df7581073758fa66df5043d8f477b39
           name: cgr.dev/zapatatechnology.com/gitaly
