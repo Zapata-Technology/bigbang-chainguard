@@ -68,23 +68,23 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gatekeeper | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | gatekeeper | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
-| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.3-ubi | gitlab-certificates:19.5.3 | gitlab-certificates-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi | cfssl-self-sign:19.5.3 | cfssl-self-sign-fips:19.5.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.3-ubi | gitlab-certificates:19.5.5 | gitlab-certificates-fips:19.5.5 | gitlab-certificates: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi | cfssl-self-sign:19.5.5 | cfssl-self-sign-fips:19.5.5 | cfssl-self-sign: Iron Bank v19.5.3-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.3-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.3-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.3-ubi | built FROM the org's images by scripts/bb-build.py gitaly-init-cgroups |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.3-ubi | gitaly:19.5.3 | gitaly-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.3-ubi | gitlab-base:19.5.3 | gitlab-base-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.3 | gitlab-container-registry-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.3 | gitlab-exporter-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.3-ubi | commercial-gitlab-geo-logcursor-ee:19.5.3 | commercial-gitlab-geo-logcursor-ee-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.3-ubi | gitlab-kas:19.5.3 | gitlab-kas-fips:19.5.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.3-ubi | gitaly:19.5.5 | gitaly-fips:19.5.5 | gitaly: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitaly-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.3-ubi | gitlab-base:19.5.5 | gitlab-base-fips:19.5.5 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.5 | gitlab-container-registry-fips:19.5.5 | gitlab-container-registry: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-container-registry-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.5 | gitlab-exporter-fips:19.5.5 | gitlab-exporter: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-exporter-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.3-ubi | commercial-gitlab-geo-logcursor-ee:19.5.5 | commercial-gitlab-geo-logcursor-ee-fips:19.5.5 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.3-ubi | gitlab-kas:19.5.5 | gitlab-kas-fips:19.5.5 | gitlab-kas: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-kas-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.3-ubi | gitlab-mailroom:v1.1.0 | gitlab-mailroom-fips:v1.1.0 | gitlab-mailroom: newest org release (Iron Bank v19.5.3-ubi); gitlab-mailroom-fips: newest org release (Iron Bank v19.5.3-ubi) |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.6.2-gitlab1-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.3-ubi | gitlab-pages:19.5.3 | gitlab-pages-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.3 | gitlab-shell-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.3-ubi | commercial-gitlab-sidekiq-ee:19.5.3 | commercial-gitlab-sidekiq-ee-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.3-ubi | commercial-gitlab-toolbox-ee:19.5.3 | commercial-gitlab-toolbox-ee-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.3-ubi | commercial-gitlab-webservice-ee:19.5.3 | commercial-gitlab-webservice-ee-fips:19.5.3 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.3-ubi | commercial-gitlab-workhorse-ee:19.5.3 | commercial-gitlab-workhorse-ee-fips:19.5.3 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.3-ubi | gitlab-pages:19.5.5 | gitlab-pages-fips:19.5.5 | gitlab-pages: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-pages-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.5 | gitlab-shell-fips:19.5.5 | gitlab-shell: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-shell-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.3-ubi | commercial-gitlab-sidekiq-ee:19.5.5 | commercial-gitlab-sidekiq-ee-fips:19.5.5 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.3-ubi | commercial-gitlab-toolbox-ee:19.5.5 | commercial-gitlab-toolbox-ee-fips:19.5.5 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.3-ubi | commercial-gitlab-webservice-ee:19.5.5 | commercial-gitlab-webservice-ee-fips:19.5.5 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.3-ubi | commercial-gitlab-workhorse-ee:19.5.5 | commercial-gitlab-workhorse-ee-fips:19.5.5 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-zoekt:v19.2.1-ubi | Iron Bank | Iron Bank | no Chainguard gitlab-zoekt image (code search, off by default) |
 | gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.5.3-ubi | gitlab-kubectl:v1.37.2 | gitlab-kubectl-fips:v1.37.2 | gitlab-kubectl: newest org release (Iron Bank v19.5.3-ubi); gitlab-kubectl-fips: newest org release (Iron Bank v19.5.3-ubi) |
 | gitlab | gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.5.4-ee | Iron Bank | Iron Bank | GitLab AI gateway; GitLab-built only |
@@ -112,7 +112,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | harbor | ironbank/opensource/goharbor/registry:v2.15.4 | harbor-registry:2.15.5 | harbor-registry-fips:2.15.5 | harbor-registry: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-registry-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/trivy-adapter:v2.15.4 | harbor-trivy-adapter:2.15.5 | harbor-trivy-adapter-fips:2.15.5 | harbor-trivy-adapter: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-trivy-adapter-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.8 | nginx-fips:1.31.8 |  |
-| harbor | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
+| harbor | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.7 | postgres-fips:18.7 | postgres: Iron Bank 18.6 -> newest 18.x release (follow: major); postgres-fips: Iron Bank 18.6 -> newest 18.x release (follow: major) |
 | harbor | ironbank/opensource/redis/redis8-slim:8.10.3 | redis:8.10.3 | redis-fips:8.10.3 |  |
 | headlamp | ironbank/opensource/headlamp-k8s/headlamp:v0.46.0 | headlamp:0.46.0 | headlamp-fips:0.46.0 |  |
 | headlamp | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -121,7 +121,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | istiod | ironbank/opensource/istio/pilot:1.31.3 | istio-pilot:1.31.4 | istio-pilot-fips:1.31.4 | istio-pilot: Iron Bank 1.31.3 -> newest 1.31 patch; istio-pilot-fips: Iron Bank 1.31.3 -> newest 1.31 patch |
 | keycloak | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | keycloak | ironbank/opensource/keycloak/keycloak:26.8.1 | keycloak:26.8.2 | keycloak-fips:26.8.2 | keycloak: Iron Bank 26.8.1 -> newest 26.8 patch; keycloak-fips: Iron Bank 26.8.1 -> newest 26.8 patch |
-| keycloak | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
+| keycloak | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.7 | postgres-fips:18.7 | postgres: Iron Bank 18.6 -> newest 18.x release (follow: major); postgres-fips: Iron Bank 18.6 -> newest 18.x release (follow: major) |
 | kiali | ironbank/opensource/kiali/kiali-operator:v2.34.1 | kiali-operator:2.34.1 | kiali-operator-fips:2.34.1 |  |
 | kiali | ironbank/opensource/kiali/kiali:v2.34.1 | kiali:2.34.1 | kiali-fips:2.34.1 |  |
 | kiali | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -154,11 +154,11 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | logging-loki | ironbank/opensource/prometheus/memcached-exporter:v0.18.0 | memcached-exporter:0.18.0 | memcached-exporter-fips:0.18.0 |  |
 | mattermost | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | mattermost | ironbank/opensource/mattermost/mattermost:12.0.2 | mattermost:12.0.2 | mattermost-fips:12.0.2 |  |
-| mattermost | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.6 | postgres-fips:18.6 |  |
+| mattermost | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.7 | postgres-fips:18.7 | postgres: Iron Bank 18.6 -> newest 18.x release (follow: major); postgres-fips: Iron Bank 18.6 -> newest 18.x release (follow: major) |
 | mattermost-operator | ironbank/opensource/mattermost/mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator:v1.25.9 | ghcr.io/zapata-technology/bigbang-mattermost-operator-fips:v1.25.9 | built FROM the org's images by scripts/bb-build.py mattermost-operator |
 | metrics-server | ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.1 | metrics-server:0.9.1 | metrics-server-fips:0.9.1 |  |
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
-| mimir | ironbank/opensource/apache/kafka-native:4.3.2 | kafka-native:4.3.2 | kafka-native:4.3.2 | no FIPS variant; FIPS overlay keeps the standard image |
+| mimir | ironbank/opensource/apache/kafka-native:4.3.2 | kafka-native:4.4.0 | kafka-native:4.4.0 | kafka-native: Iron Bank 4.3.2 -> newest 4.x release (follow: major); no FIPS variant; FIPS overlay keeps the standard image |
 | mimir | ironbank/opensource/grafana/mimir:3.2.4 | grafana-mimir:3.2.5 | grafana-mimir-fips:3.2.5 | grafana-mimir: Iron Bank 3.2.4 -> newest 3.2 patch; grafana-mimir-fips: Iron Bank 3.2.4 -> newest 3.2 patch |
 | mimir | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
 | mimir | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
@@ -194,13 +194,13 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.239.1 | renovate-fips:44.239.1 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.239.1 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.239.1 (Iron Bank 44.97.2) |
+| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.244.2 | renovate-fips:44.244.2 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.244.2 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.244.2 (Iron Bank 44.97.2) |
 | renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | Iron Bank | Iron Bank | catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | sonarqube | ironbank/opensource/prometheus/jmx-exporter:1.7.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter:1.7.0-busybox1.38.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.7.0-busybox1.38.0 | built FROM the org's images by scripts/bb-build.py jmx-exporter |
 | sonarqube | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
-| sonarqube | ironbank/sonarsource/sonarqube/sonarqube-community-build:26.11.0.134175-community | sonarqube:26.10-community | sonarqube:26.10-community | sonarqube: VERSION PINNED to 26.10 (Iron Bank 26.11.0.134175-community); no FIPS variant; FIPS overlay keeps the standard image |
+| sonarqube | ironbank/sonarsource/sonarqube/sonarqube-community-build:26.11.0.134175-community | sonarqube:26.11.0.134175-community | sonarqube:26.11.0.134175-community | no FIPS variant; FIPS overlay keeps the standard image |
 | tempo | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | tempo | ironbank/opensource/grafana/tempo-query:3.1.1 | ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1 | ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1 | built FROM the org's images by scripts/bb-build.py tempo-query |
 | tempo | ironbank/opensource/grafana/tempo:3.1.1 | tempo:3.1.1 | tempo-fips:3.1.1 |  |
@@ -260,7 +260,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter:0.21.0` (newer minor)
 - harbor: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
-- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.239.1` (newer minor)
+- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.244.2` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.3-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
 - gitlab: `gitlab/gitlab-org/build/cng/kubectl:v19.5.3-ubi` -> `gitlab-kubectl:v1.37.2` (newest release; Iron Bank's tag has no version line)
 - vault: `ironbank/hashicorp/vault:1.21.4` -> `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` (built by this repo on a different version line)
@@ -269,5 +269,5 @@ Chainguard's current release lines). Test these packages before production, or r
 
 OBJECT_STORAGE=seaweedfs: Big Bang's MinIO is off, and packages use the S3 endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333 (overlays/values-object-storage.yaml).
 
-- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.53`
-- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.53`
+- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.54`
+- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.54`

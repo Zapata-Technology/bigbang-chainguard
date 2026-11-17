@@ -13,13 +13,13 @@ image:
   standard:
     name: bigbang-grafana-plugins
     tag: 13.3.1
-    base: cgr.dev/zapatatechnology.com/grafana:13.3.1@sha256:f992cb53850c89299039de9f16c96ebba95063a591480e210660a68a98b1061c
-    dev: cgr.dev/zapatatechnology.com/grafana:13.3.1-dev@sha256:ff9305381ddf59d84ce5a7437ff45a36f4bc194d98f664de29e4d70c0829b0eb
+    base: cgr.dev/zapatatechnology.com/grafana:13.3.1@sha256:9d21cec00aaa99893d91ddd1e7bef2cc1b1104da152b908ecc12bebb9920b299
+    dev: cgr.dev/zapatatechnology.com/grafana:13.3.1-dev@sha256:3bd5542ea287672b2cb1c20c461181446e4469e564304dbd873fadebc14de607
   fips:
     name: bigbang-grafana-plugins-fips
     tag: 13.3.1
-    base: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1@sha256:b0353241230bdbeca4bb3d61a928a78e4dcd91277d06797167f0adad5c6b220a
-    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1-dev@sha256:5fd003aa87f3e6fd4eae4005fc46ee961b28232d5ca62c42082b9043bb40a3d3
+    base: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1@sha256:69a330e30d43e63af8c2fd3b245c50c8d2a6f185abfbd1a8ec5cf55144bc2009
+    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1-dev@sha256:a1c0cf9a6a76a419838d4ee28c457ea93fa4b8578fa301e739299aea6cfff015
 plugins:
 - id: grafana-polystat-panel
   url: https://github.com/grafana/grafana-polystat-panel/releases/download/v2.1.16/grafana-polystat-panel-2.1.16.zip
@@ -35,7 +35,7 @@ plugins:
     executable: redis-datasource
     patch: patches/redis-datasource.patch
     go_get:
-    - github.com/grafana/grafana-plugin-sdk-go@v0.299.0
+    - github.com/grafana/grafana-plugin-sdk-go@v0.300.0
     - google.golang.org/grpc@v1.85.0
     - golang.org/x/net@v0.62.0
 empty_dirs:
