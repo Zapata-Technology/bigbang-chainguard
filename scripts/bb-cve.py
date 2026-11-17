@@ -23,6 +23,8 @@ current branch: the image Big Bang deploys has at least those vulnerabilities an
 
 --changed-from <git ref>: only the Chainguard images (standard and FIPS) that docs/images.md
 names now and didn't at <ref>, scanned for fixable Critical CVEs; exit 1 if any has one or can't be scanned.
+A Critical that the image it replaces (the same repository's tag at <ref>) already has is
+carried over, not new: it is listed but doesn't fail, so a newer tag that is no worse can land.
 Images this repo builds (under BUILD_REGISTRY) are skipped: builds.yml scans each one the same
 way before it is pushed, and a pull request that adds a build has nothing pushed yet to scan.
 ci.yml runs it on pull requests, so the nightly update can't move to an image with a
@@ -84,26 +86,56 @@ def gate(base):
         if built and ref.startswith(built + "/"):
             lines.append(f"skipped  {ref}  (built here: builds.yml scans it before pushing)")
             continue
-        p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "-o", "json"], capture_output=True, text=True)
-        status, detail = gate_result(p.returncode, p.stdout, p.stderr)
+        scanned = fixable_scan(ref)
+        status, detail = gate_result(*scanned)
+        prev = replaced(old, ref) if status == "FIXABLE CRITICAL" else None
+        if prev:
+            # Scan the image it replaces only when there is something to compare with it.
+            before = gate_result(*fixable_scan(prev))
+            if before[0] != "SCAN FAILED":
+                status, detail = gate_result(*scanned, before=before_ids(before[1]), prev=prev)
         failed |= status != "ok"
         lines.append(f"{status}  {ref}")
         lines += ["    " + ln for ln in detail[:15]]
     return lines, failed
 
 
-def gate_result(returncode, stdout, stderr):
+def fixable_scan(ref):
+    """(returncode, stdout, stderr) of grype's --only-fixed JSON scan of one image."""
+    p = subprocess.run(["grype", f"registry:{ref}", "--only-fixed", "-o", "json"], capture_output=True, text=True)
+    return p.returncode, p.stdout, p.stderr
+
+
+def replaced(old_text, ref):
+    """The ref of the same repository in old_text's image map (the image `ref` replaces),
+    or None when that map had the repository at no tag or at several (no single image to
+    compare with: nothing is carried over)."""
+    repo = ref.rsplit(":", 1)[0]
+    old = {new for fips in (False, True) for _, new in image_pairs(old_text, fips) if new}
+    same = [r for r in old if r.rsplit(":", 1)[0] == repo]
+    return same[0] if len(same) == 1 else None
+
+
+def before_ids(detail):
+    """{(id, package)} from gate_result's detail lines ("<id> <package> <version> (fixed in ..)")."""
+    return {tuple(ln.split()[:2]) for ln in detail}
+
+
+def gate_result(returncode, stdout, stderr, before=frozenset(), prev=None):
     """(status, detail lines) of one --only-fixed scan. A scan that fails (say, a private
-    image without a registry login) is SCAN FAILED, not a finding."""
+    image without a registry login) is SCAN FAILED, not a finding. `before`: the
+    {(id, package)} the replaced image `prev` already has; those are carried over and
+    don't fail (GitLab 19.5.5 kept 19.5.3's activestorage Critical, which needs GitLab's Rails)."""
     try:
         found = criticals(json.loads(stdout)) if returncode == 0 else None
     except ValueError:
         found = None
     if found is None:
         return "SCAN FAILED", (stderr.strip().splitlines() or ["grype failed"])[-5:]
-    if found:
-        return "FIXABLE CRITICAL", [f"{i} {pkg} {ver} (fixed in {fixed})" for i, pkg, ver, fixed in found]
-    return "ok", []
+    new = [f"{i} {pkg} {ver} (fixed in {fixed})" for i, pkg, ver, fixed in found if (i, pkg) not in before]
+    kept = [f"{i} {pkg} {ver} (fixed in {fixed}; carried over from {prev})" for i, pkg, ver, fixed in found
+            if (i, pkg) in before]
+    return ("FIXABLE CRITICAL" if new else "ok"), new + kept
 
 
 # Iron Bank base (hardening_manifest BASE_IMAGE) -> its public twin; the tag carries over
@@ -160,6 +192,8 @@ def counts(grype_json):
     """{severity: n} of unique vulnerability IDs in grype's JSON output."""
     seen, out = set(), dict.fromkeys(SEVERITIES, 0)
     for m in grype_json.get("matches", []):
+        if false_positive(m):
+            continue
         v = m.get("vulnerability", {})
         key = (v.get("id"), m.get("artifact", {}).get("name"))
         if key in seen:
@@ -171,12 +205,22 @@ def counts(grype_json):
     return out
 
 
+def false_positive(match):
+    """GitLab's Web IDE ships VS Code's built-in extensions and Sourcegraph's under
+    /srv/gitlab/public/assets/webpack/. Their package.json names (handlebars 1.0.0, npm 1.0.1,
+    ini, json, diff, thrift 0.0.0-DEVELOPMENT) are language-support extensions, not the npm
+    libraries of the same name, but grype matches them to those libraries' advisories."""
+    a = match.get("artifact", {})
+    paths = [loc.get("path", "") for loc in a.get("locations") or []]
+    return a.get("type") == "npm" and bool(paths) and all("/public/assets/webpack/" in p for p in paths)
+
+
 def findings(grype_json, severity):
     """Sorted unique (id, package, version, fixed-in or "") of the matches at one severity."""
     out = set()
     for m in grype_json.get("matches", []):
         v, a = m.get("vulnerability", {}), m.get("artifact", {})
-        if v.get("severity") == severity:
+        if v.get("severity") == severity and not false_positive(m):
             fixed = ", ".join(v.get("fix", {}).get("versions") or [])
             out.add((v.get("id", "?"), a.get("name", "?"), a.get("version", "?"), fixed))
     return sorted(out)
