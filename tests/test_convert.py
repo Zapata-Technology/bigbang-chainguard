@@ -402,6 +402,30 @@ def test_min_version_raises_an_end_of_life_line_to_the_newest_release():
     assert not convert.below_floor("v1.35", "1.34") and convert.below_floor("v1.30.11", "1.34")
 
 
+def test_follow_major_takes_the_newest_release_of_iron_banks_major():
+    # PostgreSQL: Iron Bank's 18.6 means 18; the org's 18.7 is its patch release. Never 19.
+    m = {"images": {"p/postgresql": {"cg": "postgres", "follow": "major"},
+                    "a/kafka-native": {"cg": "kafka-native", "fips": None, "follow": "major"}}}
+    tags = {"postgres": ["17.12", "18", "18.6", "18.7", "19.1"], "postgres-fips": ["18.6", "18.7"],
+            "kafka-native": ["4.3", "4.3.2", "v4.4.0", "4.4", "4.4.0"]}
+    c = convert.Converter(m, FakeTags(tags), strict=True)
+    std, fips = c.target("p/postgresql", "18.6", "keycloak")
+    assert std.endswith("postgres:18.7") and fips.endswith("postgres-fips:18.7")
+    assert "newest 18.x release (follow: major)" in c.rows[-1][4]
+    # A minor line the org stopped rebuilding: the newer minor, plain spelling over v-prefixed,
+    # even with --strict-versions (follow is chosen per image).
+    assert c.target("a/kafka-native", "4.3.2", "mimir")[0].endswith("kafka-native:4.4.0")
+    # Nothing at or above Iron Bank's tag in its MAJOR: unresolved, never an older one.
+    assert convert.newest_in_major("18.8", tags["postgres"]) == (None, "no 18.x tag at or above 18.8 in org")
+    assert convert.newest_in_major("18.7", tags["postgres"]) == ("18.7", None)
+
+
+def test_follow_accepts_only_major():
+    import bbcommon
+    with pytest.raises(ValueError, match="follow: only 'major'"):
+        bbcommon.validate_mapping({"images": {"p/postgresql": {"cg": "postgres", "follow": "minor"}}})
+
+
 def test_override_images_are_pinned_unless_listed_unpinned(conv):
     conv.overrides("nv", {"registry": "@registry", "repository": "@repo:app", "tag": "@tag:app:1.2"}, False)
     assert [p["name"] for p in conv.digest_pins("nv", "standard")] == ["cgr.dev/example.com/app"]

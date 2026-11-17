@@ -40,6 +40,7 @@ replacement must start the same way with the chart's values.
 | Must match Iron Bank's MAJOR.MINOR exactly | add `strict: true` |
 | Big Bang pins an end-of-life line (kubectl 1.30) | add `min_version: "1.34"`: older lines take the newest release |
 | A newer patch has a fixable Critical | add `max_version: "19.5.3"`: no tag newer than that. `version: "*"` ignores it |
+| Its MINOR is really a patch (PostgreSQL), or the org stopped rebuilding Iron Bank's minor | add `follow: major`: the org's newest release of that MAJOR, at or above Iron Bank's tag |
 | Several images that must move together (GitLab) | the same `group: <name>` on each: all convert or all stay |
 
 Keep entries org-neutral. An exception that only applies to your org goes in

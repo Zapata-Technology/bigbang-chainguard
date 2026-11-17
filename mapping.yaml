@@ -17,6 +17,9 @@
 #     min_version: <M.m>   an Iron Bank tag on an older line takes the newest release instead
 #                          (end-of-life lines the org stops rebuilding)
 #     max_version: <M.m.p> never a tag newer than this. version: "*" ignores it.
+#     follow: major        the org's newest release of Iron Bank's MAJOR, at or above Iron Bank's
+#                          tag (PostgreSQL's 18.7 is 18.6's patch release; lines the org stopped
+#                          rebuilding once a newer minor shipped). --strict-versions doesn't apply
 #   <ironbank path>: {cg: <name>, tag: <tag>}     pin a tag instead of matching the Iron Bank version
 #   <ironbank path>: {cg: <name>, version: <v>}   resolve against version <v> instead of the Iron Bank tag
 #                                                 ("*": the org's newest release; a pin to another
@@ -128,10 +131,8 @@ images:
   ironbank/anchore/cli/cli: {stays: "Anchore CLI test image (bbtests only)"}
   ironbank/microfocus/fortify/ssc: {stays: "Fortify SSC is proprietary; vendor image only"}
   # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube-26.10.yaml).
-  # Big Bang 4.1.0 moved to 26.11, which the org didn't have yet (2026-11-13): stay on 26.10,
-  # what sites already run (SonarQube migrates its database forward only). bb-convert prints
-  # "Version pin no longer needed" once the org has 26.11; then drop `version`.
-  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null, version: "26.10"}
+  # Big Bang 4.1.0 moved to 26.11; the org has it since 2026-11 (the 26.10 pin is gone).
+  ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
   # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
   # scripts/bb-build.py vault adds it. Chainguard carries Vault 2.x only (Big Bang pins
   # 1.21); tested on kind as a fresh install (compat/vault-2.yaml) and as an upgrade of
@@ -160,7 +161,9 @@ images:
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
   ironbank/opensource/go-gitea/gitea: {stays: "catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture)"}
-  ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank}
+  # Mimir's Kafka (off by default). The org stopped rebuilding 4.3 once 4.4 shipped: 4.3.2
+  # carried a fixable glibc High that 4.4.0 doesn't (2026-11-17), so follow 4.x.
+  ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank, follow: major}
   ironbank/container-hardening-tools/renovate/renovate: renovate
   ironbank/opensource/goharbor/harbor-core: harbor-core
   ironbank/opensource/goharbor/harbor-exporter: harbor-exporter
@@ -190,7 +193,9 @@ images:
   # (cve-report 2026-10-30), and kubectl must be within one minor of the cluster
   # (Kubernetes 1.34+). Below 1.34, use the newest release.
   ironbank/opensource/kubernetes/kubectl: {cg: kubectl, suffix: dev, min_version: "1.34"}
-  ironbank/opensource/postgres/postgresql: postgres
+  # PostgreSQL numbers releases MAJOR.MINOR, and a minor is a bug-fix and security release
+  # (no dump/restore): Iron Bank's 18.6 means "18", so take the org's newest 18.x.
+  ironbank/opensource/postgres/postgresql: {cg: postgres, follow: major}
   ironbank/opensource/redis/redis8-slim: redis
   # Argo CD's redis-ha (off in Big Bang): HAProxy when redis-ha.haproxy is enabled, and
   # shellcheck for redis-ha's `helm test` only (not in the org; APPLICATION quota is full).
@@ -222,10 +227,11 @@ images:
   # tag. mail_room and kubectl carry their own versions on Chainguard: newest.
   # same_patch: rails pins the Rails images (one codebase, one database schema) and
   # gitlab-base to the newest patch all of them have, standard and FIPS.
-  # max_version holds that patch at 19.5.3. 19.5.5 of the commercial Rails images has
-  # fixable Critical CVEs (handlebars 1.0.0, activestorage 7.2.4). Remove max_version
-  # when a rescan of a newer 19.5 tag is clean. version: "*" (mailroom, kubectl) ignores it.
-  gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, max_version: "19.5.3", cg: gitlab-certificates}
+  # No max_version hold: a grype rescan (2026-11-17) found 19.5.5 no worse than 19.5.3 on any
+  # image (same 4 Criticals in the commercial Rails images, 4-6 fewer Highs each).
+  # handlebars 1.0.0, the reason for the earlier 19.5.3 hold, is a false positive: the
+  # package.json of VS Code's Handlebars language extension in the Web IDE assets.
+  gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
   gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
   gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
   gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, same_patch: rails, cg: gitlab-base}

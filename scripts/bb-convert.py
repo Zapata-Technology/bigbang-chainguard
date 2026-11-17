@@ -140,6 +140,9 @@ class Converter:
                     # A group's members all run the same patch: the newest every member has.
                     tag = exact_tag(tags, pinned, m.get("suffix"))
                     note = None if tag else f"no {'.'.join(map(str, pinned))} tag"
+                elif m.get("follow") == "major" and want and str(want) != "*":
+                    # Chosen per image in mapping.yaml, so --strict-versions doesn't apply.
+                    tag, note = newest_in_major(want, tags, m.get("suffix"))
                 else:
                     tag, note = (resolve(want, tags, m.get("suffix"), allow_ahead=ahead) if want
                                  else (None, "no Iron Bank tag"))
@@ -755,6 +758,23 @@ def below_floor(version, floor):
     return bool(want and low) and want[0][:2] < low[0][:2]
 
 
+def newest_in_major(version, tags, suffix=None):
+    """`follow: major`: the org's newest release of the Iron Bank tag's MAJOR, at or above
+    that tag. PostgreSQL's MAJOR.MINOR is really MAJOR.PATCH (18.7 is 18.6's bug-fix and
+    security release), and the org stops rebuilding a line once a newer one ships, so the
+    older line's CVEs pile up (kafka-native 4.3 after 4.4). Returns (tag, note)."""
+    want = parse(_IB_SUFFIXES.sub("", str(version)))
+    if not want:
+        return None, f"cannot read version from Iron Bank tag {version!r}"
+    nums = want[0]
+    hits = [(p[0], t) for t in tags or []
+            if (p := parse(t)) and p[1] == suffix and p[0][0] == nums[0] and p[0] >= nums]
+    if not hits:
+        return None, f"no {nums[0]}.x tag at or above {version} in org"
+    n, t = max(hits, key=lambda x: (x[0], not x[1].startswith("v")))
+    return t, (None if n == nums else f"Iron Bank {version} -> newest {nums[0]}.x release (follow: major)")
+
+
 def exact_tag(tags, nums, suffix=None):
     """The org's spelling of version `nums` (plain over v-prefixed), or None."""
     hits = [t for t in tags or [] if (p := parse(t)) and p[0] == nums and p[1] == suffix]
@@ -922,6 +942,8 @@ def numbering(m):
         return f"follows `{m['version_from']}`'s version"
     if m.get("version") == "*":
         return "newest release (Iron Bank's tag isn't this image's version)"
+    if m.get("follow") == "major":
+        return "follows the org's newest release of Iron Bank's major (`follow: major`)"
     if m.get("version") is not None:
         return f"pinned to the {m['version']} line (Iron Bank's tag isn't this image's version)"
     return None

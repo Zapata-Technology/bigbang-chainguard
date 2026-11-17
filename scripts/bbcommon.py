@@ -47,7 +47,7 @@ IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
     "stays": str, "until": str, "build": str, "ref": str, "tag": str, "note": str,
     "fallback": str, "strict": bool, "group": str, "same_patch": str, "version_from": str,
-    "min_version": str, "max_version": str,
+    "min_version": str, "max_version": str, "follow": str,
 }
 # One of these says where the image goes; the rest only adjust it.
 IMAGE_TARGETS = {"cg", "stays", "build", "ref"}
@@ -72,6 +72,8 @@ def validate_mapping(mapping, source="mapping.yaml"):
             problems.append(f"images.{ib}: needs one of {', '.join(sorted(IMAGE_TARGETS))}")
         if m.get("fallback") not in (None, "ironbank"):
             problems.append(f"images.{ib}.fallback: only 'ironbank' is supported")
+        if m.get("follow") not in (None, "major"):
+            problems.append(f"images.{ib}.follow: only 'major' is supported")
     for job in (mapping.get("bash_commands") or {}).values():
         for ref in job:
             if set(ref) != {"kind", "name", "container"}:
