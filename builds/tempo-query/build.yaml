@@ -14,14 +14,14 @@ image:
   standard:
     name: bigbang-tempo-query
     tag: 3.1.1
-    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:0a4cc74917f0b955d2683ed46f0424f8fa9eed7db3ada0f6a11d226e234795d2
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:ca572e2e16325c61c9d164dd4c39633ef98120baabf721adbffa336e94dc6bb5
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:946c2650889c3913348efd8c9fcbc307e07c5a87ff8eea8d32c27ce3ba893b17
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:bf879b483143aaea916987913397c807c9231e2c054cde518ab40653e62a83fa
     go_package: ''
   fips:
     name: bigbang-tempo-query-fips
     tag: 3.1.1
     dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:2730bee51fa0aff895ee6f33cb767be432a558e1adae5d9929655bf2f4cf3e92
-    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:30de3e118a4c8148fc40216752596a95934d0ff10d5367db506abddbf0dd83ed
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:f4db1b7c29ea2ad3a3176759a995484d8402cae024f841cdbe8e16ff72dd30f5
     go_package: ''
     fips: toolchain
 tempo:
@@ -32,7 +32,7 @@ tempo:
   commit: 9db7df79d2af105a90d96484e6403e1fda0d011e
   package: ./cmd/tempo-query
   go_get:
-  - golang.org/x/net@v0.62.0
+  - golang.org/x/net@v0.63.0
   - golang.org/x/text@v0.44.0
   - google.golang.org/grpc@v1.85.0
   - github.com/apache/thrift@v0.25.0
