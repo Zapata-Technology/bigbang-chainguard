@@ -383,15 +383,15 @@ packages:
           name: cgr.dev/zapatatechnology.com/busybox-fips
         - digest: sha256:5b6dbd87e410eb71052e7f90db4526ecda459af4eea9bb1e6975824d62628126
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign-fips
-        - digest: sha256:009992920d2f9c9af4645687deecef4248b283f7733e16d71612d51fe0ff5991
+        - digest: sha256:92d55dd14c8a25d8a83c1f240b8c04a5199a9c9ed92db14206358f7a197c1292
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee-fips
-        - digest: sha256:e76d1c6a54619e9cb3c30b5118799ce88d356db3cb21f1a0abc4e61a22c81106
+        - digest: sha256:52408f0d721b6b3a0c41cbfd40445d37647d0a69d6cd8f3a524b7aa6adf13172
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee-fips
-        - digest: sha256:14fe9e11e5adfec78a2e7ffe04456ba9d45a431523a3c0167b5c6a0b98b5a1e2
+        - digest: sha256:a92ae1083af7588c89371192a30ef0c5e5279a267341367a965ca80a5f1ec383
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee-fips
-        - digest: sha256:b855362d52ab02cf9d7012996d78301b0e78f1750f338b2669d229f5242fb4ac
+        - digest: sha256:7e92e5d367b70224d6831215453feb019fbeabb25d2784c21dc997723fee0cd0
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee-fips
-        - digest: sha256:37b5d676a34312f30db1216b97514bb9a949635093af9679bf4c70b0009c895f
+        - digest: sha256:19531892a220bf4cbb967708829dcaf59244b52f3c5262eee9792de01166e5e5
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee-fips
         - digest: sha256:cd9d24d79b63f659c7c090f838fee99a07bcb27eb95ad4305e3271d018c4897f
           name: cgr.dev/zapatatechnology.com/gitaly-fips
