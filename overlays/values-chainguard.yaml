@@ -391,9 +391,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/busybox
         - digest: sha256:9dc4076acbdbf1a5f38c91188a307d25bc4db1ab6d16f5f672c05f2710b477d8
           name: cgr.dev/zapatatechnology.com/cfssl-self-sign
-        - digest: sha256:9df0bb8dce0592d8706c4592fabdb65b5478f7ff4efcc3d33accb3e647d34ecb
+        - digest: sha256:7d90ae55ebed1479d58defe7d71b7eb552a17bccc7c8b513c43396edc52390fb
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-geo-logcursor-ee
-        - digest: sha256:d90afba4d1818fdedbd427684f2afddd2b805ad307308dbc8221eaa6b10ceb13
+        - digest: sha256:0baa8d0b8ad91d07e44156558690be6a40172b374baa2bca0f54fbc866a90a9f
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee
         - digest: sha256:e7f7bc0e5878a6f145520b7837cfdc038ba051800320718a44b6e8d8b090f460
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-toolbox-ee
@@ -606,7 +606,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:f8d904150f3a944a5f1a76477595c96dddc16d39347be9e4bf313c9beb547ac5
+        - digest: sha256:0e4f55c7f7769fc1fd4adf8938be0d06f6598b36e98a2f379dc12650a9ef9c8f
           name: cgr.dev/zapatatechnology.com/harbor-core
         - digest: sha256:32ee147c72ebc4501553ed02155f0794e882d4924a01bd8d9932ea5015ea9f04
           name: cgr.dev/zapatatechnology.com/harbor-exporter
@@ -1297,7 +1297,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-manager
         - digest: sha256:9bb9ebb3a1daeee02129b87ccce9cdea6d9ba29d655ad6aeac6df5041069c92a
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
-        - digest: sha256:b754fbd6a7198990870fe0cb9303b8b88b40621cb146048e48f03ea5ffab2f83
+        - digest: sha256:9feb4cc41b9b821bc55f2f09268fc97bf4089e698622dd34590e08b9e9e3dbb6
           name: cgr.dev/zapatatechnology.com/neuvector-scanner
         - name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter
           newName: ghcr.io/zapata-technology/bigbang-registry-adapter
