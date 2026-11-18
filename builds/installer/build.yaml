@@ -6,7 +6,7 @@ image:
   standard:
     name: bigbang-installer
     tag: 4.1.0-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:26f53bdd52fc8f04d13a045dfe3d6b98466a8a4ae17aa6a99b7f8438bbb2fd52
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:56b18aa23950aaf4baeac011d7d88fabfa897b640afd7e26a4d39a4290edb3f8
   fips:
     name: bigbang-installer-fips
     tag: 4.1.0-kubectl1.36.6

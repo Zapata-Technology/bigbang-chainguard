@@ -42,7 +42,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
 | `gitlab/gitlab-org/build/cng/certificates:v19.5.3-ubi` | `gitlab-certificates:19.5.6` | `gitlab-certificates-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi` | `cfssl-self-sign:19.5.5` | `cfssl-self-sign-fips:19.5.5` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi` | `cfssl-self-sign:19.5.6` | `cfssl-self-sign-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitaly:v19.5.3-ubi` | `gitaly:19.5.6` | `gitaly-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-base:v19.5.3-ubi` | `gitlab-base:19.5.5` | `gitlab-base-fips:19.5.5` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.3-ubi` | `commercial-gitlab-geo-logcursor-ee:19.5.5` | `commercial-gitlab-geo-logcursor-ee-fips:19.5.5` | Chainguard | newer patch | gitlab |

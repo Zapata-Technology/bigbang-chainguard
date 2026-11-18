@@ -69,7 +69,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gatekeeper | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
 | gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.3-ubi | gitlab-certificates:19.5.6 | gitlab-certificates-fips:19.5.6 | gitlab-certificates: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi | cfssl-self-sign:19.5.5 | cfssl-self-sign-fips:19.5.5 | cfssl-self-sign: Iron Bank v19.5.3-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi | cfssl-self-sign:19.5.6 | cfssl-self-sign-fips:19.5.6 | cfssl-self-sign: Iron Bank v19.5.3-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.3-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.3-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.3-ubi | built FROM the org's images by scripts/bb-build.py gitaly-init-cgroups |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.3-ubi | gitaly:19.5.6 | gitaly-fips:19.5.6 | gitaly: Iron Bank v19.5.3-ubi -> newest 19.5 patch; gitaly-fips: Iron Bank v19.5.3-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.3-ubi | gitlab-base:19.5.5 | gitlab-base-fips:19.5.5 |  |
