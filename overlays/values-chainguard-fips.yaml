@@ -602,7 +602,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/harbor-core-fips
         - digest: sha256:3322fef9a35aa4c1c5119518a00a02160b1139c4403f1ce989fa6eb9c13dbbd3
           name: cgr.dev/zapatatechnology.com/harbor-exporter-fips
-        - digest: sha256:6dddde6b81f2e65fee859e95d948d2a8cb916e646a8463f8136caf643c20dabe
+        - digest: sha256:81bd8e5f859f41738a84da6b488932cf0bfe667ca8b4b10f7c8e8478d68813b4
           name: cgr.dev/zapatatechnology.com/harbor-jobservice-fips
         - digest: sha256:334d28e3d93912caabdde012b53c96fc008aadbd7e32713061a80e422ae2b149
           name: cgr.dev/zapatatechnology.com/harbor-portal-fips
