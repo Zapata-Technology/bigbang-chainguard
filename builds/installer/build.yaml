@@ -10,7 +10,7 @@ image:
   fips:
     name: bigbang-installer-fips
     tag: 4.1.0-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:04e7a8bd9a27e7d2336a681d34a24d6dae327558be34ea1e0da2f953de208f1a
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:250c0a699b8826d8f8e148797c9dcfdc6335cdba17957d2254e1c1532c519703
 packages:
 - bash
 - curl

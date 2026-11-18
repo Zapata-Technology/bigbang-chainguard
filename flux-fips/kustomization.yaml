@@ -14,7 +14,7 @@ images:
   name: ghcr.io/fluxcd/kustomize-controller
   newName: cgr.dev/zapatatechnology.com/flux-kustomize-controller-fips
   newTag: 1.10.1
-- digest: sha256:3a0a221466746221ac06a3be7f95b163aad96561e1ff758b95319d5d3c302ac3
+- digest: sha256:23341f80382ca2c2694c890a520bedebcf6a7d3ebfa033ba5784a61f8fee3a52
   name: ghcr.io/fluxcd/notification-controller
   newName: cgr.dev/zapatatechnology.com/flux-notification-controller-fips
   newTag: 1.10.0

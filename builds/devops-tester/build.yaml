@@ -22,7 +22,7 @@ image:
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.2
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:797a58fe5e1de7da0109a3cd98a097e3d442de1d5bb148c49c8966540e5e5295
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.2-dev@sha256:fa4b75505ccab762119680a118e02d826dbb4198c92992935474fe25092f5b0b
     velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:e3385636c7bd066ac10169f98c7df79d2d764e57216bc2c1ba82cca292b54059
     kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:120be052f335e96da11888e0eb291180caaa65590ba840f4dfbfc846273b9841
 chainsaw:
@@ -30,7 +30,7 @@ chainsaw:
   source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15
   sha256: 04f3fc7dd8e958e4fc7d73383bc22b05827240dd2fe7a8e32ee99d8c0332da2a
   go_get:
-  - golang.org/x/net@v0.62.0
+  - golang.org/x/net@v0.63.0
   - google.golang.org/grpc@v1.85.0
   - github.com/go-jose/go-jose/v4@v4.1.9
 packages:
