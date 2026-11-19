@@ -84,7 +84,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/argocd
         - digest: sha256:fec71cd3d7e2806d45b2ccc2f2edf13883e364cf0f6ddbe36b3d7e3360624bc4
           name: cgr.dev/zapatatechnology.com/busybox
-        - digest: sha256:96a83ee25533729f9782a382b05b3297ee8a202c4af69070e5336db796f34122
+        - digest: sha256:a4f6d333a02dde8c1ff8bd0db62d41708295eb8fa1c9837741e84bf35ba9fac7
           name: cgr.dev/zapatatechnology.com/dex
         - digest: sha256:67f595b26de83e1b48391647aed8e737e75509980f02462a03daf1565b5262ba
           name: cgr.dev/zapatatechnology.com/haproxy
