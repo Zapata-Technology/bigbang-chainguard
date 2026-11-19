@@ -11,14 +11,14 @@ image:
   standard:
     name: bigbang-gitaly-init-cgroups
     tag: v19.5.3-ubi
-    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:a3af320c43c2485d6ab476acdb633141707359a832f66b9a3fa707eada3d2a3a
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:bf879b483143aaea916987913397c807c9231e2c054cde518ab40653e62a83fa
+    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:74160ccb534674afa45910a0f2ff85ea9825f8c6cb5abc5f6fd3f664944bd530
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:43ca870cb2265b7feed490001064888c1e517e0b6a503e18fc06e81caf348027
     go_package: ''
   fips:
     name: bigbang-gitaly-init-cgroups-fips
     tag: v19.5.3-ubi
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:b9f463f10abb56a07e1bd5b80c8a88601de0196ec2d6096733bab55632973eef
-    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:f4db1b7c29ea2ad3a3176759a995484d8402cae024f841cdbe8e16ff72dd30f5
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:93c98281324f7bf901ee47a14aca2182d3442158f83472d503cbce3583c8b5b1
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:e7a29413ef15ef2afd1a050f245afa7058fa1cef1de98bc7fd78b11a62aa357e
     go_package: ''
     fips: toolchain
 gitaly:
