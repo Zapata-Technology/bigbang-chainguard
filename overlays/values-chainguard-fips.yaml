@@ -1055,7 +1055,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:59115742bf33c66b8b1d55d0410a68ab406a53594c7b995db20fadbffdae194d
+        - digest: sha256:b18ed5ef54a8c8d2c5f44000514bd0e2864bcbd4d410c26f8968411d8227fe61
           name: cgr.dev/zapatatechnology.com/grafana-mimir-fips
         - digest: sha256:c90280cabb7d27e48a95fe5ebf35d4bd1f6168cb3ef388eb1f9875427f562723
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
