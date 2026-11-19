@@ -405,7 +405,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-exporter-fips
         - digest: sha256:8782af6e4bcdd97a769308554dd52387172419b6d593739e37e6e4c08f62b1a7
           name: cgr.dev/zapatatechnology.com/gitlab-kas-fips
-        - digest: sha256:15823b7466809e0fb00c1f72bba6973fb234738fa258e4a0dbcc4a30aa89ecb5
+        - digest: sha256:8fb4f0f7352bda013927b51f97159690a0f15337ca41954fd8083292d4a50c2c
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl-fips
         - digest: sha256:f3e1004ee7c7ae8ff42e493a71d05eea15f4df94f5a8ee0917e7627746f7080f
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom-fips
