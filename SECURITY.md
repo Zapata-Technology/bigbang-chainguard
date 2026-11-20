@@ -78,7 +78,13 @@ boundaries.
   manifests, and checked on download. Upstream source built here (chainsaw, the Redis
   datasource backend, the Mattermost Operator) is pinned by the sha256 of its tag's
   tarball in `build.yaml`, and modules raised past upstream's go.mod come from the Go
-  module proxy, checked against sum.golang.org.
+  module proxy, checked against sum.golang.org. A raise is a person's choice
+  (`bb-build.py <name> --raise-go`): the nightly run keeps the versions `build.yaml`
+  pins, and its pull request lists newer releases it did not apply. Automatic updates
+  come only from Chainguard (this org has no Chainguard Libraries entitlement for Go).
+  When a build's upstream source moves to a new release, its raised modules take their
+  newest releases, since the new go.mod may already need them (`go get` would otherwise
+  downgrade).
 - Each image is smoke-tested (tools, versions, user, and OpenSSL `fips=yes` for `-fips`).
 - Each image is scanned with grype before it's pushed. A fixable critical CVE fails the
   build.
