@@ -39,8 +39,15 @@ boundaries.
 - **Org images are pinned by digest.** Chainguard rebuilds images under the same tag; the
   overlays pin each to the digest it had when they were generated (a Flux post-renderer),
   so a rebuild reaches a cluster only through the nightly pull request, after the kind
-  tests run it. Images set inside custom resources (Kiali's CR, Istio's injected proxy)
-  and a repository a package uses at two tags stay on their tags.
+  tests run it. The images this repo builds (`BUILD_REGISTRY`) are pinned the same way,
+  so a push over one of their tags can't reach a cluster unreviewed either (the converter
+  reads their digests with the job's GitHub token; without one they keep their tags).
+  Images set inside custom resources (Kiali's CR, Istio's injected proxy) and a repository
+  a package uses at two tags stay on their tags.
+- **The registry allow list matches whole registries.** Big Bang's Kyverno and Gatekeeper
+  policies admit an image whose name starts with an allowed entry; every entry ends in
+  `/`, so `ghcr.io/<owner>/` doesn't also admit `ghcr.io/<owner>-anything/...`.
+  `compat/support/kyverno-admission.sh` checks a lookalike of the org's registry is refused.
 - **A pull request can't add an image with a fixable Critical CVE**: `ci.yml` scans every
   image a change introduces (`bb-cve.py --changed-from`). `cve-report.yml` compares the
   whole set against Iron Bank weekly.
