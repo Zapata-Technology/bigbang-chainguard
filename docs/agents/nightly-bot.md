@@ -3,7 +3,9 @@
 Part of the maintainer playbooks. The loop and the rules are in [AGENTS.md](../../AGENTS.md).
 
 ### The nightly bot PR (`bot/bigbang-update` or `bot/bigbang-release`) fails or reports something
-`update.yml` has two tracks: `bot/bigbang-update` keeps the deployed Big Bang release on
+`update.yml` runs nightly, after a push to main that changes what the overlays are made
+from, and after builds.yml publishes from main (a push that starts builds.yml waits for it
+rather than running twice). It has two tracks: `bot/bigbang-update` keeps the deployed Big Bang release on
 the newest org patches and builds, and `bot/bigbang-release` (only while repo1 has a newer
 release) moves to the new release, with upgrade notes (`scripts/bb-release-notes.py`,
 `docs/upgrades/<version>.md`) in its body. Work on a release never holds back the routine

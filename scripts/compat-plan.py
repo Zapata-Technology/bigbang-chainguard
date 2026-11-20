@@ -14,7 +14,11 @@ runs only the tests its change can affect:
     PREVIEW handful, a smoke test in both modes and the release-to-release upgrade;
   - the weekly schedule: every test, both modes;
   - a pull request (the union of):
-    - BIGBANG_VERSION changed: every test that isn't `large: true`, both modes;
+    - BIGBANG_VERSION changed: every test that isn't `large: true`, both modes; once the
+      pull request carries that version's recorded matrix (results-gate.py passes on it:
+      update.yml's release track records the PR's own runs), SMOKE instead, and its
+      overlays' package changes add nothing: the matrix covered them, and each rebuild of
+      the release PR from a newer main otherwise re-ran ~70 kind jobs;
     - compat/<test>.yaml changed: that test (large ones too), both modes;
     - compat/support/<file> changed: the tests that use that file, standard;
     - an overlay's package changed beyond its digests: the tests that enable that package,
@@ -33,13 +37,16 @@ share) and `bigbang-version` (what they deploy): BIGBANG_VERSION's tag, or with
 import argparse
 import glob
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import subprocess
+import sys
 import time
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
 TEST_FILE = re.compile(r"^compat/([^/]+)\.yaml$")
 # Small tests that still deploy Flux, the overlays' post-renderers and Kyverno's policies,
 # plus the packages whose last real bugs were runtime-only (Tempo's null receiver, Keycloak,
@@ -110,8 +117,23 @@ def changed_packages(old, new):
     return real, digests
 
 
-def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: ""):
-    """{(test, mode)} for a pull request that changes these files."""
+def matrix_recorded(root=ROOT):
+    """True when this checkout's docs/test-results.json holds BIGBANG_VERSION's matrix
+    (results-gate.py's rule)."""
+    path = os.path.join(root, "docs", "test-results.json")
+    if not os.path.exists(path):
+        return False
+    spec = importlib.util.spec_from_file_location("results_gate", os.path.join(HERE, "results-gate.py"))
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    version = open(os.path.join(root, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
+    data = json.load(open(path, encoding="utf-8"))
+    return gate.gaps(version, data, gate.large_tests(root), gate.flagged("registry1", root)) == ([], [])
+
+
+def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: "", recorded=False):
+    """{(test, mode)} for a pull request that changes these files. `recorded`: the pull
+    request already carries its BIGBANG_VERSION's matrix (matrix_recorded)."""
     tests = all_tests(root)
     modes = ["standard", "fips"] if fips else ["standard"]
     jobs = set()
@@ -119,9 +141,10 @@ def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: ""):
     def add(names, run_modes):
         jobs.update((n, m) for n in names for m in run_modes if m in modes)
 
-    if "BIGBANG_VERSION" in changed:
+    covered = "BIGBANG_VERSION" in changed and recorded
+    if "BIGBANG_VERSION" in changed and not recorded:
         add([t for t in tests if not large(t, root)], modes)
-    smoke = False
+    smoke = covered
     for path in changed:
         m = TEST_FILE.match(path)
         if m and m.group(1) in tests:
@@ -129,11 +152,13 @@ def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: ""):
         elif path.startswith("compat/support/"):
             base = os.path.basename(path)
             add([t for t in tests if base in test_text(t, root)], ["standard"])
-        elif path in OVERLAY_MODES:
+        elif path in OVERLAY_MODES and not covered:
             new = open(os.path.join(root, path), encoding="utf-8").read() if os.path.exists(os.path.join(root, path)) else ""
             real, digests = changed_packages(read_base(path), new)
             add([t for t in tests if not large(t, root) and enabled(t, root) & real], [OVERLAY_MODES[path]])
             smoke = smoke or bool(digests)
+        elif path in OVERLAY_MODES:
+            pass
         elif path in OBJECT_STORAGE:
             add([t for t in tests if not large(t, root) and "values_files" in test_text(t, root)], ["standard"])
         elif INSTALLER.match(path):
@@ -145,7 +170,7 @@ def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: ""):
     return jobs
 
 
-def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigbang_ref=""):
+def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigbang_ref="", recorded=False):
     """[(test, mode, minutes)] for the run, in test order."""
     modes = ["standard", "fips"] if fips else ["standard"]
     if named:
@@ -154,7 +179,7 @@ def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigb
         tests = all_tests(root)
         jobs = {(n, m) for n, m in PREVIEW if n in tests}
     elif event == "pull_request":
-        jobs = pull_request_jobs(changed, fips, root, read_base)
+        jobs = pull_request_jobs(changed, fips, root, read_base, recorded)
     else:
         jobs = {(n, m) for n in all_tests(root) for m in modes}
     order = {"standard": 0, "fips": 1}
@@ -241,7 +266,11 @@ def main():
     named = [t.strip() for t in a.tests.split(",") if t.strip()]
     changed = changed_files(a.changed_from) if a.changed_from else []
     read_base = base_reader(a.changed_from) if a.changed_from else (lambda path: "")
-    jobs = plan(a.event, named, changed, a.fips, read_base=read_base, bigbang_ref=a.bigbang_ref)
+    recorded = a.event == "pull_request" and "BIGBANG_VERSION" in changed and matrix_recorded()
+    if recorded:
+        print("BIGBANG_VERSION's matrix is recorded on this pull request: smoke tests only", file=sys.stderr)
+    jobs = plan(a.event, named, changed, a.fips, read_base=read_base, bigbang_ref=a.bigbang_ref,
+                recorded=recorded)
     print("matrix=" + json.dumps({"include": [{"test": t, "mode": m, "minutes": mins} for t, m, mins in jobs]}))
     print("count=" + str(len(jobs)))
     print("bigbang-key=" + key)

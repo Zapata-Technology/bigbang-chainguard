@@ -91,6 +91,39 @@ def test_a_new_big_bang_runs_every_test_that_is_not_large_in_both_modes(tmp_path
     assert len(jobs) == 12 and "gitlab" not in {t for t, _, _ in jobs}
 
 
+def test_a_release_pr_with_its_matrix_recorded_runs_the_smoke_tests_only(tmp_path):
+    root = _root(tmp_path)
+    old, new = _overlay("3.0", "sha256:" + "a" * 64), _overlay("3.1", "sha256:" + "b" * 64)
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(new)
+    changed = ["BIGBANG_VERSION", "overlays/values-chainguard.yaml"]
+    jobs = _tests(plan_mod.plan("pull_request", [], changed, True, root, read_base=lambda p: old, recorded=True))
+    assert jobs == [("keycloak", "standard"), ("kyverno-enforce", "standard"),
+                    ("metrics-server", "standard"), ("velero", "standard")]
+    # A changed test file still runs that test.
+    jobs = _tests(plan_mod.plan("pull_request", [], [*changed, "compat/loki.yaml"], True, root,
+                                read_base=lambda p: old, recorded=True))
+    assert ("loki", "fips") in jobs
+    # Not recorded yet: the whole matrix.
+    assert len(plan_mod.plan("pull_request", [], changed, True, root, read_base=lambda p: old)) == 12
+
+
+def test_matrix_recorded_follows_the_results_gate(tmp_path):
+    import json
+    root = _root(tmp_path)
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.1\n")
+    assert not plan_mod.matrix_recorded(root)   # no docs/test-results.json
+    (tmp_path / "docs").mkdir()
+    gate = load_script("results-gate")
+    names = ["loki", "keycloak", *gate.REQUIRED]
+    data = {"tests": [{"test": t} for t in names],
+            "results": [{"test": t, "mode": "standard", "result": "pass", "bigbang": "4.1.1"} for t in names]}
+    (tmp_path / "docs" / "test-results.json").write_text(json.dumps(data))
+    assert plan_mod.matrix_recorded(root)
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.2\n")
+    assert not plan_mod.matrix_recorded(root)
+
+
 def test_a_deleted_test_file_alone_runs_nothing(tmp_path):
     root = _root(tmp_path)
     assert plan_mod.plan("pull_request", [], ["compat/removed.yaml"], False, root) == []

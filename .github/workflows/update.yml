@@ -38,6 +38,7 @@ on:
     - cron: "17 3 * * *"   # off the hour: GitHub delays scheduled runs most at :00
   workflow_dispatch:
   # A fix on main to what the overlays are made from: regenerate now, not tomorrow night.
+  # A push that also starts builds.yml is left to the workflow_run below (plan: `defer`).
   push:
     branches: [main]
     paths:
@@ -77,16 +78,40 @@ jobs:
       (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read   # whether builds.yml runs for this push
     outputs:
       tracks: ${{ steps.bb.outputs.tracks }}
+      defer: ${{ steps.defer.outputs.defer }}
     steps:
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
         with:
           egress-policy: block
           allowed-endpoints: >
+            api.github.com:443
             github.com:443
             repo1.dso.mil:443
+
+      # A push that also starts builds.yml (a merged bot PR changes builds/*/build.yaml as
+      # well as the overlays): the run that builds.yml starts when it has published
+      # (workflow_run, above) does this same work with the new tags. Running now as well
+      # rebuilt both bot branches twice per merge (2026-11-20: 183c3eb5 started this
+      # workflow three times), and each rebuild re-ran every check on them. If builds.yml
+      # fails, nothing follows it: a failed build on main needs a person anyway.
+      - name: Leave a push that builds.yml also runs for to builds.yml
+        id: defer
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/builds.yml/runs?head_sha=$SHA&event=push" --jq .total_count) || n=0
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "::notice::builds.yml runs for $SHA; update.yml runs after it publishes"
+            echo "defer=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -94,6 +119,7 @@ jobs:
 
       - name: Newest Big Bang release
         id: bb
+        if: steps.defer.outputs.defer != 'true'
         run: |
           current=$(cat BIGBANG_VERSION)
           latest=""
@@ -121,6 +147,7 @@ jobs:
 
   update:
     needs: plan
+    if: needs.plan.outputs.defer != 'true'
     name: update (${{ matrix.track }})
     strategy:
       fail-fast: false

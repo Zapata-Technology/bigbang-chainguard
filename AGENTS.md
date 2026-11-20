@@ -108,7 +108,8 @@ GitHub answer is not "nothing to do" unless the call succeeded.
    its change reaches (`scripts/compat-plan.py`: a changed `compat/<test>.yaml`, a package
    whose overlay tag changed, the installer tests for `scripts/bbinstall/`, the smoke tests
    in the marked list below for harness, Flux, mapping and digest-only changes, nothing for
-   docs); the weekly run and a new `BIGBANG_VERSION` run them all. Runner minutes are billed:
+   docs); the weekly run and a new `BIGBANG_VERSION` run them all (a release PR whose matrix is
+   already recorded runs the smoke tests). Runner minutes are billed:
    push a branch once it is ready, not after every edit (a new push cancels the PR's older
    runs), and don't run several agents that each push PRs touching the overlays at once.
    A pull request stacked on another: after the base merges, rebase onto `origin/main`,
