@@ -1447,7 +1447,7 @@ packages:
         images:
         - digest: sha256:f7c4ccd8f207da3921680db3ce46f35ec259ca0a5857cf35ffe0b66c4f1f4994
           name: cgr.dev/zapatatechnology.com/vault-csi-provider
-        - digest: sha256:cedc76b79a5f4dd7eeb68840d32c7c7c0375ee0296f7b184e80eeaec6bd4e2f8
+        - digest: sha256:5dcfbe1c082840f7a475f90159c01104ff3f7c650cff01c1057d6fb7f9ac19f2
           name: cgr.dev/zapatatechnology.com/vault-k8s
     values:
       bbtests:
