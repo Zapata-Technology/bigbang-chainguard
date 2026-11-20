@@ -239,7 +239,7 @@
     {
       "test": "eck-kibana",
       "runs": "Big Bang's elasticsearchKibana on the ECK operator: one master and one data node, one Kibana, prometheus-elasticsearch-exporter (mmap off, small heaps)",
-      "notes": "Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost)"
+      "notes": "Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost). FIPS mode runs no Kibana: kibana-fips needs `xpack.security.fipsMode.enabled`, which Kibana allows only on a Platinum or Enterprise license (What the runtime tests found)"
     },
     {
       "test": "fortify",

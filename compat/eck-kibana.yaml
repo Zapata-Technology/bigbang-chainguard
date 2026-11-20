@@ -3,11 +3,24 @@
 # operator with an Elasticsearch it makes itself, without Big Bang's package or Kibana).
 # Sized for a CI runner: one master and one data node with small heaps, one Kibana, and mmap
 # off (kind's nodes keep the default vm.max_map_count; the store type becomes niofs, which
-# needs no mmap). The basic licence ECK starts with is enough; nothing here is licensed.
+# needs no mmap). The basic licence ECK starts with is enough in standard mode.
+#
+# FIPS mode runs no Kibana: kibana-fips's Node.js has FIPS on, so Kibana needs
+# xpack.security.fipsMode.enabled, which Kibana allows only on a Platinum or Enterprise
+# licence (docs/testing.md, "What the runtime tests found"). The setup line writes
+# Kibana count 0 for FIPS mode, and turns off the chart's wait job, which waits for Kibana
+# green. Elasticsearch and the exporter still run and are checked on the FIPS images.
 images: {}
 test:
   enable: [eckOperator, elasticsearchKibana]
   expect: [eck-operator, /elasticsearch, /kibana, prometheus-elasticsearch-exporter]
+  setup:
+    - >-
+      if [ "${COMPAT_FIPS:-}" = 1 ]; then
+      echo '{packages: {elasticsearchKibana: {values: {kibana: {count: 0}, waitJob: {enabled: false}}}}}' > "$COMPAT_OUT/site-kibana-mode.yaml";
+      else echo '{}' > "$COMPAT_OUT/site-kibana-mode.yaml"; fi
+  values_files:
+    - $COMPAT_OUT/site-kibana-mode.yaml
   values:
     packages:
       elasticsearchKibana:
@@ -38,6 +51,10 @@ test:
     # its plugins started. The elastic user's password goes to curl on stdin, never on a
     # command line or in output.
     - |
+      if [ "${COMPAT_FIPS:-}" = 1 ]; then
+        echo "Kibana SKIPPED in FIPS mode: kibana-fips needs xpack.security.fipsMode.enabled, which Kibana allows only on a Platinum or Enterprise license"
+        exit 0
+      fi
       kubectl -n logging port-forward svc/logging-ek-kb-http 15601:5601 > "$COMPAT_OUT/pf-kibana.log" 2>&1 &
       pf=$!; trap 'kill $pf' EXIT
       pw=$(kubectl -n logging get secret logging-ek-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)

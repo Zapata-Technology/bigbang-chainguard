@@ -41,8 +41,11 @@ run() {
   kubectl -n $NS create secret generic vault-token --from-file=key="$dir/key" --from-file=init.out="$dir/init.out" \
     || { echo "could not create Secret vault-token"; return 1; }
   echo "Secret vault-token created"
+  # Each key goes to the pod on stdin and to vault inside it. `vault operator unseal -`
+  # does not read stdin: it sends "-" as the key, which Vault refuses ("'key' must be a
+  # valid hex or base64 string", PR #281's first run).
   for k in $(awk '/^Unseal Key [0-9]+:/ {print $4}' "$dir/init.out" | head -3); do
-    printf '%s\n' "$k" | kubectl -n $NS exec -i "$p" -c vault -- vault operator unseal - >/dev/null \
+    printf '%s\n' "$k" | kubectl -n $NS exec -i "$p" -c vault -- sh -c 'read -r k; exec vault operator unseal "$k"' >/dev/null \
       || { echo "an unseal key was refused"; return 1; }
   done
   status "$p" && echo "Vault initialised and unsealed" || { echo "Vault is still sealed"; return 1; }

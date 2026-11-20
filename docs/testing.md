@@ -222,7 +222,7 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | gitlab-runner (large) | GitLab Runner registered with that GitLab, with Kyverno (which hands the runner its token) | **PASS** on 4.1.0, 2026-11-15 ([run 43718471174](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43718471174)) | **PASS** on 4.1.0, 2026-11-15 ([run 43718471174](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/43718471174)) | Passed on 3.35.1 since 2026-11-02 too. The runner registers, loads its config from `/home/gitlab-runner/.gitlab-runner` and stays up (0 restarts). The test checks the registration log and forbids any `PANIC:`; it leaves out GitLab's registry, KAS and exporter, which the runner doesn't use |
 | authservice | Authservice 1.1.8 with Istio and its Redis | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Redis is enabled for the test, and the test sets a chain because Big Bang's wrapper emits none. Check: the Redis master stores a key and returns it; authservice accepts a connection on TCP 10003, the chart liveness port |
 | eck-operator | ECK operator 3.5 reconciling one Elasticsearch node on the org image (the elasticsearchKibana tag, mmap off) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: the Elasticsearch phase becomes Ready |
-| eck-kibana | Big Bang's elasticsearchKibana on the ECK operator: one master and one data node, one Kibana, prometheus-elasticsearch-exporter (mmap off, small heaps) | no run recorded | no run recorded | Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost) |
+| eck-kibana | Big Bang's elasticsearchKibana on the ECK operator: one master and one data node, one Kibana, prometheus-elasticsearch-exporter (mmap off, small heaps) | no run recorded | no run recorded | Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost). FIPS mode runs no Kibana: kibana-fips needs `xpack.security.fipsMode.enabled`, which Kibana allows only on a Platinum or Enterprise license (What the runtime tests found) |
 | fortify | Fortify's MySQL (Bitnami chart, org mysql) with the mysqld-exporter sidecar; SSC scaled to zero and the keystore Job off | no run recorded | no run recorded | Fortify SSC is licensed and on Iron Bank, so only its supporting images run. Check: the exporter reports mysql_up 1 |
 | anchore-enterprise | Anchore Enterprise's UI Redis (redis-bb, org redis) with the redis-exporter sidecar; every Anchore Deployment scaled to zero, the upgrade Job off | no run recorded | no run recorded | Anchore Enterprise is licensed, on Iron Bank and needs an external PostgreSQL, so only its supporting images run. Check: the exporter reports redis_up 1 |
 | sonarqube-26.10 | - | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | - |
@@ -242,6 +242,18 @@ value, or they are not in the committed overlays yet:
 - The org's `neuvector-manager-fips` repository has no tags, so `orgs/zapatatechnology.com.yaml`
   keeps the standard manager (`fips: null`). A Ready manager pod on the FIPS overlay is
   still that standard image.
+- Kibana on the FIPS overlay needs an Elastic Platinum or Enterprise license (or a 30-day
+  trial). The org's `kibana-fips` runs Node.js with FIPS on. Kibana then exits unless
+  `xpack.security.fipsMode.enabled: true` ("Configuration mismatch error. xpack.security.fipsMode.enabled
+  is set to false and the configured Node.js environment has FIPS enabled", compat/eck-kibana.yaml
+  on PR #281). With that setting on, Kibana refuses to start on ECK's default basic license:
+  its security plugin allows FIPS mode only from Platinum up ([Kibana FIPS docs](https://www.elastic.co/docs/deploy-manage/security/fips-kib),
+  [`fips_service.ts`](https://github.com/elastic/kibana/blob/f47918ff42f69287e5569d3be3a8bc852f737715/x-pack/platform/plugins/shared/security/server/fips/fips_service.ts),
+  [`license_service.ts`](https://github.com/elastic/kibana/blob/f47918ff42f69287e5569d3be3a8bc852f737715/x-pack/platform/plugins/shared/security/common/licensing/license_service.ts)
+  `allowFips: isLicensePlatinumOrBetter`). So the overlays don't set it. A FIPS site that runs Kibana adds
+  the license and `packages.elasticsearchKibana.values.kibana.config` `xpack.security.fipsMode.enabled: true`.
+  The kind test runs Kibana in standard mode only; in FIPS mode it runs Elasticsearch and the
+  exporter.
 
 | Found by | Problem | Fix |
 |---|---|---|
