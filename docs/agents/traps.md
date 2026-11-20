@@ -16,6 +16,8 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
 - **Flux fetches package charts from repo1 git at runtime**, so a repo1 outage shows up as
   a HelmRelease "chart is not ready". `bbcluster.source_problems` names the host and
   nudges Flux to retry; `--git-mirror` moves every package `git.repo` to a site mirror.
+  The kind tests use their own mirror (`scripts/bbmirror.py`), so a `repo1.dso.mil: ...
+  can't fetch` there means a package the mirror didn't hold.
 - **registry1's OCI copy of the Big Bang chart needs an Iron Bank login**; repo1's git
   archive of the same tag doesn't. `bb-install.py` downloads the archive (`fetch_chart`).
 - **Big Bang charts pin Iron Bank's uid** (Keycloak: 1000). Chainguard images run as their

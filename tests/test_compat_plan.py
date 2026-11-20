@@ -149,7 +149,7 @@ def test_a_big_bang_ref_runs_the_preview_handful(tmp_path):
 def test_the_big_bang_cache_key_follows_the_version_or_the_refs_commit(tmp_path):
     (tmp_path / "BIGBANG_VERSION").write_text("4.1.0\n")
     root = str(tmp_path)
-    assert plan_mod.bigbang_source("", root) == ("bigbang-chart-4.1.0", "4.1.0")
+    assert plan_mod.bigbang_source("", root) == ("bigbang-mirror-4.1.0", "4.1.0")
     remote = "1111111111111111\trefs/heads/release-4.2.0\n"
     key, version = plan_mod.bigbang_source("release-4.2.0", root, ls_remote=lambda ref: remote)
     assert version == "release-4.2.0" and key.startswith("bigbang-ref-release-4.2.0-111111111111-")

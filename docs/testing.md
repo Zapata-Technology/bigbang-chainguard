@@ -444,9 +444,16 @@ These are kind-on-GitHub-Actions limits, not image problems:
   the disk.
 - **Rate limits.** Lookups of Flux releases on `api.github.com` use the job's token, since
   parallel jobs share the anonymous rate limit.
+- **Package charts come from a mirror, not repo1.** compat.yml's plan job fetches every
+  package repository at the tag Big Bang pins once per Big Bang version
+  (`scripts/bbmirror.py`, cached with the Big Bang clone), and each kind test's Flux clones
+  them from the runner (`git http-backend` on the kind network's gateway). An upgrade
+  test's older release is fetched into the mirror, with retries, before it is installed. A
+  repository the mirror can't get stays on repo1. `bb-compat.py --no-git-mirror` turns it off.
 - **Known flakes are retried.** A kind test reruns once when repo1.dso.mil refuses the
-  runner (a source that can't fetch for 10 minutes ends the first try, so the retry runs
-  before the job's time limit); a build reruns once on a transient package-fetch error; a GHCR push is tried
+  runner (a source that can't fetch for 10 minutes ends the first try; the retry waits up to
+  10 minutes for repo1 to answer, and a test that still can't fetch is recorded as `error`,
+  not `fail`); a build reruns once on a transient package-fetch error; a GHCR push is tried
   three times, 30 seconds apart.
 
 ### Large tests

@@ -73,6 +73,7 @@ from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running
                        install_flux, kubectl, reconcile_helmreleases, report, sh, wait_ready)
 from release import previous_tag  # noqa: E402
 from bbinstall import releases  # noqa: E402
+import bbmirror  # noqa: E402
 
 
 def test_values(chart_values, enable):
@@ -403,6 +404,37 @@ def run_installer_release(a, test, flags, env, out):
         print(f"PROBLEM: bb-install.py upgrade --to {target} exited {rc}")
 
 
+# A fixed port, so a second run on the same cluster (compat.yml's retry) serves the URLs
+# the first run's GitRepositories already name.
+MIRROR_PORT = 18418
+
+
+def git_mirror(a):
+    """(mirror dir, URL the kind cluster reaches it at), serving it; None off kind (a site's
+    own cluster can't reach this machine) or when the kind network has no IPv4 gateway."""
+    if not a.kind_cluster or a.no_git_mirror:
+        return None
+    host = bbmirror.kind_gateway()
+    if not host:
+        print("git mirror: no kind network gateway; Flux clones from repo1.dso.mil")
+        return None
+    dest = os.path.join(a.bigbang, ".git-mirror")
+    os.makedirs(dest, exist_ok=True)
+    try:
+        server = bbmirror.serve(dest, port=MIRROR_PORT)
+    except OSError:
+        server = bbmirror.serve(dest)
+    return dest, f"http://{host}:{server.server_port}"
+
+
+def use_mirror(values, chart_values, mirror, label=""):
+    """Serve the packages in `values` (overrides on `chart_values`) from the mirror."""
+    if mirror:
+        served = bbmirror.rewrite(values, chart_values, *mirror)
+        print(f"git mirror{label}: {len(served)} package repositories served from {mirror[1]}", flush=True)
+    return values
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("compat", help="compat/<test>.yaml")
@@ -411,6 +443,8 @@ def main():
     ap.add_argument("--bigbang", default=os.path.join(ROOT, "work", "bigbang"))
     ap.add_argument("--kind-cluster", default=os.environ.get("KIND_CLUSTER"),
                     help="load images this repo builds into this kind cluster instead of pulling them")
+    ap.add_argument("--no-git-mirror", action="store_true",
+                    help="let Flux clone the package charts from repo1.dso.mil (scripts/bbmirror.py)")
     a = ap.parse_args()
 
     spec = yaml.safe_load(open(a.compat))
@@ -509,9 +543,12 @@ def main():
                 if subprocess.run(cmd, shell=True, cwd=ROOT, env=env).returncode:
                     raise SystemExit(f"\nRESULT {os.path.basename(a.compat)}: FAIL (setup failed: {cmd})")
 
+            mirror = git_mirror(a)
             chart = os.path.join(a.bigbang, "chart")
-            values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+            chart_values = yaml.safe_load(open(os.path.join(chart, "values.yaml")))
+            values = test_values(chart_values, test.get("enable", []))
             deep_merge(values, test.get("values", {}) or {})
+            use_mirror(values, chart_values, mirror)
             tv = os.path.join(secrets, "test.yaml")
             yaml.safe_dump(values, open(tv, "w"))
             # A release on an older Big Bang major installs with that chart's keys.
@@ -522,6 +559,7 @@ def main():
                                                         test.get("values", {}) or {}), old)
                 # upgrade_from.values: settings only the starting install needs, in its keys.
                 deep_merge(first_values, test["upgrade_from"].get("values") or {})
+                use_mirror(first_values, old, mirror, f" ({release or 'starting release'})")
                 tv_first = os.path.join(secrets, "test-first.yaml")
                 yaml.safe_dump(first_values, open(tv_first, "w"))
             helm_bigbang(a, test, first or out, out, tv_first, creds, f", upgrade from {release or 'the old mapping'}"
