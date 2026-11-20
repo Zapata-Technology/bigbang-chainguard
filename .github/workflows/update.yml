@@ -63,6 +63,13 @@ on:
 permissions:
   contents: read
 
+# One group for every event, dispatches included. Two runs at once would each rebuild the
+# same bot branches from main and force-push them (create-pull-request), the slower one
+# overwriting the newer one, and a release track could open a PR main already moved past
+# (#268). The cost: GitHub keeps one pending run per group and cancels an older pending one,
+# so compat.yml's record-release dispatch could be replaced by a run that does nothing
+# (a deferred push, a skipped workflow_run). record-release therefore waits until its
+# dispatched run has started and dispatches again if it was cancelled while pending.
 concurrency:
   group: update
   cancel-in-progress: false
@@ -206,6 +213,18 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
             token.actions.githubusercontent.com:443
 
+      # Before the 20 minutes of work: without the bot's token the PR can't be opened in a
+      # way that starts CI (a GITHUB_TOKEN PR runs no workflows and sits unchecked).
+      - name: A bot token is configured
+        env:
+          APP: ${{ vars.BOT_APP_CLIENT_ID }}
+          PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          [ -n "$APP" ] || [ -n "$PAT" ] || {
+            echo "::error::no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT): a pull request opened with GITHUB_TOKEN never starts CI"
+            exit 1
+          }
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Set up Helm
@@ -260,12 +279,15 @@ jobs:
             # new plugins). builds.yml builds them on this PR and pushes them once it merges.
             # The builds are independent (each writes only its builds/<name>/build.yaml and
             # mostly waits on the network), so they run in parallel; each one's output is
-            # printed in order afterwards, with how long it took.
+            # printed in order afterwards, with how long it took. A builder that fails is
+            # listed in failed-builds: the PR still opens (its body has the log), then the
+            # job fails ("Builders that failed", the last step), so the run is red, not green.
             if [ -n "$BUILD_REGISTRY" ]; then
               out="${RUNNER_TEMP}/builders"; mkdir -p "$out"
               start=$(date +%s)
               for b in grafana-plugins base devops-tester vault jmx-exporter mattermost-operator tempo-query minio-operator minio-operator-sidecar gitaly-init-cgroups registry-adapter; do
-                ( s=$(date +%s); python3 scripts/bb-build.py "$b" > "$out/$b.log" 2>&1 || true
+                ( s=$(date +%s); python3 scripts/bb-build.py "$b" > "$out/$b.log" 2>&1 \
+                    || echo "$b" >> "${RUNNER_TEMP}/failed-builds"
                   echo "bb-build.py $b: $(( $(date +%s) - s )) s" >> "$out/$b.log" ) &
               done
               wait
@@ -276,13 +298,16 @@ jobs:
               # The installer last: it pins base's kubectl -dev images, and its tag carries
               # BIGBANG_VERSION (Big Bang 4.1.0's bot PR built it as 4.0.0-..., whose bundled
               # chart the smoke test didn't find).
-              python3 scripts/bb-build.py installer 2>&1 || true
+              python3 scripts/bb-build.py installer 2>&1 || echo installer >> "${RUNNER_TEMP}/failed-builds"
               # A moved tag builds.yml hasn't published yet: keep the overlays on the
               # published one; the new build goes in the builds PR below (bot/builds-update as
               # build.yaml; the release track's as builds/<name>/release.yaml, which the
               # routine track never rewrites, so main's build.yaml doesn't flip between them).
+              # A failure here stops the job: read as "nothing held", the PR would point the
+              # overlays at tags builds.yml never published.
               held=$(python3 scripts/bb-held-builds.py hold "${RUNNER_TEMP}/held" \
-                $([ "$TRACK" = release ] && echo --release)) || held=""
+                $([ "$TRACK" = release ] && echo --release)) \
+                || { echo "::error::bb-held-builds.py hold failed: not opening a PR whose overlays may name unpublished builds" >&2; exit 1; }
               if [ -n "$held" ]; then
                 echo "held back until builds.yml publishes them from main (${BUILDS_BRANCH}):"
                 echo "$held" | sed 's/^/  /'
@@ -323,6 +348,9 @@ jobs:
             cat "${RUNNER_TEMP}/report.md"
             echo "REPORT_EOF"
           } >> "$GITHUB_OUTPUT"
+          if [ -s "${RUNNER_TEMP}/failed-builds" ]; then
+            echo "failed_builds=$(sort "${RUNNER_TEMP}/failed-builds" | paste -sd' ' -)" >> "$GITHUB_OUTPUT"
+          fi
 
       # docs/testing.md's results table: the newest result of each kind test and mode from
       # compat.yml's runs on main (artifacts on api.github.com and its blob storage, both
@@ -401,7 +429,7 @@ jobs:
           steps.ahead.outputs.stale != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
-          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
+          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT }}
           base: main
           branch: ${{ matrix.branch }}
           delete-branch: true
@@ -442,7 +470,7 @@ jobs:
           steps.hold.outputs.builds-update != 'true' && steps.hold.outputs.builds-release != 'true'
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
         with:
-          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT || github.token }}
+          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT }}
           base: main
           branch: ${{ matrix.builds_branch }}
           delete-branch: true
@@ -463,3 +491,46 @@ jobs:
             new tags, then update.yml runs again and moves the overlays in `${{ matrix.branch }}`.
             (A `builds/<name>/release.yaml` is the build pinned for the newer Big Bang release:
             builds.yml publishes it next to `build.yaml`, which stays the deployed release's.)
+
+      # Last, so the pull requests above still open with the builders' log in their body;
+      # a red run then says a builder failed instead of the run looking green.
+      - name: Builders that failed
+        if: steps.run.outputs.failed_builds != ''
+        env:
+          FAILED: ${{ steps.run.outputs.failed_builds }}
+        run: |
+          echo "::error::bb-build.py failed for: $FAILED (their log is in the PR body and this run's summary)"
+          exit 1
+
+  # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
+  # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.
+  alert:
+    needs: [plan, update]
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Keep the scheduled-failure issue current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_MENTION: ${{ vars.ALERT_MENTION }}
+          WORKFLOW: ${{ github.workflow }}
+          # A cancelled job (a time limit) is a failure too.
+          RESULT: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 scripts/ci-alert.py --workflow "$WORKFLOW" --result "$RESULT" --run-url "$RUN_URL"

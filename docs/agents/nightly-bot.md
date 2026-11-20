@@ -14,7 +14,10 @@ check or a `hold` label; a release PR waits for a person. `automerge.yml` triage
 with main's `ci-triage.py --run` and re-runs it only when every failure is a known flake; a
 real failure isn't re-run. A real failure, a failure that survived the re-run, a triage
 that couldn't read GitHub, a new release, or a commit that isn't the bot's gets the
-`needs-attention` label and a comment saying which (remove the label once handled). A flake
+`needs-attention` label and a comment saying which (remove the label once handled). So does
+a failed check whose own run automerge never saw (GitHub drops a pending run when another
+queues in its group, one group per bot branch): its last pass reads every check on the head
+commit and asks for a person unless `ci-triage.py <pr>` says it is only the missing matrix. A flake
 pattern `ci-triage.py` doesn't know yet shows up here as a real failure: add it to its
 `FLAKES` (with a test) rather than re-running by hand each time. Label the PR `hold` while you work on it:
 `update.yml` then leaves its branch alone.
@@ -25,12 +28,19 @@ EXPECTED and exits 4. `automerge.yml` then leaves the pull request open: it does
 does not re-run the job, and does not add `needs-attention`. Do not label the pull request
 `hold`, do not push to the bot branch, and do not write pass rows. The weekly `compat.yml`
 records the rest of the matrix. A release PR records its own: its new `BIGBANG_VERSION`
-runs every kind test, compat.yml's `record-release` job then dispatches `update.yml`, and the
+runs every kind test, compat.yml's `record-release` job then dispatches `update.yml` (and
+dispatches again if another update run replaced it while it was pending), and the
 release track copies those results (`test-results.py update --from-branch bot/bigbang-release`,
 this version's results only) into the PR, so its gate turns green within about an hour.
 `python scripts/test-results.py update --from-main 20`
 (or `update --run <id>`) copies real artifacts into `docs/test-results.json`. A red gate
-after that matrix is recorded is a real failure.
+after that matrix is recorded is a real failure, and so is a gate line
+`compat results FAILED: <test> (<run>)`: that test's newest standard result is a failure.
+
+A red `update.yml` run with a PR open: a builder (`bb-build.py`) failed. The PR still
+opened with the log in its body; the run's last step names the builders. It also stops
+early with no bot token (`BOT_APP_CLIENT_ID` or `RELEASE_PAT`), or when
+`bb-held-builds.py hold` fails. A scheduled failure opens a `ci-scheduled-failure` issue.
 
 1. Read the PR body: it holds the bb-convert, bb-verify, bb-scan and bb-leftovers output.
 2. *Unmapped image* → [mapping.md](mapping.md).

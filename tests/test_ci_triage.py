@@ -137,6 +137,19 @@ def test_a_missing_compat_matrix_is_expected_and_a_gate_crash_is_real():
     assert triage.outcome("verify", raw, []) is None
 
 
+def test_a_gate_that_names_a_failed_test_is_real_even_with_gaps(monkeypatch):
+    raw = ("4.1.0: compat results FAILED: loki (https://example/runs/1)\n"
+           "4.1.0: compat results are missing\n  no standard pass for 1 other tests: mimir\n")
+    assert triage.outcome("compat matrix recorded for this Big Bang version", raw, []) is None
+    assert triage.outcome("results-gate", "4.1.0: compat results FAILED: loki (u)\n", []) is None
+    monkeypatch.setattr(triage, "gh", lambda *a, **k: raw)
+    monkeypatch.setattr(triage, "failed_steps", lambda job: [])
+    [(_name, _run, code, lines)] = triage.triage("o/r", [("compat matrix recorded for this Big Bang version", "9", "3")])
+    assert code is None
+    assert "4.1.0: compat results FAILED: loki (https://example/runs/1)" in lines
+    assert not any("Do not write pass rows" in ln for ln in lines)
+
+
 def test_triage_marks_the_gate_expected_and_counts_it_apart_from_flakes(monkeypatch):
     raw = "4.1.0: compat results are missing\n"
     monkeypatch.setattr(triage, "gh", lambda *a, **k: raw)

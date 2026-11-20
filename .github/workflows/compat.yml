@@ -28,6 +28,18 @@ on:
       - scripts/bb-install.py
       - scripts/bbinstall/**
       - scripts/bbcluster.py
+      # Everything else bb-compat.py imports or runs (tests/test_compat_plan.py checks the list).
+      - scripts/bb-convert.py
+      - scripts/bbcommon.py
+      - scripts/bbmirror.py
+      - scripts/orgtags.py
+      - scripts/objstore.py
+      - scripts/fluxrelease.py
+      - scripts/release.py
+      - scripts/bb-build.py
+      - scripts/bbbuild.py
+      # An image built here: the tests that build it ({build: <name>}) and the smoke tests.
+      - builds/**
       - .github/workflows/compat.yml
   schedule:
     - cron: "0 6 * * 0"   # weekly: every test, the large ones too
@@ -68,6 +80,7 @@ permissions:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
       count: ${{ steps.m.outputs.count }}
@@ -394,7 +407,9 @@ jobs:
       github.head_ref == 'bot/bigbang-release' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Waits (sleeping) until the dispatched update.yml run has started: up to 40 minutes
+    # per try behind a running update.
+    timeout-minutes: 90
     permissions:
       actions: write    # gh workflow run update.yml
       contents: read
@@ -412,10 +427,65 @@ jobs:
       - name: Record this release's results (update.yml)
         env:
           GH_TOKEN: ${{ github.token }}
+        # update.yml has one concurrency group (two runs would race on the bot branches), and
+        # GitHub cancels a pending run there when another queues: a nightly or push run can
+        # replace this dispatch, and one that is skipped or deferred records nothing. So wait
+        # until the dispatched run has started, and dispatch again if it was cancelled first.
         run: |
+          set -euo pipefail
           if python3 scripts/results-gate.py; then
             echo "This Big Bang version's matrix is already recorded"
-          else
-            gh workflow run update.yml -R "$GITHUB_REPOSITORY" --ref main
-            echo "::notice::update.yml dispatched to record this release PR's kind test results"
+            exit 0
           fi
+          state=""
+          for try in 1 2 3; do
+            since=$(date -u -d '-10 seconds' +%Y-%m-%dT%H:%M:%SZ)
+            gh workflow run update.yml -R "$GITHUB_REPOSITORY" --ref main
+            echo "::notice::update.yml dispatched (try $try) to record this release PR's kind test results"
+            for wait in $(seq 1 80); do
+              sleep 30
+              state=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/update.yml/runs?event=workflow_dispatch&created=%3E%3D$since&per_page=1" \
+                --jq '.workflow_runs[0] | "\(.status) \(.conclusion // "-") \(.html_url)"') || state=""
+              case "$state" in
+                "in_progress "*|"completed success "*|"completed failure "*)
+                  echo "update.yml started: $state"; exit 0 ;;
+                "completed "*) break ;;   # cancelled while pending: replaced by another run
+              esac
+            done
+            echo "::warning::the dispatched update.yml run did not start (${state:-not listed})"
+          done
+          echo "::error::update.yml never started for this release PR; dispatch it by hand: gh workflow run update.yml"
+          exit 1
+
+  # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
+  # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.
+  alert:
+    needs: [plan, test, results]
+    if: always() && github.event_name == 'schedule' && inputs.bigbang_ref == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Keep the scheduled-failure issue current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_MENTION: ${{ vars.ALERT_MENTION }}
+          WORKFLOW: ${{ github.workflow }}
+          # A cancelled job (a time limit) is a failure too.
+          RESULT: ${{ (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) && 'failure' || 'success' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 scripts/ci-alert.py --workflow "$WORKFLOW" --result "$RESULT" --run-url "$RUN_URL"

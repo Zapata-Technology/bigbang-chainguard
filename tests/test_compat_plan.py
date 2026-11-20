@@ -76,6 +76,84 @@ def test_harness_flux_and_mapping_changes_run_the_smoke_tests_standard_only(tmp_
             ("metrics-server", "standard"), ("velero", "standard")], changed
 
 
+def test_the_converter_and_its_modules_run_the_smoke_tests(tmp_path):
+    root = _root(tmp_path)
+    for script in ("bb-convert", "bbcommon", "bbmirror", "orgtags", "objstore", "fluxrelease", "release"):
+        assert _tests(plan_mod.plan("pull_request", [], [f"scripts/{script}.py"], True, root)) == [
+            ("keycloak", "standard"), ("kyverno-enforce", "standard"),
+            ("metrics-server", "standard"), ("velero", "standard")], script
+
+
+def test_a_build_change_runs_the_tests_that_build_it_and_the_smoke_tests(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "compat" / "tempo-query.yaml").write_text(
+        "images:\n  ironbank/opensource/grafana/tempo-query: {build: tempo-query}\ntest:\n  enable: [tempo]\n")
+    (tmp_path / "compat" / "vault-2.yaml").write_text(
+        'images:\n  ironbank/hashicorp/vault: {build: vault, version: "*"}\ntest:\n  enable: [vault]\n')
+    smoke = [("keycloak", "standard"), ("kyverno-enforce", "standard"), ("metrics-server", "standard"),
+             ("velero", "standard")]
+    jobs = _tests(plan_mod.plan("pull_request", [], ["builds/vault/build.yaml"], True, root))
+    assert jobs == sorted(smoke + [("vault-2", "standard")])
+    jobs = _tests(plan_mod.plan("pull_request", [], ["builds/tempo-query/Dockerfile"], True, root))
+    assert jobs == sorted(smoke + [("tempo-query", "standard")])
+    # A build no test uses (base): the smoke tests alone.
+    assert _tests(plan_mod.plan("pull_request", [], ["builds/base/recipe.yaml"], True, root)) == smoke
+
+
+def test_compat_yml_paths_cover_everything_bb_compat_imports_or_runs():
+    """A change to code a kind test runs must start compat.yml (it missed bb-convert.py,
+    which writes every overlay a test deploys), and compat-plan.py must not plan nothing."""
+    import ast
+    import os
+    import re
+    import yaml
+    from conftest import ROOT, SCRIPTS
+    wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "compat.yml"), encoding="utf-8"))
+    paths = (wf[True] if True in wf else wf["on"])["pull_request"]["paths"]
+
+    def local(name):
+        for cand in (os.path.join(SCRIPTS, name + ".py"), os.path.join(SCRIPTS, name, "__init__.py")):
+            if os.path.exists(cand):
+                return cand
+        return None
+
+    def deps(path):
+        text = open(path, encoding="utf-8").read()
+        found = set()
+        for n in ast.walk(ast.parse(text)):
+            if isinstance(n, ast.Import):
+                found |= {a.name.split(".")[0] for a in n.names}
+            elif isinstance(n, ast.ImportFrom) and n.module and n.level == 0:
+                found.add(n.module.split(".")[0])
+        # Scripts it runs: os.path.join(HERE, "bb-convert.py").
+        found |= {m[:-3] for m in re.findall(r'os\.path\.join\(HERE, "([\w-]+\.py)"\)', text)}
+        return {d for d in found if local(d)}
+
+    seen, todo = set(), ["bb-compat"]
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        path = local(name)
+        if path.endswith("__init__.py"):
+            pkg = os.path.dirname(path)
+            for f in os.listdir(pkg):
+                if f.endswith(".py"):
+                    todo += deps(os.path.join(pkg, f))
+        else:
+            todo += deps(path)
+    assert {"bb-convert", "bbcommon", "orgtags", "bbmirror"} <= seen   # the walk works
+    for name in sorted(seen):
+        is_pkg = local(name).endswith("__init__.py")
+        want = f"scripts/{name}/**" if is_pkg else f"scripts/{name}.py"
+        assert want in paths, f"compat.yml's pull_request paths miss {want}"
+        changed = f"scripts/{name}/x.py" if is_pkg else want
+        assert plan_mod.CLUSTER.match(changed) or plan_mod.INSTALLER.match(changed), \
+            f"compat-plan.py plans no test for {changed}"
+    assert "builds/**" in paths
+
+
 def test_installer_support_file_and_object_storage_changes(tmp_path):
     root = _root(tmp_path)
     assert _tests(plan_mod.plan("pull_request", [], ["scripts/bbinstall/tls.py"], True, root)) == [

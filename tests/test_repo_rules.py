@@ -119,6 +119,61 @@ def test_workflows_parse_and_declare_permissions(path):
     assert "permissions" in doc, "top-level permissions keep the default token least-privilege"
 
 
+# builds.yml and release.yml get their time limits in the release hardening PR (#274), which
+# rewrites both jobs; adding them here too would only make the two PRs conflict.
+TIMEOUTS_ELSEWHERE = {"builds.yml", "release.yml"}
+
+
+@pytest.mark.parametrize("path", WORKFLOWS, ids=os.path.basename)
+def test_every_job_has_a_time_limit(path):
+    """GitHub's default is 6 hours: a hung job holds a runner (billed) and, in update.yml or
+    automerge.yml, the concurrency group every later run waits behind. A job that calls a
+    reusable workflow (`uses:`) can't set one; the called workflow's jobs do."""
+    if os.path.basename(path) in TIMEOUTS_ELSEWHERE:
+        pytest.skip("time limits come with the release hardening PR (#274)")
+    doc = yaml.safe_load(open(path, encoding="utf-8"))
+    for name, job in doc["jobs"].items():
+        if "uses" in job:
+            continue
+        assert "timeout-minutes" in job, f"{os.path.basename(path)}: job {name} has no timeout-minutes"
+
+
+# Scheduled workflows that keep one `ci-scheduled-failure` issue current (scripts/ci-alert.py).
+ALERTED = ("compat.yml", "rke2.yml", "fips-kernel.yml", "cve-report.yml", "update.yml")
+
+
+@pytest.mark.parametrize("name", ALERTED)
+def test_scheduled_failures_open_an_issue(name):
+    doc = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8"))
+    on = doc[True] if True in doc else doc["on"]   # PyYAML reads `on:` as True
+    assert "schedule" in on
+    alert = doc["jobs"]["alert"]
+    others = sorted(j for j in doc["jobs"] if j != "alert")
+    # Every job but the PR-only record-release: a failure in any of them is the run's failure.
+    assert sorted(alert["needs"]) == [j for j in others if j != "record-release"]
+    assert alert["if"].startswith("always() && github.event_name == 'schedule'")
+    assert alert["permissions"] == {"contents": "read", "issues": "write"}
+    # issues: write on that job only.
+    assert [j for j, job in doc["jobs"].items() if (job.get("permissions") or {}).get("issues")] == ["alert"]
+    steps = alert["steps"]
+    assert steps[0]["uses"].startswith("step-security/harden-runner@")
+    assert "api.github.com:443" in steps[0]["with"]["allowed-endpoints"].split()
+    run = steps[-1]
+    assert "scripts/ci-alert.py" in run["run"]
+    assert "contains(needs.*.result, 'failure')" in run["env"]["RESULT"]
+    assert "contains(needs.*.result, 'cancelled')" in run["env"]["RESULT"]
+
+
+def test_compat_alerts_only_for_its_own_schedule_and_its_caller_grants_issues():
+    """bigbang-preview.yml calls compat.yml from its own schedule (event_name 'schedule'
+    there too), with a ref: that run must not touch compat.yml's issue. GitHub checks a
+    called workflow's job permissions against the caller's before running anything."""
+    compat = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "compat.yml"), encoding="utf-8"))
+    assert "inputs.bigbang_ref == ''" in compat["jobs"]["alert"]["if"]
+    preview = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "bigbang-preview.yml"), encoding="utf-8"))
+    assert preview["jobs"]["kind"]["permissions"]["issues"] == "write"
+
+
 def test_every_workflow_pins_the_same_cosign():
     """ci.yml checks builds.yml's signing flags on the cosign it installs, so both (and
     release.yml) must install the same one, named, not the installer's moving default."""
@@ -167,11 +222,12 @@ def test_vm_scripts_check_every_download_by_sha256(path):
 
 
 def test_blocking_vm_workflows_allow_the_hosts_their_scripts_download_from():
-    for wf in WORKFLOWS:
-        text = open(wf, encoding="utf-8").read()
+    # Per job: an audit-mode VM job beside a blocking one (an `alert` job) is not blocked.
+    for wf, text in ((wf, yaml.safe_dump(job)) for wf in WORKFLOWS
+                     for job in yaml.safe_load(open(wf, encoding="utf-8"))["jobs"].values()):
         if "egress-policy: block" not in text:
             continue
-        allowed = set(re.findall(r"^\s+([\w.*-]+:\d+)$", text, re.M))
+        allowed = set(re.findall(r"([\w.*-]+:\d+)", text))
         for script in sorted(set(re.findall(r"\.github/([\w-]+\.sh)", text))):
             body = open(os.path.join(GITHUB_DIR, script), encoding="utf-8").read()
             if "vm-lib.sh" in body:

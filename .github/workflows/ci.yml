@@ -26,6 +26,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       # Chainguard org (cgr.dev/<org>). Set the CHAINGUARD_ORG repository variable to
       # override the CHAINGUARD_ORG file without a commit.

@@ -210,6 +210,9 @@ jobs:
       contents: read
       id-token: write   # Log into Chainguard
       packages: read    # BUILD_REGISTRY images
+      # compat.yml's `alert` job asks for it. It is skipped when called with a ref, but
+      # GitHub checks a called workflow's permissions before running anything.
+      issues: write
     uses: ./.github/workflows/compat.yml
     with:
       bigbang_ref: ${{ needs.refs.outputs.release }}
