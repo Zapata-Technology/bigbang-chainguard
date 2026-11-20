@@ -35,7 +35,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bbcommon import IRONBANK_HOSTS, build_registry, build_target, ironbank_refs, load_build, load_mapping, org_note, split_ref  # noqa: E402
-from orgtags import _IB_SUFFIXES, REGISTRY, OrgTags, org_name, parse, resolve  # noqa: E402
+from orgtags import _IB_SUFFIXES, REGISTRY, BuildDigests, OrgTags, org_name, parse, resolve  # noqa: E402
 import fluxrelease  # noqa: E402
 import objstore  # noqa: E402
 
@@ -73,6 +73,7 @@ class Converter:
         self.ready = set()      # (Iron Bank repo, org repo): `stays ... until` whose org repo now has tags
         self.unpin = set()      # (Iron Bank repo, org repo, Iron Bank tag): a `version` pin the org caught up with
         self.used = {}          # release -> {"standard"|"fips": {org ref}}: what digest_pins() pins
+        self.build_digest = None  # (repo, tag) -> digest of an image built here (orgtags.BuildDigests)
 
     def target(self, ib_repo, ib_tag, release):
         """(standard ref, fips ref, note) for an Iron Bank repo:tag, or None if it stays."""
@@ -104,6 +105,10 @@ class Converter:
             if ib_tag and parse(tag) and parse(ib_tag) and parse(tag)[0][:2] != parse(ib_tag)[0][:2]:
                 note += f"; VERSION DIFFERS from Big Bang's {ib_tag}"
             self.rows.append((release, ib, *t, note))
+            # Recorded for digest_pins(), which pins it once BUILD_REGISTRY has the tag.
+            used = self.used.setdefault(release, {"standard": set(), "fips": set()})
+            used["standard"].add(t[0])
+            used["fips"].add(t[1])
             return t
         if "ref" in m:
             std = f'{m["ref"]}:{m["tag"]}'
@@ -199,10 +204,23 @@ class Converter:
         for repo, tags in sorted(by_repo.items()):
             if len(tags) != 1 or repo in skip:
                 continue
-            digest = self.tags.pinned(repo[len(self.cg) + 1:], next(iter(tags)))
+            tag = next(iter(tags))
+            if repo.startswith(f"{self.cg}/"):
+                digest = self.tags.pinned(repo[len(self.cg) + 1:], tag)
+            else:
+                # An image built here (BUILD_REGISTRY): pinned too, or a push over its tag
+                # would reach every cluster unreviewed. A tag not published yet (a kind
+                # test's trial build, loaded into kind by tag) has no digest and stays a tag.
+                digest = self.build_digest_of(repo, tag)
             if digest:
                 pins.append({"name": repo, "digest": digest})
         return pins
+
+    def build_digest_of(self, repo, tag):
+        """The digest of BUILD_REGISTRY's repo:tag, or None (no registry, no login, not published)."""
+        if not (self.build_digest and self.build_registry and repo.startswith(f"{self.build_registry}/")):
+            return None
+        return self.build_digest(repo, tag)
 
     def version(self, m, ib_tag):
         """The version to match: `version`, the Iron Bank tag of `version_from`, or the image's own."""
@@ -438,7 +456,10 @@ def chart_registry_builds(mapping, c, bb_key, variant):
         t = build_target(m, c.build_registry) if isinstance(m, dict) and "build" in m else None
         if t:
             name, tag = t[variant == "fips"].rsplit(":", 1)
-            out.append({"name": f"{c.cg}/{name.rsplit('/', 1)[1]}", "newName": name, "newTag": tag})
+            entry = {"name": f"{c.cg}/{name.rsplit('/', 1)[1]}", "newName": name}
+            digest = c.build_digest_of(name, tag)
+            entry.update({"digest": digest} if digest else {"newTag": tag})
+            out.append(entry)
         else:
             out.append({"name": f"{c.cg}/{ib_repo}", "newName": f"{IRONBANK_HOSTS[0]}/{ib_repo}"})
     return out
@@ -448,9 +469,10 @@ def dump(data, header):
     return header + yaml.safe_dump(data, sort_keys=True, default_flow_style=False, width=120)
 
 
-def generate(discovered, mapping, tags, bigbang_version, registry="", strict=False):
+def generate(discovered, mapping, tags, bigbang_version, registry="", strict=False, build_digests=None):
     ib_tags = {repo: tag for info in discovered["packages"].values() for repo, tag in ironbank_refs(info) if tag}
     c = Converter(mapping, tags, registry, strict, ib_tags)
+    c.build_digest = build_digests
     std, fips = {}, {}
     flux = {"standard": [], "fips": []}
     for release, info in sorted(discovered["packages"].items()):
@@ -796,7 +818,11 @@ def registry_policies(mapping, cg, registry=""):
     Gatekeeper's allowed-docker-registries (enforcementAction deny; with Gatekeeper on,
     every org image was refused, compat/gatekeeper.yaml). Helm replaces lists, so each
     keeps Iron Bank's registries for the documented leftovers."""
-    allow = IRON_BANK_REGISTRIES + allowed_registries(mapping, cg, registry)
+    # Each entry ends in "/": Kyverno's restrict-image-registries matches with
+    # c.image.startsWith(p) (and Gatekeeper's allowed repos by prefix), so a bare
+    # "ghcr.io/<owner>" also admitted "ghcr.io/<owner>-anything/..." (anyone can register
+    # that owner) and "registry1.dso.mil" admitted "registry1.dso.mil.attacker.tld".
+    allow = [r.rstrip("/") + "/" for r in IRON_BANK_REGISTRIES + allowed_registries(mapping, cg, registry)]
     return {
         ("packages", "kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"): allow,
         ("packages", "gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"):
@@ -1033,7 +1059,12 @@ def main():
     tags = OrgTags(org, a.tags_cache, offline=a.offline)
 
     def run():
-        files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions)
+        builds = None if a.offline else BuildDigests()
+        if not a.offline and not builds:
+            print("note: no GHCR_TOKEN or GITHUB_TOKEN, so the images built here stay on their tags "
+                  "(not digest-pinned)", file=sys.stderr)
+        files, c = generate(discovered, mapping, tags, version, build_registry(a.build_registry), a.strict_versions,
+                            builds or None)
         files["docs/required-images.md"] = required_images(discovered, yaml.safe_load(open(a.mapping)), version)
         files.update(object_storage_files(objstore.kind(a.object_storage),
                                           objstore.endpoint(a.object_storage_endpoint), c, tags, version, files))

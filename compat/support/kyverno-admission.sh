@@ -15,3 +15,21 @@ if kubectl -n "$ns" run kyverno-check-bad --image=$bad --restart=Never --dry-run
 fi
 cat "$COMPAT_OUT/kyverno-refused.txt"
 grep -q restrict-image-registries "$COMPAT_OUT/kyverno-refused.txt"
+# A lookalike of the org's own registry (cgr.dev/<org>-lookalike/...): the allow list's
+# entries end in "/", so a prefix match no longer admits a neighbouring namespace that
+# anyone could register (ghcr.io/<owner>-evil, registry1.dso.mil.attacker.tld).
+# A release before that fix (the one release-upgrade starts from) still has the bare
+# entries: there the lookalike is admitted, as expected, so the check only runs on an
+# allow list whose org entry ends in "/".
+prefix=$(echo "$img" | cut -d/ -f1-2)
+policies=$(kubectl get validatingpolicies.policies.kyverno.io,clusterpolicies.kyverno.io -o yaml 2>/dev/null || true)
+if ! printf '%s\n' "$policies" | grep -qE "$(printf '%s' "$prefix" | sed 's/[.]/[.]/g')/([\\\"' ,]|\]|$)"; then
+  echo "skipped the lookalike check: this release's allow list predates the trailing \"/\""
+  exit 0
+fi
+look=$(echo "$img" | sed -E 's#^([^/]+/[^/@:]+)/#\1-lookalike/#; s#@sha256:.*##; s#:[^/]*$##'):1
+if kubectl -n "$ns" run kyverno-check-lookalike --image="$look" --restart=Never --dry-run=server --overrides="$(spec "$look")" -o name 2>"$COMPAT_OUT/kyverno-lookalike.txt"; then
+  echo "admitted $look"; exit 1
+fi
+grep -q restrict-image-registries "$COMPAT_OUT/kyverno-lookalike.txt"
+echo "refused $look"

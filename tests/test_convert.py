@@ -94,12 +94,27 @@ def test_both_registry_policies_admit_the_org_builds_and_iron_bank():
     # Gatekeeper's constraint refused every org image (compat/gatekeeper.yaml); Helm
     # replaces lists, so Iron Bank's registries must stay for the documented leftovers.
     policies = convert.registry_policies(MAPPING, "cgr.dev/example.com", "ghcr.io/me")
-    expected = ["registry1.dso.mil", "registry.dso.mil", "cgr.dev/example.com", "ghcr.io/me"]
+    # Each ends in "/": the policies match prefixes, and a bare "ghcr.io/me" also admitted
+    # "ghcr.io/me-evil/..." and "registry1.dso.mil" admitted "registry1.dso.mil.evil.tld".
+    expected = ["registry1.dso.mil/", "registry.dso.mil/", "cgr.dev/example.com/", "ghcr.io/me/"]
     assert policies == {
         ("packages", "kyvernoPolicies", "values", "policies", "restrict-image-registries", "parameters", "allow"):
             expected,
         ("packages", "gatekeeper", "values", "violations", "allowedDockerRegistries", "parameters", "repos"): expected,
     }
+
+
+def test_images_built_here_are_digest_pinned_when_published():
+    """0 of 55 ghcr.io refs were pinned (2026-11-20): a push over a tag reached clusters."""
+    c = convert.Converter(MAPPING, FakeTags({}), "ghcr.io/me")
+    c.used = {"r": {"standard": {"ghcr.io/me/bigbang-base:2.1", "ghcr.io/me/bigbang-new:9",
+                                 "ghcr.io/other/x:1"}, "fips": set()}}
+    published = {("ghcr.io/me/bigbang-base", "2.1"): "sha256:" + "c" * 64}
+    c.build_digest = lambda repo, tag: published.get((repo, tag))
+    assert c.digest_pins("r", "standard") == [{"name": "ghcr.io/me/bigbang-base", "digest": "sha256:" + "c" * 64}]
+    # Without a login (or offline) nothing built here is pinned, as before.
+    c.build_digest = None
+    assert c.digest_pins("r", "standard") == []
 
 
 def test_allowed_registries():
@@ -535,9 +550,15 @@ def test_chart_registry_builds_move_the_built_image_to_build_registry(monkeypatc
     monkeypatch.setattr(convert, "build_target", lambda m, reg: (f"{reg}/bigbang-x:v1", f"{reg}/bigbang-x-fips:v1")
                         if reg else None)
     mapping = {"chart_registry_builds": {"packages.neuvector": ["ironbank/x"]}}
-    c = type("C", (), {"images": {"ironbank/x": {"build": "x"}}, "cg": "cgr.dev/org", "build_registry": "ghcr.io/o"})
+    c = type("C", (), {"images": {"ironbank/x": {"build": "x"}}, "cg": "cgr.dev/org", "build_registry": "ghcr.io/o",
+                       "build_digest_of": staticmethod(lambda repo, tag: None)})
     assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") == \
         [{"name": "cgr.dev/org/bigbang-x", "newName": "ghcr.io/o/bigbang-x", "newTag": "v1"}]
+    # Published: pinned by digest instead of the tag.
+    c.build_digest_of = staticmethod(lambda repo, tag: "sha256:" + "b" * 64)
+    assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "standard") == \
+        [{"name": "cgr.dev/org/bigbang-x", "newName": "ghcr.io/o/bigbang-x", "digest": "sha256:" + "b" * 64}]
+    c.build_digest_of = staticmethod(lambda repo, tag: None)
     assert convert.chart_registry_builds(mapping, c, "packages.neuvector", "fips")[0]["newName"] == "ghcr.io/o/bigbang-x-fips"
     assert convert.chart_registry_builds(mapping, c, "packages.argocd", "standard") == []
     # No BUILD_REGISTRY: the image stays on Iron Bank, but the chart still puts the org's

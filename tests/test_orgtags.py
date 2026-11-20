@@ -82,3 +82,20 @@ def test_prefetch_fills_the_cache_and_leaves_out_what_failed(monkeypatch):
     assert t.pinned("b", "2") is None and t.record_digests == {("b", "2")} and "b:2" not in t.digests
     t.record_digests = None
     assert t.pinned("b", "2") == "sha256:b2"
+
+
+def test_build_digests_needs_a_login_and_answers_none_on_any_failure(monkeypatch):
+    """A built image the lookup can't resolve stays on its tag: never a broken pin."""
+    import orgtags
+    for k in ("GHCR_TOKEN", "GITHUB_TOKEN", "GHCR_USER"):
+        monkeypatch.delenv(k, raising=False)
+    assert not orgtags.BuildDigests()
+    d = orgtags.BuildDigests(token="t")
+    calls = []
+
+    def boom(repo, tag):
+        calls.append((repo, tag))
+        raise OSError("ghcr.io unreachable")
+    monkeypatch.setattr(d, "_digest", boom)
+    assert d("ghcr.io/o/bigbang-base", "1") is None
+    assert d("ghcr.io/o/bigbang-base", "1") is None and len(calls) == 1   # cached
