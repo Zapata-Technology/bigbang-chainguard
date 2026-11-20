@@ -604,3 +604,29 @@ def test_a_version_pin_on_iron_banks_own_line_says_nothing():
                           FakeTags({"sq": ["26.10.1"]}))
     c.target("ironbank/sq", "26.10.0", "sonarqube")
     assert "PINNED" not in c.rows[-1][-1] and not c.unpin
+
+
+def test_a_package_without_post_renderers_is_pinned_through_its_digest_values():
+    """Keycloak (mapping no_post_renderers) ran on tags; its charts take image.digest."""
+    c = convert.Converter(MAPPING, FakeTags({"keycloak": ["26.8.2"], "keycloak-fips": ["26.8.2"],
+                                             "postgres": ["18.7"], "postgres-fips": ["18.7"]},
+                                            org="example.com"))
+    c.cg = "cgr.dev/example.com"
+    std = {"upstream": {"image": {"repository": "cgr.dev/example.com/keycloak", "tag": "26.8.2"}},
+           "postgresql": {"image": {"registry": "cgr.dev/example.com", "repository": "postgres", "tag": "18.7"}},
+           "bbtests": {"image": "ghcr.io/me/bigbang-base:1"}}
+    # The FIPS overlay layers on top and changes only the repositories here.
+    fips = {"upstream": {"image": {"repository": "cgr.dev/example.com/keycloak-fips"}},
+            "postgresql": {"image": {"repository": "postgres-fips"}}}
+    convert.value_digest_pins(std, c)
+    convert.value_digest_pins(fips, c, base=std)
+    pin = c.tags.pinned
+    assert std["upstream"]["image"]["digest"] == pin("keycloak", "26.8.2")
+    assert std["postgresql"]["image"]["digest"] == pin("postgres", "18.7")
+    assert fips["upstream"]["image"]["digest"] == pin("keycloak-fips", "26.8.2") != std["upstream"]["image"]["digest"]
+    assert fips["postgresql"]["image"]["digest"] == pin("postgres-fips", "18.7")
+    assert std["bbtests"]["image"] == "ghcr.io/me/bigbang-base:1"   # a plain string: untouched
+    # mapping unpinned keeps a tag.
+    other = {"image": {"repository": "cgr.dev/example.com/keycloak", "tag": "26.8.2"}}
+    convert.value_digest_pins(other, c, skip={"keycloak"})
+    assert "digest" not in other["image"]

@@ -443,6 +443,35 @@ class Converter:
         return out
 
 
+def value_digest_pins(node, c, skip=(), base=None):
+    """Set `digest` beside each image the values name ({registry?, repository, tag}), in
+    place: for a package with no post-renderers, whose images otherwise ran on tags
+    (Keycloak and its Postgres; Chainguard rebuilds under the same tag, and the 2026-10-30
+    keycloak rebuild broke Big Bang's uid). keycloakx and Bitnami's postgresql both render
+    `repository@digest` when `image.digest` is set, and keep the tag for labels. `base`: the
+    same node in the standard tree, so a FIPS image that changes only its tag or repository
+    gets its own digest (the FIPS overlay layers on top; without one it would inherit the
+    standard image's). An image the org can't resolve, or in `skip` (mapping unpinned),
+    keeps its tag."""
+    if not isinstance(node, dict):
+        return
+    b = base if isinstance(base, dict) else {}
+    if "tag" in node or "repository" in node:
+        reg, repo, tag = (node.get(k, b.get(k)) for k in ("registry", "repository", "tag"))
+        full = f"{reg}/{repo}" if reg and repo else repo
+        digest = None
+        if isinstance(full, str) and tag is not None:
+            if full.startswith(f"{c.cg}/") and full[len(c.cg) + 1:] not in skip:
+                digest = c.tags.pinned(full[len(c.cg) + 1:], str(tag))
+            else:
+                digest = c.build_digest_of(full, str(tag))
+        if digest:
+            node["digest"] = digest
+    for k, v in node.items():
+        if isinstance(v, dict):
+            value_digest_pins(v, c, skip, b.get(k))
+
+
 def chart_registry_builds(mapping, c, bb_key, variant):
     """Kustomize image rewrites for images this repo builds in a chart that prefixes every
     image with one chart-wide registry (mapping chart_registry_builds): the overlay sets that
@@ -571,8 +600,13 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
         if f:
             set_path(fips, key + root, _merge(_get(fips, key + root), f))
         # Org images pinned to today's digests (Converter.digest_pins); after values, so
-        # the images the values just set are covered. Not for a package whose Big Bang
-        # template can't take post-renderers (mapping no_post_renderers).
+        # the images the values just set are covered. A package whose Big Bang template
+        # can't take post-renderers (mapping no_post_renderers: Keycloak) is pinned through
+        # its charts' own `image.digest` values instead (value_digest_pins).
+        if info["key"] in mapping.get("no_post_renderers", {}):
+            skip = set(c.unpinned.get(release, {}))
+            value_digest_pins(_get(std, key), c, skip)
+            value_digest_pins(_get(fips, key), c, skip, base=_get(std, key))
         for tree, variant in (() if info["key"] in mapping.get("no_post_renderers", {})
                               else ((std, "standard"), (fips, "fips"))):
             pins = c.digest_pins(release, variant) + chart_registry_builds(mapping, c, info["key"], variant)
