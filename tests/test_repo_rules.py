@@ -157,7 +157,7 @@ def test_scheduled_failures_open_an_issue(name):
     assert [j for j, job in doc["jobs"].items() if (job.get("permissions") or {}).get("issues")] == ["alert"]
     steps = alert["steps"]
     assert steps[0]["uses"].startswith("step-security/harden-runner@")
-    assert "api.github.com:443" in steps[0]["with"]["allowed-endpoints"].split()
+    assert steps[0]["with"]["allowed-endpoints"].split().count("api.github.com:443") == 1
     run = steps[-1]
     assert "scripts/ci-alert.py" in run["run"]
     assert "contains(needs.*.result, 'failure')" in run["env"]["RESULT"]
