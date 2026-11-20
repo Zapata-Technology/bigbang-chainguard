@@ -131,7 +131,7 @@ def main():
                 "#   ./push-git.sh https://git.site.example/bigbang\n"
                 "# Create the repositories first if the server doesn't on push.\nset -e\ncd \"$(dirname \"$0\")\"\n"
                 + "\n".join(lines) + "\n")
-    os.chmod(os.path.join(a.out, "push-git.sh"), 0o750)   # executable; nobody else needs to read it
+    os.chmod(os.path.join(a.out, "push-git.sh"), 0o700)   # the operator runs it; nobody else needs it
 
     step("images")
     images = image_list(open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read(),

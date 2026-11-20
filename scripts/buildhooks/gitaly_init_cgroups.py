@@ -128,7 +128,6 @@ def smoke_test(image, variant, spec, r=None):
     failed = []
     root = tempfile.mkdtemp(prefix="gic-")
     try:
-        os.chmod(root, 0o711)   # the container's user must traverse it, not list it
         pod_uid = str(uuid.uuid4())
         expect = cgroup_tree(root, pod_uid)
         ran = run_like_the_chart(image, root, pod_uid)
