@@ -113,3 +113,25 @@ def test_a_shallow_clone_at_the_tag_comes_back_over_smart_http(tmp_path, upstrea
         assert (out / "chart" / "Chart.yaml").read_text() == "name: keycloak\n"
     finally:
         server.shutdown()
+
+
+def test_a_git_call_that_stalls_fails_instead_of_hanging(monkeypatch):
+    """2026-11-20: repo1 answered and then sent nothing; a clone hung for 60 minutes."""
+    import bbcommon
+
+    def stall(cmd, **kw):
+        assert kw["timeout"] == 5 and "http.lowSpeedTime=60" in cmd
+        raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+    monkeypatch.setattr(bbcommon.subprocess, "run", stall)
+    p = bbcommon.git_network("fetch", "x", timeout=5)
+    assert p.returncode == 124 and "no answer in 5 s" in p.stderr
+
+
+def test_no_fetch_starts_after_the_deadline(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(bbmirror, "git_network", lambda *a, **k: calls.append(a) or
+                        subprocess.CompletedProcess(a, 1, "", "stalled"))
+    dest = str(tmp_path / "mirror")
+    assert not bbmirror.fetch(dest, KC, "1.0.0-bb.0", attempts=3, pause=0, deadline=0)
+    assert calls == []   # the deadline (monotonic 0) is long past: nothing tried
+    assert bbmirror.fetch_all(dest, values(), attempts=1, pause=0, budget=-1) == [(KC, "1.0.0-bb.0")]

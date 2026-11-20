@@ -33,7 +33,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, bigbang_packages  # noqa: E402
+from bbcommon import GIT_NETWORK, ROOT, bigbang_packages  # noqa: E402
 from bbinstall.chart import BIGBANG_GIT, REPO1, fetch_chart  # noqa: E402
 from bbinstall.checkout import Checkout  # noqa: E402
 from bbinstall.common import say, step  # noqa: E402
@@ -122,8 +122,8 @@ def main():
     for url, tag in repos:
         path = url[len(REPO1):]
         dest = os.path.join(a.out, "git", path)
-        subprocess.run(["git", "clone", "--quiet", "--bare", "--single-branch", "--branch", tag, url, dest],
-                       check=True)
+        subprocess.run(["git", *GIT_NETWORK, "clone", "--quiet", "--bare", "--single-branch", "--branch", tag,
+                        url, dest], check=True)
         lines.append(f'git -C "git/{path}" push "$1/{path}" "refs/tags/{tag}"')
         say(f"  {path} {tag}")
     with open(os.path.join(a.out, "push-git.sh"), "w", encoding="utf-8", newline="\n") as f:

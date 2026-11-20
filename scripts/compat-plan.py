@@ -227,8 +227,12 @@ def remote_refs(ref, attempts=4):
     """git ls-remote for one ref; retries: repo1.dso.mil intermittently refuses GitHub runners."""
     err = ""
     for i in range(attempts):
-        p = subprocess.run(["git", "ls-remote", BIGBANG_GIT, f"refs/heads/{ref}", f"refs/tags/{ref}",
-                            f"refs/tags/{ref}^{{}}"], capture_output=True, text=True)
+        try:   # repo1 can also answer and then stall: abort a dead transfer, cap the call
+            p = subprocess.run(["git", "-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60",
+                                "ls-remote", BIGBANG_GIT, f"refs/heads/{ref}", f"refs/tags/{ref}",
+                                f"refs/tags/{ref}^{{}}"], capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            p = subprocess.CompletedProcess([], 124, "", "git ls-remote: no answer in 120 s")
         if p.returncode == 0:
             return p.stdout
         err = p.stderr.strip()

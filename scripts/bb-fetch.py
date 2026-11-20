@@ -9,7 +9,6 @@ Shallow clones from repo1.dso.mil; no credentials needed.
 import argparse
 import os
 import shutil
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bbcommon import bigbang_packages  # noqa: E402
+from bbcommon import bigbang_packages, git_network  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIGBANG = "https://repo1.dso.mil/big-bang/bigbang.git"
@@ -29,8 +28,8 @@ def clone(url, tag, dest, attempts=4):
         return None
     err = ""
     for i in range(attempts):
-        p = subprocess.run(["git", "-c", "advice.detachedHead=false", "clone", "-q", "--depth", "1",
-                            "--branch", tag, url, dest], capture_output=True, text=True)
+        p = git_network("-c", "advice.detachedHead=false", "clone", "-q", "--depth", "1",
+                        "--branch", tag, url, dest)
         if p.returncode == 0:
             return None
         err = p.stderr.strip()

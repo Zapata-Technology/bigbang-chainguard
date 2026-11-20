@@ -31,7 +31,7 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import ROOT, bigbang_packages  # noqa: E402
+from bbcommon import ROOT, bigbang_packages, git_network  # noqa: E402
 
 REPO1 = "https://repo1.dso.mil/"
 DEFAULT_DEST = os.path.join(ROOT, "work", "bigbang", ".git-mirror")
@@ -67,8 +67,9 @@ def has_tag(dest, repo, tag):
                                        cwd=bare).returncode == 0
 
 
-def fetch(dest, repo, tag, attempts=4, pause=30):
-    """Fetch one tag (one commit deep) into the mirror; True once the mirror has it."""
+def fetch(dest, repo, tag, attempts=4, pause=30, deadline=None):
+    """Fetch one tag (one commit deep) into the mirror; True once the mirror has it.
+    `deadline` (time.monotonic()): no new attempt starts after it."""
     if has_tag(dest, repo, tag):
         return True
     bare = bare_path(dest, repo)
@@ -77,7 +78,11 @@ def fetch(dest, repo, tag, attempts=4, pause=30):
         git("init", "-q", "--bare", bare)
     err = ""
     for i in range(attempts):
-        p = git("fetch", "-q", "--depth", "1", "--no-tags", repo, f"+refs/tags/{tag}:refs/tags/{tag}", cwd=bare)
+        if deadline is not None and time.monotonic() > deadline:
+            err = err or "out of time"
+            break
+        p = git_network("fetch", "-q", "--depth", "1", "--no-tags", repo,
+                        f"+refs/tags/{tag}:refs/tags/{tag}", cwd=bare, timeout=180)
         if p.returncode == 0:
             return True
         err = p.stderr.strip()
@@ -87,11 +92,14 @@ def fetch(dest, repo, tag, attempts=4, pause=30):
     return False
 
 
-def fetch_all(dest, values, attempts=4, pause=30):
-    """Every tagged repo1 package in `values`; returns the (repo, tag) pairs it couldn't get."""
+def fetch_all(dest, values, attempts=4, pause=30, budget=900):
+    """Every tagged repo1 package in `values`, within `budget` seconds (a partial mirror
+    still helps: the rest stays on repo1); returns the (repo, tag) pairs it couldn't get."""
     wanted = sorted({(repo, tag) for _, _, repo, tag in sources(values)})
+    deadline = time.monotonic() + budget
     with ThreadPoolExecutor(max_workers=8) as pool:
-        got = list(pool.map(lambda rt: fetch(dest, *rt, attempts=attempts, pause=pause), wanted))
+        got = list(pool.map(lambda rt: fetch(dest, *rt, attempts=attempts, pause=pause, deadline=deadline),
+                            wanted))
     return [rt for rt, ok in zip(wanted, got) if not ok]
 
 

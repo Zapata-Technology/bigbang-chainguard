@@ -10,7 +10,7 @@ import urllib.request
 
 import yaml
 
-from bbcommon import ROOT, bigbang_packages
+from bbcommon import GIT_NETWORK, ROOT, bigbang_packages
 from bbinstall.common import say
 from bbinstall.sitefile import set_key
 
@@ -54,7 +54,8 @@ def clone_chart(version, mirror, cache=CHART_CACHE):
         return chart
     shutil.rmtree(dest, ignore_errors=True)
     url = mirrored(BIGBANG_GIT, mirror)
-    if subprocess.run(["git", "clone", "--quiet", "--depth", "1", "--branch", version, url, dest]).returncode:
+    if subprocess.run(["git", *GIT_NETWORK, "clone", "--quiet", "--depth", "1", "--branch", version, url,
+                       dest]).returncode:   # GIT_NETWORK: a stalled server fails, not hangs
         raise SystemExit(f"could not clone Big Bang {version} from {url}")
     return chart
 
