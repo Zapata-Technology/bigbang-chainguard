@@ -2,6 +2,7 @@
 import io
 import os
 import re
+import subprocess
 import tarfile
 
 import yaml
@@ -247,6 +248,22 @@ def bigbang_packages(values):
     found.update({f"addons.{k}": x for k, x in (values.get("addons") or {}).items()})
     return {k: x for k, x in found.items()
             if isinstance(x, dict) and isinstance(x.get("git"), dict) and x["git"].get("repo")}
+
+
+# repo1.dso.mil sometimes accepts a connection and then sends nothing: git waits forever
+# (2026-11-20: an update run hung 60 minutes in a clone, a compat plan job 25 minutes in
+# the mirror fetch). Abort a transfer slower than 1 KB/s for 60 s, and cap each call.
+GIT_NETWORK = ("-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60")
+
+
+def git_network(*args, cwd=None, timeout=300):
+    """`git <args>` for a call that talks to a remote: aborts a stalled transfer and
+    returns a failed CompletedProcess (rc 124) instead of hanging past `timeout` seconds."""
+    cmd = ["git", *GIT_NETWORK, *args]
+    try:
+        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(cmd, 124, "", f"git {args[0]}: no answer in {timeout} s")
 
 
 def deep_merge(a, b):

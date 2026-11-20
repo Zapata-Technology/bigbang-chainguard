@@ -66,8 +66,8 @@ import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from bbcommon import (ROOT, bigbang_packages, build_registry, deep_merge, is_bigbang4, load_build,  # noqa: E402
-                      load_mapping, running_image_problems)
+from bbcommon import (ROOT, bigbang_packages, build_registry, deep_merge, git_network, is_bigbang4,  # noqa: E402
+                      load_build, load_mapping, running_image_problems)
 from orgtags import org_name  # noqa: E402
 from bbcluster import (PodLogKeeper, dockerconfig, hr_namespaces, images_running,  # noqa: E402
                        install_flux, kubectl, reconcile_helmreleases, report, sh, wait_ready)
@@ -206,7 +206,7 @@ def fetch_release(dest, start="previous"):
         return tag, None
     chart = os.path.join(dest, "bigbang")
     for _ in range(4):   # repo1.dso.mil intermittently refuses GitHub runners
-        if not sh("git", "clone", "-q", "--depth", "1", "--branch", version, BIGBANG_GIT, chart, check=False):
+        if git_network("clone", "-q", "--depth", "1", "--branch", version, BIGBANG_GIT, chart).returncode == 0:
             return tag, os.path.join(chart, "chart")
         sh("rm", "-rf", chart, check=False)
     raise SystemExit(f"upgrade_from.release: cloning Big Bang {version} (what {tag} deploys) failed")

@@ -109,7 +109,9 @@ jobs:
           TAG: ${{ steps.m.outputs.bigbang-version }}
         run: |
           for i in 1 2 3 4 5 6; do   # repo1.dso.mil intermittently refuses GitHub runners
-            git clone -q --depth 1 --branch "$TAG" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
+            # ... or answers and then stalls: abort a dead transfer, cap each try.
+            timeout 300 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 \
+              clone -q --depth 1 --branch "$TAG" https://repo1.dso.mil/big-bang/bigbang.git work/bigbang && break
             rm -rf work/bigbang; sleep $((30 * i))
           done
           test -d work/bigbang/chart
@@ -143,6 +145,10 @@ jobs:
       # can't get stays on repo1 (bb-compat.py also fetches it, with retries, if a test needs it).
       - name: Mirror the package repositories (cache miss only)
         if: steps.cache.outputs.cache-hit != 'true'
+        # Best effort: a repository it can't get stays on repo1, so it never fails the run
+        # (2026-11-20: a stalled repo1 failed #271's plan job here). bbmirror.py stops
+        # starting fetches after 15 minutes.
+        continue-on-error: true
         timeout-minutes: 25
         run: |
           python3 -m pip install --quiet -r requirements.txt
