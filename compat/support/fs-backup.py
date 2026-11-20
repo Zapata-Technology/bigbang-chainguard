@@ -92,7 +92,11 @@ def setup():
     kubectl("apply", "-f", "-", stdin=secret)
     apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "compat-data", "namespace": NS},
            "data": {"answer": "backed-up"}})
-    apply({"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": PVC, "namespace": NS},
+    # kind's local-path provisioner makes hostPath PVs by default, and Velero skips those
+    # ("a hostPath volume which is not supported for pod volume backup", 2026-11-20): ask
+    # it for a `local` PV, which file-system backup handles like a site's CSI volume.
+    apply({"apiVersion": "v1", "kind": "PersistentVolumeClaim",
+           "metadata": {"name": PVC, "namespace": NS, "annotations": {"volumeType": "local"}},
            "spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "64Mi"}}}})
     image = busybox(out, fips)
     apply(pod(image, token))
