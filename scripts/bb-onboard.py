@@ -54,7 +54,7 @@ READER_CAPABILITY = "registry.entitlements.list"
 # Every secret and variable .github/workflows/*.yml reads (tests/test_onboard.py checks this
 # list against the workflows, so a new one can't be missed here or in docs/your-org.md).
 # (name, required | recommended | optional, what it does)
-SECRETS = [
+PRIVATE_SETTINGS = [
     ("CGR_ACTIONS_ID", "required",
      "id of the Chainguard identity CI assumes (step 4): every workflow that pulls from the org"),
     ("BOT_APP_PRIVATE_KEY", "optional",
@@ -319,9 +319,9 @@ class Onboard:
                 continue
             self.change(variable_set(self.repo, name, value), f"set repository variable {name}")
         self.note("secrets (set them yourself; never paste a value into a shared terminal or log):")
-        for name, need, what in SECRETS:
+        for name, need, what in PRIVATE_SETTINGS:
             self.note(f"  {name:20} {need:9} {what}")
-        for name, _, _ in SECRETS:
+        for name, _, _ in PRIVATE_SETTINGS:
             value = os.environ.get(name)
             if value:
                 # The value goes in on stdin, never on the command line or in the output.

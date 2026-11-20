@@ -49,7 +49,7 @@ def workflow_refs():
 
 def test_every_workflow_secret_and_variable_is_listed_and_documented():
     refs = workflow_refs()
-    assert {n for n, _, _ in onboard.SECRETS} == refs["secrets"]
+    assert {n for n, _, _ in onboard.PRIVATE_SETTINGS} == refs["secrets"]
     assert {n for n, _, _ in onboard.VARIABLES} == refs["vars"]
     doc = open(os.path.join(ROOT, "docs", "your-org.md"), encoding="utf-8").read()
     for name in refs["secrets"] | refs["vars"]:
