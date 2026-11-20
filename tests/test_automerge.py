@@ -99,7 +99,7 @@ def test_update_leaves_a_held_bot_pr_alone_and_has_a_time_limit():
     on = UPDATE[True] if True in UPDATE else UPDATE["on"]
     assert "mapping.yaml" in on["push"]["paths"] and on["push"]["branches"] == ["main"]
     for name in ("Open the pull request", "Open the builds pull request"):
-        assert steps[name]["with"]["token"].startswith("${{ steps.app.outputs.token ||")
+        assert steps[name]["with"]["token"] == "${{ steps.app.outputs.token || secrets.RELEASE_PAT }}"
 
 
 FAKE_GH = r'''#!/usr/bin/env python3
@@ -228,6 +228,48 @@ def test_a_real_first_failure_asks_for_a_person_without_a_re_run(tmp_path):
 def test_a_triage_that_couldnt_read_github_fails_closed(tmp_path):
     p, log = run_merge(tmp_path, green(), conclusion="cancelled", attempt="1", triage_rc=3)
     assert "run rerun" not in log and "pr merge" not in log and "needs-attention" in log
+
+
+def test_each_bot_branch_has_its_own_concurrency_group():
+    """GitHub keeps one pending run per group: a shared group dropped one branch's event."""
+    assert WF["concurrency"]["group"] == "automerge-${{ github.event.workflow_run.head_branch }}"
+    assert WF["concurrency"]["cancel-in-progress"] is False
+
+
+def test_no_merge_token_fails_the_run():
+    guard = next(ln for ln in STEP["run"].splitlines() if '[ -n "$MERGE_TOKEN" ]' in ln)
+    assert "exit 1" in guard and "::error::" in guard
+
+
+def failed_check(**over):
+    return green(**{"commits/abc/check-runs?per_page=100&page=1": {"check_runs": [
+        {"status": "completed", "conclusion": "success", "name": "verify"},
+        {"status": "completed", "conclusion": "failure", "name": "loki (standard)"}]}, **over})
+
+
+def test_a_failed_check_whose_event_was_dropped_asks_for_a_person(tmp_path):
+    """This run passed, but another run's failure on the head commit was never triaged."""
+    p, log = run_merge(tmp_path, failed_check(), conclusion="success", triage_rc=1)
+    assert p.returncode == 0, p.stderr
+    assert "triage 7" in log and "labels[]=needs-attention" in log and "issues/7/comments" in log
+    assert "pr merge" not in log
+    for rc in ("2", "3"):
+        (tmp_path / rc).mkdir()
+        p, log = run_merge(tmp_path / rc, failed_check(), conclusion="success", triage_rc=int(rc))
+        assert "labels[]=needs-attention" in log and "pr merge" not in log, rc
+
+
+def test_a_failed_check_that_is_only_the_missing_matrix_stays_quiet(tmp_path):
+    p, log = run_merge(tmp_path, failed_check(), conclusion="success", triage_rc=4)
+    assert p.returncode == 0, p.stderr
+    assert "triage 7" in log and "needs-attention" not in log and "pr merge" not in log
+
+
+def test_a_failed_check_already_labeled_is_not_triaged_again(tmp_path):
+    p, log = run_merge(tmp_path, failed_check(**{"issues/7/labels": [{"name": "needs-attention"}]}),
+                       conclusion="success", triage_rc=1)
+    assert p.returncode == 0, p.stderr
+    assert "triage" not in log and "-X POST" not in log and "pr merge" not in log
 
 
 def test_the_re_run_uses_mains_triage_not_the_pull_requests_code():
@@ -403,3 +445,97 @@ def test_a_push_that_builds_yml_also_runs_for_waits_for_builds_yml():
     assert plan["permissions"]["actions"] == "read"
     assert plan["steps"][0]["with"]["allowed-endpoints"].split().count("api.github.com:443") == 1
     assert UPDATE["jobs"]["update"]["if"] == "needs.plan.outputs.defer != 'true'"
+
+
+def test_update_fails_on_a_builder_failure_after_opening_its_prs():
+    """`bb-build.py ... || true` turned a broken build into a green run."""
+    steps = UPDATE["jobs"]["update"]["steps"]
+    run = next(s for s in steps if s.get("id") == "run")["run"]
+    for ln in run.splitlines():
+        if "bb-build.py" in ln and "scripts/" in ln:
+            assert "|| true" not in ln, ln.strip()
+    assert run.count('>> "${RUNNER_TEMP}/failed-builds"') == 2     # the parallel builders and the installer
+    assert "failed_builds=" in run
+    names = [s.get("name") for s in steps]
+    last = steps[-1]
+    assert last["name"] == "Builders that failed"
+    assert names.index("Open the builds pull request") < names.index("Builders that failed")
+    assert last["if"] == "steps.run.outputs.failed_builds != ''"
+    assert "::error::" in last["run"] and "exit 1" in last["run"]
+
+
+def test_update_stops_when_the_held_builds_cant_be_read():
+    run = next(s for s in UPDATE["jobs"]["update"]["steps"] if s.get("id") == "run")["run"]
+    hold = run[run.index("held=$(python3 scripts/bb-held-builds.py hold"):run.index('if [ -n "$held" ]')]
+    assert '|| held=""' not in run
+    assert "exit 1" in hold and "::error::" in hold
+
+
+def test_update_needs_the_bot_token_before_doing_any_work():
+    steps = UPDATE["jobs"]["update"]["steps"]
+    names = [s.get("name") for s in steps]
+    check = steps[names.index("A bot token is configured")]
+    assert names.index("A bot token is configured") < names.index("Discover, convert, verify")
+    assert check["env"] == {"APP": "${{ vars.BOT_APP_CLIENT_ID }}", "PAT": "${{ secrets.RELEASE_PAT }}"}
+    assert "no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT)" in check["run"] and "exit 1" in check["run"]
+    assert "github.token }}" not in str([s.get("with", {}).get("token") for s in steps])
+
+
+def test_update_keeps_one_concurrency_group():
+    """Two update runs at once would race on the bot branches; record-release re-dispatches."""
+    assert UPDATE["concurrency"] == {"group": "update", "cancel-in-progress": False}
+
+
+COMPAT = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "compat.yml"), encoding="utf-8"))
+RECORD = next(s for s in COMPAT["jobs"]["record-release"]["steps"] if "gh workflow run update.yml" in s.get("run", ""))
+
+
+def run_record(tmp_path, states, gate_rc=1):
+    """record-release's step with fake gh (each `api` call answers the next of `states`),
+    python3 (the results gate exits gate_rc) and sleep. Returns (process, gh log)."""
+    import shutil
+    import subprocess
+    import pytest
+    if os.name == "nt" or not shutil.which("bash"):
+        pytest.skip("needs bash (CI's runner has it)")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (tmp_path / "states").write_text("".join(s + "\n" for s in states), encoding="utf-8")
+    log = tmp_path / "gh.log"
+    log.write_text("", encoding="utf-8")
+    scripts = {
+        "gh": '#!/bin/sh\necho "$*" >> "$FAKE_LOG"\n[ "$1" = api ] || exit 0\n'
+              'head -1 "$FAKE_STATES"; sed -i 1d "$FAKE_STATES"\n',
+        "python3": f"#!/bin/sh\nexit {gate_rc}\n",
+        "sleep": "#!/bin/sh\n",
+    }
+    for name, body in scripts.items():
+        (bindir / name).write_text(body, encoding="utf-8")
+        (bindir / name).chmod(0o755)
+    env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", FAKE_LOG=str(log),
+               FAKE_STATES=str(tmp_path / "states"), GITHUB_REPOSITORY="o/r", GH_TOKEN="t")
+    p = subprocess.run(["bash", "-c", RECORD["run"]], env=env, capture_output=True, text=True, cwd=tmp_path)
+    return p, log.read_text(encoding="utf-8")
+
+
+def test_record_release_waits_until_its_dispatch_started(tmp_path):
+    p, log = run_record(tmp_path, ["null - null", "queued - u", "in_progress - u"])
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert log.count("workflow run update.yml") == 1 and "started" in p.stdout
+
+
+def test_record_release_dispatches_again_when_its_run_was_replaced(tmp_path):
+    p, log = run_record(tmp_path, ["queued - u", "completed cancelled u", "completed success u"])
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert log.count("workflow run update.yml") == 2
+
+
+def test_record_release_fails_when_update_never_starts(tmp_path):
+    p, log = run_record(tmp_path, ["completed cancelled u"] * 3)
+    assert p.returncode == 1 and log.count("workflow run update.yml") == 3
+    assert "::error::update.yml never started" in p.stdout
+
+
+def test_record_release_does_nothing_once_the_matrix_is_recorded(tmp_path):
+    p, log = run_record(tmp_path, [], gate_rc=0)
+    assert p.returncode == 0 and "workflow run" not in log

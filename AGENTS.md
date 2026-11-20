@@ -87,6 +87,9 @@ on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly
 packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (daily:
 `bb-preview.py` against Big Bang's development branch and its untagged `release-X.Y.Z`
 branch, which it also deploys on a few kind tests; keeps one `bigbang-preview` issue per ref current), `codeql.yml` / `scorecard.yml` (public repo only).
+A failed scheduled run of compat, rke2, fips-kernel, cve-report or update opens (or comments
+on) one `ci-scheduled-failure` issue per workflow (`scripts/ci-alert.py`, each workflow's
+`alert` job); the next scheduled success closes it. Every job has a `timeout-minutes`.
 
 ## Maintaining this repo with an AI agent
 
@@ -129,7 +132,8 @@ GitHub answer is not "nothing to do" unless the call succeeded.
    prints EXPECTED when the log says `compat results are missing`, and exits 4. Do not write
    pass rows. `verify` is the required check. Record real artifacts with
    `python scripts/test-results.py update` after a compat run. A red gate after that matrix
-   exists is a real failure. Branch protection requires only `verify`, so check the rest
+   exists is a real failure, and so is a gate line `compat results FAILED: <test> (<run>)`
+   (that test's newest standard result on this version is a failure; FAILED, exit 1). Branch protection requires only `verify`, so check the rest
    yourself. The nightly bot PR merges itself (`automerge.yml`) unless it moves Big Bang,
    carries `hold`, or the gate is still red. A new Big Bang release comes in its own PR
    (`bot/bigbang-release`); a person merges it after reading `docs/upgrades/<version>.md`
