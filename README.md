@@ -102,7 +102,8 @@ On each node, raise the inotify limits (`fs.inotify.max_user_instances=8192`,
 ([RKE2 test](docs/testing.md)). `bb-install.py check` reads them on each node.
 
 More: [every installer option](docs/install.md) (TLS, signatures, GitOps, air-gapped sites,
-doing it by hand) · [Quickstart](docs/quickstart.md) (pinning and verifying a release) ·
+[doing it by hand](docs/install.md#doing-it-by-hand)) · [Quickstart](docs/quickstart.md)
+(pinning and verifying a release) · [Troubleshooting](docs/troubleshooting.md) ·
 [your own Chainguard org](docs/your-org.md).
 
 ## Why Chainguard images instead of Iron Bank's
@@ -245,6 +246,13 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 - [Image versions: Iron Bank vs Chainguard](docs/version-differences.md): every image's
   version on each side, and which ones differ.
 - [Testing](docs/testing.md): what's tested and what the tests found.
+- [Troubleshooting](docs/troubleshooting.md): a symptom, its cause, and the fix.
+- [Architecture](docs/architecture.md): diagrams of the pieces and how a change flows.
+- [Upgrade notes](docs/upgrades/): per Big Bang release, the package charts and Iron Bank
+  images that change.
+- [Required images](docs/required-images.md): the Chainguard images your plan must cover.
+- [For the Big Bang team](docs/for-big-bang.md): coverage and how this could fit Big Bang.
+- [Every doc, by audience](docs/README.md).
 
 ## Contributing and support
 

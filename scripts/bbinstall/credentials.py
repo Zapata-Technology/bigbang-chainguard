@@ -197,10 +197,11 @@ def pull_token_note(state, today=None):
             "re-run bb-install.py install --new-pull-token")
 
 
-def check_logins(co, site):
+def check_logins(co, site, mirror=None):
     """{registry host: login or None} for the check, from the environment, the site file, the
     cluster (an earlier install) or, for cgr.dev, a short-lived token from your chainctl
-    login. Nothing is stored or printed, and no pull token is made."""
+    login. Nothing is stored or printed, and no pull token is made. With `mirror` (a site
+    registry host) only its login: every image comes from there."""
     stored = read_secret(NAMESPACE, STATE_SECRET) or {}
     in_site = {r.get("registry"): r for r in site.get("registryCredentials") or [] if isinstance(r, dict)}
 
@@ -214,6 +215,8 @@ def check_logins(co, site):
         if stored.get(f"{key}-username") and stored.get(f"{key}-password"):
             return stored[f"{key}-username"], stored[f"{key}-password"]
         return None
+    if mirror:
+        return {mirror: first(mirror, "mirror", "MIRROR_USERNAME", "MIRROR_PASSWORD", "MIRROR_TOKEN")}
     logins = {"cgr.dev": first("cgr.dev", "cgr", "CGR_USERNAME", "CGR_PASSWORD")}
     if not logins["cgr.dev"] and chainctl_logged_in():
         p = subprocess.run(["chainctl", "auth", "token", "--audience", "cgr.dev"], capture_output=True, text=True)

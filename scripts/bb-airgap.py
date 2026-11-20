@@ -9,11 +9,18 @@ On a connected machine, for the packages the site file turns on:
   git/<repo1 path>      a bare clone of Big Bang and of each enabled package at the tag
                         Big Bang pins; push-git.sh pushes them to the site's git server
   images.txt            "<source> <name:tag>" for every image the install runs (Chainguard
-                        org images, the images this repo builds, Flux, SeaweedFS)
+                        org images, the images this repo builds, Flux, SeaweedFS), the
+                        source at the digest the overlays pin; then the installer image
+                        (scripts/bb-docker.sh) and, commented out, the Iron Bank images
+                        enabled packages keep
   README.md             the steps on the disconnected side
+  SHA256SUMS            a checksum of every other file (sha256sum -c SHA256SUMS)
 
 The images themselves are not copied: moving them into the site's registry is the site's
-step, with its own tooling and under its Chainguard license (images.txt is the list).
+step, with its own tooling and under its Chainguard license (images.txt is the list). Copy
+each whole index (crane copy, skopeo copy --all) so the digest stays the same: the overlays
+pull by digest, and Chainguard rebuilds images under the same tag. `bb-install.py check
+--registry-mirror ...` then looks up every image there by digest and lists what's missing.
 Then, inside the site:
 
   ./push-git.sh https://git.site.example/bigbang
@@ -23,8 +30,10 @@ Then, inside the site:
 Packages that keep Iron Bank images (docs/images.md) also need those images in the site.
 """
 import argparse
+import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,7 +44,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from bbcommon import GIT_NETWORK, ROOT, bigbang_packages  # noqa: E402
 from bbinstall.chart import BIGBANG_GIT, REPO1, fetch_chart  # noqa: E402
-from bbinstall.checkout import Checkout  # noqa: E402
+from bbinstall.checkout import Checkout, _build_registry  # noqa: E402
+from bbinstall.images import pinned_refs  # noqa: E402
 from bbinstall.common import say, step  # noqa: E402
 from bbinstall.preflight import iron_bank_leftovers  # noqa: E402
 from bbinstall.sitefile import enabled_packages, merged_values  # noqa: E402
@@ -60,20 +70,107 @@ def releases(enabled):
     return {name for name, info in found.items() if info.get("key") in enabled}
 
 
-def image_list(map_text, names, fips, extra):
-    """[(source ref, destination name:tag)]: the replacement images of `names`' rows in
-    docs/images.md, plus `extra` refs (Flux, SeaweedFS). Destinations drop the registry
-    and org, so one site prefix holds them all."""
-    org = next((ln.split("`")[1] for ln in map_text.splitlines() if "are in `cgr.dev/" in ln), "cgr.dev/ORG")
-    refs = set(extra)
+def _rows(map_text, names):
+    """docs/images.md's table rows (cells) for the releases in `names`."""
     for line in map_text.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 4 or cells[0] not in names:
-            continue
+        if len(cells) >= 4 and cells[0] in names:
+            yield cells
+
+
+def digest_of(ref, pins):
+    """The digest `pins` ({name:tag: digest}) has for `ref`, or one pinned for its name
+    under any tag when only one is (the post-renderer pins by name)."""
+    if ref in pins:
+        return pins[ref]
+    name = ref.rsplit(":", 1)[0]
+    found = {d for r, d in pins.items() if r.rsplit(":", 1)[0] == name}
+    return found.pop() if len(found) == 1 else None
+
+
+def image_list(map_text, names, fips, extra, pins=None):
+    """[(source ref, destination name:tag)]: the replacement images of `names`' rows in
+    docs/images.md, plus `extra` refs (Flux, SeaweedFS; name:tag, with @sha256:... when
+    pinned). A source is name@<digest> when `pins` ({name:tag: digest}) has one: the overlays
+    pull by digest, and a copy by tag made after Chainguard rebuilt the image would have
+    another. Destinations drop the registry and org, so one site prefix holds them all."""
+    org = next((ln.split("`")[1] for ln in map_text.splitlines() if "are in `cgr.dev/" in ln), "cgr.dev/ORG")
+    pins = dict(pins or {})
+    refs = set()
+    for r in extra:
+        ref, _, digest = r.partition("@")
+        refs.add(ref)
+        if digest:
+            pins[ref] = digest
+    for cells in _rows(map_text, names):
         new = cells[3 if fips else 2]
         if new and new != "Iron Bank":
             refs.add(new if "/" in new.split(":")[0] else f"{org}/{new}")
-    return sorted((r, r.rsplit("/", 1)[1]) for r in refs)
+    out = []
+    for r in sorted(refs):
+        digest = digest_of(r, pins)
+        out.append((f"{r.rsplit(':', 1)[0]}@{digest}" if digest else r, r.rsplit("/", 1)[1]))
+    return out
+
+
+def iron_bank_refs(map_text, names):
+    """registry1.dso.mil refs of the images `names`' packages keep on Iron Bank."""
+    return sorted({f"registry1.dso.mil/{cells[1]}" for cells in _rows(map_text, names)
+                   if cells[2] == "Iron Bank" and cells[1]})
+
+
+def installer_refs(root, build_registry, fips):
+    """The installer image of this mode (scripts/bb-docker.sh runs it; nothing in the cluster does)."""
+    path = os.path.join(root, "builds", "installer", "build.yaml")
+    if not build_registry or not os.path.exists(path):
+        return []
+    image = (yaml.safe_load(open(path, encoding="utf-8")) or {}).get("image") or {}
+    return sorted(f"{build_registry}/{v['name']}:{v['tag']}" for v in image.values()
+                  if isinstance(v, dict) and v.get("name") and v.get("tag") and v["name"].endswith("-fips") == fips)
+
+
+def images_txt(images, installer, iron_bank):
+    """images.txt: one "<source> <destination>" line per image, then the installer images
+    and, commented out (--registry-mirror doesn't rewrite them), the Iron Bank ones."""
+    lines = ["# <source> <name:tag under the site's registry prefix>. Copy them with the site's tooling, each",
+             "# whole index (crane copy, skopeo copy --all) so a source's @sha256 digest stays the same: the",
+             "# overlays pull by that digest. bb-install.py check --registry-mirror PREFIX verifies the copies."]
+    lines += [f"{src} {dst}" for src, dst in images]
+    if installer:
+        lines += ["# installer: the image scripts/bb-docker.sh runs on a workstation (not in the cluster)"]
+        lines += [f"{r} {r.rsplit('/', 1)[1]}" for r in installer]
+    if iron_bank:
+        lines += ["# iron-bank: images enabled packages keep on registry1.dso.mil. --registry-mirror doesn't",
+                  "# rewrite them: the nodes need registry1.dso.mil mirrored by their container runtime."]
+        lines += [f"# iron-bank {r}" for r in iron_bank]
+    return "\n".join(lines) + "\n"
+
+
+def sha256_manifest(root):
+    """SHA256SUMS lines ("<hex>  <path>", sha256sum's format) for every file under `root`
+    but SHA256SUMS itself, so the site can check the bundle arrived whole."""
+    lines = []
+    for dp, dirs, files in os.walk(root):
+        dirs.sort()
+        for f in sorted(files):
+            path = os.path.join(dp, f)
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            if rel == "SHA256SUMS":
+                continue
+            h = hashlib.sha256()
+            with open(path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            lines.append((rel, f"{h.hexdigest()}  {rel}"))
+    return [line for _, line in sorted(lines)]
+
+
+def flux_refs(path):
+    """name:tag@digest of the controllers a flux/ kustomization deploys (its images list):
+    rendered, kustomize drops the tag for the digest, and the site's copy needs both."""
+    doc = yaml.safe_load(open(os.path.join(path, "kustomization.yaml"), encoding="utf-8")) or {}
+    return sorted(f"{i['newName']}:{i['newTag']}" + (f"@{i['digest']}" if i.get("digest") else "")
+                  for i in doc.get("images") or [] if i.get("newName") and i.get("newTag"))
 
 
 def kustomize_images(path):
@@ -106,7 +203,9 @@ def main():
     for name in ("flux", "flux-fips"):
         text, imgs = kustomize_images(os.path.join(ROOT, name))
         if (name == "flux-fips") == a.fips:
-            extra += imgs
+            pinned = flux_refs(os.path.join(ROOT, name))
+            names = {re.split(r"[:@]", r.rsplit("/", 1)[1])[0] for r in pinned}
+            extra += pinned + [r for r in imgs if re.split(r"[:@]", r.rsplit("/", 1)[1])[0] not in names]
         with open(os.path.join(copy, name, "install.yaml"), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         with open(os.path.join(copy, name, "kustomization.yaml"), "w", encoding="utf-8", newline="\n") as f:
@@ -134,19 +233,25 @@ def main():
     os.chmod(os.path.join(a.out, "push-git.sh"), 0o755)
 
     step("images")
-    images = image_list(open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read(),
-                        releases(enabled), a.fips, extra)
+    map_text = open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read()
+    pins = {r: d for r, d in pinned_refs(co, a.fips, co.registry) if d}
+    images = image_list(map_text, releases(enabled), a.fips, extra, pins)
+    installer = installer_refs(ROOT, _build_registry(co), a.fips)
+    iron_bank = iron_bank_refs(map_text, releases(enabled))
     with open(os.path.join(a.out, "images.txt"), "w", encoding="utf-8", newline="\n") as f:
-        f.write("# <source> <name:tag under the site's registry prefix>. Copy them with the site's tooling.\n")
-        f.writelines(f"{src} {dst}\n" for src, dst in images)
+        f.write(images_txt(images, installer, iron_bank))
     with open(os.path.join(a.out, "README.md"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"# Big Bang {co.version} for a disconnected site\n\n```\n{__doc__}```\n")
     left = iron_bank_leftovers(set(enabled), co.org)
     with open(os.path.join(a.out, "bundle.json"), "w", encoding="utf-8") as f:
         json.dump({"bigbang": co.version, "release": co.release, "org": co.org, "fips": a.fips,
                    "packages": enabled, "git": [{"repo": u, "tag": t} for u, t in repos],
-                   "images": len(images), "iron_bank": {k: sorted(v) for k, v in left.items()}}, f, indent=1)
-    say(f"{len(images)} images in images.txt, {len(repos)} git repositories"
+                   "images": len(images), "pinned": sum("@sha256:" in src for src, _ in images),
+                   "iron_bank": {k: sorted(v) for k, v in left.items()}}, f, indent=1)
+    with open(os.path.join(a.out, "SHA256SUMS"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(sha256_manifest(a.out)) + "\n")
+    say(f"{len(images)} images in images.txt ({sum('@sha256:' in s for s, _ in images)} by digest), "
+        f"{len(repos)} git repositories"
         + (f"; Iron Bank images still needed for {', '.join(sorted(left))}" if left else ""))
     say(f"\nwrote {a.out}: move it into the site, then follow the steps in this script's help")
     return 0

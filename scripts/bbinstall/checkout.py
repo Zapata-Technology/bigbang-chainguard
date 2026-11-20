@@ -48,6 +48,18 @@ class Checkout:
     def in_cluster_seaweedfs(self):
         return bool(self.s3) and self.s3["endpoint"] == objstore.DEFAULT_ENDPOINT
 
+    def object_storage_problem(self, env=os.environ):
+        """Why OBJECT_STORAGE_ENDPOINT in the environment can't be used, or None. The installer
+        deploys the overlay as generated: an endpoint set only in the environment would be
+        silently ignored, and the packages would write to the overlay's S3 instead."""
+        want = (env.get("OBJECT_STORAGE_ENDPOINT") or "").rstrip("/")
+        have = ((self.s3 or {}).get("endpoint") or "").rstrip("/")
+        if not want or want == have:
+            return None
+        return (f"OBJECT_STORAGE_ENDPOINT is {want}, but the overlays were generated for "
+                f"{have or 'no external object storage'}: regenerate them with "
+                f"python scripts/bb-run.py (it reads OBJECT_STORAGE_ENDPOINT), or unset it")
+
 
 def mirrored_checkout(co, mirror):
     """A copy of the overlays, Flux and SeaweedFS files with cgr.dev/<org> and the build

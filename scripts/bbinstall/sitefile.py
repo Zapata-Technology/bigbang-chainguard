@@ -91,12 +91,21 @@ def init(a):
         enable = [e.strip() for e in input("Turn on (comma-separated, Enter for none): ").split(",") if e.strip()]
     if not domain:
         raise SystemExit("--domain is required")
-    unknown = [e for e in enable if e.removeprefix("packages.") not in known]
+    disable = [e.strip().removeprefix("packages.") for e in (getattr(a, "disable", None) or "").split(",")
+               if e.strip()]
+    unknown = [e for e in enable + disable if e.removeprefix("packages.") not in known]
     if unknown:
         raise SystemExit(f"unknown packages {unknown}; known: {', '.join(known)}")
+    both = sorted({e.removeprefix("packages.") for e in enable} & set(disable))
+    if both:
+        raise SystemExit(f"both turned on and off: {', '.join(both)}")
     values = {"domain": domain}
     for e in enable:
         set_key(values, "packages." + e.removeprefix("packages."), {"enabled": True})
+    # Off is written even for a package Big Bang has off already: the site file then says
+    # so, and a later Big Bang that turns it on by default leaves it off here.
+    for e in disable:
+        set_key(values, "packages." + e, {"enabled": False})
     with open(a.site, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Big Bang site file for scripts/bb-install.py. No credentials here: the installer\n"
                 "# reads them from the environment or asks, and keeps them in the cluster.\n"

@@ -1,42 +1,29 @@
-# Velero with the AWS plugin, backup storage location on SeaweedFS (object-storage overlay).
+# Velero with the AWS plugin and its node agent, backup storage location on SeaweedFS
+# (object-storage overlay). The check is a real file-system backup and restore: data written
+# to a PVC is backed up with defaultVolumesToFsBackup (what bb-install.py upgrade asks for),
+# the namespace deleted, restored, and the data read back (compat/support/fs-backup.py).
 images: {}
 test:
   enable: [velero]
   setup:
     - python3 compat/support/seaweedfs.py velero
+    - python3 compat/support/fs-backup.py setup
   values_files:
     - $COMPAT_OUT/overlays/values-object-storage.yaml
     - $COMPAT_OUT/site-object-storage.yaml
   expect: [velero, velero-plugin-for-aws]
   forbid_log: "NoSuchBucket|AccessDenied|InvalidAccessKeyId|SignatureDoesNotMatch|seaweedfs.*(no such host|connection refused)"
   check:
-    # Velero backs up a small namespace (one ConfigMap, no volumes) to the SeaweedFS
-    # location: the location is Available and the Backup reaches Completed.
-    - |
-      kubectl create namespace compat-backup --dry-run=client -o yaml | kubectl apply -f -
-      kubectl -n compat-backup create configmap compat-data --from-literal=answer=backed-up --dry-run=client -o yaml | kubectl apply -f -
-      kubectl -n velero wait backupstoragelocation/default --for=jsonpath='{.status.phase}'=Available --timeout=300s || exit 1
-      cat <<'EOF' | kubectl apply -f -
-      apiVersion: velero.io/v1
-      kind: Backup
-      metadata: {name: compat-backup, namespace: velero}
-      spec:
-        includedNamespaces: [compat-backup]
-        storageLocation: default
-        snapshotVolumes: false
-        ttl: 1h0m0s
-      EOF
-      i=0
-      until ph=$(kubectl -n velero get backup compat-backup -o jsonpath='{.status.phase}') && [ "$ph" = Completed ]; do
-        case "$ph" in Failed|PartiallyFailed|FailedValidation)
-          echo "Backup compat-backup: $ph"; kubectl -n velero get backup compat-backup -o jsonpath='{.status}'; echo; exit 1;;
-        esac
-        i=$((i+1))
-        if [ $i -ge 30 ]; then echo "Backup compat-backup still '$ph' after 5 minutes"; exit 1; fi
-        sleep 10
-      done
-      echo "Backup compat-backup: $ph, $(kubectl -n velero get backup compat-backup -o jsonpath='{.status.progress.itemsBackedUp}') items backed up"
+    # The location is Available, the node agent runs, the Backup completes with a pod volume
+    # backup of the PVC, and after the namespace is deleted the Restore brings back the PVC's
+    # data and the ConfigMap. A backup holding objects only (no node agent) fails here.
+    - python3 compat/support/fs-backup.py check
   debug:
     - "kubectl -n velero get backupstoragelocations -o wide"
+    - "kubectl -n velero get pods -o wide"
+    - "kubectl -n velero get backups,restores,podvolumebackups,podvolumerestores -o wide"
     - "kubectl -n velero get backups -o yaml | tail -40"
+    - "kubectl -n compat-backup get pods,pvc -o wide"
+    - "kubectl -n compat-backup describe pod data-writer | tail -30"
     - "kubectl -n velero logs deploy/velero --tail=60"
+    - "kubectl -n velero logs daemonset/node-agent --tail=60"
