@@ -920,19 +920,19 @@
     "gitlab": {
       "key": "packages.gitlab",
       "rendered": [
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base:v19.5.3-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi",
         "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi",
         "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi",
         "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.3-ubi",
-        "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl:v19.5.3-ubi",
-        "registry1.dso.mil/ironbank/redhat/ubi/ubi9:9.8"
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi",
+        "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi",
+        "registry1.dso.mil/ironbank/redhat/ubi/ubi9:9.9"
       ],
       "values": [
         {
@@ -944,7 +944,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/certificates",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -956,7 +956,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/kubectl",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -968,7 +968,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-base",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -980,7 +980,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/ironbank/redhat/ubi/ubi9",
-            "tag": "9.8"
+            "tag": "9.9"
           }
         },
         {
@@ -993,33 +993,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/cfssl-self-sign",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "toolbox",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "geo-logcursor",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-geo-logcursor",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1032,7 +1006,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1047,20 +1021,20 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly-init-cgroups",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
           "path": [
             "upstream",
             "gitlab",
-            "gitlab-exporter",
+            "gitlab-pages",
             "image"
           ],
           "shape": "repo",
           "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-exporter",
-            "tag": "17.0.2-ubi"
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-pages",
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1080,13 +1054,13 @@
           "path": [
             "upstream",
             "gitlab",
-            "mailroom",
+            "kas",
             "image"
           ],
           "shape": "repo",
           "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-mailroom",
-            "tag": "v19.5.3-ubi"
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-kas",
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1099,72 +1073,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "sidekiq",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "webservice",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "webservice",
-            "workhorse"
-          ],
-          "shape": "name",
-          "value": {
-            "image": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "gitlab-pages",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-pages",
-            "tag": "v19.5.3-ubi"
-          }
-        },
-        {
-          "path": [
-            "upstream",
-            "gitlab",
-            "kas",
-            "image"
-          ],
-          "shape": "repo",
-          "value": {
-            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-kas",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1177,7 +1086,98 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitaly",
-            "tag": "v19.5.3-ubi"
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "geo-logcursor",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-geo-logcursor",
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "gitlab-exporter",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-exporter",
+            "tag": "17.0.2-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "mailroom",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-mailroom",
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "sidekiq",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee",
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "toolbox",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-toolbox-ee",
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "webservice",
+            "image"
+          ],
+          "shape": "repo",
+          "value": {
+            "repository": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-webservice-ee",
+            "tag": "v19.5.5-ubi"
+          }
+        },
+        {
+          "path": [
+            "upstream",
+            "gitlab",
+            "webservice",
+            "workhorse"
+          ],
+          "shape": "name",
+          "value": {
+            "image": "registry1.dso.mil/gitlab/gitlab-org/build/cng/gitlab-workhorse-ee",
+            "tag": "v19.5.5-ubi"
           }
         },
         {
@@ -1240,7 +1240,7 @@
           "shape": "repo",
           "value": {
             "repository": "registry1.dso.mil/gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway",
-            "tag": "self-hosted-v19.5.4-ee"
+            "tag": "self-hosted-v19.5.5-ee"
           }
         },
         {
