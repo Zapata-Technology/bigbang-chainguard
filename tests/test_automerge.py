@@ -372,3 +372,16 @@ def test_update_plan_tracks(tmp_path):
     assert tracks(["4.0.0", "4.1.0", "4.2.0"]) == {"routine": "false", "release": "true"}
     assert tracks(["4.0.0", "4.1.0"]) == {"routine": "true"}
     assert tracks([]) == {"routine": "false"}       # repo1 didn't answer: keep release.yaml
+
+
+def test_a_push_that_builds_yml_also_runs_for_waits_for_builds_yml():
+    """A merged bot PR starts builds.yml and this workflow; only the run after builds.yml
+    (workflow_run) rebuilds the bot branches, or each merge rebuilt them twice."""
+    on = UPDATE[True] if True in UPDATE else UPDATE["on"]   # PyYAML reads `on:` as True
+    assert on["workflow_run"]["workflows"] == ["Build - Big Bang images"]
+    plan = UPDATE["jobs"]["plan"]
+    defer = next(s for s in plan["steps"] if s.get("id") == "defer")
+    assert defer["if"] == "github.event_name == 'push'" and "builds.yml/runs?head_sha=" in defer["run"]
+    assert plan["permissions"]["actions"] == "read"
+    assert "api.github.com:443" in plan["steps"][0]["with"]["allowed-endpoints"]
+    assert UPDATE["jobs"]["update"]["if"] == "needs.plan.outputs.defer != 'true'"
