@@ -521,7 +521,7 @@ unpinned:
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.
 scan_reviewed:
-  bigbang/templates/keycloak/helmrelease.yaml: no_post_renderers (Keycloak's images stay on tags)
+  bigbang/templates/keycloak/helmrelease.yaml: no_post_renderers (Keycloak's images are pinned through their charts' image.digest values)
   packages.kyvernoPolicies/chart/wait/wait.sh: bash_wait_jobs (wait job runs the script with bash)
   packages.alloy/chart/templates/bigbang/upgrade/post-upgradeJob.yaml: runs on bigbang-base, whose sh is bash
   packages.fortify/chart/templates/keystore-job.yaml: bash_commands (secret-creator runs /bin/bash)
