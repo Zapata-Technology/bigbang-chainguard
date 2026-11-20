@@ -401,7 +401,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee
         - digest: sha256:4f7cc3ce22655b922574beb3c590c066104ef61eb47c82412f47787e822a68d1
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
-        - digest: sha256:d07af9ffbe63ebfecdf84c9fccdb3aa3f7a396d5705ee527653df2dd63d6b24b
+        - digest: sha256:5f8e3b3fe310d0a8437b5f0a69f7ebd249e9075efc395de9c5acc51b16909d31
           name: cgr.dev/zapatatechnology.com/gitaly
         - digest: sha256:7967fa1b25fe2b795524527881e62f5cc9a0e035189fd335edd2d5da54e94031
           name: cgr.dev/zapatatechnology.com/gitlab-base
@@ -411,15 +411,15 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-container-registry
         - digest: sha256:de6e3ee4ff3ed7990685962aeaeafb65ccbcde158396a2fc13436c4c5df20c9a
           name: cgr.dev/zapatatechnology.com/gitlab-exporter
-        - digest: sha256:b60c93ae16803f45917437919d6b393e0f0d6547378a4498fc3ac963d6a24cc1
+        - digest: sha256:7aacbfb61baa9390629fa822f4aa6667265d8509cd64638872d5d54097a7d1a8
           name: cgr.dev/zapatatechnology.com/gitlab-kas
         - digest: sha256:4a766f8e5e950fae0d9aa03b9e57a531b2305abe1b83c1816e369a74080e6c60
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl
         - digest: sha256:e82aa79762eb52f1c792e83c4c1d0dcd0a0b2c64b991a8e56c2aa5e2b0d86389
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom
-        - digest: sha256:c330f797ccaf7afb02e70fd5a7e3e8e971f9534a0fc6527e5e3eee092813551d
+        - digest: sha256:67ffda5d4ec9530791218b1b8757ed77407c9c6e3396107af76e89cf8c90d317
           name: cgr.dev/zapatatechnology.com/gitlab-pages
-        - digest: sha256:76d8436be5c3ac9cd7655b16f39f886a9c1949b83d572faed7f2497b7583cbc6
+        - digest: sha256:825ee46414766ca971a005884a47479a80adacb586a099bccede0cba37ac3486
           name: cgr.dev/zapatatechnology.com/gitlab-shell
         - digest: sha256:1dfecb1802be87c5a607c0d64d86b77dd895904e460f632e2ff1935a702f31bb
           name: cgr.dev/zapatatechnology.com/nginx
@@ -475,7 +475,7 @@ packages:
           gitlab-pages:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-pages
-              tag: 19.5.6
+              tag: 19.5.8
           gitlab-shell:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-shell
@@ -483,7 +483,7 @@ packages:
           kas:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-kas
-              tag: 19.5.6
+              tag: 19.5.8
           mailroom:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-mailroom
