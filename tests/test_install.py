@@ -5,6 +5,7 @@ import getpass
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -979,14 +980,18 @@ def test_newer_releases_than_the_cluster():
 
 def test_handoff_drops_only_upgrades_own_options():
     argv = ["--overlays", "x", "upgrade", "--to", "latest", "--site", "s.yaml", "--allow-downgrade",
-            "--repo=o/r", "--fips", "--to=4.1.0", "--yes"]
+            "--repo=o/r", "--fips", "--to=4.1.0", "--allow-unverified", "--yes"]
     assert releases.handoff_args(argv) == ["upgrade", "--site", "s.yaml", "--fips", "--yes"]
     assert releases.unknown_options(["upgrade", "--site", "s", "--no-backup"], "'--site' ...") == ["--no-backup"]
 
 
-def test_release_repo_from_the_git_remote(tmp_path):
+def test_release_repo_from_the_archive_then_the_git_remote(tmp_path):
     assert releases.release_repo(ROOT).count("/") == 1
-    assert releases.release_repo(str(tmp_path)) == releases.DEFAULT_REPO        # a release archive: no .git
+    # A copy with neither RELEASE_REPO nor .git: no fallback to a hard-coded repository.
+    with pytest.raises(SystemExit, match="--repo OWNER/REPO"):
+        releases.release_repo(str(tmp_path))
+    (tmp_path / "RELEASE_REPO").write_text("repo: some-org/bigbang-chainguard.fork\n")
+    assert releases.release_repo(str(tmp_path)) == "some-org/bigbang-chainguard.fork"
 
 
 def release_archive(tmp_path, tag, release=None):
@@ -1026,19 +1031,41 @@ def test_fetch_release_verifies_with_cosign_then_extracts(tmp_path):
     assert open(os.path.join(root, "RELEASE")).read().strip() == "4.1.0-cg.3"
     cmd = runs[0]
     assert cmd[:2] == ["cosign", "verify-blob"]
-    assert cmd[cmd.index("--certificate-identity-regexp") + 1] == \
-        "^https://github.com/o/r/.github/workflows/release.yml@"
+    identity = cmd[cmd.index("--certificate-identity-regexp") + 1]
+    assert identity == r"^https://github\.com/o/r/\.github/workflows/release\.yml@refs/heads/main$"
+    # Only main's release workflow: another branch's run, or a look-alike workflow, doesn't match.
+    base = "https://github.com/o/r/.github/workflows/"
+    assert re.match(identity, base + "release.yml@refs/heads/main")
+    assert not re.match(identity, base + "release.yml@refs/heads/evil")
+    assert not re.match(identity, base + "release.yml@refs/heads/main-evil")
+    assert not re.match(identity, "https://github.com/o/r2/.github/workflows/release.yml@refs/heads/main")
     with pytest.raises(SystemExit, match="doesn't verify"):
         releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"), download=download,
                                which=lambda t: "/bin/cosign",
                                run=lambda cmd, **k: subprocess.CompletedProcess(cmd, 1, "", "no matching signatures"))
 
 
-def test_fetch_release_without_cosign_says_it_is_not_verified(tmp_path):
+def test_fetch_release_without_cosign_refuses_unless_allowed(tmp_path):
     files, download = release_archive(tmp_path, "4.1.0-cg.3")
+    with pytest.raises(SystemExit, match="cosign isn't installed.*--allow-unverified"):
+        releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"), download=download,
+                               which=lambda t: None)
     root, verified, note = releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "cache"),
-                                                  download=download, which=lambda t: None)
+                                                  download=download, which=lambda t: None, allow_unverified=True)
     assert not verified and note.startswith("NOT VERIFIED") and "cosign" in note
+
+
+@pytest.mark.parametrize("missing, why", [(".sha256", "no sha256 file"), (".sigstore.json", "no Sigstore signature")])
+def test_fetch_release_missing_checksum_or_signature_refuses_unless_allowed(tmp_path, missing, why):
+    files, download = release_archive(tmp_path, "4.1.0-cg.3")
+    del files["bigbang-chainguard-4.1.0-cg.3.tar.gz" + missing]
+    ok = lambda cmd, **k: subprocess.CompletedProcess(cmd, 0, "Verified OK", "")   # noqa: E731
+    with pytest.raises(SystemExit, match=why):
+        releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "c"), download=download,
+                               which=lambda t: "/bin/cosign", run=ok)
+    _, verified, note = releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "c"), download=download,
+                                               which=lambda t: "/bin/cosign", run=ok, allow_unverified=True)
+    assert not verified and why in note
 
 
 def test_fetch_release_refuses_a_bad_digest_or_the_wrong_archive(tmp_path):
@@ -1050,7 +1077,7 @@ def test_fetch_release_refuses_a_bad_digest_or_the_wrong_archive(tmp_path):
     _, download = release_archive(tmp_path / "other", "4.1.0-cg.3", release="4.1.0-cg.1")
     with pytest.raises(SystemExit, match="isn't release"):
         releases.fetch_release("o/r", "4.1.0-cg.3", cache=str(tmp_path / "c"), download=download,
-                               which=lambda t: None)
+                               which=lambda t: None, allow_unverified=True)
 
 
 def upgrade_args(**kw):
@@ -1060,8 +1087,9 @@ def upgrade_args(**kw):
     return a
 
 
-def release_cluster(monkeypatch, tmp_path, state, running):
-    """Stub GitHub, the cluster and the release's installer for upgrade --to / --list."""
+def release_cluster(monkeypatch, tmp_path, state, running, cosign=True):
+    """Stub GitHub, the cluster and the release's installer for upgrade --to / --list; with
+    cosign, the release's signature verifies, without it there is no cosign to check it."""
     calls = {"run": [], "recorded": []}
     monkeypatch.setattr(releases, "list_releases", lambda repo: ["4.1.0-cg.11", "4.1.0-cg.10", "4.0.0-cg.29"])
     monkeypatch.setattr(releases, "recorded_release", lambda: state.get("release"))
@@ -1069,9 +1097,12 @@ def release_cluster(monkeypatch, tmp_path, state, running):
     monkeypatch.setattr(commands.shutil, "which", lambda t: "/bin/" + t)
     real_fetch = releases.fetch_release
 
-    def fetch(repo, tag):
+    def fetch(repo, tag, allow_unverified=False):
         _, download = release_archive(tmp_path / tag, tag)
-        return real_fetch(repo, tag, cache=str(tmp_path / "cache"), download=download, which=lambda t: None)
+        return real_fetch(repo, tag, cache=str(tmp_path / "cache"), download=download,
+                          which=lambda t: "/bin/cosign" if cosign else None,
+                          run=lambda cmd, **k: subprocess.CompletedProcess(cmd, 0, "Verified OK", ""),
+                          allow_unverified=allow_unverified)
     monkeypatch.setattr(releases, "fetch_release", fetch)
 
     def run(cmd, **k):
@@ -1089,6 +1120,22 @@ def test_upgrade_to_runs_the_releases_own_installer(monkeypatch, tmp_path, capsy
     assert cmd[1].replace(os.sep, "/").endswith("4.1.0-cg.11/bigbang-chainguard-4.1.0-cg.11/scripts/bb-install.py")
     assert cmd[2:] == ["upgrade", "--yes"]
     assert calls["recorded"] == ["4.1.0-cg.11"]
+    assert "signature verified" in capsys.readouterr().out
+
+
+def test_upgrade_to_refuses_an_unverifiable_release_unless_allowed_and_confirmed(monkeypatch, tmp_path, capsys):
+    """No cosign: refused outright; --allow-unverified still needs --yes or a person at a
+    terminal (no TTY and no --yes refuses, as rollback and uninstall do)."""
+    calls = release_cluster(monkeypatch, tmp_path, {"release": "4.1.0-cg.10"}, "4.1.0", cosign=False)
+    with pytest.raises(SystemExit, match="--allow-unverified"):
+        commands.upgrade(upgrade_args(to="latest"))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
+    with pytest.raises(SystemExit, match="not upgrading an unverified release"):
+        commands.upgrade(upgrade_args(to="latest", allow_unverified=True, yes=False, argv=["upgrade"]))
+    assert calls["run"] == [] and calls["recorded"] == []
+    assert commands.upgrade(upgrade_args(to="latest", allow_unverified=True,
+                                         argv=["upgrade", "--allow-unverified", "--yes"])) == 0
+    assert calls["run"][0][2:] == ["upgrade", "--yes"]      # not handed on to the release's installer
     assert "NOT VERIFIED" in capsys.readouterr().out
 
 

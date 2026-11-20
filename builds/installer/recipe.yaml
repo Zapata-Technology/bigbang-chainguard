@@ -7,7 +7,9 @@ header: |-
   The installer image: bb-install.py and its tools, FROM the kubectl -dev images
   builds/base pins.
 after: [base]   # it pins base's kubectl -dev images
-packages: [bash, curl, git, helm-3, python-3.13, py3.13-pyyaml]   # helm-3: what CI tests (Wolfi's helm is 4)
+# helm-3: what CI tests (Wolfi's helm is 4). cosign: upgrade --to verifies a release's
+# signature with it and refuses an unverified release without it.
+packages: [bash, cosign, curl, git, helm-3, python-3.13, py3.13-pyyaml]
 context: ..   # the repository root (.dockerignore): the image carries scripts/ and the overlays
 build_args:
   PACKAGES: "{{packages}}"
@@ -21,6 +23,7 @@ smoke:
       kubectl version --client -o json | grep -o '"gitVersion": *"[^"]*"'
     - helm version --short
     - git --version
+    - cosign version 2>&1 | grep -m1 GitVersion
     # The tag is <Big Bang version>-kubectl<version>; the chart is bundled for that Big Bang.
     - |-
       tag={{image.$variant.tag}}; test -f /bigbang-chainguard/work/charts/bigbang-${tag%%-kubectl*}/chart/Chart.yaml && echo chart=bundled
@@ -31,4 +34,5 @@ smoke:
     kubectl: '"gitVersion": *"v1\.'
     helm: '^v3\.'
     git: '^git version'
+    cosign: '^GitVersion: *v?\d'
     chart: '^chart=bundled$'

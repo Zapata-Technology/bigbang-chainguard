@@ -137,7 +137,8 @@ def list_upgrades(a):
 
 def upgrade_to_release(a):
     """upgrade to a published release: resolve --to, refuse a downgrade (unless
-    --allow-downgrade), download and verify the release's archive, then run that release's
+    --allow-downgrade), download and verify the release's archive (an archive that can't be
+    verified only with --allow-unverified and a yes), then run that release's
     own `bb-install.py upgrade` with the same flags (its plan, question, Velero backup and
     install), and record the release in the cluster."""
     if os.path.abspath(a.overlays) != os.path.abspath(ROOT):
@@ -153,11 +154,15 @@ def upgrade_to_release(a):
         say(f"the cluster already runs {tag}: applying it again")
     elif problem:
         say(f"downgrade: {problem}")
-    root, verified, note = releases.fetch_release(repo, tag)
+    allow = getattr(a, "allow_unverified", False)
+    root, verified, note = releases.fetch_release(repo, tag, allow_unverified=allow)
     say(note)
-    if not verified and not a.yes and sys.stdin.isatty() and \
-            not confirm(f"Run release {tag}'s installer without a verified signature?", default=False):
-        raise SystemExit("not upgrading (install cosign to verify the release)")
+    # Only reached with --allow-unverified. Unchecked code still needs a yes: --yes, or a
+    # person at a terminal; with neither, refuse (as rollback and uninstall do).
+    if not verified and not a.yes and not (
+            sys.stdin.isatty() and confirm(f"Run release {tag}'s installer without verifying it?", default=False)):
+        raise SystemExit("not upgrading an unverified release (--yes with --allow-unverified runs it; "
+                         "install cosign to verify it instead)")
     script = os.path.join(root, "scripts", "bb-install.py")
     text = open(script, encoding="utf-8").read()
     args = releases.handoff_args(getattr(a, "argv", None) or sys.argv[1:])
