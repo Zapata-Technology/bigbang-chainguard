@@ -74,6 +74,7 @@ python scripts/test-results.py update # docs/testing.md's results table (--from-
 python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 3+ re-runs
 python scripts/egress-audit.py        # hosts a workflow reached that its harden-runner list doesn't name
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
+python scripts/bb-onboard.py --org <org> --repo OWNER/REPO [--apply]   # set up a new org and copy (dry run without --apply)
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching

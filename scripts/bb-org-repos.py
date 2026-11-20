@@ -218,7 +218,8 @@ def outcome(returncode, stderr):
     return (stderr.strip().splitlines() or ["failed"])[-1][:200]
 
 
-def main():
+def main(argv=None):
+    """argv: the arguments (default: the command line); bb-onboard.py calls this directly."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("names", nargs="*", help="repositories to add (default: what bb-convert.py --missing lists)")
     ap.add_argument("--org", help="Chainguard org (default: CHAINGUARD_ORG)")
@@ -226,7 +227,7 @@ def main():
     ap.add_argument("--build-bases", action="store_true", help="also " + ", ".join(BUILD_BASES))
     ap.add_argument("--apply", action="store_true", help="create and sync them (default: print the commands)")
     ap.add_argument("--quota", action="store_true", help="the plan's per-tier quotas and what this repo needs")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     org = org_name(a.org)
     if a.quota:
         try:
