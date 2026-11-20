@@ -227,7 +227,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:51b96c0b8c7f6da3916b26f9b61ab9a40d9d2f560ec10bdf86ed138af29a117a
+        - digest: sha256:9c5266c7a4dfa6c23e6a03b25ef3d529a812831a98f07019527fbecc3ca8b3f0
           name: cgr.dev/zapatatechnology.com/elasticsearch
         - digest: sha256:f22602145a7619e849b7f093f3297746ce854bfe81357f1a0b27a4da6dba4bfb
           name: cgr.dev/zapatatechnology.com/kibana
@@ -791,7 +791,7 @@ packages:
         images:
         - digest: sha256:27f18a086d2f635f33c44265321015d25a57001e8761d21fbf5245a8dcc31ddb
           name: cgr.dev/zapatatechnology.com/kiali
-        - digest: sha256:ca1105c2824e33cac220550f7f512065b3e29ec110a1aff3c8145a681581fa5f
+        - digest: sha256:0d92c477e0a5cecb7693c040d085bdf86ec229474d6b1402b6f751de23dde74a
           name: cgr.dev/zapatatechnology.com/kiali-operator
         - digest: sha256:e4897f0b1661968abc45cf039f8ee7a05d36626f82daf3590aa21b88bfef8d21
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -1347,7 +1347,7 @@ packages:
         images:
         - digest: sha256:e4897f0b1661968abc45cf039f8ee7a05d36626f82daf3590aa21b88bfef8d21
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:ed2ad9a0c8d7371f76f79d5f2e1292036f43c2274a0aa7f2ec84b47a510d696c
+        - digest: sha256:ef570def5d4b5f9424df6689e68c8de277a5ad42188fd922cb2b66b6ddf2487c
           name: cgr.dev/zapatatechnology.com/renovate
     values:
       bbtests:
@@ -1359,7 +1359,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate
-          tag: 44.256.0
+          tag: 44.257.0
   sonarqube:
     postRenderers:
     - kustomize:
