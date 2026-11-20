@@ -31,6 +31,30 @@ def test_outcome_maps_to_a_result():
     assert tr.outcome_result("skipped", "") == "error"   # an earlier step failed
 
 
+def test_a_repo1_outage_is_an_error_not_a_package_failure():
+    log = ("PROBLEM: repo1.dso.mil: bigbang/keycloak can't fetch (failed to checkout ...)\n"
+           "PROBLEM: none of the expected images ran: the test deployed nothing it is about\n"
+           "RESULT keycloak.yaml (FIPS): FAIL; 0 of 2 expected images ran\n")
+    assert tr.outcome_result("failure", log) == "error"
+    # Only bb-compat.py's own PROBLEM line counts, not the host named somewhere else.
+    assert tr.outcome_result("failure", "pulling repo1.dso.mil/x can't fetch\nRESULT x: FAIL\n") == "fail"
+
+
+def test_a_branch_keeps_only_its_version_and_main_only_its_own_results():
+    pr = {"test": "loki", "branch": "259/merge", "bigbang": "4.1.1"}
+    old = {"test": "loki", "branch": "259/merge", "bigbang": "4.1.0"}
+    assert tr.keep(pr, bigbang="4.1.1") and not tr.keep(old, bigbang="4.1.1")
+    assert not tr.keep(pr, branches=("main", ""))
+    assert tr.keep({"branch": "main"}, branches=("main", "")) and tr.keep(pr)
+
+
+def test_pull_request_runs_are_listed_only_when_asked(monkeypatch):
+    out = '[{"databaseId": 1, "event": "pull_request"}, {"databaseId": 2, "event": "schedule"}]'
+    monkeypatch.setattr(tr, "gh", lambda *a: (0, out, ""))
+    assert tr.main_runs(5) == [2]
+    assert tr.main_runs(5, "bot/bigbang-release", pull_requests=True) == [1, 2]
+
+
 def test_record_reads_the_jobs_environment():
     env = {"GITHUB_RUN_ID": "41770338111", "GITHUB_RUN_ATTEMPT": "2", "GITHUB_REPOSITORY": "o/r",
            "GITHUB_SERVER_URL": "https://github.com", "GITHUB_SHA": "deadbeef",
