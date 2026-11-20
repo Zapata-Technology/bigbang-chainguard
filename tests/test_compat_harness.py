@@ -137,6 +137,28 @@ def test_progress_deadline_keeps_the_overlays_post_renderers(tmp_path):
         assert yaml.safe_load(p["patch"]) == [{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]
 
 
+def test_no_replicas_keeps_the_overlays_post_renderers(tmp_path):
+    import os
+    import subprocess
+    pins = {"kustomize": {"images": [{"name": "org/mysql", "digest": "sha256:aa"}]}}
+    fips_pins = {"kustomize": {"images": [{"name": "org/mysql-fips", "digest": "sha256:bb"}]}}
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(
+        yaml.safe_dump({"packages": {"fortify": {"postRenderers": [pins]}}}))
+    (tmp_path / "overlays" / "values-chainguard-fips.yaml").write_text(
+        yaml.safe_dump({"packages": {"fortify": {"postRenderers": [fips_pins]}}}))
+    script = os.path.join(os.path.dirname(__file__), "..", "compat", "support", "no-replicas.py")
+    for fips, expect in (("", pins), ("1", fips_pins)):
+        subprocess.run([sys.executable, script, "packages.fortify", "StatefulSet", "fortify-ssc-webapp"], check=True,
+                       capture_output=True, env=dict(os.environ, COMPAT_OUT=str(tmp_path), COMPAT_FIPS=fips))
+        out = yaml.safe_load((tmp_path / "site-fortify-no-replicas.yaml").read_text())
+        first, patch = out["packages"]["fortify"]["postRenderers"]
+        assert first == expect     # Helm replaces lists: the digest pins must stay
+        [p] = patch["kustomize"]["patches"]
+        assert p["target"] == {"kind": "StatefulSet", "name": "fortify-ssc-webapp"}
+        assert yaml.safe_load(p["patch"]) == [{"op": "replace", "path": "/spec/replicas", "value": 0}]
+
+
 def _watch(tmp_path, monkeypatch, pods, jobs=(), logs=None, clock=None):
     """A PodLogKeeper over fake kubectl output: `pods` and `jobs` for namespace ns, `logs`
     {(pod, container, previous): text}."""
@@ -382,6 +404,18 @@ def test_a_release_on_big_bang_3_installs_with_its_keys():
                                   dict(old, kyvernoPolicies={"git": {"repo": "r"}}))
     assert legacy == {"domain": "d", "kyvernoPolicies": {"values": {"x": 1}}, "addons": {"headlamp": {"values": {"y": 2}}}}
     assert compat.legacy_values({"packages": {}}, {"packages": {}}) == {"packages": {}}
+
+
+def test_upgrade_from_values_reach_only_the_starting_install_of_a_mapping_upgrade():
+    # upgrade_from.values used to apply only to a release's starting install; an
+    # upgrade_from.images test (vault-upgrade-upstream) needs them too.
+    values = {"packages": {"vault": {"enabled": True, "values": {"upstream": {"server": {"postStart": ["sh"]}}}}}}
+    frm = {"images": {"x": {"ref": "r", "tag": "t"}},
+           "values": {"packages": {"vault": {"values": {"upstream": {"server": {"postStart": []}}}}}}}
+    first = compat.starting_values(values, frm)
+    assert first["packages"]["vault"] == {"enabled": True, "values": {"upstream": {"server": {"postStart": []}}}}
+    assert values["packages"]["vault"]["values"]["upstream"]["server"]["postStart"] == ["sh"]   # the upgrade's
+    assert compat.starting_values(values, {"images": {}}) == values
 
 
 def test_a_helmrelease_counts_as_ready_only_once_flux_observed_its_generation(monkeypatch):

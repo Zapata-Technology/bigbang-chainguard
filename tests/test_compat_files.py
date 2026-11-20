@@ -6,7 +6,7 @@ import shlex
 import pytest
 import yaml
 
-from conftest import ROOT
+from conftest import ROOT, load_script
 
 FILES = sorted(glob.glob(os.path.join(ROOT, "compat", "*.yaml")))
 KNOWN = {"enable", "expect", "values", "values_files", "setup", "debug", "forbid_log", "no_pods", "namespaces",
@@ -88,3 +88,27 @@ def test_every_kind_test_checks_the_app_works(path):
     # needs a `check` command that proves the package does its job.
     test = yaml.safe_load(open(path, encoding="utf-8")).get("test", {})
     assert test.get("check"), f"{os.path.basename(path)}: add a `check:` that proves the app works"
+
+
+def test_every_package_in_the_overlays_has_a_kind_test_or_a_reason_it_has_none():
+    # A package the overlays convert but no kind test deploys runs on images nobody has
+    # started: Fortify's and Anchore's databases and caches, and Kibana, sat untested until
+    # someone looked. mapping.yaml `untested` holds the honest exceptions.
+    overlay = yaml.safe_load(open(os.path.join(ROOT, "overlays", "values-chainguard.yaml"), encoding="utf-8"))
+    packages = set(overlay["packages"])
+    enabled = {e.split(".")[-1] for path in FILES
+               for e in (yaml.safe_load(open(path, encoding="utf-8")).get("test") or {}).get("enable", [])}
+    untested = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8")).get("untested") or {}
+    listed = {k.removeprefix("packages.") for k in untested}
+    missing = sorted(packages - enabled - listed)
+    assert not missing, f"no compat/*.yaml enables {missing}: add a kind test, or a reason in mapping.yaml untested"
+    # An entry for a package a test now enables, or one the overlays no longer have, is stale.
+    assert not listed & enabled, f"mapping.yaml untested lists tested packages {sorted(listed & enabled)}"
+    assert listed <= packages, f"mapping.yaml untested lists packages not in the overlays {sorted(listed - packages)}"
+
+
+@pytest.mark.parametrize("bad", [{"untested": {"packages.x": ""}}, {"untested": {"x": "licensed"}}])
+def test_untested_entries_need_a_package_key_and_a_reason(bad):
+    bbcommon = load_script("bbcommon")
+    with pytest.raises(ValueError, match="untested"):
+        bbcommon.validate_mapping(bad)

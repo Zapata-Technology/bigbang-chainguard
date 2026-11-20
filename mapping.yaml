@@ -130,7 +130,7 @@ images:
   ironbank/anchore/enterpriseui/enterpriseui: {stays: "Anchore Enterprise is proprietary; vendor image only"}
   ironbank/anchore/cli/cli: {stays: "Anchore CLI test image (bbtests only)"}
   ironbank/microfocus/fortify/ssc: {stays: "Fortify SSC is proprietary; vendor image only"}
-  # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube-26.10.yaml).
+  # Chainguard has no FIPS SonarQube. Tested on kind (compat/sonarqube.yaml).
   # Big Bang 4.1.0 moved to 26.11; the org has it since 2026-11 (the 26.10 pin is gone).
   ironbank/sonarsource/sonarqube/sonarqube-community-build: {cg: sonarqube, suffix: community, fips: null}
   # Big Bang's vault post-start hook needs curl, which Chainguard's vault image lacks:
@@ -517,6 +517,21 @@ unpinned:
     redis: redis (8.10) and redis-ha (8.8, off in Big Bang) name two redis lines; kustomize pins one digest per name
     prometheus-redis-exporter-iamguarded: redis-bb's exporter is Iron Bank's 1.96; redis-ha's (off in Big Bang)
       is 1.86, which the org lacks, so it takes the newest, and the two differ whenever Chainguard is ahead
+
+# Big Bang packages (packages.<name>: why) that no kind test (compat/*.yaml) enables. Not
+# used by the conversion: tests/test_compat_files.py fails when a package in the overlays
+# is neither enabled by a compat test nor listed here with the reason, so a new package
+# gets a kind test or a stated reason it has none.
+untested:
+  packages.twistlock: >-
+    Prisma Cloud (Twistlock) is licensed, with no free mode, and every image it runs is the
+    vendor's on Iron Bank (images: stays); the org images in its overlay (the wait job's
+    kubectl, bigbang-base) are tested by other packages
+  packages.minio: >-
+    Big Bang's MinIO tenant: OBJECT_STORAGE=seaweedfs (the default) replaces it, and the
+    MinIO server image stays on Iron Bank in an org without minio, which CI can't pull
+    without an Iron Bank login. compat/minio-operator.yaml tests the operator and its
+    sidecar with a Tenant of its own
 
 # scripts/bb-scan.py findings (chart file or default: how it is handled). CI fails on a
 # finding not listed here, so each new Big Bang release gets the same review.
