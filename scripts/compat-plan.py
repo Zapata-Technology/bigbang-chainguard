@@ -188,7 +188,8 @@ def bigbang_source(ref, root=ROOT, ls_remote=None):
     """(cache key, version to deploy): BIGBANG_VERSION's, or `ref`'s at its current commit."""
     if not ref:
         version = open(os.path.join(root, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
-        return f"bigbang-chart-{version}", version
+        # "mirror": the clone also carries the package repositories (bbmirror.py).
+        return f"bigbang-mirror-{version}", version
     if not REF.match(ref):
         raise SystemExit(f"--bigbang-ref {ref!r} is not a branch or tag name")
     commit = ref_commit(ref, (ls_remote or remote_refs)(ref))

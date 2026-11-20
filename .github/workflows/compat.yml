@@ -123,8 +123,8 @@ jobs:
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
         with:
           version: v3.18.3
-      - name: Set up Python (Big Bang ref, cache miss only)
-        if: steps.cache.outputs.cache-hit != 'true' && env.BIGBANG_REF != ''
+      - name: Set up Python (cache miss only)
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: '3.12'
@@ -136,6 +136,17 @@ jobs:
           python3 scripts/bb-images.py --bigbang work/bigbang --pkgs work/pkgs \
             --values discovery/render-inputs.yaml -o work/bigbang/.ref-images.json
           test -s work/bigbang/.ref-images.json
+
+      # Every package's chart repository at the tag Big Bang pins, once per Big Bang version,
+      # in the cached clone (scripts/bbmirror.py). Each test's Flux then clones from the
+      # runner, not repo1.dso.mil, whose bad minutes failed tests at random. A repository it
+      # can't get stays on repo1 (bb-compat.py also fetches it, with retries, if a test needs it).
+      - name: Mirror the package repositories (cache miss only)
+        if: steps.cache.outputs.cache-hit != 'true'
+        timeout-minutes: 25
+        run: |
+          python3 -m pip install --quiet -r requirements.txt
+          python3 scripts/bbmirror.py fetch --bigbang work/bigbang --dest work/bigbang/.git-mirror
 
       - if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
