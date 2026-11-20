@@ -383,5 +383,5 @@ def test_a_push_that_builds_yml_also_runs_for_waits_for_builds_yml():
     defer = next(s for s in plan["steps"] if s.get("id") == "defer")
     assert defer["if"] == "github.event_name == 'push'" and "builds.yml/runs?head_sha=" in defer["run"]
     assert plan["permissions"]["actions"] == "read"
-    assert "api.github.com:443" in plan["steps"][0]["with"]["allowed-endpoints"]
+    assert "api.github.com:443" in plan["steps"][0]["with"]["allowed-endpoints"].split()
     assert UPDATE["jobs"]["update"]["if"] == "needs.plan.outputs.defer != 'true'"
