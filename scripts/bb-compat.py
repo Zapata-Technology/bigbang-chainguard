@@ -427,9 +427,10 @@ def git_mirror(a):
     return dest, f"http://{host}:{server.server_port}"
 
 
-def use_mirror(values, mirror, label=""):
+def use_mirror(values, chart_values, mirror, label=""):
+    """Serve the packages in `values` (overrides on `chart_values`) from the mirror."""
     if mirror:
-        served = bbmirror.rewrite(values, *mirror)
+        served = bbmirror.rewrite(values, chart_values, *mirror)
         print(f"git mirror{label}: {len(served)} package repositories served from {mirror[1]}", flush=True)
     return values
 
@@ -544,9 +545,10 @@ def main():
 
             mirror = git_mirror(a)
             chart = os.path.join(a.bigbang, "chart")
-            values = test_values(yaml.safe_load(open(os.path.join(chart, "values.yaml"))), test.get("enable", []))
+            chart_values = yaml.safe_load(open(os.path.join(chart, "values.yaml")))
+            values = test_values(chart_values, test.get("enable", []))
             deep_merge(values, test.get("values", {}) or {})
-            use_mirror(values, mirror)
+            use_mirror(values, chart_values, mirror)
             tv = os.path.join(secrets, "test.yaml")
             yaml.safe_dump(values, open(tv, "w"))
             # A release on an older Big Bang major installs with that chart's keys.
@@ -557,7 +559,7 @@ def main():
                                                         test.get("values", {}) or {}), old)
                 # upgrade_from.values: settings only the starting install needs, in its keys.
                 deep_merge(first_values, test["upgrade_from"].get("values") or {})
-                use_mirror(first_values, mirror, f" ({release or 'starting release'})")
+                use_mirror(first_values, old, mirror, f" ({release or 'starting release'})")
                 tv_first = os.path.join(secrets, "test-first.yaml")
                 yaml.safe_dump(first_values, open(tv_first, "w"))
             helm_bigbang(a, test, first or out, out, tv_first, creds, f", upgrade from {release or 'the old mapping'}"

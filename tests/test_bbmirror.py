@@ -60,25 +60,33 @@ def mirror_with_keycloak(tmp_path, upstream):
     return dest
 
 
-def test_rewrite_points_mirrored_packages_at_the_mirror_and_leaves_the_rest(tmp_path, upstream):
+def test_rewrite_sets_the_mirror_in_the_test_overrides_from_the_charts_repo_and_tag(tmp_path, upstream):
+    """bb-compat.py installs override values ({packages: {keycloak: {enabled: true}}}) on
+    the chart's values; the repo and tag come from the chart (CI's first run served 0)."""
     dest = mirror_with_keycloak(tmp_path, upstream)
-    v = values()
-    assert bbmirror.rewrite(v, dest, "http://172.18.0.1:18418/") == ["packages.keycloak"]
-    assert v["packages"]["keycloak"]["git"]["repo"] == \
-        "http://172.18.0.1:18418/big-bang/product/packages/keycloak.git"
-    assert v["packages"]["elsewhere"]["git"]["repo"] == "https://example.com/x.git"
+    chart = values()
+    v = {"domain": "bigbang.test", "packages": {"keycloak": {"enabled": True}}}
+    assert bbmirror.rewrite(v, chart, dest, "http://172.18.0.1:18418/") == ["packages.keycloak"]
+    assert v["packages"]["keycloak"] == {"enabled": True, "git": {
+        "repo": "http://172.18.0.1:18418/big-bang/product/packages/keycloak.git"}}
+    assert "elsewhere" not in v["packages"] and chart["packages"]["keycloak"]["git"]["repo"] == KC
 
 
 def test_a_tag_the_mirror_lacks_stays_on_repo1_when_it_cant_be_fetched(tmp_path, upstream, monkeypatch):
     dest = mirror_with_keycloak(tmp_path, upstream)
     asked = []
     monkeypatch.setattr(bbmirror, "fetch", lambda *a, **k: asked.append(a[2]) or False)
-    v = values(tag="0.9.0-bb.0")
-    assert bbmirror.rewrite(v, dest, "http://h:1") == []
-    assert v["packages"]["keycloak"]["git"]["repo"] == KC and asked == ["0.9.0-bb.0"]
-    # A disabled package is never fetched for.
+    v = {"packages": {"keycloak": {"enabled": True}}}
+    assert bbmirror.rewrite(v, values(tag="0.9.0-bb.0"), dest, "http://h:1") == []
+    assert "git" not in v["packages"]["keycloak"] and asked == ["0.9.0-bb.0"]
+    # A test's own tag pin is the one looked for.
     asked.clear()
-    assert bbmirror.rewrite(values(enabled=False, tag="0.9.0-bb.0"), dest, "http://h:1") == [] and asked == []
+    v = {"packages": {"keycloak": {"enabled": True, "git": {"tag": "0.8.0-bb.0"}}}}
+    assert bbmirror.rewrite(v, values(), dest, "http://h:1") == [] and asked == ["0.8.0-bb.0"]
+    # A package the test leaves off is never fetched for.
+    asked.clear()
+    v = {"packages": {"keycloak": {"enabled": False}}}
+    assert bbmirror.rewrite(v, values(tag="0.9.0-bb.0"), dest, "http://h:1") == [] and asked == []
 
 
 def test_cgi_output_becomes_status_headers_and_body():
@@ -98,8 +106,8 @@ def test_a_shallow_clone_at_the_tag_comes_back_over_smart_http(tmp_path, upstrea
     dest = mirror_with_keycloak(tmp_path, upstream)
     server = bbmirror.serve(dest, host="127.0.0.1")
     try:
-        v = values()
-        bbmirror.rewrite(v, dest, f"http://127.0.0.1:{server.server_port}", fetch_missing=False)
+        v = {}
+        bbmirror.rewrite(v, values(), dest, f"http://127.0.0.1:{server.server_port}", fetch_missing=False)
         out = tmp_path / "clone"
         git("clone", "-q", "--depth", "1", "--branch", "1.0.0-bb.0", v["packages"]["keycloak"]["git"]["repo"], str(out))
         assert (out / "chart" / "Chart.yaml").read_text() == "name: keycloak\n"

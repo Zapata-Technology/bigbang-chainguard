@@ -95,16 +95,28 @@ def fetch_all(dest, values, attempts=4, pause=30):
     return [rt for rt, ok in zip(wanted, got) if not ok]
 
 
-def rewrite(values, dest, url, fetch_missing=True, attempts=3, pause=20):
-    """Point each package the mirror holds at `url` (in place); fetch an enabled package's
-    tag the mirror lacks first. Returns the package keys now served from the mirror."""
+def package_node(values, key):
+    """values' dict at the Big Bang key "a.b", created if missing."""
+    node = values
+    for k in key.split("."):
+        node = node.setdefault(k, {})
+    return node
+
+
+def rewrite(values, chart_values, dest, url, fetch_missing=True, attempts=3, pause=20):
+    """Point each package the mirror holds at `url`, in `values`: the override values a test
+    installs on top of the chart's `chart_values`, where each package's repo and tag are.
+    An enabled package's tag the mirror lacks is fetched first. Returns the package keys
+    now served from the mirror."""
     done = []
-    for key, pkg, repo, tag in sources(values):
-        if not has_tag(dest, repo, tag) and not (fetch_missing and pkg.get("enabled") is True
+    for key, _, repo, tag in sources(chart_values):
+        node = package_node(values, key)
+        tag = str((node.get("git") or {}).get("tag") or tag)   # a test's own pin wins
+        if not has_tag(dest, repo, tag) and not (fetch_missing and node.get("enabled") is True
                                                  and fetch(dest, repo, tag, attempts, pause)):
             continue
         rel = os.path.relpath(bare_path(dest, repo), dest).replace(os.sep, "/")
-        pkg["git"]["repo"] = f"{url.rstrip('/')}/{rel}"
+        node.setdefault("git", {})["repo"] = f"{url.rstrip('/')}/{rel}"
         done.append(key)
     return done
 
