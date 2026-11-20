@@ -83,3 +83,23 @@ def test_used_names_cover_twins_tokens_and_build_bases():
     used = org.used_by_bigbang(mapping, ["FROM cgr.dev/example.com/kubectl:1.35-dev"])
     assert {"argocd", "argocd-fips", "kyvernopre", "redis", "nginx", "nginx-fips", "kubectl", "go"} <= used
     assert "kyvernopre-fips" not in used
+
+
+def test_quota_without_the_entitlements_capability_is_a_note_not_a_traceback(monkeypatch, capsys):
+    """update.yml's identity lacks registry.entitlements.list: every bot PR body had a traceback."""
+    import sys
+
+    def denied(*args):
+        raise RuntimeError('{"error":"[PermissionDenied] caller does not have the required capabilities, '
+                           'missing: registry.entitlements.list"}')
+    monkeypatch.setattr(org, "chainctl_json_obj", denied)
+    monkeypatch.setattr(sys, "argv", ["bb-org-repos.py", "--quota", "--org", "example.com"])
+    assert org.main() == 0
+    assert "registry.entitlements.list" in capsys.readouterr().out
+
+    def broken(*args):
+        raise RuntimeError("chainctl: connection refused")
+    monkeypatch.setattr(org, "chainctl_json_obj", broken)
+    import pytest
+    with pytest.raises(RuntimeError):
+        org.main()

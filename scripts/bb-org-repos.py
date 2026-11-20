@@ -229,7 +229,16 @@ def main():
     a = ap.parse_args()
     org = org_name(a.org)
     if a.quota:
-        return quota(org, a.optional)
+        try:
+            return quota(org, a.optional)
+        except RuntimeError as e:
+            # update.yml's identity may not hold registry.entitlements.list (2026-11-20: a
+            # traceback in every bot PR body). The report is informational: say so, once.
+            if "PermissionDenied" not in str(e):
+                raise
+            print("Chainguard plan quota: not shown (this identity can't read the org's "
+                  "entitlements: registry.entitlements.list)")
+            return 0
     names = list(a.names)
     if not names:
         p = subprocess.run([sys.executable, os.path.join(HERE, "bb-convert.py"), "--org", org, "--missing"],

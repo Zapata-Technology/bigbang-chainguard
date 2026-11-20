@@ -287,6 +287,24 @@ def test_a_patch_release_merges_itself_only_when_turned_on(tmp_path):
     assert "pr merge" not in log and "needs-attention" in log       # a minor release: a person
 
 
+def test_a_release_pr_for_the_version_main_already_has_is_never_merged(tmp_path):
+    """#268: opened by an update run that started before #259 brought 4.1.1 to main."""
+    p, log = run_merge(tmp_path, release("4.1.1"), branch="bot/bigbang-release", patches="true",
+                       main_version="4.1.1")
+    assert p.returncode == 0, p.stderr
+    assert "pr merge" not in log and "needs-attention" in log
+
+
+def test_the_release_track_asks_main_again_before_opening_its_prs():
+    steps = UPDATE["jobs"]["update"]["steps"]
+    names = [s.get("name") for s in steps]
+    ahead = steps[names.index("Release still ahead of main")]
+    assert ahead["if"] == "matrix.track == 'release'" and "BIGBANG_VERSION?ref=main" in ahead["run"]
+    assert names.index("Release still ahead of main") < names.index("Open the pull request")
+    for name in ("Open the pull request", "Open the builds pull request"):
+        assert "steps.ahead.outputs.stale != 'true'" in steps[names.index(name)]["if"]
+
+
 def test_the_routine_track_never_moves_big_bang(tmp_path):
     data = release("4.1.1", **{"pulls?state=open&per_page=100": [
         {"number": 7, "head": {"ref": "bot/bigbang-update", "sha": "abc"}}]})
