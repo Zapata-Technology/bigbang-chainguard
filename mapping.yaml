@@ -108,7 +108,9 @@ images:
   # prometheus-redis-exporter has no shell: redis-bb's StatefulSet failed (compat/argocd, harbor).
   ironbank/bitnami/analytics/redis-exporter: prometheus-redis-exporter-iamguarded
   ironbank/opensource/elasticsearch-exporter: prometheus-elasticsearch-exporter
-  ironbank/afdco/prometheus/mysqld_exporter: prometheus-mysqld-exporter
+  # Fortify's Bitnami MySQL chart starts the exporter with /bin/bash -ec "mysqld_exporter ..."
+  # (like redis-bb): the plain image has no bash (StartError, compat/fortify.yaml 2026-11-20).
+  ironbank/afdco/prometheus/mysqld_exporter: prometheus-mysqld-exporter-iamguarded
 
   # --- Elastic ---
   ironbank/elastic/eck-operator/eck-operator: eck-operator
@@ -203,7 +205,11 @@ images:
   ironbank/opensource/haproxy/haproxy-latest: {cg: haproxy, fips: null}
   ironbank/opensource/shellcheck/shellcheck: {stays: "redis-ha's helm test image (helm test only)", until: shellcheck}
   ironbank/opensource/nginx/nginx: nginx
-  ironbank/opensource/mysql/mysql8: mysql
+  # Fortify's Bitnami MySQL chart needs the Bitnami layout (--defaults-file=/opt/bitnami/mysql/
+  # conf/my.cnf): the plain mysql image refused it and Fortify's database never started
+  # (compat/fortify.yaml, 2026-11-20). Chainguard ships that layout as mysql-iamguarded, at
+  # Iron Bank's 8.4.13. It has no FIPS variant (ask Chainguard); mysql-fips fails the same way.
+  ironbank/opensource/mysql/mysql8: {cg: mysql-iamguarded, fips: null}
   ironbank/afdco/docker/busybox: busybox
   # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-build.py base
   # rebuilds it FROM the org's kubectl -dev images; with BUILD_REGISTRY empty it stays.
