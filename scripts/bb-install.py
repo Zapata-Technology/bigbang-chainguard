@@ -16,9 +16,10 @@
                      the same to a published release, without checking it out: a tag
                      (4.1.0-cg.3), a Big Bang version (4.1.0: its newest -cg.<n>) or latest.
                      Downloads the release archive into work/releases/<tag>, checks its
-                     sha256 and (with cosign) its signature, then runs that release's own
-                     upgrade with your other flags. Refuses a release older than the
-                     cluster's unless --allow-downgrade; --repo OWNER/REPO for a fork
+                     sha256 and its signature (needs cosign), then runs that release's own
+                     upgrade with your other flags. Refuses a release it can't verify
+                     unless --allow-unverified, and one older than the cluster's unless
+                     --allow-downgrade; --repo OWNER/REPO for a fork
   bb-install.py upgrade --list
                      the releases newer than the one the cluster runs
   bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
@@ -152,9 +153,12 @@ def main():
     p.add_argument("--list", action="store_true", help="list the releases newer than the cluster's and stop")
     p.add_argument("--allow-downgrade", action="store_true",
                    help="--to: allow a release older than the one the cluster runs")
+    p.add_argument("--allow-unverified", action="store_true",
+                   help="--to: run a release whose sha256, Sigstore signature or cosign is missing (asks first "
+                        "unless --yes); without it such a release is refused")
     p.add_argument("--repo", metavar="OWNER/REPO",
-                   help="where --to and --list find releases (default: this checkout's GitHub remote, else "
-                        "Zapata-Technology/bigbang-chainguard)")
+                   help="where --to and --list find releases (default: the repository a release archive "
+                        "names in RELEASE_REPO, else this checkout's GitHub remote)")
     p = sub.add_parser("chart", help="download Big Bang's chart into work/charts (the installer image bundles it)")
     p.add_argument("--version", help="Big Bang version (default: the overlays')")
     sub.add_parser("status", help="what's running and what isn't")

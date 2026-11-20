@@ -13,6 +13,7 @@ image:
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:5cc9e01c707e10b7b953a9d95234fb555f2aaa0a70c0944d3fb4c8499ed91eff
 packages:
 - bash
+- cosign
 - curl
 - git
 - helm-3

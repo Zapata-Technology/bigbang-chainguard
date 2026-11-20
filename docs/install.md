@@ -209,16 +209,19 @@ you run it from. `upgrade --to <release>` moves the cluster to a published relea
 downloading it yourself: a tag (`--to 4.1.0-cg.3`), a Big Bang version (`--to 4.1.0`, its
 newest `-cg.<n>`) or `--to latest` (the newest release). The installer:
 
-1. lists the repository's GitHub releases (this checkout's GitHub remote, so a fork uses its
-   own; a release directory, which has no git remote, uses this repository; `--repo
-   OWNER/REPO` names another; `GH_TOKEN` lifts GitHub's anonymous limit of 60 calls an hour);
+1. lists the repository's GitHub releases (a release directory's `RELEASE_REPO` file names
+   the repository it came from; a checkout uses its GitHub remote, so a fork uses its own;
+   with neither, `--repo OWNER/REPO` is required; `GH_TOKEN` lifts GitHub's anonymous limit
+   of 60 calls an hour);
 2. refuses a release older than the one the cluster runs unless `--allow-downgrade`
    (`rollback` is the usual way back);
 3. downloads the release archive into `work/releases/<tag>/`, checks it against the
-   release's sha256 file and, when `cosign` is installed, verifies its signature exactly as
-   the [quickstart](quickstart.md#2-check-it-came-from-this-repository) does. A digest or
-   signature that doesn't match stops the upgrade. Without cosign it says
-   `NOT VERIFIED` and, when it can ask, asks before going on;
+   release's sha256 file and verifies its signature with `cosign` exactly as the
+   [quickstart](quickstart.md#2-check-it-came-from-this-repository) does (the release
+   workflow on main only). A digest or signature that doesn't match stops the upgrade, and so
+   does a missing sha256 file, signature bundle or `cosign`, unless `--allow-unverified`:
+   then it says `NOT VERIFIED` and asks before going on (`--yes` answers; with no terminal
+   and no `--yes` it refuses);
 4. runs that release's own `bb-install.py upgrade` with your other flags (`--site`, `--fips`,
    `--yes`, `--plan`, ...), so the plan, the question, the Velero backup and the install are
    the release's, with the installer CI tested its overlays with. A flag that release's

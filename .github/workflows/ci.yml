@@ -84,6 +84,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0   # the base branch's docs/images.md, for the CVE gate
+          persist-credentials: false   # no git push here: keep the token out of .git/config
 
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
@@ -270,6 +271,8 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no git push here: keep the token out of .git/config
 
       - name: This Big Bang version has a recorded compat matrix
         run: python3 scripts/results-gate.py

@@ -79,6 +79,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0   # the pull request's changed files
+          persist-credentials: false   # no git push here: keep the token out of .git/config
       # Which tests: a pull request runs only those its change reaches (a changed
       # compat/<test>.yaml, a package whose overlay changed, ...); see scripts/compat-plan.py.
       # Also the Big Bang to deploy and its cache key: BIGBANG_VERSION's, or BIGBANG_REF's
@@ -185,6 +186,8 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no git push here: keep the token out of .git/config
 
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e  # v5.1.0
@@ -366,6 +369,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no git push here: keep the token out of .git/config
       - name: Collect the results
         env:
           GH_TOKEN: ${{ github.token }}

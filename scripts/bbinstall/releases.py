@@ -22,7 +22,7 @@ import urllib.request
 from bbcluster import kubectl
 from bbcommon import ROOT
 from bbinstall.common import NAMESPACE, STATE_SECRET, say
-from release import REPO as DEFAULT_REPO
+from release import REPO_FILE, github_remote, release_identity
 
 API = "https://api.github.com/repos/{repo}/releases?per_page=100&page={page}"
 DOWNLOAD = "https://github.com/{repo}/releases/download/{tag}/{name}"
@@ -30,7 +30,8 @@ CACHE = os.path.join(ROOT, "work", "releases")
 TAG = re.compile(r"^(\d+)\.(\d+)\.(\d+)-cg\.(\d+)$")
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 # upgrade's own options, not passed on to the release's installer: (option, takes a value)
-OWN_OPTIONS = {"--to": True, "--allow-downgrade": False, "--list": False, "--repo": True, "--overlays": True}
+OWN_OPTIONS = {"--to": True, "--allow-downgrade": False, "--list": False, "--repo": True, "--overlays": True,
+               "--allow-unverified": False}
 
 
 def tag_key(tag):
@@ -47,14 +48,23 @@ def version_key(version):
     return tuple(int(x) for x in re.findall(r"\d+", str(version))[:3])
 
 
+def archive_repo(root=ROOT):
+    """OWNER/REPO a release archive says it came from (its RELEASE_REPO file), or None."""
+    path = os.path.join(root, REPO_FILE)
+    text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+    m = re.search(r"^repo:\s*([\w.-]+/[\w.-]+)\s*$", text, re.M)
+    return m.group(1) if m else None
+
+
 def release_repo(root=ROOT):
-    """OWNER/REPO the releases come from: this checkout's GitHub remote (a fork releases its
-    own), else this repository (a release archive has no git remote)."""
-    p = subprocess.run(["git", "-C", root, "remote", "get-url", "origin"], capture_output=True, text=True) \
-        if shutil.which("git") and os.path.isdir(os.path.join(root, ".git")) else None
-    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", p.stdout.strip()) if p and not p.returncode \
-        else None
-    return m.group(1) if m else DEFAULT_REPO
+    """OWNER/REPO the releases come from: the repository a release archive was released from,
+    else this checkout's GitHub remote (a fork releases its own). Neither (an archive made
+    before RELEASE_REPO existed, a copy without .git): --repo names it, rather than a guess."""
+    repo = archive_repo(root) or github_remote(root)
+    if not repo:
+        raise SystemExit("which repository publishes the releases? This copy has no RELEASE_REPO file and no "
+                         "GitHub remote: pass --repo OWNER/REPO")
+    return repo
 
 
 def _get_json(url):
@@ -163,33 +173,44 @@ def _download(url, path):
     raise SystemExit(f"could not download {url} ({error})")
 
 
-def verify_archive(repo, archive, which=shutil.which, run=subprocess.run):
-    """(verified, note). The release's sha256 file must match; its Sigstore bundle is checked
-    with cosign against the repository's release workflow, as docs/quickstart.md does, when
-    cosign is installed. A bad digest or signature stops the upgrade."""
-    sums, bundle = archive + ".sha256", archive + ".sigstore.json"
+def verify_archive(repo, archive, which=shutil.which, run=subprocess.run, allow_unverified=False):
+    """(verified, note). The release's sha256 file must match, and its Sigstore bundle must
+    verify with cosign as the repository's release workflow on main (docs/quickstart.md's
+    check). A bad digest or signature always stops the upgrade. A missing sha256, bundle or
+    cosign stops it too, unless allow_unverified (--allow-unverified): then the note says
+    NOT VERIFIED, because the code about to run is unchecked."""
+    sums, bundle, name = archive + ".sha256", archive + ".sigstore.json", os.path.basename(archive)
+    missing = []
     if os.path.exists(sums):
         want = open(sums, encoding="utf-8").read().split()[0]
         got = hashlib.sha256(open(archive, "rb").read()).hexdigest()
         if want != got:
-            raise SystemExit(f"{os.path.basename(archive)}'s sha256 is {got}, the release says {want}: not using it")
+            raise SystemExit(f"{name}'s sha256 is {got}, the release says {want}: not using it")
+    else:
+        missing.append("the release has no sha256 file")
     if not os.path.exists(bundle):
-        return False, "NOT VERIFIED: the release has no Sigstore signature"
-    if not which("cosign"):
-        return False, ("NOT VERIFIED: cosign isn't installed, so the signature wasn't checked (the sha256 "
-                       "matched, which only shows the download is complete)")
-    identity = "^https://github.com/" + repo.replace(".", r"\.") + "/.github/workflows/release.yml@"
+        missing.append("the release has no Sigstore signature")
+    elif not which("cosign"):
+        missing.append("cosign isn't installed, so the signature can't be checked")
+    if missing:
+        why = "; ".join(missing)
+        if not allow_unverified:
+            raise SystemExit(f"{name} can't be verified ({why}): not running its installer. Install cosign "
+                             "(docs/quickstart.md), or pass --allow-unverified to run it anyway")
+        return False, f"NOT VERIFIED: {why}"
     p = run(["cosign", "verify-blob", "--bundle", bundle, "--certificate-oidc-issuer", OIDC_ISSUER,
-             "--certificate-identity-regexp", identity, archive], capture_output=True, text=True)
+             "--certificate-identity-regexp", release_identity(repo), archive], capture_output=True, text=True)
     if p.returncode:
         raise SystemExit(f"{os.path.basename(archive)}'s signature doesn't verify as {repo}'s release workflow; "
                          f"not using it:\n{(p.stderr or p.stdout)[-600:]}")
-    return True, f"signature verified: built by {repo}'s release workflow"
+    return True, f"signature verified: built by {repo}'s release workflow on main"
 
 
-def fetch_release(repo, tag, cache=CACHE, download=_download, which=shutil.which, run=subprocess.run):
+def fetch_release(repo, tag, cache=CACHE, download=_download, which=shutil.which, run=subprocess.run,
+                  allow_unverified=False):
     """Download release `tag`'s archive with its sha256 and signature into cache/<tag>,
-    verify it and extract it. Returns (the release's directory, verified, note)."""
+    verify it (verify_archive) and extract it. Returns (the release's directory, verified,
+    note)."""
     dest = os.path.join(cache, tag)
     shutil.rmtree(dest, ignore_errors=True)    # always fresh: a cached tree could have been edited
     os.makedirs(dest)
@@ -200,7 +221,7 @@ def fetch_release(repo, tag, cache=CACHE, download=_download, which=shutil.which
         raise SystemExit(f"release {tag} has no {name}")
     for suffix in (".sha256", ".sigstore.json"):
         download(DOWNLOAD.format(repo=repo, tag=tag, name=name + suffix), archive + suffix)
-    verified, note = verify_archive(repo, archive, which, run)
+    verified, note = verify_archive(repo, archive, which, run, allow_unverified)
     with tarfile.open(archive) as t:
         t.extractall(dest, filter="data")     # no absolute paths, links out or devices
     root = os.path.join(dest, f"bigbang-chainguard-{tag}")

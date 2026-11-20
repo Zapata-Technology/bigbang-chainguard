@@ -107,6 +107,8 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # no git push here: keep the token out of .git/config
 
       # The VM's disk grows on the runner's as Big Bang's images arrive. The VM gets twice the
       # runner's CPUs (at least 8) and all but 2 GB of its memory. Big Bang's default packages
