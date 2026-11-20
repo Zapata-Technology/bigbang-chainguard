@@ -688,7 +688,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:e6bae37916a00bcd1053477c69536ce1201eb407917e26e9d3616f42c5bad5ee
+        - digest: sha256:baaf332937b0b1239c863d5177d22f32327b528283870224fc1f6a6818bb5886
           name: cgr.dev/zapatatechnology.com/headlamp
         - digest: sha256:e4897f0b1661968abc45cf039f8ee7a05d36626f82daf3590aa21b88bfef8d21
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -964,7 +964,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/loki-canary
         - digest: sha256:697a08c7c7504774d7d24faab711ea94a7fd033e2042c4b87a67dbc84a88f9a1
           name: cgr.dev/zapatatechnology.com/memcached
-        - digest: sha256:7bae46f07b5a0e47d0cb334b618f47ccb7a6dd1ece647e5c9b78fcf70385928e
+        - digest: sha256:57f161521623dd58eebc431125bce4aac567f41ff10463231943576666b78f09
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:1dfecb1802be87c5a607c0d64d86b77dd895904e460f632e2ff1935a702f31bb
           name: cgr.dev/zapatatechnology.com/nginx
@@ -1079,7 +1079,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kafka-native
         - digest: sha256:697a08c7c7504774d7d24faab711ea94a7fd033e2042c4b87a67dbc84a88f9a1
           name: cgr.dev/zapatatechnology.com/memcached
-        - digest: sha256:7bae46f07b5a0e47d0cb334b618f47ccb7a6dd1ece647e5c9b78fcf70385928e
+        - digest: sha256:57f161521623dd58eebc431125bce4aac567f41ff10463231943576666b78f09
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:1dfecb1802be87c5a607c0d64d86b77dd895904e460f632e2ff1935a702f31bb
           name: cgr.dev/zapatatechnology.com/nginx
