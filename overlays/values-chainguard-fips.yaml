@@ -227,7 +227,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:6ae0956b07cea96322cf32e4d9d5115f9ad1dbf9892c6d0708d2ee8081d71124
+        - digest: sha256:4ba80480d7878ec95d58abb725f7bd88e34d2915c432c49570fcfe484be6eaad
           name: cgr.dev/zapatatechnology.com/elasticsearch-fips
         - digest: sha256:7681f9e648fec88dc8e544f861485142cdd0e5dd64374f2b5784da49778d0711
           name: cgr.dev/zapatatechnology.com/kibana-fips
@@ -783,7 +783,7 @@ packages:
         images:
         - digest: sha256:eeeb0c977a87f188c8b5ec962524f4cd8a95d2945f7b7c3d4a19cef9a770a815
           name: cgr.dev/zapatatechnology.com/kiali-fips
-        - digest: sha256:72dcec9dd3c00baafb2482bb3ee6ba6704ec2021c6c0daf9e976734eb7518a76
+        - digest: sha256:ad0cc5a57ef439042efa81cc855095a0bb4d223cad9660e258c4b4e6dd9cbf48
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:24920a95a3690a12a66a8d0ff4da4b41d6f22e452d77881c5b4f454026894292
           name: cgr.dev/zapatatechnology.com/kubectl-fips
@@ -1331,7 +1331,7 @@ packages:
         images:
         - digest: sha256:24920a95a3690a12a66a8d0ff4da4b41d6f22e452d77881c5b4f454026894292
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:0132ba1818e13b8fc0159a5b5995087919e489f6f0b1f765386def314e9a0a86
+        - digest: sha256:f755ed0d2196e4a956dbe1e78baaa42afc44c744b20faf5affada3939167dfac
           name: cgr.dev/zapatatechnology.com/renovate-fips
     values:
       bbtests:
@@ -1343,7 +1343,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate-fips
-          tag: 44.256.0
+          tag: 44.257.0
   sonarqube:
     postRenderers:
     - kustomize:
