@@ -5,11 +5,15 @@ so nobody hand-edits run IDs and dates that then go stale.
   test-results.py record --test loki --mode fips --outcome success --log compat.log --out results/
       one compat.yml job: write its result as JSON (test, mode, pass/fail, Big Bang
       version, when, run, commit) for the job's `compat-result-<test>-<mode>` artifact
-  test-results.py update [--results DIR ...] [--from-main N] [--run ID]
+  test-results.py update [--results DIR ...] [--from-main N] [--from-branch B --last N] [--run ID]
       merge new results into docs/test-results.json (the newest per test and mode wins) and
       rewrite the table between docs/testing.md's results markers; prose outside them is
       left alone. --from-main downloads the result artifacts of the last N completed
-      compat.yml runs on main (`gh`); --run those of one run.
+      compat.yml runs on main (`gh`); --from-branch those of the last N runs on one branch,
+      pull request runs included, keeping only results for this checkout's BIGBANG_VERSION
+      (update.yml's release track: a new BIGBANG_VERSION runs every kind test on the release
+      PR, and main can't run that version before the PR merges, so without these the
+      release PR's results-gate stays red); --run those of one run.
   test-results.py summary --results DIR     the results in DIR as a Markdown table
   test-results.py check                     exit 1 if docs/testing.md's table isn't what
                                             docs/test-results.json renders
@@ -39,6 +43,10 @@ MODES = ("standard", "fips")
 # A cancelled or timed-out job, or one whose setup failed, says nothing about the package:
 # it is recorded as `error` and never replaces a real result.
 RESULTS = ("pass", "fail", "skipped")
+# bb-compat.py's line when Flux couldn't clone a package's chart from repo1.dso.mil. A job
+# that still fails with it after compat.yml's retry deployed nothing: an outage, not a
+# package failure, so it is recorded as `error` (it never hides the last real result).
+REPO1_DOWN = re.compile(r"^PROBLEM: repo1\.dso\.mil: .* can't fetch", re.M)
 ARTIFACTS = "compat-result*"   # each job's compat-result-<test>-<mode>, and compat-results
 
 
@@ -49,6 +57,8 @@ def outcome_result(outcome, log_text):
     if outcome == "success":
         # A registry1 test without an Iron Bank login exits 0 but tested nothing.
         return "skipped" if re.search(r"^RESULT .*: SKIPPED", log_text, re.M) else "pass"
+    if outcome == "failure" and REPO1_DOWN.search(log_text):
+        return "error"
     return "fail" if outcome == "failure" else "error"
 
 
@@ -131,13 +141,23 @@ def repo_args():
     return ["-R", repo] if repo else []
 
 
-def main_runs(limit):
-    """The last completed compat.yml runs on main (schedule and manual; not pull requests)."""
-    rc, out, err = gh("run", "list", *repo_args(), "--workflow", "compat.yml", "--branch", "main",
+def main_runs(limit, branch="main", pull_requests=False):
+    """The last completed compat.yml runs on `branch` (schedule and manual; pull request
+    runs too with `pull_requests`)."""
+    rc, out, err = gh("run", "list", *repo_args(), "--workflow", "compat.yml", "--branch", branch,
                       "--status", "completed", "-L", str(limit), "--json", "databaseId,event")
     if rc:
         raise SystemExit(f"gh run list failed: {err.strip()}")
-    return [r["databaseId"] for r in json.loads(out) if r.get("event") != "pull_request"]
+    return [r["databaseId"] for r in json.loads(out)
+            if pull_requests or r.get("event") != "pull_request"]
+
+
+def keep(r, branches=None, bigbang=None):
+    """Whether a downloaded result counts: from one of `branches` (None: any), and for the
+    `bigbang` version (None: any). A pull request's results name its merge ref (259/merge),
+    not the head branch, so a branch's PR runs are matched by version instead."""
+    return ((branches is None or r.get("branch") in branches)
+            and (bigbang is None or r.get("bigbang") == bigbang))
 
 
 def download(run, dest):
@@ -240,6 +260,10 @@ def main():
     up = sub.add_parser("update")
     up.add_argument("--results", action="append", default=[], help="a directory of result JSONs")
     up.add_argument("--from-main", type=int, metavar="N", help="the last N compat.yml runs on main")
+    up.add_argument("--from-branch", metavar="BRANCH",
+                    help="compat.yml runs on BRANCH, pull requests included (with --last), for "
+                         "this BIGBANG_VERSION only; e.g. bot/bigbang-release")
+    up.add_argument("--last", type=int, default=5, metavar="N", help="how many --from-branch runs")
     up.add_argument("--run", action="append", default=[], help="one compat.yml run's results")
     sm = sub.add_parser("summary")
     sm.add_argument("--results", required=True)
@@ -268,12 +292,19 @@ def main():
     new = []
     for d in a.results:
         new += read_dir(d)
-    runs = list(a.run) + (main_runs(a.from_main) if a.from_main else [])
+    # Each run with what its results must match: main's runs only main's own results, a
+    # branch's runs (pull requests included) only this BIGBANG_VERSION; --run keeps all.
+    runs = [(run, {}) for run in a.run]
+    if a.from_main:
+        runs += [(run, {"branches": ("main", "")}) for run in main_runs(a.from_main)]
+    if a.from_branch:
+        bigbang = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
+        runs += [(run, {"bigbang": bigbang})
+                 for run in main_runs(a.last, a.from_branch, pull_requests=True)]
     with tempfile.TemporaryDirectory() as tmp:
-        for run in runs:
+        for run, match in runs:
             got = download(run, os.path.join(tmp, str(run)))
-            # Only main's own runs count when downloading from main.
-            new += [r for r in got if not a.from_main or r.get("branch") in ("main", "")]
+            new += [r for r in got if keep(r, **match)]
     before = {(r["test"], r["mode"]): r for r in data.get("results", [])}
     data["results"] = merge(data.get("results", []), new)
     changed = [r for r in data["results"] if before.get((r["test"], r["mode"])) != r]

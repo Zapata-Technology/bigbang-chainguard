@@ -22,7 +22,11 @@ this `BIGBANG_VERSION` has no recorded standard matrix is expected. `ci-triage.p
 EXPECTED and exits 4. `automerge.yml` then leaves the pull request open: it does not merge,
 does not re-run the job, and does not add `needs-attention`. Do not label the pull request
 `hold`, do not push to the bot branch, and do not write pass rows. The weekly `compat.yml`
-records the rest of the matrix. `python scripts/test-results.py update --from-main 20`
+records the rest of the matrix. A release PR records its own: its new `BIGBANG_VERSION`
+runs every kind test, compat.yml's `record-release` job then dispatches `update.yml`, and the
+release track copies those results (`test-results.py update --from-branch bot/bigbang-release`,
+this version's results only) into the PR, so its gate turns green within about an hour.
+`python scripts/test-results.py update --from-main 20`
 (or `update --run <id>`) copies real artifacts into `docs/test-results.json`. A red gate
 after that matrix is recorded is a real failure.
 

@@ -184,7 +184,8 @@ agent hits before it finishes reading that file.
   . Large tests and `registry1: true` tests stay outside the gate (the marked list in
   [docs/testing.md](docs/testing.md)). A skip is not a pass. Do not write pass rows.
   `verify` is the required check. `python scripts/test-results.py update` records real
-  artifacts. A red gate after the matrix is recorded is a real failure.
+  artifacts. A red gate after the matrix is recorded is a real failure. A release PR
+  records its own matrix from its kind runs (compat.yml `record-release` -> update.yml).
 - **The scheduled agent's sandbox reaches GitHub only through REST**
   `repos/<owner>/<repo>/...`, via `scripts/ghrest.py`. GraphQL (`gh pr list`, `gh pr checks`)
   and an empty answer are not "nothing to do."

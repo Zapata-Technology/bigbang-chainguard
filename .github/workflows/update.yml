@@ -300,11 +300,20 @@ jobs:
       # docs/testing.md's results table: the newest result of each kind test and mode from
       # compat.yml's runs on main (artifacts on api.github.com and its blob storage, both
       # allowed above). A download problem leaves the recorded results as they are.
+      # The release track also reads its own pull request's runs: a new BIGBANG_VERSION runs
+      # every kind test there, and main can't run that version until the PR merges, so
+      # without them its results-gate stayed red until someone recorded them by hand.
+      # Only results for this version count (test-results.py --from-branch).
       - name: Kind test results
         env:
           GH_TOKEN: ${{ github.token }}
+          TRACK: ${{ matrix.track }}
+          BRANCH: ${{ matrix.branch }}
         run: |
-          python3 scripts/test-results.py update --from-main 20 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" \
+          from_branch=()
+          [ "$TRACK" = release ] && from_branch=(--from-branch "$BRANCH" --last 5)
+          python3 scripts/test-results.py update --from-main 20 "${from_branch[@]}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" \
             || echo "::warning::test-results.py failed; docs/testing.md's results unchanged"
 
       # The bot's token: the GitHub App's when BOT_APP_CLIENT_ID is set, else RELEASE_PAT.

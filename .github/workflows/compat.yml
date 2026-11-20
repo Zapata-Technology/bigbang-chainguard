@@ -283,6 +283,13 @@ jobs:
             if [ "$try" = 2 ] || ! grep -q "^PROBLEM: repo1.dso.mil: .* can't fetch" "${RUNNER_TEMP}/compat.log"; then
               exit "$rc"
             fi
+            # Retrying straight away met the same outage (2026-11-20: keycloak FIPS, repo1
+            # timed out on both tries 15 minutes apart). Wait, up to 10 minutes (the job has 45), until
+            # repo1 answers a git request again; Flux keeps retrying meanwhile.
+            for wait in $(seq 1 20); do
+              timeout 20 git ls-remote https://repo1.dso.mil/big-bang/bigbang.git HEAD >/dev/null 2>&1 && break
+              sleep 30
+            done
             echo "::warning::repo1.dso.mil refused a chart fetch; running the test once more"
           done
 
@@ -363,3 +370,41 @@ jobs:
           path: results
           retention-days: 90
           if-no-files-found: ignore
+
+  # The release PR (bot/bigbang-release) runs every kind test for the new BIGBANG_VERSION.
+  # update.yml's release track records those results (test-results.py --from-branch), so
+  # ask it to run now rather than at night, while this version's gate is still red. Its
+  # push runs this workflow once more (a PR's paths filter sees the whole PR); that run
+  # finds the gate green and dispatches nothing, so it stops there.
+  record-release:
+    needs: test
+    if: >-
+      always() && github.event_name == 'pull_request' && needs.test.result != 'skipped' &&
+      github.head_ref == 'bot/bigbang-release' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write    # gh workflow run update.yml
+      contents: read
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record this release's results (update.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python3 scripts/results-gate.py; then
+            echo "This Big Bang version's matrix is already recorded"
+          else
+            gh workflow run update.yml -R "$GITHUB_REPOSITORY" --ref main
+            echo "::notice::update.yml dispatched to record this release PR's kind test results"
+          fi
