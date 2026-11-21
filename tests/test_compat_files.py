@@ -1,6 +1,7 @@
 """compat/*.yaml are well formed, so a typo fails here and not after a kind run."""
 import glob
 import os
+import re
 import shlex
 
 import pytest
@@ -88,3 +89,27 @@ def test_every_kind_test_checks_the_app_works(path):
     # needs a `check` command that proves the package does its job.
     test = yaml.safe_load(open(path, encoding="utf-8")).get("test", {})
     assert test.get("check"), f"{os.path.basename(path)}: add a `check:` that proves the app works"
+
+
+def _leaves(tree, path=()):
+    """Every dotted path to a non-mapping value in a nested mapping."""
+    if isinstance(tree, dict) and tree:
+        for k, v in tree.items():
+            yield from _leaves(v, path + (str(k),))
+    else:
+        yield ".".join(path)
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda p: os.path.basename(p))
+def test_values_do_not_shadow_a_setup_written_values_file(path):
+    """bb-compat.py passes a test's `values` to helm after every `values_files` entry, so a
+    key set in both wins from `values` and the file's copy is dead (compat/eck-kibana.yaml:
+    kibana.count 0 in the FIPS site file never applied). Only the flow-style YAML that a
+    setup line echoes into a file is read."""
+    test = yaml.safe_load(open(path, encoding="utf-8"))["test"]
+    in_files = set()
+    for cmd in test.get("setup", []):
+        for flow in re.findall(r"echo '(\{.*?\})' >", cmd):
+            in_files |= set(_leaves(yaml.safe_load(flow)))
+    shadowed = in_files & set(_leaves(test.get("values") or {}))
+    assert not shadowed, f"set in `values` and in a setup-written file; `values` wins: {sorted(shadowed)}"

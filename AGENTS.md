@@ -58,6 +58,8 @@ org-neutral.
 
 ```bash
 python scripts/check.py              # before every commit: unit tests, ruff (+ chart scan if work/ exists)
+                                     # needs Python 3.12+ (tests/test_recipes.py): where `python3` is older,
+                                     # use python3.13 -m pip install -r requirements-dev.txt, then python3.13 scripts/check.py
 python scripts/check.py --online     # + overlays current + verify std/FIPS (chainctl, work/)
 python scripts/bb-run.py             # fetch, discover, scan, convert, verify: the whole pipeline
 python scripts/bb-convert.py         # regenerate overlays after editing mapping.yaml (online only; see traps)
