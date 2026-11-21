@@ -21,3 +21,6 @@ for a real schema migration pin `upgrade_from.images` to an older line and verif
 `compat/mattermost-migration.yaml`). Unknown
 keys fail `tests/test_compat_files.py`; a new key needs code in `bb-compat.py` and a line here.
 
+`values` reach helm after every `values_files` entry, so a key set in both is taken from `values`
+and the file's copy is dead (`tests/test_compat_files.py` catches the flow-style YAML a `setup`
+line echoes into a file). Put a value that differs by mode (`COMPAT_FIPS`) only in the file.

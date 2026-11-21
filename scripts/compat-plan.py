@@ -25,6 +25,8 @@ runs only the tests its change can affect:
       in that overlay's mode (values-chainguard-fips.yaml: FIPS; values-object-storage.yaml
       or object-storage.yaml: the tests with values_files, standard);
     - the installer (scripts/bb-install.py, scripts/bbinstall/): the installer tests, standard;
+    - an image built here (builds/<name>/): the tests whose images use {build: <name>},
+      standard, and SMOKE;
     - anything else that reaches a cluster (the harness, flux/, mapping.yaml, orgs/, digest-only
       overlay changes, this workflow): SMOKE, standard;
     - docs, unit tests, everything else: nothing.
@@ -67,9 +69,15 @@ DISCOVERY_INPUTS = ("discovery/render-inputs.yaml", "scripts/bb-images.py", "scr
 OVERLAY_MODES = {"overlays/values-chainguard.yaml": "standard", "overlays/values-chainguard-fips.yaml": "fips"}
 INSTALLER = re.compile(r"^scripts/(bb-install\.py|bbinstall/)")
 OBJECT_STORAGE = ("overlays/values-object-storage.yaml", "object-storage.yaml")
-# Changes that reach a cluster but name no package: the smoke tests.
-CLUSTER = re.compile(r"^(flux/|flux-fips/|mapping\.yaml$|orgs/|scripts/(bb-compat|bbcluster|compat-plan|bbcommon)\.py$"
+# Changes that reach a cluster but name no package: the smoke tests. The scripts are
+# bb-compat.py's own code: what it imports and the scripts it runs (bb-convert.py writes the
+# overlays each test deploys; tests/test_compat_plan.py keeps this list complete).
+CLUSTER = re.compile(r"^(flux/|flux-fips/|mapping\.yaml$|orgs/"
+                     r"|scripts/(bb-compat|bbcluster|compat-plan|bbcommon|bb-convert|bbmirror|orgtags|objstore"
+                     r"|fluxrelease|release|bb-build|bbbuild)\.py$"
                      r"|\.github/kind-compat\.yaml$|\.github/workflows/compat\.yml$)")
+# An image built here (builds/<name>/): the tests whose `images:` use {build: <name>}.
+BUILD = re.compile(r"^builds/([^/]+)/")
 
 
 def test_text(name, root=ROOT):
@@ -164,6 +172,12 @@ def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: "", recor
         elif INSTALLER.match(path):
             add([t for t in tests if re.search(r"^  installer: true", test_text(t, root), re.M)], ["standard"])
         elif CLUSTER.match(path):
+            smoke = True
+        elif BUILD.match(path):
+            # A release PR whose matrix is recorded already ran these with its builds.
+            if not covered:
+                name = re.escape(BUILD.match(path).group(1))
+                add([t for t in tests if re.search(r"\{build: " + name + r"[,}]", test_text(t, root))], ["standard"])
             smoke = True
     if smoke:
         add([t for t in SMOKE if t in tests], ["standard"])

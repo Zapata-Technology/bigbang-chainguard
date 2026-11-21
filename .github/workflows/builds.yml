@@ -24,6 +24,10 @@
 # "keyless", each pushed image is signed with cosign keyless (GitHub OIDC) and gets
 # SPDX SBOM and SLSA provenance attestations. Keyless signing records the image name and digest in
 # the public Sigstore transparency log (Rekor); leave it unset to skip signing.
+#
+# Two jobs run the same steps (a YAML anchor): `build` for pull requests, with a token that
+# can only read packages, and `publish` for main and manual runs, the only one that can
+# push (packages: write). Permissions can't depend on the event, so the split is by job.
 name: Build - Big Bang images
 
 on:
@@ -70,21 +74,26 @@ permissions:
   contents: read
 
 jobs:
+  # Pull requests: build, smoke-test and scan; nothing is pushed or signed (PUSH is never
+  # true here). id-token stays: setup-chainctl trades it for the org login that pulls the
+  # images the builds start FROM.
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    strategy:
+    timeout-minutes: 60   # the slowest build (devops-tester, grafana-plugins) takes ~12 min
+    strategy: &strategy
       fail-fast: false
       matrix:
         name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, gitaly-init-cgroups, registry-adapter, installer]
-    env:
+    env: &env
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
-      PUSH: ${{ (inputs.push || (github.event_name == 'push' && vars.BUILD_REGISTRY != '')) && 'true' || '' }}
+      PUSH: ${{ github.event_name != 'pull_request' && (inputs.push || (github.event_name == 'push' && vars.BUILD_REGISTRY != '')) && 'true' || '' }}
     permissions:
       contents: read
       id-token: write
-      packages: write
-    steps:
+      packages: read
+    steps: &steps
       # Block every outbound call not listed (GitHub, PyPI, Chainguard, repo1/registry1,
       # and what this workflow's tools download). A blocked call fails the step and
       # shows up in the job's annotations: add the host here if it is expected.
@@ -131,6 +140,8 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false   # nothing here pushes to git; keep the token out of .git/config
 
       # grafana-plugins (standard and FIPS, each exported to a tarball for grype) filled the
       # runner's disk: grype failed with "no space left on device". Drop preinstalled
@@ -181,6 +192,12 @@ jobs:
           # main builds only what the mapping uses, unless a manual run sets force (to publish
           # an image before the mapping switches to it, so its kind tests can pull it).
           [ "${{ github.event_name }}" = pull_request ] || [ "${{ inputs.force }}" = true ] && args+=(--force)
+          # The installer image has no .git (.dockerignore), so its upgrade --to would not know
+          # where releases come from: name the repository it is built from, as a release
+          # archive does (scripts/release.py).
+          if [ "${{ matrix.name }}" = installer ]; then
+            echo "repo: $GITHUB_REPOSITORY" > RELEASE_REPO
+          fi
           # Chainguard's package repository sometimes refuses one fetch ("Permission denied",
           # a network error), and a download's server can answer 5xx (grafana.com's plugin
           # downloads: "curl: (22) ... returned error: 500"): one more try then. Any other
@@ -348,3 +365,17 @@ jobs:
             sigstore attest --yes --type slsaprovenance1 --predicate "${RUNNER_TEMP}/provenance.json" "$image"
             echo "signed $image (SBOM, provenance)" >> "$GITHUB_STEP_SUMMARY"
           done < "${RUNNER_TEMP}/pushed.txt"
+
+  # main and manual runs: the same steps (the anchors above), which also push to
+  # BUILD_REGISTRY and sign there. The only job with packages: write.
+  publish:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy: *strategy
+    env: *env
+    permissions:
+      contents: read
+      id-token: write   # the org login, and cosign keyless signing (SIGN_IMAGES=keyless)
+      packages: write   # push to ghcr.io
+    steps: *steps

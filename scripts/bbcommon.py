@@ -229,7 +229,7 @@ def build_signature_identity(registry, signer=""):
     None when neither is known: those images then go unchecked."""
     if signer:
         repo = re.escape(signer)
-    elif registry.startswith("ghcr.io/") and registry.count("/") >= 1:
+    elif registry.split("/", 1)[0] == "ghcr.io" and registry.count("/") >= 1:   # the host, not a prefix
         repo = f"(?i:{re.escape(registry.split('/')[1])})/[^/]+"
     else:
         return None

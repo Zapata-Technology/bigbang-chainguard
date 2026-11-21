@@ -29,7 +29,6 @@ Test-only credentials for a throwaway kind cluster (14+ characters for FIPS).
 """
 import json
 import os
-import re
 import socket
 import subprocess
 import sys
@@ -95,8 +94,15 @@ def unchanged(before, now):
 
 
 def tags(images):
-    """The tags of image refs, without digests (a nightly rebuild changes only the digest)."""
-    return sorted({re.sub(r"@sha256:[0-9a-f]+$", "", i).rsplit(":", 1)[-1] for i in images})
+    """The tags of image refs, without digests (a nightly rebuild changes only the digest).
+    A ref pinned by digest alone (the Flux post-renderer drops the tag) has no tag to
+    compare, so its digest stands in: the other line's image has another digest."""
+    out = set()
+    for i in images:
+        ref, _, digest = i.partition("@")
+        tag = ref.rsplit("/", 1)[-1].partition(":")[2]
+        out.add(tag or digest or ref)
+    return sorted(out)
 
 
 def migrated(app, before):

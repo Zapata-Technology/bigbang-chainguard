@@ -24,6 +24,9 @@ name: Auto-merge - nightly update
 # the re-run, or triage that couldn't read GitHub waits for a person: the PR gets the
 # `needs-attention` label and one comment saying what failed (python scripts/ci-triage.py <pr>),
 # mentioning the ALERT_MENTION repository variable (e.g. a maintainer's login) when it is set.
+# The last step, which reads every check on the head commit, does the same for a failed
+# check whose own run this workflow never saw (a dropped event), unless ci-triage.py <pr>
+# says it is only the missing matrix (exit 4). No bot token fails the run.
 #
 # Every read is captured before it is tested: under `set -e` a failed gh call stops the
 # run. (Piping gh into `grep -q` inside an `if` read a failed call as "no hold label".)
@@ -41,8 +44,12 @@ on:
 permissions:
   contents: read
 
+# One group per bot branch. GitHub keeps one pending run per group and cancels the older
+# pending one when another queues: with a single `automerge` group, a builds PR's event
+# replaced the update PR's, and that PR's failure was never seen. Within a branch a dropped
+# event is harmless only because the last step re-reads every check (and asks for a person).
 concurrency:
-  group: automerge
+  group: automerge-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:
@@ -106,7 +113,8 @@ jobs:
           PATCHES: ${{ vars.AUTOMERGE_BIGBANG_PATCHES }}
         run: |
           set -euo pipefail
-          [ -n "$MERGE_TOKEN" ] || { echo "::warning::no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT); not merging"; exit 0; }
+          # Red, not a warning: a green bot PR that never merges is otherwise silent.
+          [ -n "$MERGE_TOKEN" ] || { echo "::error::no bot token (BOT_APP_CLIENT_ID or RELEASE_PAT); can't merge"; exit 1; }
 
           pulls=$(gh api "repos/$GH_REPO/pulls?state=open&per_page=100")
           pr=$(jq -r --arg b "$BRANCH" --arg s "$SHA" \
@@ -232,8 +240,24 @@ jobs:
           if grep -qv '^completed ' <<<"$runs"; then
             echo "checks still running on #$pr"; exit 0
           fi
+          # A failed check this run didn't triage: its own run's event may have been dropped
+          # (GitHub keeps one pending run per concurrency group), so ask for a person here
+          # rather than stay silent. Triage the whole PR first: exit 4 is the expected
+          # missing matrix (no label). Only flakes (exit 2) still asks: whether that run's own
+          # event re-ran it can't be told from here, and a stray label beats a silent PR.
           if grep -qvE '^completed (success|skipped|neutral) ' <<<"$runs"; then
-            echo "::warning::#$pr has a failed check; not merging"; exit 0
+            echo "::warning::#$pr has a failed check; not merging"
+            if ! grep -qx needs-attention <<<"$labels"; then
+              failed=$(grep -vE '^completed (success|skipped|neutral) ' <<<"$runs" | cut -d' ' -f3- | paste -sd, -)
+              rc=0
+              ${CI_TRIAGE:-python3 scripts/ci-triage.py} "$pr" || rc=$?
+              case "$rc" in
+                4) echo "#$pr: the only failure is the missing compat matrix (expected); not labeling needs-attention" ;;
+                2) attention "a check on the head commit failed on known flakes only ($failed); re-run it if its run wasn't: python scripts/ci-triage.py $pr --rerun-flakes" ;;
+                *) attention "a check on the head commit failed ($failed; ci-triage.py exit $rc)" ;;
+              esac
+            fi
+            exit 0
           fi
           GH_TOKEN="$MERGE_TOKEN" gh pr merge "$pr" --squash --delete-branch --match-head-commit "$SHA"
           echo "merged #$pr at $SHA"

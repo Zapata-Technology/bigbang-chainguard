@@ -46,8 +46,58 @@ def fetch(url, attempts=4):
 
 def go_latest(module):
     """`module@<newest release>` from the Go module proxy (the builders raise modules past
-    what upstream's go.mod pins when the pinned ones have fixable CVEs)."""
+    what upstream's go.mod pins when the pinned ones have fixable CVEs). bb-build.py then
+    keeps the version build.yaml already has (freeze_go) unless --raise-go."""
     return f"{module}@{json.loads(fetch(f'{GO_PROXY}/{module}/@latest'))['Version']}"
+
+
+def sources(spec):
+    """Every `source` value in a spec (the upstream tarballs a build compiles)."""
+    if isinstance(spec, dict):
+        return [v for k, v in spec.items() if k == "source"] + [s for v in spec.values() for s in sources(v)]
+    if isinstance(spec, list):
+        return [s for v in spec for s in sources(v)]
+    return []
+
+
+def frozen_go(new, old, raise_go=False):
+    """freeze_go() when the upstream source is the one build.yaml has; else None. A new
+    upstream release's go.mod may require newer modules than the frozen ones, and `go get`
+    would quietly downgrade them, so a moved source takes the newest releases (and says so)."""
+    if raise_go or old is None or sources(new) != sources(old):
+        return None
+    return freeze_go(new, old)
+
+
+def freeze_go(new, old, raise_go=False, path=""):
+    """Keep each `go_get` module at the version the committed spec (`old`) pins, in place;
+    returns [(path, module, kept version, newest version)] for the ones held back.
+
+    The nightly update regenerates every build, and go_latest() asks proxy.golang.org for
+    the newest release of each go_bumps module, which then merged by itself. The owner wants
+    automatic updates only from Chainguard (2026-11-20; the org has no Chainguard Libraries
+    entitlement for Go), so a raise is now a person's choice: `bb-build.py --raise-go`. A
+    module the committed spec doesn't pin yet (a go_bumps entry a person just added) takes
+    the newest release. Lists of dicts pair up by `id`, else by position."""
+    held = []
+    if isinstance(new, dict) and isinstance(old, dict):
+        for k, v in new.items():
+            if k == "go_get" and isinstance(v, list) and isinstance(old.get(k), list) and not raise_go:
+                pinned = dict(m.split("@", 1) for m in old[k] if "@" in m)
+                for i, m in enumerate(v):
+                    mod, _, ver = m.partition("@")
+                    if mod in pinned and pinned[mod] != ver:
+                        v[i] = f"{mod}@{pinned[mod]}"
+                        held.append((f"{path}.{k}".lstrip("."), mod, pinned[mod], ver))
+            elif k in old:
+                held += freeze_go(v, old[k], raise_go, f"{path}.{k}")
+    elif isinstance(new, list) and isinstance(old, list):
+        by_id = {o.get("id"): o for o in old if isinstance(o, dict) and o.get("id")}
+        for i, v in enumerate(new):
+            o = by_id.get(v.get("id")) if isinstance(v, dict) and v.get("id") else (old[i] if i < len(old) else None)
+            if o is not None:
+                held += freeze_go(v, o, raise_go, f"{path}[{i}]")
+    return held
 
 
 # --- Go programs built from upstream's source (the mattermost-operator, tempo-query, minio and

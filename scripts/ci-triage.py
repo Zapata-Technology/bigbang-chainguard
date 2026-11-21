@@ -18,7 +18,8 @@ Exit code: 0 nothing failed, 1 a real failure, 2 only flakes, 3 GitHub didn't an
 4 the only failure is results-gate reporting that this Big Bang version has no
 recorded compat matrix. That one is expected: do not write pass rows. verify is
 the required check. Record real artifacts with scripts/test-results.py update.
-A results-gate failure with any other message is a real failure (exit 1).
+A results-gate failure with any other message, or one that also says "compat results
+FAILED" (a test's newest result on this version is a failure), is a real failure (exit 1).
 
 --flakes counts, per job, the failed attempts of runs that were re-run (by a person or
 --rerun-flakes) and passed in the end, over the last --days. A job re-run --threshold times
@@ -132,21 +133,25 @@ def outcome(name, raw, lines):
     """'expected' when results-gate says the compat matrix is missing, else classify().
 
     A red gate after the matrix exists, or a crash of the gate script, stays a real
-    failure: the log does not contain 'compat results are missing'."""
-    if GATE_JOB.match(name) and "compat results are missing" in (raw or ""):
+    failure: the log does not contain 'compat results are missing'. So does a gate that
+    also names a test whose newest result FAILED: the missing rest is expected, that is not."""
+    if GATE_JOB.match(name) and "compat results are missing" in (raw or "") \
+            and "compat results FAILED" not in (raw or ""):
         return "expected"
     return classify(lines)
 
 
-def gate_lines(raw, lines):
-    """The gate's own sentences (errors() drops them) plus what not to do about them."""
+def gate_lines(raw, lines, expected=True):
+    """The gate's own sentences (errors() drops them), plus, when the red gate is the
+    expected missing matrix, what not to do about it. A FAILED test's line names its run."""
     kept = []
     for ln in (raw or "").splitlines():
         ln = ln.strip()[:300]
-        if "compat results are missing" in ln or "no standard pass" in ln or "SKIPPED run is not a pass" in ln:
+        if any(s in ln for s in ("compat results are missing", "compat results FAILED", "no standard pass",
+                                 "SKIPPED run is not a pass")):
             if ln not in lines and ln not in kept:
                 kept.append(ln)
-    return lines + kept[:6] + list(EXPECTED_NOTE)
+    return lines + kept[:12] + (list(EXPECTED_NOTE) if expected else [])
 
 
 def failed_jobs(pr=None, run=None):
@@ -208,8 +213,8 @@ def triage(repo, jobs):
         if steps:
             lines = [f"failed step: {', '.join(steps)}"] + lines
         code = outcome(name, raw, lines)
-        if code == "expected":
-            lines = gate_lines(raw, lines)
+        if GATE_JOB.match(name):
+            lines = gate_lines(raw, lines, expected=code == "expected")
         report.append((name, run, code, lines))
     return report
 

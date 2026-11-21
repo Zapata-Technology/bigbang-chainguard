@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Cut a versioned release: the tag, its notes and the archive users install from.
 
-  release.py [--dry-run]
+  release.py [--dry-run] [--repo OWNER/REPO]
 
 Tags are <Big Bang version>-cg.<n>: n counts this repo's releases for that Big Bang version
 (3.35.1-cg.1, 3.35.1-cg.2, ... then 3.36.0-cg.1), so a tag says which Big Bang it deploys
 and which revision of the overlays. The release holds bigbang-chainguard-<tag>.tar.gz (the
 checkout at the tagged commit, with RELEASE set to the tag so bb-install.py can report
-it), its sha256 and, with cosign on the PATH (release.yml), a keyless Sigstore signature
-bundle tied to this repository's release workflow. The notes say how to verify it, list the Big Bang version, the org, and the image changes
-since the previous release. release.yml runs this on main when the deployable files change.
-Needs git (with tags fetched) and gh.
+it, and RELEASE_REPO naming the repository it was released from), its sha256 and, with
+cosign on the PATH (release.yml), a keyless Sigstore signature bundle tied to this
+repository's release workflow on main. The notes say how to download, verify, check and
+install it, link docs/upgrades/<Big Bang version>.md when there is one, and list the Big
+Bang version, the org, and the image changes since the previous release. release.yml runs
+this on main when the deployable files change. The repository is --repo, else
+$GITHUB_REPOSITORY, else the checkout's GitHub remote. Needs git (with tags fetched) and gh.
 """
 import argparse
 import hashlib
@@ -27,7 +30,28 @@ sys.path.insert(0, HERE)
 from bbcommon import ROOT  # noqa: E402
 
 OVERLAY = "overlays/values-chainguard.yaml"
-REPO = os.environ.get("GITHUB_REPOSITORY", "Zapata-Technology/bigbang-chainguard")
+# In a release archive: the repository it was released from, so the installer's
+# upgrade --to finds later releases there without a git remote. A file of its own, not a
+# line in RELEASE: installers already deployed compare RELEASE to the tag exactly.
+REPO_FILE = "RELEASE_REPO"
+
+
+def github_remote(root=ROOT):
+    """OWNER/REPO of the checkout's GitHub `origin` remote, or None (no git, no remote, or
+    not GitHub)."""
+    # .git is a file in a worktree or submodule, a directory otherwise.
+    if not shutil.which("git") or not os.path.exists(os.path.join(root, ".git")):
+        return None
+    p = subprocess.run(["git", "-C", root, "remote", "get-url", "origin"], capture_output=True, text=True)
+    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", p.stdout.strip()) if not p.returncode else None
+    return m.group(1) if m else None
+
+
+def release_identity(repo):
+    """The certificate identity regexp of `repo`'s release workflow on main. Anchored at both
+    ends: a run of release.yml dispatched from another branch doesn't match."""
+    escaped = repo.replace(".", r"\.")   # OWNER/REPO holds only [\w.-]; "." is the one regexp character
+    return rf"^https://github\.com/{escaped}/\.github/workflows/release\.yml@refs/heads/main$"
 
 
 def git(*args):
@@ -75,20 +99,31 @@ def image_changes(old_text, new_text):
     return lines
 
 
-def notes(tag, prev, bigbang, org):
-    out = [f"Big Bang **{bigbang}** on Chainguard images from `{org}`.", "",
-           "```bash",
-           f"curl -fsSLO https://github.com/{REPO}/releases/download/{tag}/bigbang-chainguard-{tag}.tar.gz",
-           f"tar xzf bigbang-chainguard-{tag}.tar.gz && cd bigbang-chainguard-{tag}",
-           "python scripts/bb-install.py init && python scripts/bb-install.py install --site my-site.yaml",
-           "```", "",
-           "Check the archive came from this repository's release workflow:", "",
-           "```bash",
-           f"cosign verify-blob --bundle bigbang-chainguard-{tag}.tar.gz.sigstore.json \\",
-           "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\",
-           f"  --certificate-identity-regexp '^https://github.com/{REPO}/.github/workflows/release.yml@' \\",
-           f"  bigbang-chainguard-{tag}.tar.gz",
-           "```", ""]
+def notes(tag, prev, bigbang, org, repo, root=ROOT):
+    """The notes, in the order a site follows them: download the archive and its signature,
+    verify, extract, check, install."""
+    name = f"bigbang-chainguard-{tag}.tar.gz"
+    url = f"https://github.com/{repo}/releases/download/{tag}"
+    out = [f"Big Bang **{bigbang}** on Chainguard images from `{org}`.", ""]
+    if os.path.exists(os.path.join(root, "docs", "upgrades", f"{bigbang}.md")):
+        out += [f"Upgrading to Big Bang {bigbang}? Read [docs/upgrades/{bigbang}.md]"
+                f"(https://github.com/{repo}/blob/{tag}/docs/upgrades/{bigbang}.md) first.", ""]
+    out += ["```bash",
+            "# 1. the archive and its Sigstore signature bundle",
+            f"curl -fsSLO {url}/{name}",
+            f"curl -fsSLO {url}/{name}.sigstore.json",
+            "# 2. it came from this repository's release workflow on main: stop unless this prints Verified OK",
+            f"cosign verify-blob --bundle {name}.sigstore.json \\",
+            "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\",
+            f"  --certificate-identity-regexp '{release_identity(repo)}' \\",
+            f"  {name}",
+            "# 3. extract",
+            f"tar xzf {name} && cd bigbang-chainguard-{tag}",
+            "# 4. test every setting, changing nothing (writes a starter my-site.yaml when there is none)",
+            "python scripts/bb-install.py check --site my-site.yaml",
+            "# 5. install",
+            "python scripts/bb-install.py install --site my-site.yaml",
+            "```", ""]
     if prev:
         old = subprocess.run(["git", "show", f"{prev}:{OVERLAY}"], cwd=ROOT, capture_output=True, text=True).stdout
         changes = image_changes(old, open(os.path.join(ROOT, OVERLAY), encoding="utf-8").read())
@@ -96,8 +131,9 @@ def notes(tag, prev, bigbang, org):
     return "\n".join(out)
 
 
-def archive(tag, dest):
-    """git archive of HEAD under bigbang-chainguard-<tag>/, with RELEASE holding the tag."""
+def archive(tag, dest, repo):
+    """git archive of HEAD under bigbang-chainguard-<tag>/, with RELEASE holding the tag and
+    RELEASE_REPO the repository."""
     prefix = f"bigbang-chainguard-{tag}/"
     raw = subprocess.run(["git", "archive", "--format=tar", f"--prefix={prefix}", "HEAD"], cwd=ROOT,
                          capture_output=True, check=True).stdout
@@ -105,10 +141,11 @@ def archive(tag, dest):
     with tarfile.open(fileobj=io.BytesIO(raw)) as src, tarfile.open(path, "w:gz") as out:
         for m in src.getmembers():
             out.addfile(m, src.extractfile(m) if m.isfile() else None)
-        data = (tag + "\n").encode()
-        info = tarfile.TarInfo(prefix + "RELEASE")
-        info.size, info.mode = len(data), 0o644
-        out.addfile(info, io.BytesIO(data))
+        for name, text in (("RELEASE", tag + "\n"), (REPO_FILE, f"repo: {repo}\n")):
+            data = text.encode()
+            info = tarfile.TarInfo(prefix + name)
+            info.size, info.mode = len(data), 0o644
+            out.addfile(info, io.BytesIO(data))
     digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
     with open(path + ".sha256", "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{digest}  {os.path.basename(path)}\n")
@@ -123,7 +160,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="print the tag and notes; create nothing")
     ap.add_argument("--dist", default=os.path.join(ROOT, "dist"))
+    ap.add_argument("--repo", metavar="OWNER/REPO",
+                    help="the repository releasing (default: $GITHUB_REPOSITORY, else the git remote)")
     a = ap.parse_args()
+    repo = a.repo or os.environ.get("GITHUB_REPOSITORY") or github_remote()
+    if not repo:
+        raise SystemExit("which repository is releasing? Pass --repo OWNER/REPO")
     bigbang = open(os.path.join(ROOT, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
     head = open(os.path.join(ROOT, OVERLAY), encoding="utf-8").read(800)
     m = re.search(r"Generated for cgr\.dev/([^\s:]+)", head)
@@ -134,12 +176,12 @@ def main():
         print(f"HEAD is already released as {released[0]}")
         return 0
     tag, prev = next_tag(bigbang, tags), previous_tag(tags)
-    body = notes(tag, prev, bigbang, org)
+    body = notes(tag, prev, bigbang, org, repo)
     print(f"release {tag} (previous {prev or 'none'})\n\n{body}")
     if a.dry_run:
         return 0
     os.makedirs(a.dist, exist_ok=True)
-    assets = archive(tag, a.dist)
+    assets = archive(tag, a.dist, repo)
     notes_file = os.path.join(a.dist, "notes.md")
     open(notes_file, "w", encoding="utf-8").write(body)
     subprocess.run(["gh", "release", "create", tag, *assets, "--target", git("rev-parse", "HEAD"),

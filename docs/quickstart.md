@@ -83,7 +83,7 @@ on purpose (step 5).
 ```bash
 cosign verify-blob --bundle "bigbang-chainguard-$TAG.tar.gz.sigstore.json" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github.com/Zapata-Technology/bigbang-chainguard/.github/workflows/release.yml@' \
+  --certificate-identity-regexp '^https://github\.com/Zapata-Technology/bigbang-chainguard/\.github/workflows/release\.yml@refs/heads/main$' \
   "bigbang-chainguard-$TAG.tar.gz"
 tar xzf "bigbang-chainguard-$TAG.tar.gz" && cd "bigbang-chainguard-$TAG"
 ```

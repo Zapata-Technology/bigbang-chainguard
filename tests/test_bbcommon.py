@@ -154,3 +154,24 @@ def test_libyaml_loaders_read_what_the_python_ones_read():
     assert bbcommon.safe_load(first) == yaml.safe_load(first)
     assert list(yaml.load_all(TRICKY_YAML, Loader=bbcommon.BASE_LOADER)) == \
         list(yaml.load_all(TRICKY_YAML, Loader=yaml.BaseLoader))
+
+
+def test_fluxrelease_sends_the_token_only_to_api_github_com(monkeypatch):
+    """CodeQL: "api.github.com" in url matched any URL containing it."""
+    import fluxrelease
+    sent = []
+
+    class R:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setattr(fluxrelease, "_open", lambda req, timeout: sent.append(req.headers) or R())
+    fluxrelease._get("https://api.github.com/repos/fluxcd/flux2/releases")
+    fluxrelease._get("https://evil.example/?u=api.github.com")
+    assert "Authorization" in sent[0] and "Authorization" not in sent[1]

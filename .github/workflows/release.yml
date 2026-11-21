@@ -19,7 +19,20 @@ on:
       - mapping.yaml
       - object-storage.yaml
       - orgs/**
-      - scripts/**
+      # The installer and the scripts it imports at runtime (tests/test_release.py checks
+      # this list against bb-install.py's imports); a change to any other script deploys
+      # nothing new, so it cuts no release.
+      - requirements.txt
+      - scripts/bb-install.py
+      - scripts/bbinstall/**
+      - scripts/bbcluster.py
+      - scripts/bbcommon.py
+      - scripts/objstore.py
+      - scripts/orgtags.py
+      - scripts/release.py
+      - .github/workflows/release.yml
+  # Runs only from main (the job's `if`): the signature's identity names the ref, and
+  # bb-install.py upgrade --to and docs/quickstart.md accept release.yml@refs/heads/main only.
   workflow_dispatch:
 
 permissions:
@@ -31,7 +44,9 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # a release takes about a minute
     permissions:
       contents: write   # the tag and the release
       id-token: write   # cosign keyless: the archive's signature names this workflow

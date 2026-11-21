@@ -9,6 +9,7 @@ so the overlay installs that release instead, with the same Big Bang patches.
 import json
 import os
 import re
+import urllib.parse
 import urllib.request
 
 import yaml
@@ -28,8 +29,10 @@ _RELEASES = {}
 
 
 def _get(url):
-    headers = {"Accept": "application/vnd.github+json"} if "api.github.com" in url else {}
-    if os.environ.get("GITHUB_TOKEN") and "api.github.com" in url:
+    # The host, not a substring: the token goes to api.github.com and nowhere else.
+    api = urllib.parse.urlparse(url).hostname == "api.github.com"
+    headers = {"Accept": "application/vnd.github+json"} if api else {}
+    if os.environ.get("GITHUB_TOKEN") and api:
         headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
     with _open(urllib.request.Request(url, headers=headers), 60) as r:
         return r.read().decode()

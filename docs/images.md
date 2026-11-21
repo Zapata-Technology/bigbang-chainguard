@@ -16,7 +16,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | anchore-enterprise | ironbank/anchore/enterprise/enterprise:6.2.0 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
 | anchore-enterprise | ironbank/anchore/enterpriseui/enterpriseui:6.2.0 | Iron Bank | Iron Bank | Anchore Enterprise is proprietary; vendor image only |
 | anchore-enterprise | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
-| anchore-enterprise | ironbank/bitnami/analytics/redis-exporter:v1.91.1 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.91.x; using 1.97.0 (Iron Bank v1.91.1); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.91.x; using 1.97.0 (Iron Bank v1.91.1) |
+| anchore-enterprise | ironbank/bitnami/analytics/redis-exporter:v1.91.1 | prometheus-redis-exporter-iamguarded:1.98.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.91.x; using 1.98.0 (Iron Bank v1.91.1); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.91.x; using 1.97.0 (Iron Bank v1.91.1) |
 | anchore-enterprise | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | anchore-enterprise | ironbank/opensource/redis/redis8-slim:8.10.2 | redis:8.10.3 | redis-fips:8.10.3 | redis: Iron Bank 8.10.2 -> newest 8.10 patch; redis-fips: Iron Bank 8.10.2 -> newest 8.10 patch |
 | argocd | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 |  |
@@ -24,7 +24,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | argocd | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | argocd | ironbank/big-bang/cypress:16.2.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
 | argocd | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| argocd | ironbank/bitnami/analytics/redis-exporter:v1.86.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.86.x; using 1.97.0 (Iron Bank v1.86.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.86.x; using 1.97.0 (Iron Bank v1.86.0) |
+| argocd | ironbank/bitnami/analytics/redis-exporter:v1.86.0 | prometheus-redis-exporter-iamguarded:1.98.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.86.x; using 1.98.0 (Iron Bank v1.86.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.86.x; using 1.97.0 (Iron Bank v1.86.0) |
 | argocd | ironbank/bitnami/analytics/redis-exporter:v1.97.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 |  |
 | argocd | ironbank/opensource/dexidp/dex:v2.46.1 | dex:2.46.1 | dex-fips:2.46.1 |  |
 | argocd | ironbank/opensource/haproxy/haproxy-latest:3.3.10 | haproxy:3.3.18 | haproxy:3.3.18 | haproxy: Iron Bank 3.3.10 -> newest 3.3 patch; no FIPS variant; FIPS overlay keeps the standard image |
@@ -32,7 +32,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | argocd | ironbank/opensource/redis/redis8-slim:8.8.0 | redis:8.8.4 | redis-fips:8.8.4 | redis: Iron Bank 8.8.0 -> newest 8.8 patch; redis-fips: Iron Bank 8.8.0 -> newest 8.8 patch |
 | argocd | ironbank/opensource/shellcheck/shellcheck:v0.11.0 | Iron Bank | Iron Bank | redis-ha's helm test image (helm test only) |
 | authservice | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
-| authservice | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0) |
+| authservice | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.98.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.98.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0) |
 | authservice | ironbank/istio-ecosystem/authservice:1.1.8 | authservice:1.1.10 | authservice-fips:1.1.10 | authservice: Iron Bank 1.1.8 -> newest 1.1 patch; authservice-fips: Iron Bank 1.1.8 -> newest 1.1 patch |
 | authservice | ironbank/opensource/redis/redis8-slim:8.10.3 | redis:8.10.3 | redis-fips:8.10.3 |  |
 | cert-manager | ironbank/jetstack/cert-manager-cainjector:v1.21.3 | cert-manager-cainjector:1.21.3 | cert-manager-cainjector-fips:1.21.3 |  |
@@ -55,10 +55,10 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | fluentbit | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | fluentbit | ironbank/opensource/fluent/fluent-bit:v5.1.5 | fluent-bit:5.1.5 | fluent-bit-fips:5.1.5 |  |
 | fluentbit | ironbank/opensource/jimmidyson/configmap-reload:v0.15.0 | configmap-reload:0.15.0 | configmap-reload-fips:0.15.0 |  |
-| flux | ironbank/fluxcd/helm-controller:v1.6.4 | flux-helm-controller:1.7.1 | flux-helm-controller-fips:1.7.1 | flux-helm-controller: MINOR AHEAD: org has no 1.6.x; using 1.7.1 (Iron Bank v1.6.4); flux-helm-controller-fips: MINOR AHEAD: org has no 1.6.x; using 1.7.1 (Iron Bank v1.6.4) |
-| flux | ironbank/fluxcd/kustomize-controller:v1.9.5 | flux-kustomize-controller:1.10.1 | flux-kustomize-controller-fips:1.10.1 | flux-kustomize-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5); flux-kustomize-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5) |
-| flux | ironbank/fluxcd/notification-controller:v1.9.4 | flux-notification-controller:1.10.0 | flux-notification-controller-fips:1.10.0 | flux-notification-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.0 (Iron Bank v1.9.4); flux-notification-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.0 (Iron Bank v1.9.4) |
-| flux | ironbank/fluxcd/source-controller:v1.9.5 | flux-source-controller:1.10.1 | flux-source-controller-fips:1.10.1 | flux-source-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5); flux-source-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5) |
+| flux | ironbank/fluxcd/helm-controller:v1.6.4 | flux-helm-controller:1.7.2 | flux-helm-controller-fips:1.7.2 | flux-helm-controller: MINOR AHEAD: org has no 1.6.x; using 1.7.2 (Iron Bank v1.6.4); flux-helm-controller-fips: MINOR AHEAD: org has no 1.6.x; using 1.7.2 (Iron Bank v1.6.4) |
+| flux | ironbank/fluxcd/kustomize-controller:v1.9.5 | flux-kustomize-controller:1.10.2 | flux-kustomize-controller-fips:1.10.2 | flux-kustomize-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-kustomize-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
+| flux | ironbank/fluxcd/notification-controller:v1.9.4 | flux-notification-controller:1.10.1 | flux-notification-controller-fips:1.10.1 | flux-notification-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4); flux-notification-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4) |
+| flux | ironbank/fluxcd/source-controller:v1.9.5 | flux-source-controller:1.10.2 | flux-source-controller-fips:1.10.1 | flux-source-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-source-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5) |
 | fortify | ironbank/afdco/prometheus/mysqld_exporter:0.18.0 | prometheus-mysqld-exporter:0.21.0 | prometheus-mysqld-exporter-fips:0.21.0 | prometheus-mysqld-exporter: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0); prometheus-mysqld-exporter-fips: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0) |
 | fortify | ironbank/microfocus/fortify/ssc:26.2.2.0004 | Iron Bank | Iron Bank | Fortify SSC is proprietary; vendor image only |
 | fortify | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -68,19 +68,19 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gatekeeper | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | gatekeeper | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
-| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi | gitlab-certificates:19.5.6 | gitlab-certificates-fips:19.5.6 | gitlab-certificates: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi | cfssl-self-sign:19.5.6 | cfssl-self-sign-fips:19.5.6 | cfssl-self-sign: Iron Bank v19.5.5-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi | gitlab-certificates:19.5.8 | gitlab-certificates-fips:19.5.8 | gitlab-certificates: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi | cfssl-self-sign:19.5.8 | cfssl-self-sign-fips:19.5.8 | cfssl-self-sign: Iron Bank v19.5.5-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.5-ubi | built FROM the org's images by scripts/bb-build.py gitaly-init-cgroups |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.6 | gitaly-fips:19.5.8 | gitaly: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitaly-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.8 | gitaly-fips:19.5.8 | gitaly: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitaly-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi | gitlab-base:19.5.6 | gitlab-base-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.6 | gitlab-container-registry-fips:19.5.8 | gitlab-container-registry: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-container-registry-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.6 | gitlab-exporter-fips:19.5.6 | gitlab-exporter: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-exporter-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.8 | gitlab-container-registry-fips:19.5.8 | gitlab-container-registry: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-container-registry-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.8 | gitlab-exporter-fips:19.5.8 | gitlab-exporter: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-exporter-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi | commercial-gitlab-geo-logcursor-ee:19.5.6 | commercial-gitlab-geo-logcursor-ee-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi | gitlab-kas:19.5.8 | gitlab-kas-fips:19.5.8 | gitlab-kas: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-kas-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi | gitlab-mailroom:v1.1.0 | gitlab-mailroom-fips:v1.1.0 | gitlab-mailroom: newest org release (Iron Bank v19.5.5-ubi); gitlab-mailroom-fips: newest org release (Iron Bank v19.5.5-ubi) |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.6.2-gitlab1-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.8 | gitlab-pages-fips:19.5.6 | gitlab-pages: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-pages-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.6 | gitlab-shell-fips:19.5.8 | gitlab-shell: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-shell-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.8 | gitlab-pages-fips:19.5.8 | gitlab-pages: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-pages-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.8 | gitlab-shell-fips:19.5.8 | gitlab-shell: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-shell-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi | commercial-gitlab-sidekiq-ee:19.5.6 | commercial-gitlab-sidekiq-ee-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi | commercial-gitlab-toolbox-ee:19.5.6 | commercial-gitlab-toolbox-ee-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi | commercial-gitlab-webservice-ee:19.5.6 | commercial-gitlab-webservice-ee-fips:19.5.6 |  |
@@ -103,7 +103,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | grafana | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | harbor | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | harbor | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| harbor | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0) |
+| harbor | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.98.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.98.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.97.0 (Iron Bank v1.93.0) |
 | harbor | ironbank/opensource/goharbor/harbor-core:v2.15.4 | harbor-core:2.15.5 | harbor-core-fips:2.15.5 | harbor-core: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-core-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/harbor-exporter:v2.15.4 | harbor-exporter:2.15.5 | harbor-exporter-fips:2.15.5 | harbor-exporter: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-exporter-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
 | harbor | ironbank/opensource/goharbor/harbor-jobservice:v2.15.4 | harbor-jobservice:2.15.5 | harbor-jobservice-fips:2.15.5 | harbor-jobservice: Iron Bank v2.15.4 -> newest 2.15 patch; harbor-jobservice-fips: Iron Bank v2.15.4 -> newest 2.15 patch |
@@ -194,7 +194,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.256.0 | renovate-fips:44.256.0 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.256.0 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.256.0 (Iron Bank 44.97.2) |
+| renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.257.6 | renovate-fips:44.257.6 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.257.6 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.257.6 (Iron Bank 44.97.2) |
 | renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | Iron Bank | Iron Bank | catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture) |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
@@ -250,17 +250,17 @@ different version because the org has nothing on that MAJOR.MINOR line (the org 
 Chainguard's current release lines). Test these packages before production, or run
 `bb-convert.py --strict-versions` to refuse them.
 
-- anchore-enterprise: `ironbank/bitnami/analytics/redis-exporter:v1.91.1` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
-- argocd: `ironbank/bitnami/analytics/redis-exporter:v1.86.0` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
-- authservice: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
-- flux: `ironbank/fluxcd/helm-controller:v1.6.4` -> `flux-helm-controller:1.7.1` (newer minor)
-- flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.1` (newer minor)
-- flux: `ironbank/fluxcd/notification-controller:v1.9.4` -> `flux-notification-controller:1.10.0` (newer minor)
-- flux: `ironbank/fluxcd/source-controller:v1.9.5` -> `flux-source-controller:1.10.1` (newer minor)
+- anchore-enterprise: `ironbank/bitnami/analytics/redis-exporter:v1.91.1` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
+- argocd: `ironbank/bitnami/analytics/redis-exporter:v1.86.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
+- authservice: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
+- flux: `ironbank/fluxcd/helm-controller:v1.6.4` -> `flux-helm-controller:1.7.2` (newer minor)
+- flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.2` (newer minor)
+- flux: `ironbank/fluxcd/notification-controller:v1.9.4` -> `flux-notification-controller:1.10.1` (newer minor)
+- flux: `ironbank/fluxcd/source-controller:v1.9.5` -> `flux-source-controller:1.10.2` (newer minor)
 - fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter:0.21.0` (newer minor)
-- harbor: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.97.0` (newer minor)
+- harbor: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
-- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.256.0` (newer minor)
+- renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.257.6` (newer minor)
 - gitlab: `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi` -> `gitlab-mailroom:v1.1.0` (newest release; Iron Bank's tag has no version line)
 - gitlab: `gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi` -> `gitlab-kubectl:v1.37.2` (newest release; Iron Bank's tag has no version line)
 - vault: `ironbank/hashicorp/vault:1.21.4` -> `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` (built by this repo on a different version line)

@@ -118,3 +118,9 @@ def test_seed_keeps_the_pods_and_the_ids_for_verify(tmp_path, monkeypatch):
 def test_migrated_compares_tags_not_digests():
     assert ud.tags(["cgr.dev/o/keycloak:26.7.4@sha256:" + "a" * 64, "cgr.dev/o/keycloak:26.7.4"]) == ["26.7.4"]
     assert ud.tags(["cgr.dev/o/keycloak:26.8.2@sha256:" + "b" * 64]) != ud.tags(["cgr.dev/o/keycloak:26.7.4"])
+
+
+def test_migrated_compares_digests_when_the_pin_has_no_tag():
+    a = "cgr.dev/o/keycloak@sha256:" + "a" * 64
+    b = "cgr.dev/o/keycloak@sha256:" + "b" * 64
+    assert ud.tags([a]) == ud.tags([a]) != ud.tags([b])

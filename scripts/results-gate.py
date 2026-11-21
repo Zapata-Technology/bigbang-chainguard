@@ -9,6 +9,12 @@ tests has no pass. A skipped run is not a pass. Preview results (a Big Bang bran
 before its release) do not count. Large tests (`large: true`) are not required.
 `registry1: true` tests (vault-upgrade) need Iron Bank credentials this repo does not
 store, so they stay outside this gate and do not count as a pass.
+
+Two reasons, printed apart: "compat results are missing" (a test has no result on this
+version yet: expected until the matrix is recorded; scripts/ci-triage.py says EXPECTED) and
+"compat results FAILED: <test> (<run>)" (a test's newest standard result on this version is a
+failure: a real failure, never expected). test-results.py keeps only the newest result per
+test and mode, so a failure that replaced a pass shows up here, not as a gap.
 """
 import glob
 import json
@@ -48,6 +54,18 @@ def passed_standard(version, data):
             and r.get("result") == "pass" and r.get("mode") == "standard"}
 
 
+def failed_standard(version, data, tests):
+    """[(test, run_url)] for each of `tests` whose newest standard result on `version` is a
+    failure. Previews do not count; a skip is not a failure (it stays a gap)."""
+    newest = {}
+    for r in data.get("results", []):
+        if (r.get("bigbang") == version and not r.get("preview") and r.get("mode") == "standard"
+                and r.get("test") in tests):
+            if r["test"] not in newest or r.get("finished", "") > newest[r["test"]].get("finished", ""):
+                newest[r["test"]] = r
+    return [(t, r.get("run_url", "")) for t, r in sorted(newest.items()) if r.get("result") == "fail"]
+
+
 def gaps(version, data, large, outside=()):
     """(required tests with no pass, other described tests with no pass).
 
@@ -69,6 +87,16 @@ def main():
     if not required and not matrix:
         print(f"{version}: compat matrix recorded")
         return 0
+    # A failed test has no pass either. It is reported as FAILED, not as missing, so
+    # ci-triage.py never reads a real failure as the expected missing matrix.
+    failures = failed_standard(version, data, set(required) | set(matrix))
+    for test, url in failures:
+        print(f"{version}: compat results FAILED: {test} ({url or 'no run recorded'})", file=sys.stderr)
+    bad = {t for t, _ in failures}
+    required = [t for t in required if t not in bad]
+    matrix = [t for t in matrix if t not in bad]
+    if not required and not matrix:
+        return 1
     print(f"{version}: compat results are missing", file=sys.stderr)
     if required:
         print("  no standard pass for: " + ", ".join(required), file=sys.stderr)

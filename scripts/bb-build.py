@@ -69,6 +69,9 @@ def parse_args(argv=None):
     ap.add_argument("--force", action="store_true",
                     help="build even if the mapping doesn't use this image (upgrade tests)")
     ap.add_argument("--no-generate", action="store_true", help="build from the existing build.yaml")
+    ap.add_argument("--raise-go", action="store_true",
+                    help="raise the recipe's go_bumps to their newest release from proxy.golang.org (a "
+                         "person's choice: the nightly run keeps the versions build.yaml pins)")
     ap.add_argument("--release", action="store_true",
                     help="build from builds/<name>/release.yaml (implies --no-generate); nothing when it "
                          "is absent or has build.yaml's tags")
@@ -84,8 +87,18 @@ def parse_args(argv=None):
 
 
 def generate(r, a):
-    """Run the hook's generate() and write builds/<name>/build.yaml."""
+    """Run the hook's generate() and write builds/<name>/build.yaml. Go modules stay at the
+    versions the committed build.yaml pins unless --raise-go (bbbuild.freeze_go)."""
     spec = bbbuild.load_hook(r).generate(r, a)
+    current = os.path.join(ROOT, "builds", r["name"], "build.yaml")
+    old = yaml.safe_load(open(current, encoding="utf-8")) if os.path.exists(current) else None
+    held = bbbuild.frozen_go(spec, old, getattr(a, "raise_go", False))
+    if held is None and old is not None and not getattr(a, "raise_go", False):
+        print(f"go: {r['name']}: upstream source moved, so its go_bumps take their newest releases")
+    for where, mod, kept, newest in held or []:
+        # In the bot PR body: a person decides (bb-build.py <name> --raise-go).
+        print(f"go: {r['name']} {where}: {mod} kept at {kept}; newest release {newest} "
+              f"(not applied: bb-build.py {r['name']} --raise-go)")
     bbbuild.write_spec(r["name"], spec, bbbuild.header(r))
     return spec
 

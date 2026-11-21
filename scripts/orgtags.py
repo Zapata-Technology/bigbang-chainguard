@@ -23,6 +23,11 @@ from concurrent.futures import ThreadPoolExecutor
 from bbcommon import setting
 
 REGISTRY = "cgr.dev"
+# A tag's digest: the multi-arch index when there is one, else the single manifest.
+MANIFEST_TYPES = ("application/vnd.oci.image.index.v1+json",
+                  "application/vnd.docker.distribution.manifest.list.v2+json",
+                  "application/vnd.oci.image.manifest.v1+json",
+                  "application/vnd.docker.distribution.manifest.v2+json")
 
 
 def org_name(arg=None):
@@ -70,6 +75,44 @@ def _read_json(req, timeout, attempts=4):
             if i == attempts - 1:
                 raise
             time.sleep(5 * (i + 1))
+
+
+class BuildDigests:
+    """Digests of the images this repo builds (BUILD_REGISTRY, e.g. ghcr.io/<owner>), for
+    bb-convert's digest pins. GHCR packages can be private, so it logs in with GHCR_USER /
+    GHCR_TOKEN, else GITHUB_TOKEN (update.yml's job token has packages: read). Any failure
+    answers None: the image then stays on its tag, as every built image did before
+    (2026-11-20: 0 of 55 ghcr.io refs in the overlays were pinned)."""
+
+    def __init__(self, user=None, token=None):
+        self.user = user or os.environ.get("GHCR_USER") or "x"
+        self.token = token or os.environ.get("GHCR_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+        self.cache = {}
+
+    def __bool__(self):
+        return bool(self.token)
+
+    def __call__(self, repo, tag):
+        key = f"{repo}:{tag}"
+        if key not in self.cache:
+            try:
+                self.cache[key] = self._digest(repo, tag)
+            except Exception:   # noqa: BLE001 - unpinned is the safe answer (the image keeps its tag)
+                self.cache[key] = None
+        return self.cache[key]
+
+    def _digest(self, repo, tag):
+        host, path = repo.split("/", 1)
+        auth = base64.b64encode(f"{self.user}:{self.token}".encode()).decode()
+        req = urllib.request.Request(f"https://{host}/token?scope=repository:{path}:pull&service={host}",
+                                     headers={"Authorization": f"Basic {auth}"})
+        with _open(req, 30, attempts=2) as r:
+            bearer = json.load(r)["token"]
+        accept = ", ".join(MANIFEST_TYPES)
+        req = urllib.request.Request(f"https://{host}/v2/{path}/manifests/{tag}", method="HEAD",
+                                     headers={"Authorization": f"Bearer {bearer}", "Accept": accept})
+        with _open(req, 30, attempts=2) as r:
+            return r.headers.get("Docker-Content-Digest")
 
 
 class _KeepRedirect(urllib.request.HTTPRedirectHandler):
@@ -141,10 +184,7 @@ class OrgTags:
 
     def digest(self, repo, tag):
         """Manifest digest of <org>/<repo>:<tag> (the multi-arch index when there is one)."""
-        accept = ", ".join(["application/vnd.oci.image.index.v1+json",
-                            "application/vnd.docker.distribution.manifest.list.v2+json",
-                            "application/vnd.oci.image.manifest.v1+json",
-                            "application/vnd.docker.distribution.manifest.v2+json"])
+        accept = ", ".join(MANIFEST_TYPES)
         req = urllib.request.Request(f"https://{REGISTRY}/v2/{self.org}/{repo}/manifests/{tag}", method="HEAD",
                                      headers={"Authorization": f"Bearer {self._token(repo)}", "Accept": accept})
         with _open(req, 30) as r:
