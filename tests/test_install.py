@@ -516,7 +516,8 @@ def test_registry_mirror_rewrites_images_not_headers(tmp_path):
     text = open(m.overlays(False)[0], encoding="utf-8").read()
     assert f"cgr.dev/{co.org}/" not in text and "registry.site.example/bb/" in text
     assert m.org == co.org and m.version == co.version                       # header kept
-    assert "- registry.site.example/bb\n" in text                             # Kyverno allow list
+    # Kyverno allow list; entries end in "/" since #273, and main's overlays predate it until the nightly bot PR lands
+    assert "- registry.site.example/bb/\n" in text or "- registry.site.example/bb\n" in text
     build = checkout._build_registry(co)
     if build:
         assert build + "/" not in text
