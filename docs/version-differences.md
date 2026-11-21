@@ -27,10 +27,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|---|---|---|---|
 | `ironbank/hashicorp/vault:1.21.4` | `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` | `ghcr.io/zapata-technology/bigbang-vault-fips:v2.2.2` | built here | newer major | vault |
 | `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` | `prometheus-mysqld-exporter:0.21.0` | `prometheus-mysqld-exporter-fips:0.21.0` | Chainguard | newer minor | fortify |
-| `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.97.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | argocd |
-| `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.97.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | anchore-enterprise |
-| `ironbank/bitnami/analytics/redis-exporter:v1.93.0` | `prometheus-redis-exporter-iamguarded:1.97.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | authservice, harbor |
-| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.257.0` | `renovate-fips:44.257.0` | Chainguard | newer minor | renovate |
+| `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | argocd |
+| `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | anchore-enterprise |
+| `ironbank/bitnami/analytics/redis-exporter:v1.93.0` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | newer minor | authservice, harbor |
+| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.257.6` | `renovate-fips:44.257.6` | Chainguard | newer minor | renovate |
 | `ironbank/fluxcd/helm-controller:v1.6.4` | `flux-helm-controller:1.7.2` | `flux-helm-controller-fips:1.7.2` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/kustomize-controller:v1.9.5` | `flux-kustomize-controller:1.10.1` | `flux-kustomize-controller-fips:1.10.2` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.1` | `flux-notification-controller-fips:1.10.1` | Chainguard | newer minor | flux |
