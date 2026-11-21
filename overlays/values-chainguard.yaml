@@ -421,15 +421,15 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-webservice-ee
         - digest: sha256:c364830d5aa13059c7698f0636fb3d975f83c4d8cffd0022a8d98c2aea9801e6
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
-        - digest: sha256:5f8e3b3fe310d0a8437b5f0a69f7ebd249e9075efc395de9c5acc51b16909d31
+        - digest: sha256:28263bbaa53ebee82e23678a408d2f791874d9970bf10a287131d3e3eab03201
           name: cgr.dev/zapatatechnology.com/gitaly
         - digest: sha256:7967fa1b25fe2b795524527881e62f5cc9a0e035189fd335edd2d5da54e94031
           name: cgr.dev/zapatatechnology.com/gitlab-base
-        - digest: sha256:b228c0530bc4dda4751e22d94abe510575efc745fe4fcf5e87be71ee33ff086a
+        - digest: sha256:963a24f211e11533a1fb9cada1de094d1a1ae84a2f39dc31b84e66e863a52c5a
           name: cgr.dev/zapatatechnology.com/gitlab-certificates
-        - digest: sha256:4984f573e6cf92fed3d4bc0a18b63691c335315318764c9134a78279546d6b14
+        - digest: sha256:2c232c4eebfe33c5abbf176a159de35cdb2c96d227125356c3aa9f26553741a3
           name: cgr.dev/zapatatechnology.com/gitlab-container-registry
-        - digest: sha256:de6e3ee4ff3ed7990685962aeaeafb65ccbcde158396a2fc13436c4c5df20c9a
+        - digest: sha256:4d2926ec29f2f5d25a4e28119190e6bbdee78b525d09aa5ba5fa3f84e99c1093
           name: cgr.dev/zapatatechnology.com/gitlab-exporter
         - digest: sha256:7aacbfb61baa9390629fa822f4aa6667265d8509cd64638872d5d54097a7d1a8
           name: cgr.dev/zapatatechnology.com/gitlab-kas
@@ -439,7 +439,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom
         - digest: sha256:5f2a8a17b1b14812e16c5d2f9532fd4a27544b75f6ff0ed8be1a839c1a365feb
           name: cgr.dev/zapatatechnology.com/gitlab-pages
-        - digest: sha256:825ee46414766ca971a005884a47479a80adacb586a099bccede0cba37ac3486
+        - digest: sha256:a994d23abe967265d832f08e676cecf18b37fe620aba117ad14d753c4bd71438
           name: cgr.dev/zapatatechnology.com/gitlab-shell
         - digest: sha256:1dfecb1802be87c5a607c0d64d86b77dd895904e460f632e2ff1935a702f31bb
           name: cgr.dev/zapatatechnology.com/nginx
@@ -459,7 +459,7 @@ packages:
         certificates:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-certificates
-            tag: 19.5.6
+            tag: 19.5.8
         extraEnv:
           GODEBUG: tlsmlkem=0
         gitlabBase:
@@ -491,11 +491,11 @@ packages:
                   tag: v19.5.5-ubi
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly
-              tag: 19.5.6
+              tag: 19.5.8
           gitlab-exporter:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-exporter
-              tag: 19.5.6
+              tag: 19.5.8
           gitlab-pages:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-pages
@@ -503,7 +503,7 @@ packages:
           gitlab-shell:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-shell
-              tag: 19.5.6
+              tag: 19.5.8
           kas:
             image:
               repository: cgr.dev/zapatatechnology.com/gitlab-kas
@@ -519,7 +519,7 @@ packages:
           praefect:
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly
-              tag: 19.5.6
+              tag: 19.5.8
           sidekiq:
             image:
               repository: cgr.dev/zapatatechnology.com/commercial-gitlab-sidekiq-ee
@@ -548,7 +548,7 @@ packages:
         registry:
           image:
             repository: cgr.dev/zapatatechnology.com/gitlab-container-registry
-            tag: 19.5.6
+            tag: 19.5.8
         shared-secrets:
           selfsign:
             image:
