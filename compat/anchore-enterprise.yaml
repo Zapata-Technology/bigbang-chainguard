@@ -1,0 +1,44 @@
+# Anchore Enterprise's org images, without Anchore: Big Bang's anchoreEnterprise package
+# with its UI Redis (redis-bb on the org's redis) and the redis-exporter sidecar on. Anchore
+# Enterprise is licensed, needs an external PostgreSQL 17 with pg_cron, and its images
+# stay on Iron Bank (mapping.yaml), so the test scales every Anchore Deployment to zero
+# (compat/support/no-replicas.py: the UI's and component catalog's replicas are fixed in
+# the chart), turns the upgrade Job (Anchore's image) off, and gives the chart a database
+# address that is never dialled (it refuses to render without one). Redis is a
+# StatefulSet, so it still runs. What this proves is the cache Anchore's UI would use and
+# its exporter, not Anchore.
+images: {}
+test:
+  enable: [anchoreEnterprise]
+  namespaces: [anchore]
+  expect: [/redis, prometheus-redis-exporter]
+  setup:
+    - python3 compat/support/no-replicas.py packages.anchoreEnterprise Deployment '.*'
+  values_files:
+    - $COMPAT_OUT/site-anchoreEnterprise-no-replicas.yaml
+  values:
+    packages:
+      anchoreEnterprise:
+        values:
+          upstream:
+            postgresql:
+              externalEndpoint: compat-no-database.invalid
+              auth: {username: anchore, password: compat-anchore-db-not-a-secret, database: anchore}
+            upgradeJob: {enabled: false}
+          # Big Bang turns the exporter on only with monitoring; on directly here.
+          ui-redis: {upstream: {metrics: {enabled: true}}}
+  check:
+    # The exporter logged in to Redis with the chart's password: redis_up 1 means Redis took
+    # the AUTH and answered INFO, scraped through the API server's proxy.
+    - |
+      p=$(kubectl -n anchore get pod -l app.kubernetes.io/name=ui-redis,app.kubernetes.io/component=master -o jsonpath='{.items[0].metadata.name}')
+      i=0
+      until m=$(kubectl get --raw "/api/v1/namespaces/anchore/pods/$p:9121/proxy/metrics") && echo "$m" | grep -q '^redis_up 1'; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "redis-exporter on $p:"; echo "$m" | grep -E '^redis_(up|exporter_last_scrape_error)'; exit 1; }
+        sleep 10
+      done
+      echo "$m" | grep -E '^redis_(up|instance_info|uptime_in_seconds)[ {]' | cut -c1-200
+  debug:
+    - "kubectl -n anchore get pods,sts,deploy -o wide"
+    - "kubectl -n anchore get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n anchore logs -l app.kubernetes.io/name=ui-redis --all-containers --tail=60"

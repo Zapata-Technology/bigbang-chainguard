@@ -137,6 +137,70 @@ def test_progress_deadline_keeps_the_overlays_post_renderers(tmp_path):
         assert yaml.safe_load(p["patch"]) == [{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]
 
 
+def test_no_replicas_keeps_the_overlays_post_renderers(tmp_path):
+    import os
+    import subprocess
+    pins = {"kustomize": {"images": [{"name": "org/mysql", "digest": "sha256:aa"}]}}
+    fips_pins = {"kustomize": {"images": [{"name": "org/mysql-fips", "digest": "sha256:bb"}]}}
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(
+        yaml.safe_dump({"packages": {"fortify": {"postRenderers": [pins]}}}))
+    (tmp_path / "overlays" / "values-chainguard-fips.yaml").write_text(
+        yaml.safe_dump({"packages": {"fortify": {"postRenderers": [fips_pins]}}}))
+    script = os.path.join(os.path.dirname(__file__), "..", "compat", "support", "no-replicas.py")
+    for fips, expect in (("", pins), ("1", fips_pins)):
+        subprocess.run([sys.executable, script, "packages.fortify", "StatefulSet", "fortify-ssc-webapp"], check=True,
+                       capture_output=True, env=dict(os.environ, COMPAT_OUT=str(tmp_path), COMPAT_FIPS=fips))
+        out = yaml.safe_load((tmp_path / "site-fortify-no-replicas.yaml").read_text())
+        first, patch = out["packages"]["fortify"]["postRenderers"]
+        assert first == expect     # Helm replaces lists: the digest pins must stay
+        [p] = patch["kustomize"]["patches"]
+        assert p["target"] == {"kind": "StatefulSet", "name": "fortify-ssc-webapp"}
+        assert yaml.safe_load(p["patch"]) == [{"op": "replace", "path": "/spec/replicas", "value": 0}]
+
+
+FAKE_KUBECTL = r'''#!/bin/sh
+# kubectl for vault-upstream-init.sh: one sealed Vault pod, unsealed by three keys.
+echo "$*" >> "$FAKE/argv"
+case "$*" in
+  *"get pod"*) echo vault-vault-0 ;;
+  *"create secret"*) echo "secret/vault-token created" ;;
+  *"vault status -format=json"*) echo '{"initialized": false}'; exit 2 ;;
+  *"vault status"*) [ "$(wc -l < "$FAKE/unsealed" 2>/dev/null || echo 0)" -ge 3 ] || exit 2 ;;
+  *"vault operator init"*)
+    for i in 1 2 3 4 5; do echo "Unseal Key $i: a2V5LSRp$i"; done
+    echo; echo "Initial Root Token: hvs.root" ;;
+  *"exec -i"*"sh -c"*)
+    # The pod's sh gets the key on stdin; the command line names no key.
+    read -r k; echo "$k" >> "$FAKE/unsealed" ;;
+  *) echo "unexpected kubectl $*" >&2; exit 9 ;;
+esac
+'''
+
+
+def test_vault_upstream_init_unseals_with_keys_on_stdin_never_on_a_command_line(tmp_path):
+    # PR #281's first run: `vault operator unseal -` sent "-" as the key ("'key' must be a
+    # valid hex or base64 string"). The keys must reach vault, and only through stdin.
+    import os
+    import subprocess
+    from conftest import require_bash
+    bash = require_bash()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "kubectl").write_text(FAKE_KUBECTL, newline="\n")
+    (bin_dir / "kubectl").chmod(0o755)
+    script = os.path.join(os.path.dirname(__file__), "..", "compat", "support", "vault-upstream-init.sh")
+    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", FAKE=str(tmp_path))
+    p = subprocess.run([bash, script, "run"], capture_output=True, text=True, env=env, timeout=60)
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert "Vault initialised and unsealed" in p.stdout
+    assert (tmp_path / "unsealed").read_text().split() == ["a2V5LSRp1", "a2V5LSRp2", "a2V5LSRp3"]
+    argv = (tmp_path / "argv").read_text()
+    assert "create secret generic vault-token" in argv
+    assert "a2V5LSRp" not in argv and "hvs.root" not in argv and "unseal -" not in argv
+    assert "a2V5LSRp" not in p.stdout + p.stderr and "hvs.root" not in p.stdout + p.stderr
+
+
 def _watch(tmp_path, monkeypatch, pods, jobs=(), logs=None, clock=None):
     """A PodLogKeeper over fake kubectl output: `pods` and `jobs` for namespace ns, `logs`
     {(pod, container, previous): text}."""
@@ -382,6 +446,18 @@ def test_a_release_on_big_bang_3_installs_with_its_keys():
                                   dict(old, kyvernoPolicies={"git": {"repo": "r"}}))
     assert legacy == {"domain": "d", "kyvernoPolicies": {"values": {"x": 1}}, "addons": {"headlamp": {"values": {"y": 2}}}}
     assert compat.legacy_values({"packages": {}}, {"packages": {}}) == {"packages": {}}
+
+
+def test_upgrade_from_values_reach_only_the_starting_install_of_a_mapping_upgrade():
+    # upgrade_from.values used to apply only to a release's starting install; an
+    # upgrade_from.images test (vault-upgrade-upstream) needs them too.
+    values = {"packages": {"vault": {"enabled": True, "values": {"upstream": {"server": {"postStart": ["sh"]}}}}}}
+    frm = {"images": {"x": {"ref": "r", "tag": "t"}},
+           "values": {"packages": {"vault": {"values": {"upstream": {"server": {"postStart": []}}}}}}}
+    first = compat.starting_values(values, frm)
+    assert first["packages"]["vault"] == {"enabled": True, "values": {"upstream": {"server": {"postStart": []}}}}
+    assert values["packages"]["vault"]["values"]["upstream"]["server"]["postStart"] == ["sh"]   # the upgrade's
+    assert compat.starting_values(values, {"images": {}}) == values
 
 
 def test_a_helmrelease_counts_as_ready_only_once_flux_observed_its_generation(monkeypatch):

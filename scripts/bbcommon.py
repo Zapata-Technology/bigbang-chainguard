@@ -43,7 +43,7 @@ def setting(name, arg=None):
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
                     "bash_wait_jobs", "bash_commands", "post_renderers", "chart_registry_builds", "no_post_renderers",
                     "progress_deadline", "unpinned", "ignore",
-                    "scan_reviewed"}
+                    "scan_reviewed", "untested"}
 IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
     "stays": str, "until": str, "build": str, "ref": str, "tag": str, "note": str,
@@ -79,6 +79,10 @@ def validate_mapping(mapping, source="mapping.yaml"):
         for ref in job:
             if set(ref) != {"kind", "name", "container"}:
                 problems.append(f"bash_commands entry {ref!r}: needs exactly kind, name, container")
+    # untested: {packages.<name>: why no compat/*.yaml enables it} (tests/test_compat_files.py).
+    for key, why in (mapping.get("untested") or {}).items():
+        if not str(key).startswith("packages.") or not (isinstance(why, str) and why.strip()):
+            problems.append(f"untested.{key}: needs a packages.<name> key and a reason")
     if problems:
         raise ValueError(f"{source}:\n  " + "\n  ".join(problems))
 
