@@ -206,7 +206,11 @@ jobs:
     needs: refs
     if: needs.refs.outputs.release != ''
     permissions:
-      actions: read     # compat.yml's results job: this run's result artifacts
+      # compat.yml's results job reads this run's result artifacts and its record-release job
+      # runs gh workflow run update.yml (write includes read). Both are skipped when called
+      # with a ref, but GitHub checks a called workflow's permissions first: without this the
+      # run failed at startup (startup_failure) from #263 on.
+      actions: write
       contents: read
       id-token: write   # Log into Chainguard
       packages: read    # BUILD_REGISTRY images
