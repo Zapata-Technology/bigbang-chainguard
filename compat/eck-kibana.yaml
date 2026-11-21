@@ -15,10 +15,12 @@ test:
   enable: [eckOperator, elasticsearchKibana]
   expect: [eck-operator, /elasticsearch, /kibana, prometheus-elasticsearch-exporter]
   setup:
+    # In the site file, not in `values`: bb-compat.py passes the test's `values` last, so a
+    # kibana.count there would override this file's 0 and FIPS mode would start Kibana.
     - >-
       if [ "${COMPAT_FIPS:-}" = 1 ]; then
       echo '{packages: {elasticsearchKibana: {values: {kibana: {count: 0}, waitJob: {enabled: false}}}}}' > "$COMPAT_OUT/site-kibana-mode.yaml";
-      else echo '{}' > "$COMPAT_OUT/site-kibana-mode.yaml"; fi
+      else echo '{packages: {elasticsearchKibana: {values: {kibana: {count: 1}}}}}' > "$COMPAT_OUT/site-kibana-mode.yaml"; fi
   values_files:
     - $COMPAT_OUT/site-kibana-mode.yaml
   values:
@@ -26,7 +28,6 @@ test:
       elasticsearchKibana:
         values:
           kibana:
-            count: 1
             resources: {requests: {cpu: 200m, memory: 1Gi}, limits: {cpu: "1", memory: 1536Mi}}
           elasticsearch:
             master:
