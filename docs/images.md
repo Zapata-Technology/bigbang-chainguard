@@ -56,7 +56,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | fluentbit | ironbank/opensource/fluent/fluent-bit:v5.1.5 | fluent-bit:5.1.5 | fluent-bit-fips:5.1.5 |  |
 | fluentbit | ironbank/opensource/jimmidyson/configmap-reload:v0.15.0 | configmap-reload:0.15.0 | configmap-reload-fips:0.15.0 |  |
 | flux | ironbank/fluxcd/helm-controller:v1.6.4 | flux-helm-controller:1.7.2 | flux-helm-controller-fips:1.7.2 | flux-helm-controller: MINOR AHEAD: org has no 1.6.x; using 1.7.2 (Iron Bank v1.6.4); flux-helm-controller-fips: MINOR AHEAD: org has no 1.6.x; using 1.7.2 (Iron Bank v1.6.4) |
-| flux | ironbank/fluxcd/kustomize-controller:v1.9.5 | flux-kustomize-controller:1.10.1 | flux-kustomize-controller-fips:1.10.2 | flux-kustomize-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5); flux-kustomize-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
+| flux | ironbank/fluxcd/kustomize-controller:v1.9.5 | flux-kustomize-controller:1.10.2 | flux-kustomize-controller-fips:1.10.2 | flux-kustomize-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-kustomize-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
 | flux | ironbank/fluxcd/notification-controller:v1.9.4 | flux-notification-controller:1.10.1 | flux-notification-controller-fips:1.10.1 | flux-notification-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4); flux-notification-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4) |
 | flux | ironbank/fluxcd/source-controller:v1.9.5 | flux-source-controller:1.10.2 | flux-source-controller-fips:1.10.1 | flux-source-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-source-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.5) |
 | fortify | ironbank/afdco/prometheus/mysqld_exporter:0.18.0 | prometheus-mysqld-exporter:0.21.0 | prometheus-mysqld-exporter-fips:0.21.0 | prometheus-mysqld-exporter: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0); prometheus-mysqld-exporter-fips: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0) |
@@ -254,7 +254,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - argocd: `ironbank/bitnami/analytics/redis-exporter:v1.86.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
 - authservice: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
 - flux: `ironbank/fluxcd/helm-controller:v1.6.4` -> `flux-helm-controller:1.7.2` (newer minor)
-- flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.1` (newer minor)
+- flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.2` (newer minor)
 - flux: `ironbank/fluxcd/notification-controller:v1.9.4` -> `flux-notification-controller:1.10.1` (newer minor)
 - flux: `ironbank/fluxcd/source-controller:v1.9.5` -> `flux-source-controller:1.10.2` (newer minor)
 - fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter:0.21.0` (newer minor)
