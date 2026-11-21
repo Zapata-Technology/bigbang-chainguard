@@ -18,8 +18,8 @@ image:
   fips:
     name: bigbang-grafana-plugins-fips
     tag: 13.3.1
-    base: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1@sha256:828c18664ccf0244e42768064877dab4f8c62fffee1d13834d37a19614fe39c1
-    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1-dev@sha256:d87267e0d04221df3ca1d21a8161648b4f5ee9d2c7eaa572befbe6b8053c2bbb
+    base: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1@sha256:4dc681327c60f1ed583317201395223c6e138a53319f4dc25221d0cdd7320bc3
+    dev: cgr.dev/zapatatechnology.com/grafana-fips:13.3.1-dev@sha256:60052085b45828c3a48bf4c48333b391de8f09b67764d3afc67367be6d27b292
 plugins:
 - id: grafana-polystat-panel
   url: https://github.com/grafana/grafana-polystat-panel/releases/download/v2.1.16/grafana-polystat-panel-2.1.16.zip
