@@ -1,12 +1,15 @@
 """What runs: the deployed release, what an install would change, and the health report
 status, install and rollback end with."""
 import json
+import os
+import time
 
 import yaml
 
 import objstore
 from bbcluster import kubectl, read_secret, report, sh
 from bbcommon import deep_merge, load_mapping, running_image_problems
+from bbinstall import releases
 from bbinstall.checkout import _build_registry
 from bbinstall.common import NAMESPACE, STATE_SECRET, say, step
 from bbinstall.credentials import pull_token_note
@@ -110,7 +113,9 @@ def status_report(co, fips, problems=(), failed=False):
     for p in problems:
         say(f"PROBLEM: {p}")
     state = read_secret(NAMESPACE, STATE_SECRET) or {}
-    for note in (deployed_version_note(co), pull_token_note(state), signature_note(state)):
+    notes = (deployed_version_note(co), newer_release_note(state, deployed()[0]), pull_token_note(state),
+             signature_note(state))
+    for note in notes:
         if note:
             say(note)
     tls = tls_problem(state)
@@ -162,5 +167,46 @@ def deployed_version_note(co):
     deployed = rel.get("chart", "").rsplit("-", 1)[-1]
     if deployed and deployed != co.version:
         return (f"update available: the cluster runs Big Bang {deployed}, this checkout has {co.version}; "
-                "re-run bb-install.py install to upgrade")
+                "bb-install.py upgrade moves it (after a Velero backup)")
     return ""
+
+
+RELEASES_TTL = 24 * 3600          # status runs often; GitHub allows 60 anonymous calls an hour
+
+
+def newer_release_note(state, deployed_version, list_tags=None, now=time.time, cache=None):
+    """A line naming the releases newer than the cluster's, or "". One GitHub API call,
+    cached for a day; skipped for a disconnected site (a registry or git mirror) and silent
+    when GitHub can't be reached: status must work without it."""
+    if state.get("registry-mirror") or state.get("git-mirror") or not deployed_version:
+        return ""
+    cache = cache or os.path.join(releases.CACHE, "list.json")
+    try:
+        cached = json.load(open(cache, encoding="utf-8"))
+    except (OSError, ValueError):
+        cached = {}
+    repo = releases.release_repo()
+    tags = cached.get("tags") if cached.get("repo") == repo and now() - cached.get("time", 0) < RELEASES_TTL \
+        else None
+    if tags is None:
+        try:
+            tags = (list_tags or releases.list_releases)(repo)
+        except (SystemExit, OSError, ValueError):
+            return ""
+        try:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            with open(cache, "w", encoding="utf-8") as f:
+                json.dump({"repo": repo, "time": now(), "tags": tags}, f)
+        except OSError:
+            pass    # a read-only checkout: ask again next time
+    running = releases.running_release(state.get("release"), deployed_version)
+    if running:
+        newer = releases.newer_releases(tags, running, deployed_version)
+    else:
+        # Which release of this Big Bang runs isn't known: count only newer Big Bang versions.
+        newer = [t for t in tags if releases.version_key(releases.bigbang_of(t))
+                 > releases.version_key(deployed_version)]
+    if not newer:
+        return ""
+    return (f"{len(newer)} newer release{'s' if len(newer) != 1 else ''}; latest {newer[0]}: "
+            f"bb-install.py upgrade --to {newer[0]}")

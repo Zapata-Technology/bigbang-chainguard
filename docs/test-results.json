@@ -148,8 +148,8 @@
     },
     {
       "test": "velero",
-      "runs": "Velero 1.18 and the AWS plugin, backups on SeaweedFS",
-      "notes": "Check: a backup of a test namespace to SeaweedFS reaches Completed"
+      "runs": "Velero 1.18, the AWS plugin and the node agent, backups on SeaweedFS",
+      "notes": "Check: a PVC's data is backed up with file-system backup, its namespace deleted and restored, and the data read back"
     },
     {
       "test": "istio-ambient",

@@ -10,8 +10,8 @@ production yet. Here is what is and isn't proven:
 
 | Proven | Not yet |
 |---|---|
-| Every image Big Bang 4.1.0 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
-| Each package with a kind test deploys and passes a functional check, standard and FIPS ([testing](testing.md)). The full recorded matrix is Big Bang 4.0.0. On 4.1.0 the Keycloak and Mattermost release-upgrade and migration tests passed | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel. The weekly RKE2 run also installs with `--fips`; that pass is not recorded yet |
+| Every image the Big Bang version in `BIGBANG_VERSION` deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
+| Each package with a kind test deploys and passes a functional check, standard and FIPS ([testing](testing.md): its results table gives the Big Bang version and date of each test's last run), including release upgrades and database migrations of Keycloak and Mattermost with their data | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel. The weekly RKE2 run also installs with `--fips`; that pass is not recorded yet |
 | Upgrading from the newest release is tested (Kyverno, Headlamp, Grafana, and Keycloak and Mattermost with the data written before the upgrade) | Upgrading an existing Iron Bank Big Bang in place to Chainguard images (needs an Iron Bank account in CI). `vault-upgrade` stays skipped until those credentials exist |
 | Every org image is pinned by digest and signature-checked; images built here are signed and attested | The images that stay on Iron Bank ([Known gaps](../README.md#known-gaps)) |
 
@@ -65,11 +65,11 @@ it was generated for, so you can check.
 ## 1. Pick a release and pin it
 
 Install from a release, never from `main`. A release (`<Big Bang version>-cg.<n>`, e.g.
-`4.0.0-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
+`4.1.1-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
 `main` moves every night.
 
 ```bash
-TAG=4.0.0-cg.1          # the release you chose: Releases page, newest first
+TAG=<tag>               # the release you chose: Releases page, newest first
 # While the repository is private, download with gh (a login with access to it):
 gh release download "$TAG" -R Zapata-Technology/bigbang-chainguard \
   -p "bigbang-chainguard-$TAG.tar.gz" -p "bigbang-chainguard-$TAG.tar.gz.sigstore.json"
@@ -113,7 +113,9 @@ python scripts/bb-install.py status
 ```
 
 `status` lists each package's health, the app URLs, and anything that needs attention: an
-expiring pull token, or a cluster that is behind the release you run it from.
+expiring pull token, a cluster that is behind the release you run it from, or newer releases
+on GitHub (one cached call a day; skipped for a disconnected site). Something wrong:
+[troubleshooting](troubleshooting.md).
 
 ## 5. Upgrade to a newer release
 
@@ -146,5 +148,7 @@ one before it, not from older ones.
 - Something fails: run `status` and include its output in an issue, along with the release
   tag, standard or FIPS, and the packages you enabled. Leave out tokens and `my-site.yaml`
   secrets.
+- A known symptom (ImagePullBackOff, a refused signature, repo1 timeouts): see
+  [troubleshooting](troubleshooting.md).
 - A package-specific problem: check the package notes in [install.md](install.md#fips-notes) first (GitLab, FIPS,
   Keycloak) and `docs/testing.md` ("What the runtime tests found").

@@ -874,8 +874,9 @@ def test_node_inotify_reads_each_node_and_deletes_its_namespace(monkeypatch):
     assert calls[-1][:3] == ("delete", "namespace", nodes.PROBE_NAMESPACE)
 
 
-def velero_cluster(monkeypatch, phases, crd=True, location="Available"):
-    """Stub kubectl for backup_before_upgrade: the Backup goes through `phases`."""
+def velero_cluster(monkeypatch, phases, crd=True, location="Available", node_agent=True, volumes=1):
+    """Stub kubectl for backup_before_upgrade: the Backup goes through `phases`, with
+    `volumes` PodVolumeBackups once it completes."""
     applied = []
     seq = iter(phases)
 
@@ -886,6 +887,11 @@ def velero_cluster(monkeypatch, phases, crd=True, location="Available"):
             return json.dumps({"items": [{"status": {"phase": location}}]})
         if a[2:4] == ("get", "backups.velero.io"):
             return json.dumps({"status": {"phase": next(seq)}})
+        if a[2:5] == ("get", "daemonset", "node-agent"):
+            return "daemonset.apps/node-agent" if node_agent else ""
+        if a[2:4] == ("get", "podvolumebackups.velero.io"):
+            assert a[4:6] == ("-l", f"velero.io/backup-name={applied[-1]['metadata']['name']}")
+            return json.dumps({"items": [{"status": {"phase": "Completed"}}] * volumes})
         raise AssertionError(a)
     monkeypatch.setattr(commands, "kubectl", kubectl)
     monkeypatch.setattr(commands, "sh", lambda *a, stdin=None, **k: applied.append(json.loads(stdin)))
@@ -897,6 +903,22 @@ def test_an_upgrade_backs_up_with_velero_first(monkeypatch):
     name = commands.backup_before_upgrade(600, now=lambda: 0, sleep=lambda s: None)
     assert name.startswith("bb-upgrade-")
     assert applied[0]["kind"] == "Backup" and applied[0]["spec"]["includedNamespaces"] == ["*"]
+    # The node agent runs, so the backup copies pod volumes: the databases a migration changes.
+    assert applied[0]["spec"]["defaultVolumesToFsBackup"] is True
+
+
+def test_a_backup_without_volume_data_is_called_out(monkeypatch, capsys):
+    # No node agent: file-system backup isn't asked for (every volume would fail), and the
+    # user is told the backup can't bring a database back.
+    applied = velero_cluster(monkeypatch, ["Completed"], node_agent=False, volumes=0)
+    commands.backup_before_upgrade(600, now=lambda: 0, sleep=lambda s: None)
+    assert "defaultVolumesToFsBackup" not in applied[0]["spec"]
+    assert "Kubernetes objects only" in capsys.readouterr().out
+    # The agent runs but copied nothing: warned after the backup.
+    velero_cluster(monkeypatch, ["Completed"], volumes=0)
+    commands.backup_before_upgrade(600, now=lambda: 0, sleep=lambda s: None)
+    out = capsys.readouterr().out
+    assert "copied no pod volumes" in out and "doesn't survive losing the cluster" in out
 
 
 def test_no_velero_upgrades_without_a_backup(monkeypatch):
@@ -1237,3 +1259,204 @@ def test_reconcile_helmreleases_waits_until_flux_handled_the_request(monkeypatch
     clock = iter([0.0, 0.0, 5.0, 11.0, 11.0])
     assert bbcluster.reconcile_helmreleases(timeout=10, now=lambda: next(clock), sleep=lambda s: None) == \
         ["bigbang/keycloak"]
+
+
+# Installer UX: status, dry runs, init --disable, preflight warnings, the site registry
+
+
+def test_status_points_at_upgrade_not_install(monkeypatch):
+    co = checkout.Checkout(ROOT)
+    monkeypatch.setattr(status, "sh", lambda *c, **k: json.dumps([{"name": "bigbang", "chart": "bigbang-0.0.1"}]))
+    note = status.deployed_version_note(co)
+    assert "bb-install.py upgrade" in note and "re-run bb-install.py install" not in note
+
+
+def test_status_names_newer_releases_once_a_day(monkeypatch, tmp_path):
+    monkeypatch.setattr(releases, "release_repo", lambda: "o/r")
+    tags = ["4.1.1-cg.2", "4.1.1-cg.1", "4.1.0-cg.3", "4.0.0-cg.1"]
+    calls = []
+
+    def list_tags(repo):
+        calls.append(repo)
+        return tags
+    cache = str(tmp_path / "list.json")
+    note = status.newer_release_note({"release": "4.1.0-cg.3"}, "4.1.0", list_tags, now=lambda: 1000, cache=cache)
+    assert note == "2 newer releases; latest 4.1.1-cg.2: bb-install.py upgrade --to 4.1.1-cg.2"
+    # Cached: the second status asks GitHub nothing.
+    assert status.newer_release_note({"release": "4.1.0-cg.3"}, "4.1.0", list_tags, now=lambda: 2000,
+                                     cache=cache) == note
+    assert calls == ["o/r"]
+    # Which release runs isn't recorded: only newer Big Bang versions count.
+    assert status.newer_release_note({}, "4.1.0", list_tags, now=lambda: 2000, cache=cache).startswith(
+        "2 newer releases")
+    assert status.newer_release_note({}, "4.1.1", list_tags, now=lambda: 2000, cache=cache) == ""
+
+
+def test_status_skips_the_release_check_when_disconnected_or_offline(monkeypatch, tmp_path):
+    monkeypatch.setattr(releases, "release_repo", lambda: "o/r")
+
+    def never(repo):
+        raise AssertionError("no GitHub call for a disconnected site")
+    cache = str(tmp_path / "list.json")
+    assert status.newer_release_note({"registry-mirror": "reg.site/bb"}, "4.1.0", never, cache=cache) == ""
+    assert status.newer_release_note({"git-mirror": "https://git.site/bb"}, "4.1.0", never, cache=cache) == ""
+
+    def offline(repo):
+        raise SystemExit("could not list o/r's releases")
+    assert status.newer_release_note({}, "4.1.0", offline, cache=cache) == ""
+
+
+def _history(monkeypatch, calls):
+    monkeypatch.setattr(commands, "kubectl", lambda *a, **k: "")
+    history = [{"revision": 1, "status": "superseded"}, {"revision": 2, "status": "deployed"}]
+
+    def sh(*cmd, **kw):
+        calls.append(cmd)
+        return json.dumps(history) if cmd[1] == "history" else ""
+    monkeypatch.setattr(commands, "sh", sh)
+
+
+def test_rollback_dry_run_changes_nothing(monkeypatch, capsys):
+    calls = []
+    _history(monkeypatch, calls)
+    assert commands.rollback(argparse.Namespace(overlays=ROOT, to=None, yes=True, timeout=60, plan=True)) == 0
+    assert [c[1] for c in calls] == ["history"] and "roll back revision 2 -> 1" in capsys.readouterr().out
+
+
+def test_rollback_passes_its_timeout_to_helm(monkeypatch):
+    calls = []
+    _history(monkeypatch, calls)
+    monkeypatch.setattr(commands.releases, "forget_release", lambda: None)
+    monkeypatch.setattr(commands.time, "sleep", lambda s: None)
+    monkeypatch.setattr(commands, "read_secret", lambda *a: {})
+    monkeypatch.setattr(commands, "hr_namespaces", lambda: [])
+    monkeypatch.setattr(commands, "wait_ready", lambda ns, t: (True, []))
+    monkeypatch.setattr(commands, "status_report", lambda *a, **k: 0)
+    commands.rollback(argparse.Namespace(overlays=ROOT, to=None, yes=True, timeout=5400, plan=False))
+    [rb] = [c for c in calls if c[1] == "rollback"]
+    assert rb[rb.index("--timeout") + 1] == "5400s"
+
+
+def test_uninstall_dry_run_removes_nothing(monkeypatch, capsys):
+    monkeypatch.setattr(commands, "read_secret", lambda *a: {})
+    monkeypatch.setattr(commands, "sh", lambda *a, **k: (_ for _ in ()).throw(AssertionError(a)))
+    monkeypatch.setattr(commands, "kubectl", lambda *a, **k: (_ for _ in ()).throw(AssertionError(a)))
+    args = argparse.Namespace(overlays=ROOT, delete_data=True, keep_flux=False, yes=True, plan=True)
+    assert commands.uninstall(args) == 0
+    assert "nothing removed" in capsys.readouterr().out
+
+
+def test_dry_run_is_plan_on_the_command_line(monkeypatch):
+    cli = load_script("bb-install")
+    seen = {}
+    for name in ("rollback", "uninstall", "install"):
+        monkeypatch.setattr(cli, name, lambda a, n=name: seen.setdefault(n, a) and 0)
+    for argv in (["rollback", "--dry-run"], ["uninstall", "--dry-run"], ["install", "--dry-run"]):
+        monkeypatch.setattr("sys.argv", ["bb-install.py", *argv])
+        cli.main()
+    assert all(seen[n].plan for n in ("rollback", "uninstall", "install"))
+    # upgrade --to hands the release's installer --plan, which every release has.
+    assert seen["install"].argv == ["install", "--plan"]
+
+
+def test_init_turns_default_packages_off(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
+    site = tmp_path / "site.yaml"
+    args = argparse.Namespace(site=str(site), domain="bb.example.com", enable="keycloak", disable="neuvector,kiali",
+                              force=False, yes=True)
+    assert sitefile.init(args) == 0
+    doc = yaml.safe_load(site.read_text())
+    assert doc["packages"]["neuvector"] == {"enabled": False} and doc["packages"]["kiali"] == {"enabled": False}
+    assert doc["packages"]["keycloak"] == {"enabled": True}
+    with pytest.raises(SystemExit, match="unknown packages"):
+        sitefile.init(argparse.Namespace(**{**vars(args), "disable": "nope", "force": True}))
+    with pytest.raises(SystemExit, match="both turned on and off"):
+        sitefile.init(argparse.Namespace(**{**vars(args), "disable": "keycloak", "force": True}))
+
+
+def test_an_object_storage_endpoint_the_overlays_dont_use_is_refused():
+    co = checkout.Checkout(ROOT)
+    endpoint = (co.s3 or {}).get("endpoint")
+    assert co.object_storage_problem({}) is None
+    if endpoint:
+        assert co.object_storage_problem({"OBJECT_STORAGE_ENDPOINT": endpoint + "/"}) is None
+    problem = co.object_storage_problem({"OBJECT_STORAGE_ENDPOINT": "https://s3.example.com"})
+    assert problem.count("https://s3.example.com") >= 1 and "bb-run.py" in problem   # count(): CodeQL reads `in` as URL checking
+
+
+def test_memory_is_checked_against_the_enabled_packages():
+    assert preflight.quantity_bytes("16Gi") == 16 * 2**30 and preflight.quantity_bytes("1000k") == 10**6
+    assert preflight.quantity_bytes("17179869184") == 16 * 2**30 and preflight.quantity_bytes("bad") == 0
+    nodes = [{"status": {"allocatable": {"memory": "8Gi"}}}] * 2
+    assert preflight.memory_note(nodes, {"packages.istiod"}) is None          # 16 GiB: enough for the defaults
+    note = preflight.memory_note(nodes, {"packages.istiod", "packages.gitlab"})
+    assert "16.0 GiB" in note and "24 GiB" in note
+    assert "need about 16" in preflight.memory_note(nodes[:1], set())
+    assert preflight.memory_note([], set()) is None                           # can't read: no claim
+
+
+def test_a_cluster_that_cant_give_load_balancers_an_address_is_noted(monkeypatch):
+    answers = {}
+
+    def kubectl(*a, **k):
+        return answers.get(a[1], "")
+    monkeypatch.setattr(preflight, "kubectl", kubectl)
+    lb = {"metadata": {"namespace": "istio-gateway", "name": "public"}, "spec": {"type": "LoadBalancer"}}
+    answers["service"] = json.dumps({"items": [{**lb, "status": {"loadBalancer": {"ingress": [{"ip": "1.2.3.4"}]}}}]})
+    assert preflight.loadbalancer_note([]) is None
+    answers["service"] = json.dumps({"items": [lb]})
+    assert "istio-gateway/public" in preflight.loadbalancer_note([])
+    answers["service"] = json.dumps({"items": []})
+    assert "no load balancer found" in preflight.loadbalancer_note([])
+    assert preflight.loadbalancer_note([{"spec": {"providerID": "aws:///us-east-1a/i-1"}}]) is None
+    answers["namespace"] = "namespace/default\nnamespace/metallb-system"
+    assert preflight.loadbalancer_note([]) is None
+    answers["namespace"], answers["pod"] = "", "pod/svclb-istio-gateway-abcde"
+    assert preflight.loadbalancer_note([]) is None
+
+
+def test_refs_split_by_tag_or_digest():
+    assert images.split_repo("o/tempo:2.8.1") == ("o/tempo", "2.8.1")
+    assert images.split_repo("o/tempo@sha256:abc") == ("o/tempo", "sha256:abc")
+    assert images.split_repo("o/tempo:2.8.1@sha256:abc") == ("o/tempo", "sha256:abc")
+    assert images.split_repo("o/sub:5000x/tempo@sha256:abc") == ("o/sub:5000x/tempo", "sha256:abc")
+
+
+def test_pinned_refs_carry_the_overlays_digests():
+    co = checkout.Checkout(ROOT)
+    refs = images.pinned_refs(co, False, co.registry)
+    assert refs and all(r.startswith(co.registry + "/") and ":" in r.rsplit("/", 1)[1] for r, _ in refs)
+    pinned = [(r, d) for r, d in refs if d]
+    assert len(pinned) > len(refs) // 2 and all(d.startswith("sha256:") and len(d) == 71 for _, d in pinned)
+    flux = yaml.safe_load(open(os.path.join(ROOT, "flux", "kustomization.yaml"), encoding="utf-8"))["images"]
+    for i in flux:
+        if i.get("digest"):
+            assert (f"{i['newName']}:{i['newTag']}", i["digest"]) in refs
+    # A mirrored checkout names the site registry, with the same digests.
+    m = checkout.mirrored_checkout(co, "registry.site.example/bb")
+    mirrored = images.pinned_refs(m, False, "registry.site.example/bb")
+    assert {d for _, d in mirrored if d} == {d for _, d in pinned}
+
+
+def test_the_site_registry_is_checked_by_digest(monkeypatch):
+    co = checkout.mirrored_checkout(checkout.Checkout(ROOT), "registry.site.example/bb")
+    asked = []
+
+    def pull_problem(ref, login=None):
+        asked.append((ref, login))
+        return f"{ref}: not found" if "argocd" in ref else None
+    monkeypatch.setattr(images, "pull_problem", pull_problem)
+    count, missing = images.mirror_problems(co, False, None, "registry.site.example/bb", ("u", "p"))
+    assert count == len(asked) and all(login == ("u", "p") for _, login in asked)
+    assert any("@sha256:" in r for r, _ in asked)
+    assert missing and all("argocd" in m for m in missing)
+
+
+def test_check_logins_for_a_mirror_ask_only_the_mirror(monkeypatch):
+    monkeypatch.setattr(credentials, "read_secret", lambda *a: {"mirror-username": "u", "mirror-password": "p"})
+    monkeypatch.setattr(credentials, "chainctl_logged_in", lambda: (_ for _ in ()).throw(AssertionError))
+    co = checkout.Checkout(ROOT)
+    assert credentials.check_logins(co, {}, mirror="registry.site.example") == {"registry.site.example": ("u", "p")}
+    monkeypatch.setenv("MIRROR_TOKEN", "t")
+    monkeypatch.setattr(credentials, "read_secret", lambda *a: {})
+    assert credentials.check_logins(co, {}, mirror="r") == {"r": (credentials.TOKEN_USER, "t")}

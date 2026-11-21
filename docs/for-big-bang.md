@@ -17,9 +17,12 @@ built it and offers it to the Big Bang community under Apache-2.0.
 - **Honest about gaps.** `docs/images.md` lists every image that stays on Iron Bank, with
   the reason, and every image that runs a different version than Big Bang tested.
 
-## Current coverage (Big Bang 4.1.0)
+## Current coverage
 
-- Every image Big Bang 4.1.0 deploys is converted or listed with a reason
+The Big Bang version this covers is the one in `BIGBANG_VERSION` (the nightly job moves it to
+each new release); the [results table](testing.md#results) dates each test's last run.
+
+- Every image that Big Bang version deploys is converted or listed with a reason
   (`docs/images.md`, `docs/version-differences.md`). The version table counts each Iron
   Bank image and tag. The image map counts image names, so an image pinned at two tags
   is one name there and two rows in the version table. What stays on Iron Bank includes
@@ -34,11 +37,10 @@ built it and offers it to the Big Bang community under Apache-2.0.
   `kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`
   <!-- /smoke-tests -->
   (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). GitLab and GitLab Runner run weekly. `results-gate` fails while this Big
-  Bang version has no recorded standard-mode matrix. The full recorded matrix is still
-  Big Bang 4.0.0 (2026-11-08). On 4.1.0, the Keycloak and Mattermost release-upgrade and
-  migration tests, and `bb-install.py upgrade --to`, passed on 2026-11-14
-  ([testing.md](testing.md)). Upgrading from the newest 3.35.1 release to Big Bang 4 is
-  one of the kind tests. A weekly run puts the FIPS overlay on a kernel in FIPS mode.
+  Bang version has no recorded standard-mode matrix. The Keycloak and Mattermost release-upgrade and migration tests (data
+  written before the upgrade, read back after) and `bb-install.py upgrade --to` are among
+  the tests the gate requires ([testing.md](testing.md)). Upgrading from the newest 3.35.1
+  release to Big Bang 4 is one of the kind tests. A weekly run puts the FIPS overlay on a kernel in FIPS mode.
   The weekly and manual RKE2 runs also install the default packages with `--fips`.
 - **Not yet run on a production-sized, multi-node cluster.** That is the next milestone,
   and help is welcome.

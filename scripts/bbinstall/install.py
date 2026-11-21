@@ -18,7 +18,7 @@ from bbinstall.checkout import _build_registry_host
 from bbinstall.common import NAMESPACE, STATE_SECRET, confirm, say, step
 from bbinstall.credentials import Credentials, pull_token_maker
 from bbinstall.gitops import GITOPS_SECRET, write_gitops
-from bbinstall.images import build_images, deployed_images, image_problems, pull_check
+from bbinstall.images import build_images, deployed_images, image_problems, mirror_problems, pull_check
 from bbinstall import releases
 from bbinstall.preflight import prepare
 from bbinstall.signatures import built_signer, cluster_signatures, signature_choice, signature_egress_values
@@ -134,6 +134,16 @@ def install(a):
             raise SystemExit("not installing: these images can't be pulled with your logins (an image your "
                              "Chainguard plan doesn't cover is refused the same way):\n  " + "\n  ".join(failed))
         say(f"all {count} images can be pulled")
+    elif checks:
+        # Air-gapped: every image must be in the site registry at the digest the overlays pin,
+        # or the nodes fail with ImagePullBackOff only once the wait times out.
+        count, missing = mirror_problems(co, a.fips, enabled, a.registry_mirror,
+                                         next(((u, p) for _h, u, p in registries), None))
+        if missing:
+            raise SystemExit(f"not installing: {len(missing)} of {count} images aren't in {a.registry_mirror} "
+                             "at their pinned digest (copy them from bb-airgap.py's images.txt, keeping each "
+                             "digest):\n  " + "\n  ".join(missing))
+        say(f"all {count} images are in {a.registry_mirror}")
     # The release recorded stays the one that runs until this install succeeds (record_release).
     creds.save("fips" if a.fips else "standard")
     say("stored in the cluster (Secret bigbang/bb-install); nothing printed")

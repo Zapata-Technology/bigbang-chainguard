@@ -1,10 +1,13 @@
 """The images an install deploys, and a read-only pull test of each with the site's logins."""
 import json
+import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+
+import yaml
 
 from bbinstall.checkout import _build_registry
 from bbinstall.sitefile import merged_values
@@ -35,34 +38,89 @@ def deployed_images(co, fips, prefix, enabled=None):
     """Every image reference under `prefix` (host[/path]) the merged overlays deploy; with
     `enabled` (Big Bang keys, packages.<name>), only those packages'."""
     refs = set()
-
-    def walk(node):
-        if isinstance(node, dict):
-            repo, tag = node.get("repository"), node.get("tag")
-            if isinstance(repo, str) and tag is not None:
-                full = f"{node['registry']}/{repo}" if isinstance(node.get("registry"), str) else repo
-                if prefix and full.startswith(prefix + "/"):
-                    refs.add(f"{full}:{tag}")
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
-        elif isinstance(node, str) and prefix and re.fullmatch(re.escape(prefix) + r"/[\w./-]+:[\w.-]+", node):
-            refs.add(node)
+    if not prefix:
+        return []
     values = merged_values({}, co.overlays(fips))   # what deploys: FIPS replaces the standard refs
     if enabled is not None:
         values = {k: v for k, v in (values.get("packages") or {}).items() if f"packages.{k}" in enabled}
-    walk(values)
+    _walk_refs(values, prefix, refs)
     return sorted(refs)
 
 
+def split_repo(rest):
+    """(repository, tag or digest) of "repo:tag", "repo@sha256:..." or "repo:tag@sha256:...";
+    a digest wins over the tag, as it does for the kubelet."""
+    if "@" in rest:
+        repo, digest = rest.split("@", 1)
+        if ":" in repo.rsplit("/", 1)[-1]:
+            repo = repo.rsplit(":", 1)[0]
+        return repo, digest
+    return tuple(rest.rsplit(":", 1))
+
+
+def _walk_refs(node, prefix, refs):
+    """Every host/repo:tag under `prefix` in a values tree, into `refs`."""
+    if isinstance(node, dict):
+        repo, tag = node.get("repository"), node.get("tag")
+        if isinstance(repo, str) and tag is not None:
+            full = f"{node['registry']}/{repo}" if isinstance(node.get("registry"), str) else repo
+            if full.startswith(prefix + "/"):
+                refs.add(f"{full}:{tag}")
+        for v in node.values():
+            _walk_refs(v, prefix, refs)
+    elif isinstance(node, list):
+        for v in node:
+            _walk_refs(v, prefix, refs)
+    elif isinstance(node, str) and re.fullmatch(re.escape(prefix) + r"/[\w./-]+:[\w.-]+", node):
+        refs.add(node)
+
+
+def pinned_refs(co, fips, prefix, enabled=None):
+    """[(host/repo:tag, digest or None)] of every image under `prefix` the install runs: each
+    package's images with the digest its post-renderer pins (Converter.digest_pins; values
+    keep the tag), Flux's controllers, and SeaweedFS when it runs in the cluster. With
+    `enabled` (packages.<name> keys), only those packages'."""
+    out = set()
+    values = merged_values({}, co.overlays(fips))
+    for name, pkg in (values.get("packages") or {}).items():
+        if not isinstance(pkg, dict) or (enabled is not None and f"packages.{name}" not in enabled):
+            continue
+        pins = {i["name"]: i["digest"] for r in pkg.get("postRenderers") or []
+                for i in ((r or {}).get("kustomize") or {}).get("images") or [] if i.get("digest")}
+        refs = set()
+        _walk_refs(pkg.get("values") or {}, prefix, refs)
+        out |= {(r, pins.get(r.rsplit(":", 1)[0])) for r in refs}
+    flux = os.path.join(co.root, "flux-fips" if fips else "flux", "kustomization.yaml")
+    if os.path.exists(flux):
+        for i in (yaml.safe_load(open(flux, encoding="utf-8")) or {}).get("images") or []:
+            name = i.get("newName") or i.get("name", "")
+            if name.startswith(prefix + "/") and i.get("newTag"):
+                out.add((f"{name}:{i['newTag']}", i.get("digest")))
+    if co.in_cluster_seaweedfs():
+        d = co.path("seaweedfs-fips" if fips else "seaweedfs")
+        for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            text = open(os.path.join(d, f), encoding="utf-8").read()
+            for ref, digest in re.findall(re.escape(prefix) + r"/([\w./-]+:[\w.-]+)(?:@(sha256:[0-9a-f]{64}))?", text):
+                out.add((f"{prefix}/{ref}", digest or None))
+    return sorted(out, key=lambda x: (x[0], x[1] or ""))
+
+
+def mirror_problems(co, fips, enabled, mirror, login):
+    """(count, missing): every image the install pulls from the site registry `mirror`, each
+    looked up by its pinned digest (by tag when nothing pins it). Manifest HEAD requests only,
+    in parallel, with the site registry's `login` ((user, password) or None)."""
+    refs = [f"{r}@{d}" if d else r for r, d in pinned_refs(co, fips, mirror.rstrip("/"), enabled)]
+    with ThreadPoolExecutor(8) as pool:
+        found = list(pool.map(lambda r: pull_problem(r, login), refs))
+    return len(refs), [p for p in found if p]
+
+
 def pull_problem(ref, login=None):
-    """None if `ref` (host/repo:tag) can be pulled with `login` ((user, password) or None),
+    """None if `ref` (host/repo:tag, or @sha256:<digest>) can be pulled with `login` ((user, password) or None),
     else why not. The registry's v2 token flow, read-only; an unreachable registry isn't a
     problem here (a proxy may allow the cluster what it denies this machine)."""
     host, rest = ref.split("/", 1)
-    repo, tag = rest.rsplit(":", 1)
+    repo, tag = split_repo(rest)
     url = f"https://{host}/v2/{repo}/manifests/{tag}"
     accept = ", ".join(["application/vnd.oci.image.index.v1+json", "application/vnd.oci.image.manifest.v1+json",
                         "application/vnd.docker.distribution.manifest.list.v2+json",
