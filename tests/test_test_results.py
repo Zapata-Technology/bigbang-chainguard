@@ -51,8 +51,68 @@ def test_a_branch_keeps_only_its_version_and_main_only_its_own_results():
 def test_pull_request_runs_are_listed_only_when_asked(monkeypatch):
     out = '[{"databaseId": 1, "event": "pull_request"}, {"databaseId": 2, "event": "schedule"}]'
     monkeypatch.setattr(tr, "gh", lambda *a: (0, out, ""))
-    assert tr.main_runs(5) == [2]
-    assert tr.main_runs(5, "bot/bigbang-release", pull_requests=True) == [1, 2]
+    assert tr.main_runs(5, workflows=("compat.yml",)) == [2]
+    assert tr.main_runs(5, "bot/bigbang-release", pull_requests=True, workflows=("compat.yml",)) == [1, 2]
+
+
+def test_runs_are_read_from_the_kind_and_the_vm_workflows(monkeypatch):
+    """rke2.yml and fips-kernel.yml record rke2-default and fips-kernel-<test> results
+    too: --from-main and --from-branch list their runs beside compat.yml's."""
+    runs = {"compat.yml": '[{"databaseId": 1, "event": "schedule"}]',
+            "rke2.yml": '[{"databaseId": 2, "event": "schedule"}, {"databaseId": 3, "event": "pull_request"}]',
+            "fips-kernel.yml": '[{"databaseId": 4, "event": "workflow_dispatch"}]'}
+    asked = []
+
+    def gh(*args):
+        workflow = args[args.index("--workflow") + 1]
+        asked.append(workflow)
+        return 0, runs[workflow], ""
+    monkeypatch.setattr(tr, "gh", gh)
+    assert tr.main_runs(5) == [1, 2, 4]
+    assert asked == ["compat.yml", "rke2.yml", "fips-kernel.yml"]
+    assert tr.main_runs(5, "bot/bigbang-release", pull_requests=True) == [1, 2, 3, 4]
+
+
+def test_vm_rows_and_flagged_tests_are_labelled(tmp_path):
+    (tmp_path / "compat").mkdir()
+    (tmp_path / "compat" / "release-upgrade-oldest.yaml").write_text("test:\n  weekly_and_release: true\n")
+    assert tr.label("release-upgrade-oldest", str(tmp_path)) == "release-upgrade-oldest (weekly, release PRs)"
+    assert tr.label("rke2-default", str(tmp_path)) == "rke2-default"   # no compat file: no flag
+
+
+def _workflow(name):
+    import os
+    import yaml
+    return yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", name), encoding="utf-8"))
+
+
+def test_the_vm_workflows_record_and_upload_a_result_test_results_reads():
+    import fnmatch
+    for name, test in (("rke2.yml", "rke2-default"), ("fips-kernel.yml", "fips-kernel-")):
+        wf = _workflow(name)
+        assert name in tr.WORKFLOWS
+        [job] = [j for n, j in wf["jobs"].items() if n not in ("alert", "plan")]
+        steps = {s.get("name"): s for s in job["steps"]}
+        record = steps["Record the result"]
+        assert "scripts/test-results.py record" in record["run"] and test in record["run"] + str(record["env"])
+        assert "${{" not in record["run"]   # step outputs reach the script as env vars
+        upload = steps["Upload the result"]
+        assert fnmatch.fnmatch(upload["with"]["name"].split("$")[0] + "x", tr.ARTIFACTS)
+        assert upload["with"]["path"] == "${{ runner.temp }}/result"
+
+
+def test_rke2_runs_on_a_release_pr_and_needs_its_runner():
+    wf = _workflow("rke2.yml")
+    paths = wf[True]["pull_request"]["paths"]
+    assert "BIGBANG_VERSION" in paths
+    assert not any(p.startswith("overlays") for p in paths)   # digest refreshes would run it nightly
+    job = wf["jobs"]["rke2"]
+    guard = next(s for s in job["steps"] if "RKE2_RUNNER" in s.get("name", ""))
+    assert guard["env"]["RKE2_RUNNER"] == "${{ vars.RKE2_RUNNER }}"
+    assert "::error::" in guard["run"] and "workflow_dispatch" in guard["run"]
+    assert job["steps"].index(guard) == 1   # before anything slow: right after harden-runner
+    # automerge.yml hears its runs (a release PR's RKE2 run can finish last).
+    assert wf["name"] in _workflow("automerge.yml")[True]["workflow_run"]["workflows"]
 
 
 def test_record_reads_the_jobs_environment():

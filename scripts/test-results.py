@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Keep docs/testing.md's kind-test results table generated from recorded compat.yml runs,
-so nobody hand-edits run IDs and dates that then go stale.
+"""Keep docs/testing.md's kind-test results table generated from recorded compat.yml runs
+(and the VM tests' runs: rke2.yml, fips-kernel.yml), so nobody hand-edits run IDs and dates
+that then go stale.
 
   test-results.py record --test loki --mode fips --outcome success --log compat.log --out results/
       one compat.yml job: write its result as JSON (test, mode, pass/fail, Big Bang
-      version, when, run, commit) for the job's `compat-result-<test>-<mode>` artifact
+      version, when, run, commit) for the job's `compat-result-<test>-<mode>` artifact.
+      rke2.yml records `rke2-default` and fips-kernel.yml `fips-kernel-<test>` the same way
+      (results-gate.py leaves those rows out of its matrix)
   test-results.py update [--results DIR ...] [--from-main N] [--from-branch B --last N] [--run ID]
       merge new results into docs/test-results.json (the newest per test and mode wins) and
       rewrite the table between docs/testing.md's results markers; prose outside them is
-      left alone. --from-main downloads the result artifacts of the last N completed
-      compat.yml runs on main (`gh`); --from-branch those of the last N runs on one branch,
+      left alone. --from-main downloads the result artifacts of the last N completed runs
+      of each of WORKFLOWS on main (`gh`); --from-branch those of the last N runs on one branch,
       pull request runs included, keeping only results for this checkout's BIGBANG_VERSION
       (update.yml's release track: a new BIGBANG_VERSION runs every kind test on the release
       PR, and main can't run that version before the PR merges, so without these the
@@ -48,6 +51,9 @@ RESULTS = ("pass", "fail", "skipped")
 # package failure, so it is recorded as `error` (it never hides the last real result).
 REPO1_DOWN = re.compile(r"^PROBLEM: repo1\.dso\.mil: .* can't fetch", re.M)
 ARTIFACTS = "compat-result*"   # each job's compat-result-<test>-<mode>, and compat-results
+# The workflows whose runs upload those artifacts: the kind tests, and the VM tests (RKE2's
+# CIS profile, a FIPS-mode kernel), which run weekly and would otherwise leave no row.
+WORKFLOWS = ("compat.yml", "rke2.yml", "fips-kernel.yml")
 
 
 # --- one job's result ---
@@ -141,15 +147,18 @@ def repo_args():
     return ["-R", repo] if repo else []
 
 
-def main_runs(limit, branch="main", pull_requests=False):
-    """The last completed compat.yml runs on `branch` (schedule and manual; pull request
-    runs too with `pull_requests`)."""
-    rc, out, err = gh("run", "list", *repo_args(), "--workflow", "compat.yml", "--branch", branch,
-                      "--status", "completed", "-L", str(limit), "--json", "databaseId,event")
-    if rc:
-        raise SystemExit(f"gh run list failed: {err.strip()}")
-    return [r["databaseId"] for r in json.loads(out)
-            if pull_requests or r.get("event") != "pull_request"]
+def main_runs(limit, branch="main", pull_requests=False, workflows=WORKFLOWS):
+    """The last `limit` completed runs of each of `workflows` on `branch` (schedule and
+    manual; pull request runs too with `pull_requests`)."""
+    runs = []
+    for workflow in workflows:
+        rc, out, err = gh("run", "list", *repo_args(), "--workflow", workflow, "--branch", branch,
+                          "--status", "completed", "-L", str(limit), "--json", "databaseId,event")
+        if rc:
+            raise SystemExit(f"gh run list --workflow {workflow} failed: {err.strip()}")
+        runs += [r["databaseId"] for r in json.loads(out)
+                 if pull_requests or r.get("event") != "pull_request"]
+    return runs
 
 
 def keep(r, branches=None, bigbang=None):
@@ -170,9 +179,21 @@ def download(run, dest):
 
 # --- rendering ---
 
-def large(test, root=ROOT):
+def flagged(test, flag, root=ROOT):
+    """Whether compat/<test>.yaml sets `flag: true` (false for a VM test's row: no file)."""
     path = os.path.join(root, "compat", f"{test}.yaml")
-    return os.path.exists(path) and bool(re.search(r"^  large: true", open(path, encoding="utf-8").read(), re.M))
+    return os.path.exists(path) and bool(re.search(rf"^  {flag}: true", open(path, encoding="utf-8").read(), re.M))
+
+
+def large(test, root=ROOT):
+    return flagged(test, "large", root)
+
+
+def label(test, root=ROOT):
+    """The test's name in the table, with what keeps it off ordinary pull requests."""
+    if large(test, root):
+        return f"{test} (large)"
+    return f"{test} (weekly, release PRs)" if flagged(test, "weekly_and_release", root) else test
 
 
 def cell(r):
@@ -192,8 +213,7 @@ def table(data, root=ROOT):
     lines = [HEADER, "", "| Test | What runs | Standard | FIPS | Notes |", "|---|---|---|---|---|"]
     for name in names:
         t = about.get(name, {})
-        label = name + (" (large)" if large(name, root) else "")
-        lines.append(f"| {label} | {t.get('runs') or '-'} | {cell(results.get((name, 'standard')))} "
+        lines.append(f"| {label(name, root)} | {t.get('runs') or '-'} | {cell(results.get((name, 'standard')))} "
                      f"| {cell(results.get((name, 'fips')))} | {t.get('notes') or '-'} |")
     return "\n".join(lines)
 
@@ -259,7 +279,8 @@ def main():
                      help="the job deployed a Big Bang branch (bigbang_ref): kept out of the table")
     up = sub.add_parser("update")
     up.add_argument("--results", action="append", default=[], help="a directory of result JSONs")
-    up.add_argument("--from-main", type=int, metavar="N", help="the last N compat.yml runs on main")
+    up.add_argument("--from-main", type=int, metavar="N",
+                    help="the last N runs on main of each of compat.yml, rke2.yml and fips-kernel.yml")
     up.add_argument("--from-branch", metavar="BRANCH",
                     help="compat.yml runs on BRANCH, pull requests included (with --last), for "
                          "this BIGBANG_VERSION only; e.g. bot/bigbang-release")

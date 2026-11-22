@@ -85,8 +85,9 @@ when every check passed; not a new Big Bang release, a `hold` label, or an expec
 `results-gate`), `release.yml` (tags
 `<bigbang>-cg.<n>` on main when deployable files change), `cve-report.yml` (weekly Iron Bank
 vs Chainguard grype counts, with each Critical and its fix and the most common Highs), `fips-kernel.yml` (weekly: the FIPS overlay
-on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly: Big Bang's default
-packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM), `bigbang-preview.yml` (daily:
+on a FIPS-mode kernel, k3s in a KVM VM; see docs/testing.md), `rke2.yml` (weekly and on the release PR: Big Bang's default
+packages with `bb-install.py` on RKE2's CIS profile, PSA `restricted`, in a KVM VM; needs `RKE2_RUNNER`). Both VM
+workflows record rows in the results table that never gate. `bigbang-preview.yml` (daily:
 `bb-preview.py` against Big Bang's development branch and its untagged `release-X.Y.Z`
 branch, which it also deploys on a few kind tests; keeps one `bigbang-preview` issue per ref current), `codeql.yml` / `scorecard.yml` (public repo only).
 A failed scheduled run of compat, rke2, fips-kernel, cve-report or update opens (or comments
@@ -114,8 +115,9 @@ GitHub answer is not "nothing to do" unless the call succeeded.
    its change reaches (`scripts/compat-plan.py`: a changed `compat/<test>.yaml`, a package
    whose overlay tag changed, the installer tests for `scripts/bbinstall/`, the smoke tests
    in the marked list below for harness, Flux, mapping and digest-only changes, nothing for
-   docs); the weekly run and a new `BIGBANG_VERSION` run them all (a release PR whose matrix is
-   already recorded runs the smoke tests). Runner minutes are billed:
+   docs); the weekly run and a new `BIGBANG_VERSION` run them all (a release PR: large tests
+   standard only; once its matrix is recorded, the smoke tests and any large or
+   `weekly_and_release` test still without a pass). Runner minutes are billed:
    push a branch once it is ready, not after every edit (a new push cancels the PR's older
    runs), and don't run several agents that each push PRs touching the overlays at once.
    A pull request stacked on another: after the base merges, rebase onto `origin/main`,
@@ -189,7 +191,9 @@ agent hits before it finishes reading that file.
   <!-- required-tests -->
   `release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`
   <!-- /required-tests -->
-  . Large tests and `registry1: true` tests stay outside the gate (the marked list in
+  . Large and `weekly_and_release: true` tests count only on the release PR (its gate runs
+  with `--base` and sees `BIGBANG_VERSION` change); `registry1: true` tests and the VM rows
+  (`rke2-*`, `fips-kernel-*`) stay outside the gate (the marked list in
   [docs/testing.md](docs/testing.md)). A skip is not a pass. Do not write pass rows.
   `verify` is the required check. `python scripts/test-results.py update` records real
   artifacts. A red gate after the matrix is recorded is a real failure. A release PR

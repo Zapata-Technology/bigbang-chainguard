@@ -6,14 +6,20 @@
 # there and fails at a site. Each run boots an AlmaLinux 9 VM under KVM, installs a pinned
 # RKE2 in it (.github/rke2-vm.sh), installs Big Bang, and fails on
 # any pod not Ready, any restart, an image that can't be pulled, or an admission refusal.
-# A pull request installs the standard overlay only. The weekly run and a manual run also
-# install once with --fips (a second job). kind's --kubelet-insecure-tls stays in the
-# metrics-server kind test.
+# A pull request (its own files, or a new BIGBANG_VERSION: the release PR) installs the
+# standard overlay only. The weekly run and a manual run also install once with --fips (a
+# second job). Each job records its result as `rke2-default` for docs/testing.md's table
+# (scripts/test-results.py; never part of results-gate). kind's --kubelet-insecure-tls
+# stays in the metrics-server kind test.
 name: RKE2 - Big Bang on RKE2 with the CIS profile
 
 on:
   pull_request:
     paths:
+      # A new Big Bang (the release PR, bot/bigbang-release): what most sites run, before it
+      # merges. Not overlays/**: a path filter can't tell a tag change from the nightly
+      # digest refresh, which would run this billed VM on every bot PR.
+      - BIGBANG_VERSION
       - .github/workflows/rke2.yml
       - .github/rke2-vm.sh
       - .github/vm-lib.sh
@@ -106,6 +112,20 @@ jobs:
             token.actions.githubusercontent.com:443
             tuf-repo-cdn.sigstore.dev:443
 
+      # Without RKE2_RUNNER the job lands on ubuntu-latest, which can't hold Big Bang's default
+      # packages (the results below): two hours of a run that can't pass. Say so at once. A
+      # manual run may still try a standard runner on purpose.
+      - name: A runner large enough (RKE2_RUNNER)
+        env:
+          RKE2_RUNNER: ${{ vars.RKE2_RUNNER }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ -z "$RKE2_RUNNER" ] && [ "$EVENT" != workflow_dispatch ]; then
+            echo "::error::the repository variable RKE2_RUNNER is empty: set it to a runner label with 16 GB or more (docs/testing.md, RKE2)"
+            exit 1
+          fi
+          echo "runner: ${RKE2_RUNNER:-ubuntu-latest}"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # no git push here: keep the token out of .git/config
@@ -190,6 +210,7 @@ jobs:
       # What a site runs: a site file with Big Bang's defaults, `check` (nothing changes),
       # then `install`. --small-cluster only lowers Flux's requests on the one-node VM.
       - name: bb-install.py check, then install (${{ matrix.fips && 'FIPS' || 'standard' }} images)
+        id: install
         env:
           BUILD_REGISTRY_TOKEN: ${{ github.token }}
           REGISTRY1_USERNAME: ${{ secrets.REGISTRY1_USERNAME }}
@@ -226,6 +247,7 @@ jobs:
 
       # Run even when the install failed: it names every unhealthy pod and refused admission.
       - name: Every pod Ready, no restarts, no pull errors, no admission refusals
+        id: health
         if: always() && steps.vm.outcome == 'success'
         run: |
           set -o pipefail
@@ -233,6 +255,7 @@ jobs:
 
       # Checked again after the install: a pass must mean Big Bang ran under the CIS profile.
       - name: The CIS profile was in effect throughout
+        id: cis
         if: always() && steps.vm.outcome == 'success'
         run: bash .github/rke2-vm.sh assert
 
@@ -280,6 +303,40 @@ jobs:
             ${{ runner.temp }}/rke2-vm/logs
           retention-days: 14
           if-no-files-found: ignore
+
+      # The run's result as JSON, as compat.yml's jobs record theirs: test-results.py reads
+      # rke2.yml's runs too (update --from-main, --from-branch) and puts `rke2-default` in
+      # docs/testing.md's table. results-gate.py never requires that row. A pass needs the
+      # install, the health check and the CIS assertion; a step that didn't finish (a
+      # cancelled job, a VM that never booted) records `error`, which replaces nothing.
+      - name: Record the result
+        # Not when the job stopped before the VM (no RKE2_RUNNER, no KVM): nothing was tested.
+        if: always() && steps.vm.outcome != 'skipped'
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          HEALTH: ${{ steps.health.outcome }}
+          CIS: ${{ steps.cis.outcome }}
+          MODE: ${{ matrix.fips && 'fips' || 'standard' }}
+        run: |
+          outcome=success
+          for o in "$INSTALL" "$HEALTH" "$CIS"; do
+            case "$o" in
+              success) ;;
+              failure) if [ "$outcome" = success ]; then outcome=failure; fi ;;
+              *) outcome=cancelled ;;
+            esac
+          done
+          python scripts/test-results.py record --test rke2-default --mode "$MODE" --outcome "$outcome" \
+            --log "$RUNNER_TEMP/install.log" --out "$RUNNER_TEMP/result"
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: compat-result-rke2-default-${{ matrix.fips && 'fips' || 'standard' }}
+          path: ${{ runner.temp }}/result
+          retention-days: 90
+          if-no-files-found: ignore
+          overwrite: true   # a re-run job replaces its earlier attempt's result
 
   # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
   # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.

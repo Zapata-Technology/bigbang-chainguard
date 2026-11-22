@@ -309,9 +309,10 @@ def test_smoke_required_and_compat_flags_match_the_code():
         assert _marked(text, "required-tests") == set(gate.REQUIRED), rel
     testing = open(os.path.join(ROOT, "docs", "testing.md"), encoding="utf-8").read()
     flags = _marked(testing, "compat-flags")
-    assert "large: true" in flags and "registry1: true" in flags
-    names = flags - {"large: true", "registry1: true"}
-    assert names == gate.flagged("large") | gate.flagged("registry1")
+    keys = {"large: true", "registry1: true", "weekly_and_release: true"}
+    assert keys <= flags
+    names = flags - keys
+    assert names == gate.flagged("large") | gate.flagged("registry1") | gate.flagged("weekly_and_release")
 
 
 def test_readme_does_not_hard_code_the_iron_bank_count():
