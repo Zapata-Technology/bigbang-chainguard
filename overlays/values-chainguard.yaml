@@ -1435,6 +1435,12 @@ packages:
               registry: ''
               repository: neuvector-scanner
               tag: v4.329
+            volumeMounts:
+            - mountPath: /tmp
+              name: scanner-tmp
+            volumes:
+            - emptyDir: {}
+              name: scanner-tmp
           updater:
             image:
               registry: ghcr.io/zapata-technology
