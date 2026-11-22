@@ -51,7 +51,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | ek | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | external-secrets | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | external-secrets | ironbank/opensource/external-secrets/external-secrets:v2.14.0 | external-secrets:2.14.0 | external-secrets-fips:2.14.0 |  |
-| external-secrets | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
+| external-secrets | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI as a test image: External Secrets' bbtests secret mount (off by default) |
 | fluentbit | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | fluentbit | ironbank/opensource/fluent/fluent-bit:v5.1.5 | fluent-bit:5.1.5 | fluent-bit-fips:5.1.5 |  |
 | fluentbit | ironbank/opensource/jimmidyson/configmap-reload:v0.15.0 | configmap-reload:0.15.0 | configmap-reload-fips:0.15.0 |  |
@@ -60,27 +60,27 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | flux | ironbank/fluxcd/notification-controller:v1.9.4 | flux-notification-controller:1.10.1 | flux-notification-controller-fips:1.10.1 | flux-notification-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4); flux-notification-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4) |
 | flux | ironbank/fluxcd/source-controller:v1.9.5 | flux-source-controller:1.10.2 | flux-source-controller-fips:1.10.2 | flux-source-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-source-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
 | fortify | ironbank/afdco/prometheus/mysqld_exporter:0.18.0 | prometheus-mysqld-exporter:0.21.0 | prometheus-mysqld-exporter-fips:0.21.0 | prometheus-mysqld-exporter: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0); prometheus-mysqld-exporter-fips: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0) |
+| fortify | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base; in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | fortify | ironbank/microfocus/fortify/ssc:26.2.2.0004 | Iron Bank | Iron Bank | Fortify SSC is proprietary; vendor image only |
 | fortify | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | fortify | ironbank/opensource/mysql/mysql8:8.4.13 | mysql:8.4.13 | mysql-fips:8.4.13 |  |
-| fortify | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
-| fortify | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
+| fortify | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI as a job image: Fortify's keystore generator (openssl req/pkcs12; neither busybox nor bigbang-base has openssl) and GitLab Runner's default CI job image (users' pipelines expect a full distro) |
 | gatekeeper | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | gatekeeper | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
 | gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi | gitlab-certificates:19.5.8 | gitlab-certificates-fips:19.5.8 | gitlab-certificates: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi | cfssl-self-sign:19.5.8 | cfssl-self-sign-fips:19.5.8 | cfssl-self-sign: Iron Bank v19.5.5-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.5-ubi | built FROM the org's images by scripts/bb-build.py gitaly-init-cgroups |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.8 | gitaly-fips:19.5.8 | gitaly: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitaly-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.6 | gitaly-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi | gitlab-base:19.5.6 | gitlab-base-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.8 | gitlab-container-registry-fips:19.5.8 | gitlab-container-registry: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-container-registry-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.6 | gitlab-container-registry-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.8 | gitlab-exporter-fips:19.5.8 | gitlab-exporter: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-exporter-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi | commercial-gitlab-geo-logcursor-ee:19.5.6 | commercial-gitlab-geo-logcursor-ee-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi | gitlab-kas:19.5.8 | gitlab-kas-fips:19.5.8 | gitlab-kas: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-kas-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi | gitlab-kas:19.5.6 | gitlab-kas-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi | gitlab-mailroom:v1.1.0 | gitlab-mailroom-fips:v1.1.0 | gitlab-mailroom: newest org release (Iron Bank v19.5.5-ubi); gitlab-mailroom-fips: newest org release (Iron Bank v19.5.5-ubi) |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.6.2-gitlab1-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.8 | gitlab-pages-fips:19.5.8 | gitlab-pages: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-pages-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.8 | gitlab-shell-fips:19.5.8 | gitlab-shell: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-shell-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.6 | gitlab-pages-fips:19.5.6 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.6 | gitlab-shell-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi | commercial-gitlab-sidekiq-ee:19.5.6 | commercial-gitlab-sidekiq-ee-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi | commercial-gitlab-toolbox-ee:19.5.6 | commercial-gitlab-toolbox-ee-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi | commercial-gitlab-webservice-ee:19.5.6 | commercial-gitlab-webservice-ee-fips:19.5.6 |  |
@@ -89,18 +89,18 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi | gitlab-kubectl:v1.37.2 | gitlab-kubectl-fips:v1.37.2 | gitlab-kubectl: newest org release (Iron Bank v19.5.5-ubi); gitlab-kubectl-fips: newest org release (Iron Bank v19.5.5-ubi) |
 | gitlab | gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.5.5-ee | Iron Bank | Iron Bank | GitLab AI gateway; GitLab-built only |
 | gitlab | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 |  |
+| gitlab | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base; in place of ironbank/redhat/ubi/ubi9:9.9 (mapping retarget) |
 | gitlab | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | gitlab | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.9 | nginx-fips:1.31.9 | nginx: Iron Bank 1.31.8 -> newest 1.31 patch; nginx-fips: Iron Bank 1.31.8 -> newest 1.31 patch |
-| gitlab | ironbank/redhat/ubi/ubi9:9.9 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | gitlab-runner | gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.5.2 | gitlab-runner-helper:19.5.3 | gitlab-runner-helper-fips:19.5.3 | gitlab-runner-helper: Iron Bank ubi-fips-x86_64-v19.5.2 -> newest 19.5 patch; gitlab-runner-helper-fips: Iron Bank ubi-fips-x86_64-v19.5.2 -> newest 19.5 patch |
 | gitlab-runner | gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2 | gitlab-runner:19.5.3 | gitlab-runner-fips:19.5.3 | gitlab-runner: Iron Bank ubi-fips-v19.5.2 -> newest 19.5 patch; gitlab-runner-fips: Iron Bank ubi-fips-v19.5.2 -> newest 19.5 patch |
-| gitlab-runner | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
+| gitlab-runner | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI as a job image: Fortify's keystore generator (openssl req/pkcs12; neither busybox nor bigbang-base has openssl) and GitLab Runner's default CI job image (users' pipelines expect a full distro) |
+| grafana | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 | in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | grafana | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | grafana | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
 | grafana | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
 | grafana | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | grafana | ironbank/opensource/grafana/grafana-image-renderer:v5.12.10 | grafana-image-renderer:5.12.11 | grafana-image-renderer:5.12.11 | grafana-image-renderer: Iron Bank v5.12.10 -> newest 5.12 patch; no FIPS variant; FIPS overlay keeps the standard image |
-| grafana | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | harbor | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | harbor | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | harbor | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.98.0 | prometheus-redis-exporter-iamguarded-fips:1.98.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.98.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.98.0 (Iron Bank v1.93.0) |
@@ -119,6 +119,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | istio-cni | ironbank/opensource/istio/install-cni:1.31.3 | istio-install-cni:1.31.4 | istio-install-cni-fips:1.31.4 | istio-install-cni: Iron Bank 1.31.3 -> newest 1.31 patch; istio-install-cni-fips: Iron Bank 1.31.3 -> newest 1.31 patch |
 | istio-egress-gateway | ironbank/opensource/kubernetes/kubectl:v1.35 | kubectl:1.35-dev | kubectl-fips:1.35-dev |  |
 | istiod | ironbank/opensource/istio/pilot:1.31.3 | istio-pilot:1.31.4 | istio-pilot-fips:1.31.4 | istio-pilot: Iron Bank 1.31.3 -> newest 1.31 patch; istio-pilot-fips: Iron Bank 1.31.3 -> newest 1.31 patch |
+| istiod | ironbank/opensource/istio/proxyv2:1.31.3 | istio-proxy:1.31.4 | istio-proxy-fips:1.31.4 | set by mapping overrides |
 | keycloak | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | keycloak | ironbank/opensource/keycloak/keycloak:26.8.1 | keycloak:26.8.2 | keycloak-fips:26.8.2 | keycloak: Iron Bank 26.8.1 -> newest 26.8 patch; keycloak-fips: Iron Bank 26.8.1 -> newest 26.8 patch |
 | keycloak | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.7 | postgres-fips:18.7 | postgres: Iron Bank 18.6 -> newest 18.x release (follow: major); postgres-fips: Iron Bank 18.6 -> newest 18.x release (follow: major) |
@@ -171,6 +172,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | minio-operator | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | minio-operator | ironbank/opensource/minio/operator-sidecar:v7.1.0 | ghcr.io/zapata-technology/bigbang-minio-operator-sidecar:v7.1.0 | ghcr.io/zapata-technology/bigbang-minio-operator-sidecar-fips:v7.1.0 | built FROM the org's images by scripts/bb-build.py minio-operator-sidecar |
 | minio-operator | ironbank/opensource/minio/operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1 | built FROM the org's images by scripts/bb-build.py minio-operator |
+| monitoring | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 | in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | monitoring | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | monitoring | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
 | monitoring | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
@@ -185,21 +187,24 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | monitoring | ironbank/opensource/prometheus/prometheus:v3.16.0 | prometheus:3.16.0 | prometheus-fips:3.16.0 |  |
 | monitoring | ironbank/opensource/prometheus/snmp_exporter:v0.31.0 | prometheus-snmp-exporter:0.31.0 | prometheus-snmp-exporter:0.31.0 | no FIPS variant; FIPS overlay keeps the standard image |
 | monitoring | ironbank/opensource/thanos/thanos:v0.42.5 | thanos:0.42.5 | thanos-fips:0.42.5 |  |
-| monitoring | ironbank/redhat/ubi/ubi9-minimal:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | neuvector | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | neuvector | ironbank/big-bang/cypress:16.2.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
+| neuvector | ironbank/neuvector/neuvector/controller:5.6.4 | neuvector-controller:5.6.4 | neuvector-controller-fips:5.6.4 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/enforcer:5.6.4 | neuvector-enforcer:5.6.4 | neuvector-enforcer-fips:5.6.4 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/manager:5.6.4 | neuvector-manager:5.6.4 | neuvector-manager:5.6.4 | set by mapping overrides |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16) |
+| neuvector | ironbank/neuvector/neuvector/scanner:6 | neuvector-scanner:v4.329 | neuvector-scanner-fips:v4.328 | set by mapping overrides |
 | neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13 | built FROM the org's images by scripts/bb-build.py registry-adapter |
 | neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.257.9 | renovate-fips:44.257.9 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.257.9 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.257.9 (Iron Bank 44.97.2) |
-| renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | Iron Bank | Iron Bank | catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture) |
+| renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | gitea:28.3.0 | gitea-fips:28.3.0 |  |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
+| sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base; in place of ironbank/redhat/ubi/ubi9:9.8 (mapping retarget) |
 | sonarqube | ironbank/opensource/prometheus/jmx-exporter:1.7.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter:1.7.0-busybox1.38.0 | ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.7.0-busybox1.38.0 | built FROM the org's images by scripts/bb-build.py jmx-exporter |
-| sonarqube | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI base; GitLab and Fortify scripts expect UBI userland |
 | sonarqube | ironbank/sonarsource/sonarqube/sonarqube-community-build:26.11.0.134175-community | sonarqube:26.11.0.134175-community | sonarqube:26.11.0.134175-community | no FIPS variant; FIPS overlay keeps the standard image |
 | tempo | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | tempo | ironbank/opensource/grafana/tempo-query:3.1.1 | ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1 | ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1 | built FROM the org's images by scripts/bb-build.py tempo-query |
@@ -219,7 +224,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | velero | ironbank/opensource/velero/velero:v1.18.4 | velero:1.18.4 | velero-fips:1.18.4 |  |
 | ztunnel | ironbank/opensource/istio/ztunnel:1.31.3 | ztunnel:1.31.4 | ztunnel-fips:1.31.4 | ztunnel: Iron Bank 1.31.3 -> newest 1.31 patch; ztunnel-fips: Iron Bank 1.31.3 -> newest 1.31 patch |
 
-## Stays on Iron Bank (18)
+## Stays on Iron Bank (17)
 
 One line per image name. `docs/version-differences.md` counts each Iron Bank
 image and tag, so an image pinned at two tags (Cypress) is two rows there and one name here.
@@ -235,11 +240,10 @@ image and tag, so an image pinned at two tags (Cypress) is two rows there and on
 - `ironbank/grafana/grafana-enterprise-logs`: Grafana Enterprise Logs is licensed; no Chainguard image
 - `ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner`: Grafana Enterprise Logs is licensed; no Chainguard image
 - `ironbank/microfocus/fortify/ssc`: Fortify SSC is proprietary; vendor image only
-- `ironbank/opensource/go-gitea/gitea`: catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture)
 - `ironbank/opensource/minio/minio`: MinIO not used by Zapata; org minio repos removed 2026-10-27
 - `ironbank/opensource/shellcheck/shellcheck`: redis-ha's helm test image (helm test only)
-- `ironbank/redhat/ubi/ubi9`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland
-- `ironbank/redhat/ubi/ubi9-minimal`: Red Hat UBI base; GitLab and Fortify scripts expect UBI userland
+- `ironbank/redhat/ubi/ubi9`: Red Hat UBI as a job image: Fortify's keystore generator (openssl req/pkcs12; neither busybox nor bigbang-base has openssl) and GitLab Runner's default CI job image (users' pipelines expect a full distro)
+- `ironbank/redhat/ubi/ubi9-minimal`: Red Hat UBI as a test image: External Secrets' bbtests secret mount (off by default)
 - `ironbank/twistlock/console/console`: Prisma Cloud (Twistlock) is proprietary; vendor image only
 - `ironbank/twistlock/defender/defender`: Prisma Cloud (Twistlock) is proprietary; vendor image only
 
