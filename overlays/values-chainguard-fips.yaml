@@ -328,7 +328,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:c6dabd47333186701cc17f3d9d507636831a57d1e294c4bdd544cfb589f65eb7
           name: cgr.dev/zapatatechnology.com/mysql-fips
-        - digest: sha256:d7182352cbd0b8a74476e5c689b942f0f887c0d28f31521c3e47d75e036c3bf5
+        - digest: sha256:f65131622583216f9af4f1f434eacbb82a9b0a043d5d959ecd30f5dfec6d4225
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded-fips
         - digest: sha256:ab075169c7505dc155029bd0f1ae828fec1ac5806ee0131cc9a213fcf3c05ed9
           name: ghcr.io/zapata-technology/bigbang-base-fips
@@ -1419,6 +1419,12 @@ packages:
               registry: ''
               repository: neuvector-scanner-fips
               tag: v4.328
+            volumeMounts:
+            - mountPath: /tmp
+              name: scanner-tmp
+            volumes:
+            - emptyDir: {}
+              name: scanner-tmp
           updater:
             image:
               registry: ghcr.io/zapata-technology
