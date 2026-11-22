@@ -28,6 +28,11 @@ on:
   schedule:
     - cron: "0 11 * * 0"   # weekly, after compat.yml's and fips-kernel.yml's Sunday runs
   workflow_dispatch:
+    inputs:
+      neuvector_report:
+        description: "Also export NeuVector's scans of every deployed image (scripts/nv-report.py)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -252,6 +257,56 @@ jobs:
         run: |
           set -o pipefail
           python scripts/cluster-check.py --events "$RUNNER_TEMP/rke2-vm/logs/events.log" 2>&1             | tee "$RUNNER_TEMP/cluster-check.log"
+
+      # On request (workflow_dispatch input neuvector_report): NeuVector's own scan of every
+      # image the deployment runs, through the controller's API on a local port-forward
+      # (Big Bang creates no API Service). It logs in as admin with the chart's bootstrap
+      # password and sets a random one, as NeuVector requires on first login; neither is
+      # printed or saved. Not part of the recorded result: a failed export fails only this run.
+      - name: NeuVector's scans of the deployed images
+        id: nvreport
+        if: inputs.neuvector_report && steps.install.outcome == 'success'
+        timeout-minutes: 60
+        env:
+          MODE: ${{ matrix.fips && 'fips' || 'standard' }}
+          # NeuVector's own containers aren't in its workload list: nv-report.py scans those
+          # images by reference, pulling with these (the deployed digests from the org and GHCR).
+          BUILD_REGISTRY_USERNAME: ${{ github.actor }}
+          BUILD_REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          # A controller that isn't Ready refuses the forward and kubectl gives up: wait for
+          # the rollout, then keep the forward up (a dropped one is restarted). nv-report.py
+          # retries its login while the API comes up.
+          kubectl -n neuvector rollout status deploy/neuvector-controller-pod --timeout=600s
+          (while true; do kubectl -n neuvector port-forward deploy/neuvector-controller-pod 10443:10443; sleep 2; done) \
+            >> "$RUNNER_TEMP/nv-port-forward.log" 2>&1 &
+          trap 'kill %1 2>/dev/null || true' EXIT
+          NV_BOOTSTRAP=$(kubectl -n neuvector get secret neuvector-bootstrap-secret -o jsonpath='{.data.bootstrapPassword}' | base64 -d)
+          echo "::add-mask::$NV_BOOTSTRAP"
+          # NeuVector's password policy wants upper, lower, digit and a symbol.
+          NV_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=')Aa1!"
+          echo "::add-mask::$NV_PASSWORD"
+          CGR_PASSWORD=$(chainctl auth token --audience cgr.dev)
+          echo "::add-mask::$CGR_PASSWORD"
+          export NV_BOOTSTRAP NV_PASSWORD CGR_USERNAME=_token CGR_PASSWORD
+          kubectl get pods -A -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' \
+            > "$RUNNER_TEMP/pod-images.txt"
+          overlay=overlays/values-chainguard.yaml flux=flux/kustomization.yaml
+          if [ "$MODE" = fips ]; then overlay=overlays/values-chainguard-fips.yaml flux=flux-fips/kustomization.yaml; fi
+          python scripts/nv-report.py --api https://127.0.0.1:10443 --out "$RUNNER_TEMP/nv-report" \
+            --mode "$MODE" --overlay "$overlay" --overlay "$flux" --pod-images "$RUNNER_TEMP/pod-images.txt" \
+            --timeout 1500
+          cat "$RUNNER_TEMP/nv-report/nv-report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload NeuVector's scans
+        if: always() && steps.nvreport.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: nv-report${{ matrix.fips && '-fips' || '' }}
+          path: ${{ runner.temp }}/nv-report
+          retention-days: 30
+          if-no-files-found: ignore
 
       # Checked again after the install: a pass must mean Big Bang ran under the CIS profile.
       - name: The CIS profile was in effect throughout
