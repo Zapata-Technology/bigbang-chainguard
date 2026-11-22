@@ -6,7 +6,7 @@
 #
 # The test makes its own small Tenant (one server, four 1Gi volumes) in a namespace of its
 # own rather than enabling Big Bang's minio package: the MinIO server image may stay on
-# Iron Bank (an org without minio keeps registry1's, as Zapata's does in orgs/), which CI
+# Iron Bank (an org without minio keeps registry1's through its file in orgs/), which CI
 # can't pull without REGISTRY1_*, and a package pod that never starts fails the test. So
 # the check proves the operator's and the sidecar's part, not that MinIO serves.
 images:

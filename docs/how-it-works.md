@@ -305,7 +305,8 @@ repo has tags, so you know when to switch it over.
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.
 - **CI** (`ci.yml`): unit tests, then discovery, conversion and verification for both modes.
 - **Releases** (`release.yml`): every merge that changes what you deploy (overlays, Flux,
-  SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>`, for example
+  SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>` once CI's `verify`
+  passed on that commit (`scripts/release.py` `DEPLOYABLE` lists the files), for example
   `4.0.0-cg.40`; `n` starts again at 1 with each Big Bang version. A release holds the
   install archive, its sha256, a Sigstore signature and notes listing the image changes
   since the previous release (configuration changes are in its list of merged pull

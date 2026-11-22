@@ -166,6 +166,11 @@ refreshes them.
   - Each kind test runs in both standard and FIPS mode ([docs/testing.md](docs/testing.md)
     lists the exceptions).
   - Kyverno, Grafana and Keycloak also pass on a RHEL 9 node whose kernel is in FIPS mode.
+  - Kibana on FIPS (`kibana-fips`) starts only with `xpack.security.fipsMode.enabled: true`,
+    which needs an Elastic Platinum or Enterprise license (or a trial). A FIPS site running
+    Kibana needs that license and
+    `packages.elasticsearchKibana.values.kibana.config.xpack.security.fipsMode.enabled: true`
+    in its site file ([FIPS notes](docs/install.md#fips-notes)).
 - **Minimal images.** Chainguard builds each image with only the application and what it
   needs to run. By Chainguard's design, the runtime images ship without a package manager,
   so there is less to patch and less to exploit.
@@ -196,8 +201,9 @@ refreshes them.
 
 ## Use it with your org
 
-The overlays in this repository point at Zapata Technology's Chainguard org. For your own
-org, generate them once in your copy of the repository, then install as above:
+The overlays committed here point at the Chainguard org of the reference deployment,
+Zapata Technology's (Zapata-Technology/bigbang-chainguard). For your own org, generate them
+once in your copy of the repository, then install as above:
 
 ```bash
 python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --save

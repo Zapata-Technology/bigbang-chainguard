@@ -47,7 +47,7 @@ python scripts/bb-onboard.py --org <your org> --repo <owner>/<repo> --apply    #
 7. **Your org's exceptions**, if any, in `orgs/<your org>.yaml`: applied over `mapping.yaml`
    for your org only, and validated like it. Each `images` entry replaces the shared entry
    for that Iron Bank image (keep a package you don't license on Iron Bank, say).
-   `bb-onboard.py` writes an empty, commented one. `orgs/zapatatechnology.com.yaml` is an
+   `bb-onboard.py` writes an empty, commented one. Any file already in `orgs/` is an
    example.
 8. **Generate the overlays:**
 

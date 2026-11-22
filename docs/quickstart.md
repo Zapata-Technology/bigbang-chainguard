@@ -18,12 +18,12 @@ production yet. Here is what is and isn't proven:
 Support is best effort, through the repository's issues. Report security problems as
 [SECURITY.md](../SECURITY.md) says, not in a public issue.
 
-## Using this outside Zapata Technology
+## Using it with your own org
 
-This repository's releases are built for Zapata Technology. Every overlay and installer in a
-release points at Zapata's Chainguard org (`cgr.dev/zapatatechnology.com`) and Zapata's build
-registry (`ghcr.io/zapata-technology`), and both are private. Installing a release as-is
-needs pull access to both, which Zapata doesn't give out.
+A repository's releases are built for one Chainguard org. Every overlay and installer in a
+release points at the org and build registry that repository generated them for (each
+file's header names the org), and an org's images are private to it. Installing someone
+else's release as-is needs pull access to their org and registry.
 
 To use the project with your own images:
 
@@ -36,11 +36,10 @@ To use the project with your own images:
 4. Build and push the images this repo builds into your registry, with `builds.yml` in your
    copy or `scripts/bb-build.py --all --build --push`. Without a build registry those few
    images stay on Iron Bank.
-5. Install from your copy's own releases, using the steps below with your repository's name
-   in place of `Zapata-Technology/bigbang-chainguard`.
+5. Install from your copy's own releases with the steps below.
 
-Nothing in your copy pulls from Zapata's org or packages. Each file's header says which org
-it was generated for, so you can check.
+Nothing in your copy pulls from another org's images or packages. Each file's header says
+which org it was generated for, so you can check.
 
 ## Before you start
 
@@ -58,9 +57,9 @@ it was generated for, so you can check.
       release).
 - [ ] An Iron Bank account only if a package you enable keeps an Iron Bank image. The
       installer's preflight tells you which ones do.
-- [ ] Your org is not `zapatatechnology.com`? Do the steps in
-      [Using this outside Zapata Technology](#using-this-outside-zapata-technology) first,
-      and install from your copy's releases.
+- [ ] Your org is not the one the releases you install were built for? Do the steps in
+      [Using it with your own org](#using-it-with-your-own-org) first, and install from
+      your copy's releases.
 
 ## 1. Pick a release and pin it
 
@@ -68,10 +67,14 @@ Install from a release, never from `main`. A release (`<Big Bang version>-cg.<n>
 `4.1.1-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
 `main` moves every night.
 
+In the commands below, replace `<owner>/<repo>` with the repository you install from: your
+fork, or e.g. Zapata-Technology/bigbang-chainguard (the reference deployment).
+
 ```bash
+REPO=<owner>/<repo>     # the repository whose releases you install
 TAG=<tag>               # the release you chose: Releases page, newest first
-# While the repository is private, download with gh (a login with access to it):
-gh release download "$TAG" -R Zapata-Technology/bigbang-chainguard \
+# gh downloads from a private repository too (a login with access to it):
+gh release download "$TAG" -R "$REPO" \
   -p "bigbang-chainguard-$TAG.tar.gz" -p "bigbang-chainguard-$TAG.tar.gz.sigstore.json"
 ```
 
@@ -83,7 +86,7 @@ on purpose (step 5).
 ```bash
 cosign verify-blob --bundle "bigbang-chainguard-$TAG.tar.gz.sigstore.json" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github\.com/Zapata-Technology/bigbang-chainguard/\.github/workflows/release\.yml@refs/heads/main$' \
+  --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/heads/main" \
   "bigbang-chainguard-$TAG.tar.gz"
 tar xzf "bigbang-chainguard-$TAG.tar.gz" && cd "bigbang-chainguard-$TAG"
 ```
