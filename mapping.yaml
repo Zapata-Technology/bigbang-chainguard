@@ -347,9 +347,30 @@ overrides:
     # Chainguard's mysql and mysql-fips keep plugins in /usr/lib/mysql-8.4/plugin, and mysqld
     # failed loading component_reference_cache (compat/fortify.yaml, 2026-11-22). A command-
     # line flag wins over my.cnf. The path follows the 8.4 line: move it with a new major.
+    # The my.cnf socket is /var/run/mysqld/mysqld.sock. In Chainguard's image /var/run links
+    # to /run and the built-in default is /run/mysqld/mysqld.sock: the same file under another
+    # name, so docker-entrypoint.sh's `ln -sfT "$SOCKET" "$defaultSocket"` (it compares the
+    # strings) replaced the temporary server's live socket with a link to itself, the init
+    # client got ERROR 2002 (40: too many links) and the container exited 1 (reproduced with
+    # docker, 2026-11-22). --socket names the default, so no link is made; the [client]
+    # section's /var/run path still reaches it. Iron Bank's UBI image has no /var/run link.
+    # mysqld's log goes to <datadir>/stderr.err (Big Bang's log-error=stderr is a file name).
+    # The FIPS exporter (Go in FIPS 140 mode) couldn't log in: without TLS, MySQL 8.4's
+    # caching_sha2_password sends the password RSA-OAEP with SHA-1, which Go's FIPS mode
+    # refuses ("crypto/rsa: use of hash functions other than SHA-2 or SHA-3 is not allowed";
+    # compat/fortify.yaml --fips, 2026-11-22). Over TLS the password goes inside the channel.
+    # mysqld's TLS certificate is the one it generates itself (no CA to check against) and
+    # the exporter connects over the pod's loopback, so it skips verification. The chart
+    # appends extraArgs.primary to the exporter's command line.
     mysql:
       primary:
-        args: ["--defaults-file=/opt/bitnami/mysql/conf/my.cnf", "--plugin-dir=/usr/lib/mysql-8.4/plugin"]
+        args:
+          - --defaults-file=/opt/bitnami/mysql/conf/my.cnf
+          - --plugin-dir=/usr/lib/mysql-8.4/plugin
+          - --socket=/run/mysqld/mysqld.sock
+      metrics:
+        extraArgs:
+          primary: [--tls.insecure-skip-verify]
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6). The tag
@@ -585,11 +606,6 @@ unpinned:
 # is neither enabled by a compat test nor listed here with the reason, so a new package
 # gets a kind test or a stated reason it has none.
 untested:
-  packages.fortify: >-
-    Fortify SSC is licensed and on Iron Bank. Its Bitnami MySQL on Chainguard's mysql now gets
-    past the args and plugin-dir mismatches (overrides.fortify) and its exporter runs
-    (-iamguarded), but mysqld still exits during first-time init (compat run 44985613524);
-    compat/fortify.yaml comes back with that fix.
   packages.twistlock: >-
     Prisma Cloud (Twistlock) is licensed, with no free mode, and every image it runs is the
     vendor's on Iron Bank (images: stays); the org images in its overlay (the wait job's

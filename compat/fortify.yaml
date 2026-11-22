@@ -1,0 +1,44 @@
+# Fortify's org images, without Fortify: Big Bang's fortify package with its MySQL (Bitnami's
+# chart on the org's mysql) and the mysqld-exporter sidecar on. Fortify SSC itself is
+# licensed and its image stays on Iron Bank (mapping.yaml), as does the keystore Job's UBI
+# image, so the test scales SSC's StatefulSet to zero (compat/support/no-replicas.py: the
+# chart fixes replicas at 1), turns the keystore Job off and points SSC at a claim that
+# isn't created (no PVC left Pending). What this proves is the database Fortify would use
+# and its exporter, not SSC.
+images: {}
+test:
+  enable: [fortify]
+  namespaces: [fortify]
+  expect: [/mysql, prometheus-mysqld-exporter]
+  setup:
+    - python3 compat/support/no-replicas.py packages.fortify StatefulSet fortify-ssc-webapp
+  values_files:
+    - $COMPAT_OUT/site-fortify-no-replicas.yaml
+  values:
+    packages:
+      fortify:
+        values:
+          keystoreJob: {enabled: false}
+          upstream: {persistentVolumeClaim: {existingClaim: compat-ssc-not-started}}
+          mysql:
+            # Big Bang turns the exporter on only with monitoring; on directly here.
+            metrics: {enabled: true}
+            # Big Bang asks 4 CPUs and 16Gi (64Gi limit): more than a CI runner has.
+            primary: {resources: {requests: {cpu: 250m, memory: 1Gi}, limits: {cpu: "2", memory: 2Gi}}}
+  check:
+    # The exporter logged in to MySQL as root with the chart's generated Secret: mysql_up 1
+    # means the server took a login and answered, scraped through the API server's proxy.
+    - |
+      p=$(kubectl -n fortify get pod -l app.kubernetes.io/name=mysql,app.kubernetes.io/component=primary -o jsonpath='{.items[0].metadata.name}')
+      i=0
+      until m=$(kubectl get --raw "/api/v1/namespaces/fortify/pods/$p:9104/proxy/metrics") && echo "$m" | grep -q '^mysql_up 1'; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "mysqld-exporter on $p:"; echo "$m" | grep -E '^mysql_(up|exporter_last_scrape_error)'; exit 1; }
+        sleep 10
+      done
+      echo "$m" | grep -E '^mysql_(up|version_info|global_status_uptime)[ {]'
+  debug:
+    - "kubectl -n fortify get pods,sts,pvc -o wide"
+    - "kubectl -n fortify get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n fortify logs -l app.kubernetes.io/name=mysql --all-containers --tail=60"
+    # Big Bang's my.cnf sets log-error=stderr, which mysqld takes as a file in the datadir.
+    - "kubectl -n fortify exec fortify-mysql-0 -c mysql -- tail -n 60 /bitnami/mysql/data/stderr.err"
