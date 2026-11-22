@@ -59,7 +59,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | flux | ironbank/fluxcd/kustomize-controller:v1.9.5 | flux-kustomize-controller:1.10.2 | flux-kustomize-controller-fips:1.10.2 | flux-kustomize-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-kustomize-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
 | flux | ironbank/fluxcd/notification-controller:v1.9.4 | flux-notification-controller:1.10.1 | flux-notification-controller-fips:1.10.1 | flux-notification-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4); flux-notification-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.1 (Iron Bank v1.9.4) |
 | flux | ironbank/fluxcd/source-controller:v1.9.5 | flux-source-controller:1.10.2 | flux-source-controller-fips:1.10.2 | flux-source-controller: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5); flux-source-controller-fips: MINOR AHEAD: org has no 1.9.x; using 1.10.2 (Iron Bank v1.9.5) |
-| fortify | ironbank/afdco/prometheus/mysqld_exporter:0.18.0 | prometheus-mysqld-exporter:0.21.0 | prometheus-mysqld-exporter-fips:0.21.0 | prometheus-mysqld-exporter: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0); prometheus-mysqld-exporter-fips: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0) |
+| fortify | ironbank/afdco/prometheus/mysqld_exporter:0.18.0 | prometheus-mysqld-exporter-iamguarded:0.21.0 | prometheus-mysqld-exporter-iamguarded-fips:0.21.0 | prometheus-mysqld-exporter-iamguarded: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0); prometheus-mysqld-exporter-iamguarded-fips: MINOR AHEAD: org has no 0.18.x; using 0.21.0 (Iron Bank 0.18.0) |
 | fortify | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base; in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | fortify | ironbank/microfocus/fortify/ssc:26.2.2.0004 | Iron Bank | Iron Bank | Fortify SSC is proprietary; vendor image only |
 | fortify | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
@@ -261,7 +261,7 @@ Chainguard's current release lines). Test these packages before production, or r
 - flux: `ironbank/fluxcd/kustomize-controller:v1.9.5` -> `flux-kustomize-controller:1.10.2` (newer minor)
 - flux: `ironbank/fluxcd/notification-controller:v1.9.4` -> `flux-notification-controller:1.10.1` (newer minor)
 - flux: `ironbank/fluxcd/source-controller:v1.9.5` -> `flux-source-controller:1.10.2` (newer minor)
-- fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter:0.21.0` (newer minor)
+- fortify: `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` -> `prometheus-mysqld-exporter-iamguarded:0.21.0` (newer minor)
 - harbor: `ironbank/bitnami/analytics/redis-exporter:v1.93.0` -> `prometheus-redis-exporter-iamguarded:1.98.0` (newer minor)
 - neuvector: `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` -> `neuvector-prometheus-exporter:1.1.0.0` (newer minor)
 - renovate: `ironbank/container-hardening-tools/renovate/renovate:44.97.2` -> `renovate:44.257.9` (newer minor)

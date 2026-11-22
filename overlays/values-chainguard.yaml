@@ -328,8 +328,8 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:ee83b489d965b7bade5b9fffb755de35dbf2d21ce5f506eba146055a1c36b11d
           name: cgr.dev/zapatatechnology.com/mysql
-        - digest: sha256:71d1ff9cb0a3e2ffe0e48ecd837ccb268d8b9b21545a1d11eecd793141baf908
-          name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter
+        - digest: sha256:c7674715046d18e686ea0913f573c49672111c7663a0a86c19406fe514e23755
+          name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded
         - digest: sha256:f8debfa8e15318ab64a1c3fd4350af28cab344332c3d7b1bcbc7f721c3ed562a
           name: ghcr.io/zapata-technology/bigbang-base
         patches:
@@ -346,8 +346,12 @@ packages:
         metrics:
           image:
             registry: cgr.dev/zapatatechnology.com
-            repository: prometheus-mysqld-exporter
+            repository: prometheus-mysqld-exporter-iamguarded
             tag: 0.21.0
+        primary:
+          args:
+          - --defaults-file=/opt/bitnami/mysql/conf/my.cnf
+          - --plugin-dir=/usr/lib/mysql-8.4/plugin
         volumePermissions:
           image:
             registry: ghcr.io/zapata-technology
