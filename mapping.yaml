@@ -27,6 +27,9 @@
 #                                                 bb-convert says when the org has Iron Bank's line)
 #   <ironbank path>: {build: <name>}              built FROM the org's images by this repo
 #                                                 (builds/<name>/, pushed to BUILD_REGISTRY)
+#   <ironbank path>: {build: <name>, until: <name>}  same, and bb-convert reports when the org's
+#                                                 <name> repo has tags (bb-leftovers.py: when the
+#                                                 catalog has it): compare it with the build, then switch
 #   <ironbank path>: {ref: <full repo>, fips: <full repo>, tag: <tag>}   image outside the org
 #
 # bb-convert.py fails if a discovered image is not listed here, so a new Big Bang
@@ -123,7 +126,9 @@ images:
   ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
   # No Chainguard registry-adapter image: scripts/bb-build.py registry-adapter builds it from
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
-  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter}
+  # The catalog now has neuvector-registry-adapter (0.2.14, 2026-11-21): `until` reports when the
+  # org has it, to compare with this build.
+  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter, until: neuvector-registry-adapter}
   ironbank/twistlock/console/console: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/twistlock/defender/defender: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/anchore/enterprise/enterprise: {stays: "Anchore Enterprise is proprietary; vendor image only"}
@@ -160,7 +165,9 @@ images:
   # No Chainguard mattermost-operator image: scripts/bb-build.py mattermost-operator builds it from
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
-  ironbank/opensource/go-gitea/gitea: {stays: "catalog publishes 1.27.3; this org syncs 28.x, and Big Bang renovate pins 1.27 (test fixture)"}
+  # Renovate's test fixture (bbtests). Big Bang 4.1 pins gitea 28.3.0, the line Chainguard's
+  # gitea and gitea-fips carry (2026-11-21); fallback keeps Iron Bank's if an org lacks them.
+  ironbank/opensource/go-gitea/gitea: {cg: gitea, fallback: ironbank}
   # Mimir's Kafka (off by default). The org stopped rebuilding 4.3 once 4.4 shipped: 4.3.2
   # carried a fixable glibc High that 4.4.0 doesn't (2026-11-17), so follow 4.x.
   ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank, follow: major}
@@ -178,12 +185,12 @@ images:
   # org's newest release (docs/images.md flags it).
   ironbank/opensource/minio/minio: {cg: minio, version: "*"}
   ironbank/opensource/minio/mc: {cg: minio-client, version: "*"}
-  # The public catalog publishes minio-operator (7.1.1). These builds stay until that
-  # image is compared with Big Bang's pin. scripts/bb-build.py minio-operator and
+  # The public catalog has no minio-operator (chainctl images catalog, 2026-11-21); `until`
+  # reports when it does. scripts/bb-build.py minio-operator and
   # minio-operator-sidecar build both from minio/operator's source FROM the org's images;
   # with BUILD_REGISTRY empty they stay on Iron Bank. The MinIO server stays on Iron Bank
   # by the org file (Zapata removed the org minio repos) and has no kind test.
-  ironbank/opensource/minio/operator: {build: minio-operator}
+  ironbank/opensource/minio/operator: {build: minio-operator, until: minio-operator}
   ironbank/opensource/minio/operator-sidecar: {build: minio-operator-sidecar}
 
   # --- Shared building blocks ---
@@ -208,8 +215,10 @@ images:
   # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-build.py base
   # rebuilds it FROM the org's kubectl -dev images; with BUILD_REGISTRY empty it stays.
   ironbank/big-bang/base: {build: base}
-  ironbank/redhat/ubi/ubi9: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
-  ironbank/redhat/ubi/ubi9-minimal: {stays: "Red Hat UBI base; GitLab and Fortify scripts expect UBI userland"}
+  # Red Hat UBI as a plain tool image. `retarget` (below) moves the uses that need only a
+  # shell and a few tools to busybox or bigbang-base; these are the rest.
+  ironbank/redhat/ubi/ubi9: {stays: "Red Hat UBI as a job image: Fortify's keystore generator (openssl req/pkcs12; neither busybox nor bigbang-base has openssl) and GitLab Runner's default CI job image (users' pipelines expect a full distro)"}
+  ironbank/redhat/ubi/ubi9-minimal: {stays: "Red Hat UBI as a test image: External Secrets' bbtests secret mount (off by default)"}
 
   # --- Big Bang CI test images (bbtests, disabled by default) ---
   ironbank/big-bang/cypress: {stays: "Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish"}
@@ -225,23 +234,26 @@ images:
   # Chainguard tags every image with the GitLab release, so the images Iron Bank
   # tags with their own version (registry, shell, exporter) match on gitlab-base's
   # tag. mail_room and kubectl carry their own versions on Chainguard: newest.
-  # same_patch: rails pins the Rails images (one codebase, one database schema) and
-  # gitlab-base to the newest patch all of them have, standard and FIPS.
+  # same_patch: rails pins the Rails images (one codebase, one database schema), gitlab-base,
+  # and the components GitLab releases with them (Gitaly, GitLab Shell, KAS, Pages, the
+  # registry) to the newest patch all of them have, standard and FIPS: on their own newest
+  # patch they ran gitaly 19.5.6 beside gitaly-fips 19.5.8 and KAS/Pages 19.5.8 beside
+  # Rails 19.5.6 (docs/version-differences.md, 2026-11-21).
   # No max_version hold: a grype rescan (2026-11-17) found 19.5.5 no worse than 19.5.3 on any
   # image (same 4 Criticals in the commercial Rails images, 4-6 fewer Highs each).
   # handlebars 1.0.0, the reason for the earlier 19.5.3 hold, is a false positive: the
   # package.json of VS Code's Handlebars language extension in the Web IDE assets.
   gitlab/gitlab-org/build/cng/certificates: &gitlab {group: gitlab, strict: true, fallback: ironbank, cg: gitlab-certificates}
   gitlab/gitlab-org/build/cng/cfssl-self-sign: {<<: *gitlab, cg: cfssl-self-sign}
-  gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, cg: gitaly}
+  gitlab/gitlab-org/build/cng/gitaly: {<<: *gitlab, same_patch: rails, cg: gitaly}
   gitlab/gitlab-org/build/cng/gitlab-base: {<<: *gitlab, same_patch: rails, cg: gitlab-base}
-  gitlab/gitlab-org/build/cng/gitlab-container-registry: {<<: *gitlab, cg: gitlab-container-registry, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
+  gitlab/gitlab-org/build/cng/gitlab-container-registry: {<<: *gitlab, same_patch: rails, cg: gitlab-container-registry, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-exporter: {<<: *gitlab, cg: gitlab-exporter, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-geo-logcursor: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-geo-logcursor-ee}
-  gitlab/gitlab-org/build/cng/gitlab-kas: {<<: *gitlab, cg: gitlab-kas}
+  gitlab/gitlab-org/build/cng/gitlab-kas: {<<: *gitlab, same_patch: rails, cg: gitlab-kas}
   gitlab/gitlab-org/build/cng/gitlab-mailroom: {<<: *gitlab, cg: gitlab-mailroom, version: "*"}
-  gitlab/gitlab-org/build/cng/gitlab-pages: {<<: *gitlab, cg: gitlab-pages}
-  gitlab/gitlab-org/build/cng/gitlab-shell: {<<: *gitlab, cg: gitlab-shell, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
+  gitlab/gitlab-org/build/cng/gitlab-pages: {<<: *gitlab, same_patch: rails, cg: gitlab-pages}
+  gitlab/gitlab-org/build/cng/gitlab-shell: {<<: *gitlab, same_patch: rails, cg: gitlab-shell, version_from: gitlab/gitlab-org/build/cng/gitlab-base}
   gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-sidekiq-ee}
   gitlab/gitlab-org/build/cng/gitlab-toolbox-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-toolbox-ee}
   gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-webservice-ee}
@@ -249,8 +261,9 @@ images:
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
   # No Chainguard gitaly-init-cgroups image (Gitaly's cgroups init container, off by
   # default): scripts/bb-build.py gitaly-init-cgroups builds it from Gitaly's source as GitLab's
-  # CNG does, FROM the org's images; with BUILD_REGISTRY empty it stays on registry1.
-  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {build: gitaly-init-cgroups}
+  # CNG does, FROM the org's images; with BUILD_REGISTRY empty it stays on registry1. The catalog
+  # now has gitaly-init-cgroups (19.5.8, 2026-11-21): `until` reports when the org has it.
+  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {build: gitaly-init-cgroups, until: gitaly-init-cgroups}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
   gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)", until: gitlab-zoekt}
   gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab's own OpenBao build; Chainguard's openbao is upstream's"}
@@ -318,10 +331,11 @@ overrides:
         tag: "@tag:istio-proxy:ib=ironbank/opensource/istio/pilot"   # same Istio release; the proxy is only injected, never rendered
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
-    # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6).
+    # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6). The tag
+    # is the newest patch of Big Bang's controller release (an exact tag, not the 5.6 stream).
     upstream:
       registry: "@registry"
-      tag: "@tag:neuvector-controller:5.6"
+      tag: "@tag:neuvector-controller:ib=ironbank/neuvector/neuvector/controller"
       controller: {image: {repository: "@repo:neuvector-controller"}}
       enforcer: {image: {repository: "@repo:neuvector-enforcer"}}
       manager: {image: {repository: "@repo:neuvector-manager"}}
@@ -481,6 +495,11 @@ chart_registry_builds:
 post_renderers:
   packages.fortify:
     - ironbank/opensource/kubernetes/kubectl   # templates/keystore-job.yaml
+    # Big Bang's own fortify post-renderer (chart/templates/fortify/_postrenderers.tpl, still in
+    # 4.1.1) adds a mysql-wait init container (sh -c "mysqladmin ping") hardcoded to
+    # registry1's mysql8:8.4.11. Flux runs Big Bang's post-renderer first, then this rename:
+    # the init container gets the image the mysql8 entry above resolves to (the chart's MySQL).
+    - ironbank/opensource/mysql/mysql8
 
 # Deployments whose work exceeds Kubernetes' 600s progressDeadlineSeconds. A patch,
 # because a values postRenderers list would replace the digest pins. GitLab's migrations
@@ -498,6 +517,28 @@ ignore:
   - {release: kyverno-policies, path: policies}          # image patterns in policy parameters
   - {release: kyverno-policies, path: celPoliciesBeta}
   - {release: twistlock, path: console.trustedImages}    # Prisma trusted-registry rules
+
+# Value paths whose image is replaced by another image in `images` (release: {value path:
+# Iron Bank repo}), at the tag Big Bang deploys that image with elsewhere. For Big Bang's
+# UBI tool containers that need only a shell and a few tools; checked against each chart's
+# command (work/pkgs, Big Bang 4.1). If the image stays on Iron Bank (a build with
+# BUILD_REGISTRY empty), the path keeps Big Bang's own image.
+retarget:
+  gitlab:
+    # upgrade_check_hook: /bin/sh runcheck with sort -V, awk, grep -E: GNU coreutils' sort
+    # (bigbang-base), not busybox's.
+    upstream.upgradeCheck.image: ironbank/big-bang/base
+  grafana:
+    upstream.initChownData.image: ironbank/afdco/docker/busybox      # `chown -R uid:gid /var/lib/grafana`
+  monitoring:
+    upstream.grafana.initChownData.image: ironbank/afdco/docker/busybox   # the same Grafana chart (off in Big Bang)
+  fortify:
+    # Bitnami MySQL's volume-permissions init container runs /bin/bash -ec (mkdir, chown,
+    # find | xargs chown): bash, so bigbang-base, not busybox.
+    mysql.volumePermissions.image: ironbank/big-bang/base
+  sonarqube:
+    # change-admin-password hook: sh -c "until curl ... | grep -w UP ...; curl -X POST ...".
+    curlContainerImage: ironbank/big-bang/base
 
 # Big Bang keys whose HelmRelease template can't take post-renderers (bb-scan.py finds
 # them): bb-convert gives them none, so their images stay on tags (no digest pin).
