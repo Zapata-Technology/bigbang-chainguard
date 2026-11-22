@@ -668,9 +668,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/harbor-portal-fips
         - digest: sha256:432444a4df83747b2f3df10858128559a5ff868184b3876b9752638aab637a48
           name: cgr.dev/zapatatechnology.com/harbor-registry-fips
-        - digest: sha256:0fffac1206085988a07446ae34a3133e80c8e363dbd964679c550c95fe834fde
+        - digest: sha256:d42539bf7ef3f0f29e5312951e006442dc3c4ed90f3f162c654f8231a37d7835
           name: cgr.dev/zapatatechnology.com/harbor-registryctl-fips
-        - digest: sha256:d620fdee80e2d084a4eeffa15d11066c22792d2310efb85df68d90acf31cf5db
+        - digest: sha256:108d0b6ad6e6c62a0307fad5606427ec8c97a99e551c940cdb422f8e3265c7dd
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter-fips
         - digest: sha256:553e598c61ff305d654a5b8922f073214fc83437400e0643a7ded5c00d1d8b6d
           name: cgr.dev/zapatatechnology.com/nginx-fips
