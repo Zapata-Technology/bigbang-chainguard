@@ -57,7 +57,12 @@ python -m pytest -q tests
 
 If verification fails because the chart builds the image name in a way the generic rules
 miss, use one of the escape hatches in `mapping.yaml` (`hubs`, `overrides`,
-`template_defaults`, `post_renderers`). Each one has an example there.
+`template_defaults`, `post_renderers`, `retarget`, ...; the full list is in
+[how-it-works.md](how-it-works.md)). Each one has an example there.
+
+A package in the overlays needs a kind test that enables it (`compat/<test>.yaml`, see
+[agents/compat-test.md](agents/compat-test.md)) or an `untested` entry in `mapping.yaml`
+saying why not; `tests/test_compat_files.py` fails otherwise.
 
 ## 5. Open a pull request
 

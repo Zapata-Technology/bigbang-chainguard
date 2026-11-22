@@ -436,3 +436,18 @@ def test_org_name_allow_list_is_still_needed():
     """An entry whose line is gone is removed, so the list stays the real exceptions."""
     for f, s in ORG_NAME_ALLOWED:
         assert s in open(os.path.join(ROOT, f), encoding="utf-8").read(), (f, s)
+
+
+def test_readme_counts_match_the_repo():
+    # The README's headline numbers drifted once (40 runtime tests when there were 51): tie
+    # them to what they count. A new compat/*.yaml or findings row means updating the README.
+    readme = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+    tests = len(glob.glob(os.path.join(ROOT, "compat", "*.yaml")))
+    m = re.search(r"\*\*(\d+) runtime tests\*\*", readme)
+    assert m and int(m.group(1)) == tests, f"README says {m and m.group(1)} runtime tests; compat/ has {tests}"
+    testing = open(os.path.join(ROOT, "docs", "testing.md"), encoding="utf-8").read()
+    rows = testing[testing.index("| Found by | Problem | Fix |"):].splitlines()[2:]
+    found = len([r for r in rows[:next(i for i, r in enumerate(rows) if not r.startswith("|"))]])
+    m = re.search(r"runtime tests found \*\*(\d+) problems\*\*", readme)
+    assert m and int(m.group(1)) == found, (
+        f"README says {m and m.group(1)} problems; docs/testing.md's findings table has {found} rows")

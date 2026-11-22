@@ -153,6 +153,7 @@ flowchart TB
     subgraph UPG["upgrade only"]
         direction LR
         MG["A Big Bang 3 site file<br/>converted to packages.*,<br/>original kept"] --> PL["The plan shown<br/>and a question asked"]
+        PL --> VB["Velero backup<br/>with volume data<br/>(--no-backup skips)"]
     end
 
     subgraph CHK["Checks: bb-install.py check (nothing changes)"]
@@ -178,7 +179,7 @@ flowchart TB
     classDef check fill:#ecfdf5,stroke:#10b981,color:#064e3b
     classDef act fill:#fff7ed,stroke:#f97316,color:#7c2d12
     class SF,PF,UP,RD,PC check
-    class CR,FX,SW,BB,TL,SG,W,MG,PL act
+    class CR,FX,SW,BB,TL,SG,W,MG,PL,VB act
 ```
 
 - **The render** catches a misspelled key, a value of the wrong type, or a Big Bang 3 key
@@ -192,7 +193,9 @@ flowchart TB
   asks again for a refused login, up to three tries. `--no-pull-check` skips it for a
   registry only the nodes can reach.
 - **`upgrade`** also shows what will change (version, FIPS, packages, image tags) and asks
-  before it installs.
+  before it installs. When Velero runs, it then takes a backup (`bb-upgrade-<time>`) with
+  the volumes' data (Velero's node agent, `defaultVolumesToFsBackup`); `--no-backup` skips it.
+  The backup lives in the same cluster's object storage.
 
 The layering it uses:
 
@@ -224,9 +227,9 @@ sequenceDiagram
     autonumber
     participant N as update.yml (nightly, 03:17 UTC)
     participant PR as Pull request
-    participant CI as ci.yml + builds.yml + compat.yml
+    participant CI as ci.yml + builds.yml + compat.yml<br/>(+ rke2.yml on a release PR)
     participant M as main
-    participant B as builds.yml (push) + release.yml (after CI's verify)
+    participant B as builds.yml publish job + release.yml (after CI's verify)
     participant G as BUILD_REGISTRY + GitHub release
 
     N->>N: newest Big Bang tag? fetch, discover
@@ -234,11 +237,12 @@ sequenceDiagram
     N->>N: bb-convert (tags and today's digests) + bb-verify (standard, FIPS)
     N->>N: bb-scan: new sh-needs-bash or empty defaults<br/>bb-leftovers: Iron Bank leftovers now published
     N->>PR: open bot/bigbang-update (deployed release, newest patches)<br/>and, for a newer Big Bang, bot/bigbang-release<br/>with upgrade notes (docs/upgrades/)
-    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test changed images,<br/>kind tests the change reaches, or the smoke set<br/>for a digest-only change
-    CI-->>PR: checks, including results-gate<br/>(a recorded standard matrix for this Big Bang version)
+    PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test changed images,<br/>kind tests the change reaches, or the smoke set<br/>for a digest-only change<br/>(release PR: every test, large ones standard)
+    CI-->>PR: checks, including results-gate<br/>(a recorded standard matrix for this Big Bang version,<br/>release PR: --base, also large + weekly_and_release tests)
     PR->>M: automerge.yml when every check passed<br/>(bot/bigbang-release: you, or itself for a patch<br/>release with AUTOMERGE_BIGBANG_PATCHES)
-    M->>B: push to main
-    B->>G: build, scan, sign, then move the tag,<br/>SBOM + SLSA v1 predicate, tag &lt;bigbang&gt;-cg.&lt;n&gt;,<br/>signed archive and notes
+    M->>B: push: builds.yml publish job, CI runs on main
+    B->>G: build, scan, sign, then move the tag,<br/>SBOM + SLSA v1 predicate
+    B->>G: once CI's verify passed on that commit and a deployable<br/>file changed: tag &lt;bigbang&gt;-cg.&lt;n&gt;, signed archive and notes
 ```
 
 Every org image is pinned to the digest its tag had when the overlays were generated
@@ -251,14 +255,16 @@ runs the smoke kind tests
 (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
 <!-- /smoke-tests -->
 (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero),
-not every package. The weekly run deploys every package, including GitLab.
+not every package. The weekly run deploys every package a kind test covers, including
+GitLab (`mapping.yaml` `untested` lists the rest, with why).
 `results-gate` fails the pull request while this Big Bang version has no recorded
 standard-mode matrix. A skipped run is not a pass. Tests marked `registry1: true`
-stay outside that gate.
+and the VM rows (`rke2-*`, `fips-kernel-*`) stay outside that gate; large and
+`weekly_and_release: true` tests count only on the release PR.
 
 `compat.yml` runs on pull requests that change what clusters run (`overlays/`, `flux*/`,
-`mapping.yaml`, `orgs/`, `compat/`, the installer) and weekly with the large tests
-(GitLab), and deploys packages on kind to prove they **run**, not just render, checking
+`mapping.yaml`, `orgs/`, `compat/`, the installer), on the release PR, and weekly with the
+large tests (GitLab; also standard on the release PR), and deploys packages on kind to prove they **run**, not just render, checking
 every running image against the image policy. While each test waits, a watcher reads
 every container's log: it prints errors as they happen, stops the test early on a
 failure that won't recover, and fails it on an OOM kill. Every job uploads its logs
@@ -312,7 +318,7 @@ missing `mimir` namespace.
 flowchart LR
     subgraph trusted[What a cluster pulls]
         CG[(cgr.dev/&lt;org&gt;<br/>Chainguard, signed,<br/>pinned by digest)]
-        BR["BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed,<br/>SBOM + SLSA v1 predicate"]
+        BR["BUILD_REGISTRY<br/>built here, smoke-tested,<br/>scanned, signed, pinned by digest,<br/>SBOM + SLSA v1 predicate"]
         IBR[(registry1.dso.mil<br/>documented leftovers)]
         SR[(site registry<br/>disconnected sites:<br/>copies of the above)]
     end
@@ -341,7 +347,9 @@ flowchart LR
   Chainguard's signature, and every `<build registry>/bigbang-*` image needs the keyless
   signature `builds.yml` makes on this repo's `main` (`--build-signer` names another repo).
   CI's `bb-signatures.py` checks the same two rules on every pull request.
-- Org images are pinned by digest (section 5), so what runs is what CI tested.
+- Org images and images built here are pinned by digest (section 5), so what runs is what
+  CI tested. The allow list's entries end in `/`, so a lookalike owner
+  (`<owner>-x/...`) doesn't match a prefix.
 - Releases are signed keylessly by `release.yml`; the release notes show the `cosign
   verify-blob` command.
 - The installer keeps credentials in one Secret, `bigbang/bb-install`. Anyone who can read

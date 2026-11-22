@@ -38,7 +38,7 @@ each new release); the [results table](testing.md#results) dates each test's las
   <!-- smoke-tests -->
   `kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`
   <!-- /smoke-tests -->
-  (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). GitLab and GitLab Runner run weekly. `results-gate` fails while this Big
+  (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). GitLab and GitLab Runner run weekly and, standard only, on the release PR, whose gate requires them. `results-gate` fails while this Big
   Bang version has no recorded standard-mode matrix. The Keycloak and Mattermost release-upgrade and migration tests (data
   written before the upgrade, read back after) and `bb-install.py upgrade --to` are among
   the tests the gate requires ([testing.md](testing.md)). Upgrading from the newest 3.35.1

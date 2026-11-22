@@ -50,7 +50,8 @@ digest. That pull request renders both modes and runs the smoke kind tests
 <!-- /smoke-tests -->
 (Kyverno, metrics-server, Tempo, Keycloak, Kiali, Velero). It does not merge while
 `results-gate` sees no recorded standard-mode matrix for this Big Bang version. The
-weekly run records that matrix. GitLab stays on the weekly run. A new Big Bang version
+weekly run records that matrix, and a release PR records its own. GitLab runs weekly and,
+standard only, on the release PR, where it gates the new Big Bang. A new Big Bang version
 gets its own pull request, with upgrade notes
 ([docs/upgrades/](docs/upgrades/)), and a person merges it. Moving
 a cluster to a new release is `bb-install.py upgrade`.
@@ -178,11 +179,12 @@ refreshes them.
     included, is **83 MB** standard and 116 MB FIPS.
   - The median Iron Bank base image alone, before the application, is **107 MB**.
 - **Tested on Kubernetes, not just rendered.**
-  - **40 runtime tests**, each with a functional check of the app: a Loki query, a
+  - **51 runtime tests**, each with a functional check of the app: a Loki query, a
     Velero backup, a GitLab readiness check, and so on.
-  - A **release-to-release upgrade test** on every change.
-  - **About 600 unit tests**.
-- **Problems found and fixed before you hit them.** The runtime tests found **40 problems**
+  - **Release-to-release upgrade tests** on every new Big Bang, weekly, and on changes to the
+    packages they cover, including one from two Big Bang minors back.
+  - **About 800 unit tests**.
+- **Problems found and fixed before you hit them.** The runtime tests found **48 problems**
   that rendering alone would miss. The list is
   [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Most fixes are in
   the overlays. GitLab's PostgreSQL lock setting is the site database (the installer
@@ -231,8 +233,7 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 | Gap | Why | What closes it |
 |---|---|---|
 | Some images stay on Iron Bank (none in the default packages; [the current list](docs/images.md)) | Vendor products (Twistlock, Fortify, Anchore Enterprise, ...), Red Hat UBI bases, and GitLab images Chainguard doesn't build | Chainguard publishing them: the nightly run reports each one (`until:`) when the org has tags |
-| Release-to-release upgrades are tested for a few packages only, and data across them for Keycloak and Mattermost only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on every pull request; `release-upgrade-keycloak` and `release-upgrade-mattermost` write data before the upgrade (a realm and user; a team, post and file) and read it back after, so a failed database migration fails them (they run when those packages' versions change, and weekly). Other packages' upgrades rely on Flux and Helm rolling new digests, which the tests check; GitLab's migrations are untested (too slow for kind's runner) | More packages as kind's runner allows; a staging cluster that follows releases |
-| Keycloak's images stay on tags, not digests | Big Bang 4's Keycloak template can't take a post-renderer (`no_post_renderers`; still true on 4.1.0) | A Big Bang release that fixes the template; `bb-scan.py` reports when it does |
+| Release-to-release upgrades are tested for a few packages only, and data across them for Keycloak and Mattermost only | `compat/release-upgrade.yaml` upgrades Kyverno, Headlamp and Grafana from the newest release on pull requests that change those packages, weekly and on every new Big Bang (`release-upgrade-oldest` does the same from two Big Bang minors back, weekly and on the release PR); `release-upgrade-keycloak` and `release-upgrade-mattermost` write data before the upgrade (a realm and user; a team, post and file) and read it back after, so a failed database migration fails them (they run when those packages' versions change, and weekly). Other packages' upgrades rely on Flux and Helm rolling new digests, which the tests check; GitLab's migrations are untested (too slow for kind's runner) | More packages as kind's runner allows; a staging cluster that follows releases |
 | Images in custom resources stay on tags | Kiali's CR and Istio's injected proxy are set outside pod specs, where kustomize can't pin | Nothing planned: their tags are exact |
 | Some images are a newer version than Iron Bank's | The org keeps only current release lines (`MINOR AHEAD`, `min_version`) | Each is listed in `docs/images.md`; packages with a compat test run them |
 | Iron Bank's side of the weekly CVE report is empty, and the Vault 1.21 to 2.x upgrade test (`compat/vault-upgrade.yaml`) is skipped | Both need an Iron Bank account | The `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets |

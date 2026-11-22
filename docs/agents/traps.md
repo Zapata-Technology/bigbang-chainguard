@@ -34,8 +34,12 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   no recorded standard-mode compat matrix. `ci-triage.py` prints EXPECTED and exits 4.
   `automerge.yml` leaves that pull request open: it does not re-run, merge, or add
   `needs-attention`. Do not write pass rows. A skipped run is not a pass. `registry1: true`
-  tests stay outside that gate until Iron Bank credentials exist. `verify` is the required
-  check. A red gate after the matrix is recorded is a real failure.
+  tests stay outside that gate until Iron Bank credentials exist; the VM rows (`rke2-*`,
+  `fips-kernel-*`) never gate; large and `weekly_and_release: true` tests count only on the
+  release PR (`results-gate.py --base` sees `BIGBANG_VERSION` change). `verify` is the
+  required check. A red gate after the matrix is recorded is a real failure, and so is a
+  gate line `compat results FAILED: <test> (<run>)` (that test's newest standard result on
+  this version failed; exit 1, FAILED).
 - **Wolfi's `helm` package is Helm 4**; `helm-3` is Helm 3, which CI tests (installer image).
 - **Velero's placeholder snapshot location** has an empty credential Flux keeps; with S3
   object storage the overlay sets no snapshot locations.
@@ -84,10 +88,12 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
-- **Large kind tests (GitLab) run on a PR that changes only their `compat/<test>.yaml`**, or
-  by hand from main (`gh workflow run compat.yml --ref main -f tests=gitlab`). A manual run
-  from any other branch fails at "Log into Chainguard" (the identity trusts main and pull
-  requests), and other pull requests skip large tests.
+- **Large kind tests (GitLab) run weekly, standard only on the release PR** (whose gate
+  needs them), on a PR that changes their `compat/<test>.yaml` or moves their package beyond
+  a digest in the standard overlay, or by hand from main
+  (`gh workflow run compat.yml --ref main -f tests=gitlab`). A manual run from any other
+  branch fails at "Log into Chainguard" (the identity trusts main and pull requests);
+  other pull requests skip large tests.
 - **GitLab on a small cluster** needs values under `upstream:` (the package chart ignores
   top-level ones). PostgreSQL `max_locks_per_transaction` 256 is the site database: the
   installer notes it, and the kind test sets it. `progress_deadline` sets Deployment
@@ -154,3 +160,24 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   `ClusterPolicy` (Kyverno 1.19 runs both).
 - **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when
   PyYAML has it): the pure-Python parser was most of `bb-images`' 75 s.
+
+## Chainguard images under a chart written for another image
+
+Found on Fortify's MySQL (Bitnami's chart; Big Bang runs it on Iron Bank's UBI `mysql8`).
+The fixes are `overrides.fortify` in `mapping.yaml`; `tests/test_fortify_mysql.py` keeps them.
+
+- **Entrypoint already ends in the binary.** Chainguard's `mysql` has
+  `ENTRYPOINT [docker-entrypoint.sh, mysqld]`; args that start with `mysqld` give it twice.
+- **Paths in the chart's config are the other image's.** `plugin_dir=/usr/lib64/mysql/plugin`
+  is UBI's; Chainguard's is `/usr/lib/mysql-<major.minor>/plugin`. A command-line flag beats
+  `my.cnf`. The test fails when the bot moves `mysql` to a line the flag doesn't name.
+- **`/var/run` links to `/run` in Chainguard's images.** `docker-entrypoint.sh` compares the
+  configured socket (`/var/run/mysqld/mysqld.sock`) with its default (`/run/...`) as strings,
+  then `ln -sfT`s one onto the other: the same file, so the live socket became a link to
+  itself, init got `ERROR 2002 (40)` and the pod exited 1. Pass `--socket` with the default.
+- **A Go client in FIPS mode can't log in to MySQL 8.4 over plain TCP.** Without TLS,
+  `caching_sha2_password` sends the password with RSA-OAEP SHA-1, which Go's FIPS 140 mode
+  refuses (`crypto/rsa: use of hash functions other than SHA-2 or SHA-3`). Use TLS: the
+  exporter's `--tls.insecure-skip-verify` (loopback; mysqld's certificate is self-made).
+- **An empty pod log for a crashing database** can mean it logs to a file: `log-error=stderr`
+  is a file name (`<datadir>/stderr.err`). See [compat-failure.md](compat-failure.md) step 3.
