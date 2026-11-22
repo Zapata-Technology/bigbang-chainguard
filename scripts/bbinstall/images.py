@@ -37,13 +37,13 @@ def pull_check(refs):
 def deployed_images(co, fips, prefix, enabled=None):
     """Every image reference under `prefix` (host[/path]) the merged overlays deploy; with
     `enabled` (Big Bang keys, packages.<name>), only those packages'."""
-    refs = set()
+    refs = {}
     if not prefix:
         return []
     values = merged_values({}, co.overlays(fips))   # what deploys: FIPS replaces the standard refs
     if enabled is not None:
         values = {k: v for k, v in (values.get("packages") or {}).items() if f"packages.{k}" in enabled}
-    _walk_refs(values, prefix, refs)
+    _walk_refs(values, [prefix], refs)
     return sorted(refs)
 
 
@@ -58,28 +58,37 @@ def split_repo(rest):
     return tuple(rest.rsplit(":", 1))
 
 
-def _walk_refs(node, prefix, refs):
-    """Every host/repo:tag under `prefix` in a values tree, into `refs`."""
+def _under(name, prefixes):
+    return any(name.startswith(p + "/") for p in prefixes)
+
+
+def _walk_refs(node, prefixes, refs):
+    """Every host/repo:tag under one of `prefixes` in a values tree, into `refs` ({ref:
+    digest the values set beside it, or None}: a package with no post-renderers, Keycloak,
+    is pinned through its charts' image.digest values)."""
     if isinstance(node, dict):
         repo, tag = node.get("repository"), node.get("tag")
         if isinstance(repo, str) and tag is not None:
             full = f"{node['registry']}/{repo}" if isinstance(node.get("registry"), str) else repo
-            if full.startswith(prefix + "/"):
-                refs.add(f"{full}:{tag}")
+            if _under(full, prefixes):
+                digest = node.get("digest")
+                refs[f"{full}:{tag}"] = digest if isinstance(digest, str) and digest else refs.get(f"{full}:{tag}")
         for v in node.values():
-            _walk_refs(v, prefix, refs)
+            _walk_refs(v, prefixes, refs)
     elif isinstance(node, list):
         for v in node:
-            _walk_refs(v, prefix, refs)
-    elif isinstance(node, str) and re.fullmatch(re.escape(prefix) + r"/[\w./-]+:[\w.-]+", node):
-        refs.add(node)
+            _walk_refs(v, prefixes, refs)
+    elif isinstance(node, str) and any(re.fullmatch(re.escape(p) + r"/[\w./-]+:[\w.-]+", node) for p in prefixes):
+        refs.setdefault(node, None)
 
 
 def pinned_refs(co, fips, prefix, enabled=None):
-    """[(host/repo:tag, digest or None)] of every image under `prefix` the install runs: each
-    package's images with the digest its post-renderer pins (Converter.digest_pins; values
-    keep the tag), Flux's controllers, and SeaweedFS when it runs in the cluster. With
-    `enabled` (packages.<name> keys), only those packages'."""
+    """[(host/repo:tag, digest or None)] of every image under `prefix` (one registry prefix,
+    or several: the org's and BUILD_REGISTRY, whose built images are pinned too) the install
+    runs: each package's images with the digest its post-renderer pins (Converter.digest_pins;
+    values keep the tag) or its values set (Keycloak), Flux's controllers, and SeaweedFS when
+    it runs in the cluster. With `enabled` (packages.<name> keys), only those packages'."""
+    prefixes = [p for p in ([prefix] if isinstance(prefix, str) else prefix) if p]
     out = set()
     values = merged_values({}, co.overlays(fips))
     for name, pkg in (values.get("packages") or {}).items():
@@ -87,21 +96,22 @@ def pinned_refs(co, fips, prefix, enabled=None):
             continue
         pins = {i["name"]: i["digest"] for r in pkg.get("postRenderers") or []
                 for i in ((r or {}).get("kustomize") or {}).get("images") or [] if i.get("digest")}
-        refs = set()
-        _walk_refs(pkg.get("values") or {}, prefix, refs)
-        out |= {(r, pins.get(r.rsplit(":", 1)[0])) for r in refs}
+        refs = {}
+        _walk_refs(pkg.get("values") or {}, prefixes, refs)
+        out |= {(r, pins.get(r.rsplit(":", 1)[0]) or d) for r, d in refs.items()}
     flux = os.path.join(co.root, "flux-fips" if fips else "flux", "kustomization.yaml")
     if os.path.exists(flux):
         for i in (yaml.safe_load(open(flux, encoding="utf-8")) or {}).get("images") or []:
             name = i.get("newName") or i.get("name", "")
-            if name.startswith(prefix + "/") and i.get("newTag"):
+            if _under(name, prefixes) and i.get("newTag"):
                 out.add((f"{name}:{i['newTag']}", i.get("digest")))
     if co.in_cluster_seaweedfs():
         d = co.path("seaweedfs-fips" if fips else "seaweedfs")
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
             text = open(os.path.join(d, f), encoding="utf-8").read()
-            for ref, digest in re.findall(re.escape(prefix) + r"/([\w./-]+:[\w.-]+)(?:@(sha256:[0-9a-f]{64}))?", text):
-                out.add((f"{prefix}/{ref}", digest or None))
+            for p in prefixes:
+                for ref, digest in re.findall(re.escape(p) + r"/([\w./-]+:[\w.-]+)(?:@(sha256:[0-9a-f]{64}))?", text):
+                    out.add((f"{p}/{ref}", digest or None))
     return sorted(out, key=lambda x: (x[0], x[1] or ""))
 
 
