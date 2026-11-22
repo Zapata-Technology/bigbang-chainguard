@@ -247,6 +247,11 @@
       "notes": "Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost). FIPS mode runs no Kibana: kibana-fips needs `xpack.security.fipsMode.enabled`, which Kibana allows only on a Platinum or Enterprise license (What the runtime tests found)"
     },
     {
+      "test": "fortify",
+      "runs": "Fortify's MySQL (Bitnami chart, org mysql) with the mysqld-exporter sidecar; SSC scaled to zero and the keystore Job off",
+      "notes": "Fortify SSC is licensed and on Iron Bank, so only its supporting images run. Check: the exporter reports mysql_up 1"
+    },
+    {
       "test": "anchore-enterprise",
       "runs": "Anchore Enterprise's UI Redis (redis-bb, org redis) with the redis-exporter sidecar; every Anchore Deployment scaled to zero, the upgrade Job off",
       "notes": "Anchore Enterprise is licensed, on Iron Bank and needs an external PostgreSQL, so only its supporting images run. Check: the exporter reports redis_up 1"
