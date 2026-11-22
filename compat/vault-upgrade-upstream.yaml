@@ -1,0 +1,52 @@
+# Upgrade with existing data, without Iron Bank: compat/vault-upgrade.yaml starts from Iron
+# Bank's Vault 1.21 (what Big Bang pins) and is SKIPPED without an Iron Bank login. This
+# starts from HashiCorp's own Vault 1.21.4 instead, writes a KV secret, upgrades Big Bang to
+# the converted bigbang-vault 2.x (built here and loaded into kind, as in vault-2.yaml) and
+# reads the secret back on the new server. Passes when the new server is Vault 2.x,
+# unsealed, and returns the secret.
+#
+# TEST ONLY: docker.io/hashicorp/vault is never deployed to a site. It is the upgrade's
+# starting point here and nowhere else: mapping.yaml and the overlays don't name it, and the
+# check after the upgrade fails if any pod still runs it (the image policy allows only the
+# org, BUILD_REGISTRY and documented Iron Bank leftovers).
+#
+# Pinned by digest: the multi-arch index digest of hashicorp/vault:1.21.4 (from
+# `docker buildx imagetools inspect hashicorp/vault:1.21.4`, 2026-11-20). bb-convert writes a
+# `ref` image as repository + tag, which Vault's chart joins with ":", so the pod's image is
+# docker.io/hashicorp/vault:1.21.4@sha256:..., which the runtime pulls by digest.
+#
+# Upstream's image has no curl, which Big Bang's autoInit post-start hook needs, so the
+# starting install turns the hook off (upgrade_from.values) and
+# compat/support/vault-upstream-init.sh does its job from the runner: init, unseal, and
+# Secret vault-token in the hook's format. After the upgrade, bigbang-vault's hook (curl
+# included) unseals the new pod from that Secret, as on a site.
+images:
+  ironbank/hashicorp/vault: {build: vault}
+test:
+  enable: [vault]
+  namespaces: [vault]
+  expect: [bigbang-vault]
+  setup:
+    - sh compat/support/vault-upstream-init.sh start
+  upgrade_from:
+    images:
+      ironbank/hashicorp/vault:
+        ref: docker.io/hashicorp/vault
+        tag: "1.21.4@sha256:4e33b126a59c0c333b76fb4e894722462659a6bec7c48c9ee8cea56fccfd2569"
+        note: "TEST ONLY: the upgrade's starting point (compat/vault-upgrade-upstream.yaml)"
+    values:
+      packages: {vault: {values: {upstream: {server: {postStart: []}}}}}
+    check:
+      # The starting server runs HashiCorp's image at the pinned digest.
+      - >-
+        i=$(kubectl -n vault get pod -l app.kubernetes.io/name=vault,component=server -o jsonpath='{.items[0].spec.containers[0].image}');
+        echo "starting image: $i"; echo "$i" | grep -q '^docker.io/hashicorp/vault:1.21.4@sha256:4e33b126a59c0c333b76fb4e894722462659a6bec7c48c9ee8cea56fccfd2569$'
+      - sh compat/support/vault-upgrade.sh write
+    upgrade:
+      - sh compat/support/vault-upgrade.sh roll
+  check:
+    - sh compat/support/vault-upgrade.sh read
+  debug:
+    - "cat $COMPAT_OUT/vault-upstream-init.log"
+    - "kubectl -n vault get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,STATUS:.status.phase"
+    - "kubectl -n vault logs -l app.kubernetes.io/name=vault,component=server --tail=60"

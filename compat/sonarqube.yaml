@@ -1,4 +1,4 @@
-# SonarQube 26.10 community from the org (Big Bang pins Iron Bank's 26.9; no FIPS image)
+# SonarQube community from the org at the overlays' version (Big Bang's line; no FIPS image)
 # with its JMX exporter init container on. Big Bang turns the exporter on only with
 # monitoring, so the test sets it directly and adds the Prometheus Operator CRDs for its
 # ServiceMonitor; SonarQube's HelmRelease waits for them (dependsOn), or Flux can install it

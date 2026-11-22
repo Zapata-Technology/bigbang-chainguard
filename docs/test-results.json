@@ -47,9 +47,14 @@
       "notes": "Needs an Iron Bank login (`registry1: true`): **SKIPPED** in CI until the `REGISTRY1_USERNAME` and `REGISTRY1_PASSWORD` secrets exist"
     },
     {
-      "test": "sonarqube-26.10",
-      "runs": "SonarQube **26.10** community with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test)",
-      "notes": "Big Bang pins 26.9 and turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics"
+      "test": "vault-upgrade-upstream",
+      "runs": "HashiCorp's own Vault 1.21.4 (`docker.io/hashicorp/vault`, pinned by digest; test only, never deployed to a site) with a KV secret, upgraded to `bigbang-vault` 2.x; the secret read back",
+      "notes": "vault-upgrade without Iron Bank. Upstream's image has no curl for Big Bang's autoInit hook, so the test initialises and unseals the starting Vault itself, in the hook's Secret format. Check: Vault 2.x, unsealed, the secret written on 1.21 returned"
+    },
+    {
+      "test": "sonarqube",
+      "runs": "SonarQube community at the overlays' version with its JMX exporter init container (`bigbang-jmx-exporter`, built and loaded by the test)",
+      "notes": "Big Bang turns the exporter on only with monitoring; the test turns it on and checks the javaagent serves JVM metrics. Was `sonarqube-26.10` (results before the rename are under that name)"
     },
     {
       "test": "alloy",
@@ -95,6 +100,11 @@
       "test": "mimir",
       "runs": "memcached-exporter 0.18, rollout-operator 0.41",
       "notes": "Check: a gauge written through the gateway's OTLP endpoint is read back from PromQL"
+    },
+    {
+      "test": "mimir-kafka",
+      "runs": "Mimir on ingest storage: Kafka on the org's kafka-native (off in Big Bang)",
+      "notes": "Check: a gauge written through the gateway's OTLP endpoint goes through Kafka and is read back from PromQL"
     },
     {
       "test": "monitoring",
@@ -232,6 +242,16 @@
       "notes": "Check: the Elasticsearch phase becomes Ready"
     },
     {
+      "test": "eck-kibana",
+      "runs": "Big Bang's elasticsearchKibana on the ECK operator: one master and one data node, one Kibana, prometheus-elasticsearch-exporter (mmap off, small heaps)",
+      "notes": "Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost). FIPS mode runs no Kibana: kibana-fips needs `xpack.security.fipsMode.enabled`, which Kibana allows only on a Platinum or Enterprise license (What the runtime tests found)"
+    },
+    {
+      "test": "anchore-enterprise",
+      "runs": "Anchore Enterprise's UI Redis (redis-bb, org redis) with the redis-exporter sidecar; every Anchore Deployment scaled to zero, the upgrade Job off",
+      "notes": "Anchore Enterprise is licensed, on Iron Bank and needs an external PostgreSQL, so only its supporting images run. Check: the exporter reports redis_up 1"
+    },
+    {
       "test": "rke2-default",
       "runs": "Big Bang's default packages installed with `bb-install.py` on RKE2's CIS profile (PSA `restricted`) in a KVM VM (`rke2.yml`)",
       "notes": "Weekly, on release PRs and on its own files; not in results-gate. Pull requests standard only. Check: `cluster-check.py` (every HelmRelease and pod Ready, no restarts, no admission refusals) and the CIS profile held"
@@ -278,6 +298,32 @@
       "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
       "event": "pull_request",
       "branch": "259/merge"
+    },
+    {
+      "test": "anchore-enterprise",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:39:02Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "anchore-enterprise",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:39:49Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
     },
     {
       "test": "argocd",
@@ -330,6 +376,32 @@
       "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
       "event": "pull_request",
       "branch": "259/merge"
+    },
+    {
+      "test": "eck-kibana",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:41:50Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "eck-kibana",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:41:16Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
     },
     {
       "test": "eck-operator",
@@ -408,6 +480,32 @@
       "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
       "event": "pull_request",
       "branch": "259/merge"
+    },
+    {
+      "test": "fortify",
+      "mode": "fips",
+      "result": "fail",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:49:50Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "fortify",
+      "mode": "standard",
+      "result": "fail",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:49:28Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
     },
     {
       "test": "gatekeeper",
@@ -765,13 +863,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:17:31Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:39:53Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     },
     {
       "test": "keycloak-migration",
@@ -817,13 +915,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:21:09Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:42:20Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     },
     {
       "test": "kyverno-enforce",
@@ -843,13 +941,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:19:57Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:41:06Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     },
     {
       "test": "kyverno-reporter",
@@ -999,13 +1097,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:18:30Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:38:59Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     },
     {
       "test": "mimir",
@@ -1032,6 +1130,32 @@
       "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
       "event": "pull_request",
       "branch": "259/merge"
+    },
+    {
+      "test": "mimir-kafka",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:41:24Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "mimir-kafka",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:40:46Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
     },
     {
       "test": "minio-operator",
@@ -1129,13 +1253,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:18:31Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:39:55Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     },
     {
       "test": "registry-adapter",
@@ -1268,6 +1392,32 @@
       "branch": "259/merge"
     },
     {
+      "test": "sonarqube",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:41:54Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "sonarqube",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:42:01Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
       "test": "sonarqube-26.10",
       "mode": "fips",
       "result": "pass",
@@ -1398,6 +1548,32 @@
       "branch": "259/merge"
     },
     {
+      "test": "vault-upgrade-upstream",
+      "mode": "fips",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:43:56Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
+      "test": "vault-upgrade-upstream",
+      "mode": "standard",
+      "result": "pass",
+      "bigbang": "4.1.1",
+      "finished": "2026-11-22T04:42:20Z",
+      "run_id": 44985613524,
+      "run_attempt": 1,
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
+      "event": "pull_request",
+      "branch": "281/merge"
+    },
+    {
       "test": "velero",
       "mode": "fips",
       "result": "pass",
@@ -1415,13 +1591,13 @@
       "mode": "standard",
       "result": "pass",
       "bigbang": "4.1.1",
-      "finished": "2026-11-20T14:18:18Z",
-      "run_id": 44751127538,
+      "finished": "2026-11-22T04:41:42Z",
+      "run_id": 44985613524,
       "run_attempt": 1,
-      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538",
-      "commit": "ea62a62df686027a7b1e491a9db93cd5b832af72",
+      "run_url": "https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44985613524",
+      "commit": "7df63185d67b5a4dd5bbcf3c4afed6bab9961fcf",
       "event": "pull_request",
-      "branch": "259/merge"
+      "branch": "281/merge"
     }
   ]
 }

@@ -24,8 +24,8 @@ Iron Bank's Vault 1.21), runs its checks (write data), then upgrades to the test
 mapping and checks again (read the data back). With `release: previous` it starts from
 the newest release's overlays and Flux instead (what a site upgrading from its pinned
 release runs), and fails if a pod still runs an image digest that release had and this
-tree doesn't. `upgrade_from.values` adds values to the starting install only (a
-release on Big Bang 3 takes Big Bang 3's keys); a `values_files` overlay
+tree doesn't. `upgrade_from.values` adds values to the starting install only, from a
+mapping or a release (a release on Big Bang 3 takes Big Bang 3's keys); a `values_files` overlay
 ($COMPAT_OUT/overlays/...) comes from the release on that install. Data a test must not
 lose: write it in upgrade_from.check, read it back in check
 (compat/release-upgrade-keycloak.yaml, compat/support/upgrade-data.py).
@@ -56,6 +56,7 @@ Pull credentials come from the environment and are never printed:
 """
 import argparse
 import atexit
+import copy
 import io
 import json
 import os
@@ -114,6 +115,14 @@ def legacy_values(values, chart_values):
     for name, v in (values.get("packages") or {}).items():
         set_key(out, keys.get(name, name), v)
     return out
+
+
+def starting_values(values, frm):
+    """The starting install's values for an `upgrade_from.images` test: the test's values
+    with upgrade_from.values over them, so a starting image can be given settings the
+    upgrade doesn't keep (compat/vault-upgrade-upstream.yaml turns off Big Bang's Vault
+    post-start hook, which needs curl, for upstream's hashicorp/vault). `values` is unchanged."""
+    return deep_merge(copy.deepcopy(values), frm.get("values") or {})
 
 
 def test_namespaces(test):
@@ -605,6 +614,10 @@ def main():
                 use_mirror(first_values, old, mirror, f" ({release or 'starting release'})")
                 tv_first = os.path.join(secrets, "test-first.yaml")
                 yaml.safe_dump(first_values, open(tv_first, "w"))
+            elif first and test["upgrade_from"].get("values"):
+                # upgrade_from.images: the same chart, so the same keys.
+                tv_first = os.path.join(secrets, "test-first.yaml")
+                yaml.safe_dump(starting_values(values, test["upgrade_from"]), open(tv_first, "w"))
             helm_bigbang(a, test, first or out, out, tv_first, creds, f", upgrade from {release or 'the old mapping'}"
                          if first else "", chart=first_chart)
             if first:

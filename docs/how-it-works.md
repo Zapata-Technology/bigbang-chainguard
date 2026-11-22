@@ -290,6 +290,9 @@ can't express, `mapping.yaml` has these escape hatches:
 - `follow: major` (on an image): the org's newest release of Iron Bank's MAJOR, at or above
   Iron Bank's tag. PostgreSQL (`18.7` is `18.6`'s patch release) and kafka-native (the org
   stopped rebuilding 4.3 once 4.4 shipped, so 4.3's CVEs piled up).
+- `untested`: packages no kind test enables, with why (Twistlock: licensed, vendor images
+  only). Not used by the conversion; a unit test fails on a package in the overlays that is
+  neither enabled by a `compat/*.yaml` nor listed here.
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
 

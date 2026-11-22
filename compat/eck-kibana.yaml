@@ -1,0 +1,85 @@
+# Big Bang's elasticsearchKibana on the ECK operator: Elasticsearch, Kibana and the
+# prometheus-elasticsearch-exporter, all on org images (compat/eck-operator.yaml runs the
+# operator with an Elasticsearch it makes itself, without Big Bang's package or Kibana).
+# Sized for a CI runner: one master and one data node with small heaps, one Kibana, and mmap
+# off (kind's nodes keep the default vm.max_map_count; the store type becomes niofs, which
+# needs no mmap). The basic licence ECK starts with is enough in standard mode.
+#
+# FIPS mode runs no Kibana: kibana-fips's Node.js has FIPS on, so Kibana needs
+# xpack.security.fipsMode.enabled, which Kibana allows only on a Platinum or Enterprise
+# licence (docs/testing.md, "What the runtime tests found"). The setup line writes
+# Kibana count 0 for FIPS mode, and turns off the chart's wait job, which waits for Kibana
+# green. Elasticsearch and the exporter still run and are checked on the FIPS images.
+images: {}
+test:
+  enable: [eckOperator, elasticsearchKibana]
+  expect: [eck-operator, /elasticsearch, /kibana, prometheus-elasticsearch-exporter]
+  setup:
+    # In the site file, not in `values`: bb-compat.py passes the test's `values` last, so a
+    # kibana.count there would override this file's 0 and FIPS mode would start Kibana.
+    - >-
+      if [ "${COMPAT_FIPS:-}" = 1 ]; then
+      echo '{packages: {elasticsearchKibana: {values: {kibana: {count: 0}, waitJob: {enabled: false}}}}}' > "$COMPAT_OUT/site-kibana-mode.yaml";
+      else echo '{packages: {elasticsearchKibana: {values: {kibana: {count: 1}}}}}' > "$COMPAT_OUT/site-kibana-mode.yaml"; fi
+  values_files:
+    - $COMPAT_OUT/site-kibana-mode.yaml
+  values:
+    packages:
+      elasticsearchKibana:
+        values:
+          kibana:
+            resources: {requests: {cpu: 200m, memory: 1Gi}, limits: {cpu: "1", memory: 1536Mi}}
+          elasticsearch:
+            master:
+              count: 1
+              config: {index.store.type: niofs, node.store.allow_mmap: false}
+              heap: {min: 512m, max: 512m}
+              resources: {requests: {cpu: 200m, memory: 1536Mi}, limits: {cpu: "1", memory: 1536Mi}}
+            data:
+              count: 1
+              config: {index.store.type: niofs, node.store.allow_mmap: false}
+              heap: {min: 512m, max: 512m}
+              persistence: {size: 5Gi}
+              resources: {requests: {cpu: 200m, memory: 1536Mi}, limits: {cpu: "1", memory: 1536Mi}}
+          # Big Bang turns the exporter on only with monitoring and leaves it on the chart's
+          # http://localhost:9200; on directly here, at the cluster's HTTPS service (ECK's
+          # self-signed certificate).
+          metrics:
+            enabled: true
+            es: {uri: "https://logging-ek-es-http:9200", sslSkipVerify: true}
+  check:
+    # Kibana reports itself available: it reached Elasticsearch with ECK's credentials and
+    # its plugins started. The elastic user's password goes to curl on stdin, never on a
+    # command line or in output.
+    - |
+      if [ "${COMPAT_FIPS:-}" = 1 ]; then
+        echo "Kibana SKIPPED in FIPS mode: kibana-fips needs xpack.security.fipsMode.enabled, which Kibana allows only on a Platinum or Enterprise license"
+        exit 0
+      fi
+      kubectl -n logging port-forward svc/logging-ek-kb-http 15601:5601 > "$COMPAT_OUT/pf-kibana.log" 2>&1 &
+      pf=$!; trap 'kill $pf' EXIT
+      pw=$(kubectl -n logging get secret logging-ek-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
+      [ -n "$pw" ] || { echo "no elastic user password in Secret logging-ek-es-elastic-user"; exit 1; }
+      i=0
+      until s=$(printf 'user = "elastic:%s"\n' "$pw" | curl -sk -K - https://127.0.0.1:15601/api/status) \
+          && echo "$s" | python3 -c 'import json,sys; sys.exit(json.load(sys.stdin)["status"]["overall"]["level"] != "available")' 2>/dev/null; do
+        i=$((i+1)); [ $i -lt 30 ] || { echo "Kibana status: $(echo "$s" | cut -c1-600)"; cat "$COMPAT_OUT/pf-kibana.log"; exit 1; }
+        sleep 10
+      done
+      echo "$s" | python3 -c 'import json,sys; s=json.load(sys.stdin); print("Kibana", s["version"]["number"], s["status"]["overall"]["level"])'
+    # The exporter reads the cluster's health with the elastic user: both nodes counted.
+    - |
+      p=$(kubectl -n logging get pods -o jsonpath='{range .items[*]}{.metadata.name} {.spec.containers[*].image}{"\n"}{end}' | awk '/prometheus-elasticsearch-exporter/ {print $1; exit}')
+      [ -n "$p" ] || { echo "no prometheus-elasticsearch-exporter pod"; exit 1; }
+      i=0
+      until m=$(kubectl get --raw "/api/v1/namespaces/logging/pods/$p:9108/proxy/metrics") \
+          && echo "$m" | grep -Eq '^elasticsearch_cluster_health_number_of_nodes(\{[^}]*\})? 2$'; do
+        i=$((i+1)); [ $i -lt 18 ] || { echo "exporter on $p:"; echo "$m" | grep -E '^elasticsearch_(cluster_health_(up|number_of_nodes)|exporter)' | head; exit 1; }
+        sleep 10
+      done
+      echo "$m" | grep -E '^elasticsearch_cluster_health_(number_of_nodes|status)' | head
+  debug:
+    - "kubectl -n logging get elasticsearch,kibana,sts,deploy,pods -o wide"
+    - "kubectl -n logging get pods -o custom-columns=POD:.metadata.name,IMAGES:.spec.containers[*].image,READY:.status.containerStatuses[*].ready"
+    - "kubectl -n logging logs -l common.k8s.elastic.co/type=kibana --tail=40"
+    - "kubectl -n logging logs -l common.k8s.elastic.co/type=elasticsearch --tail=40"
