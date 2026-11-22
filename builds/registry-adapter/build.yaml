@@ -14,13 +14,13 @@ image:
   standard:
     name: bigbang-registry-adapter
     tag: v0.2.13
-    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:821ccf3860879a7b8dd425938a1e4f38388f4d5a45bcba1293e77df015cba12d
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:3f638367e0a0642fc4abd2af7d62d048e37b2175b60c31e26dc454e0a935825c
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:6bbb166c8260b3037391d952dcae26b00b0167d6ff759487d37d926673ccf79c
     go_package: ''
   fips:
     name: bigbang-registry-adapter-fips
     tag: v0.2.13
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:338b470587ca3cb26f02b1f769f738293a6abbb1fa4ee4ee682cb5741a7ffafd
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:567a03ad022832ee7ec124918d34ed0e0b8686e0b5a8d2c1bc864391e77dcfe7
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:886d370de8f8523c61a5f44a0ad6b304c926fee1d0540237f1a7117e240ed2cf
     go_package: ''
     fips: toolchain
