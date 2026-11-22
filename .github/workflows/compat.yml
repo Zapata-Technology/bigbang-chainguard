@@ -13,7 +13,8 @@ on:
       # What a cluster runs changes. scripts/compat-plan.py then picks only the tests the
       # change reaches: a package's new tag runs that package's tests; digest-only, Flux and
       # harness changes run the smoke tests (kyverno-enforce, metrics-server, object-storage,
-      # keycloak, kiali, velero); the weekly run covers everything. GitLab stays large.
+      # keycloak, kiali, velero); the weekly run covers everything. GitLab (large) runs,
+      # standard only, for its own file, its overlay entry and a new Big Bang.
       - BIGBANG_VERSION
       - mapping.yaml
       - orgs/**
@@ -438,15 +439,26 @@ jobs:
       - name: Record this release's results (update.yml)
         env:
           GH_TOKEN: ${{ github.token }}
+          TESTS: ${{ needs.test.result }}
         # update.yml has one concurrency group (two runs would race on the bot branches), and
         # GitHub cancels a pending run there when another queues: a nightly or push run can
         # replace this dispatch, and one that is skipped or deferred records nothing. So wait
         # until the dispatched run has started, and dispatch again if it was cancelled first.
         run: |
           set -euo pipefail
+          # Once the ordinary matrix is recorded, this run only re-ran what `--release` still
+          # misses (GitLab, the weekly_and_release tests; compat-plan.py). Record them when they
+          # passed. A failure stays this run's red check for a person: recording it would push
+          # the PR again, which re-runs the same ~90-minute jobs, over and over.
           if python3 scripts/results-gate.py; then
-            echo "This Big Bang version's matrix is already recorded"
-            exit 0
+            if python3 scripts/results-gate.py --release; then
+              echo "This Big Bang version's matrix is already recorded"
+              exit 0
+            fi
+            if [ "$TESTS" != success ]; then
+              echo "::error::a large or weekly_and_release test failed on this release PR (see the test jobs); not recording it"
+              exit 0
+            fi
           fi
           state=""
           for try in 1 2 3; do

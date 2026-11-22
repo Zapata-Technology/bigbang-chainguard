@@ -102,7 +102,8 @@ On each node, raise the inotify limits (`fs.inotify.max_user_instances=8192`,
 ([RKE2 test](docs/testing.md)). `bb-install.py check` reads them on each node.
 
 More: [every installer option](docs/install.md) (TLS, signatures, GitOps, air-gapped sites,
-doing it by hand) · [Quickstart](docs/quickstart.md) (pinning and verifying a release) ·
+[doing it by hand](docs/install.md#doing-it-by-hand)) · [Quickstart](docs/quickstart.md)
+(pinning and verifying a release) · [Troubleshooting](docs/troubleshooting.md) ·
 [your own Chainguard org](docs/your-org.md).
 
 ## Why Chainguard images instead of Iron Bank's
@@ -165,6 +166,11 @@ refreshes them.
   - Each kind test runs in both standard and FIPS mode ([docs/testing.md](docs/testing.md)
     lists the exceptions).
   - Kyverno, Grafana and Keycloak also pass on a RHEL 9 node whose kernel is in FIPS mode.
+  - Kibana on FIPS (`kibana-fips`) starts only with `xpack.security.fipsMode.enabled: true`,
+    which needs an Elastic Platinum or Enterprise license (or a trial). A FIPS site running
+    Kibana needs that license and
+    `packages.elasticsearchKibana.values.kibana.config.xpack.security.fipsMode.enabled: true`
+    in its site file ([FIPS notes](docs/install.md#fips-notes)).
 - **Minimal images.** Chainguard builds each image with only the application and what it
   needs to run. By Chainguard's design, the runtime images ship without a package manager,
   so there is less to patch and less to exploit.
@@ -195,8 +201,9 @@ refreshes them.
 
 ## Use it with your org
 
-The overlays in this repository point at Zapata Technology's Chainguard org. For your own
-org, generate them once in your copy of the repository, then install as above:
+The overlays committed here point at the Chainguard org of the reference deployment,
+Zapata Technology's (Zapata-Technology/bigbang-chainguard). For your own org, generate them
+once in your copy of the repository, then install as above:
 
 ```bash
 python scripts/bb-run.py --org <your org> --build-registry ghcr.io/<owner> --save
@@ -245,6 +252,13 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 - [Image versions: Iron Bank vs Chainguard](docs/version-differences.md): every image's
   version on each side, and which ones differ.
 - [Testing](docs/testing.md): what's tested and what the tests found.
+- [Troubleshooting](docs/troubleshooting.md): a symptom, its cause, and the fix.
+- [Architecture](docs/architecture.md): diagrams of the pieces and how a change flows.
+- [Upgrade notes](docs/upgrades/): per Big Bang release, the package charts and Iron Bank
+  images that change.
+- [Required images](docs/required-images.md): the Chainguard images your plan must cover.
+- [For the Big Bang team](docs/for-big-bang.md): coverage and how this could fit Big Bang.
+- [Every doc, by audience](docs/README.md).
 
 ## Contributing and support
 

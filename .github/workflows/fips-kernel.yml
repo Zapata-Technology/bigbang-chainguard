@@ -152,6 +152,7 @@ jobs:
           test -d work/bigbang/chart
 
       - name: Deploy and check (FIPS overlay)
+        id: deploy
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
@@ -175,6 +176,7 @@ jobs:
 
       # Checked again after the test: a pass must mean the packages ran on a FIPS kernel.
       - name: The kernel was in FIPS mode throughout
+        id: fips
         if: always() && steps.vm.outcome == 'success'
         run: bash .github/fips-vm.sh assert
 
@@ -203,6 +205,37 @@ jobs:
             ${{ runner.temp }}/fips-vm/logs
           retention-days: 14
           if-no-files-found: ignore
+
+      # The job's result as JSON, as compat.yml's jobs record theirs: test-results.py reads
+      # fips-kernel.yml's runs too and puts `fips-kernel-<test>` (FIPS mode) in
+      # docs/testing.md's table. results-gate.py never requires those rows. A pass needs the
+      # test and the FIPS-mode check after it; a step that didn't finish records `error`.
+      - name: Record the result
+        if: always() && steps.vm.outcome != 'skipped'
+        env:
+          DEPLOY: ${{ steps.deploy.outcome }}
+          FIPS: ${{ steps.fips.outcome }}
+          TEST: fips-kernel-${{ matrix.test }}
+        run: |
+          outcome=success
+          for o in "$DEPLOY" "$FIPS"; do
+            case "$o" in
+              success) ;;
+              failure) if [ "$outcome" = success ]; then outcome=failure; fi ;;
+              *) outcome=cancelled ;;
+            esac
+          done
+          python3 scripts/test-results.py record --test "$TEST" --mode fips --outcome "$outcome" \
+            --log "${RUNNER_TEMP}/compat.log" --out "${RUNNER_TEMP}/result"
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: compat-result-fips-kernel-${{ matrix.test }}-fips
+          path: ${{ runner.temp }}/result
+          retention-days: 90
+          if-no-files-found: ignore
+          overwrite: true   # a re-run job replaces its earlier attempt's result
 
   # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
   # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.

@@ -10,20 +10,20 @@ production yet. Here is what is and isn't proven:
 
 | Proven | Not yet |
 |---|---|
-| Every image Big Bang 4.1.0 deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
-| Each package with a kind test deploys and passes a functional check, standard and FIPS ([testing](testing.md)). The full recorded matrix is Big Bang 4.0.0. On 4.1.0 the Keycloak and Mattermost release-upgrade and migration tests passed | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel. The weekly RKE2 run also installs with `--fips`; that pass is not recorded yet |
+| Every image the Big Bang version in `BIGBANG_VERSION` deploys is converted or listed with a reason (`docs/images.md`); rendering checks both modes on every change | A run on a real, multi-node production-sized cluster: every runtime test is on kind in CI |
+| Each package with a kind test deploys and passes a functional check, standard and FIPS ([testing](testing.md): its results table gives the Big Bang version and date of each test's last run), including release upgrades and database migrations of Keycloak and Mattermost with their data | FIPS on a FIPS-mode kernel for most packages: Kyverno, Grafana and Keycloak pass on one weekly (RHEL 9 with `fips=1`); the rest are tested on a regular kernel. The weekly RKE2 run also installs with `--fips`; that pass is not recorded yet |
 | Upgrading from the newest release is tested (Kyverno, Headlamp, Grafana, and Keycloak and Mattermost with the data written before the upgrade) | Upgrading an existing Iron Bank Big Bang in place to Chainguard images (needs an Iron Bank account in CI). `vault-upgrade` stays skipped until those credentials exist |
 | Every org image is pinned by digest and signature-checked; images built here are signed and attested | The images that stay on Iron Bank ([Known gaps](../README.md#known-gaps)) |
 
 Support is best effort, through the repository's issues. Report security problems as
 [SECURITY.md](../SECURITY.md) says, not in a public issue.
 
-## Using this outside Zapata Technology
+## Using it with your own org
 
-This repository's releases are built for Zapata Technology. Every overlay and installer in a
-release points at Zapata's Chainguard org (`cgr.dev/zapatatechnology.com`) and Zapata's build
-registry (`ghcr.io/zapata-technology`), and both are private. Installing a release as-is
-needs pull access to both, which Zapata doesn't give out.
+A repository's releases are built for one Chainguard org. Every overlay and installer in a
+release points at the org and build registry that repository generated them for (each
+file's header names the org), and an org's images are private to it. Installing someone
+else's release as-is needs pull access to their org and registry.
 
 To use the project with your own images:
 
@@ -36,11 +36,10 @@ To use the project with your own images:
 4. Build and push the images this repo builds into your registry, with `builds.yml` in your
    copy or `scripts/bb-build.py --all --build --push`. Without a build registry those few
    images stay on Iron Bank.
-5. Install from your copy's own releases, using the steps below with your repository's name
-   in place of `Zapata-Technology/bigbang-chainguard`.
+5. Install from your copy's own releases with the steps below.
 
-Nothing in your copy pulls from Zapata's org or packages. Each file's header says which org
-it was generated for, so you can check.
+Nothing in your copy pulls from another org's images or packages. Each file's header says
+which org it was generated for, so you can check.
 
 ## Before you start
 
@@ -58,20 +57,24 @@ it was generated for, so you can check.
       release).
 - [ ] An Iron Bank account only if a package you enable keeps an Iron Bank image. The
       installer's preflight tells you which ones do.
-- [ ] Your org is not `zapatatechnology.com`? Do the steps in
-      [Using this outside Zapata Technology](#using-this-outside-zapata-technology) first,
-      and install from your copy's releases.
+- [ ] Your org is not the one the releases you install were built for? Do the steps in
+      [Using it with your own org](#using-it-with-your-own-org) first, and install from
+      your copy's releases.
 
 ## 1. Pick a release and pin it
 
 Install from a release, never from `main`. A release (`<Big Bang version>-cg.<n>`, e.g.
-`4.0.0-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
+`4.1.1-cg.1`) is a fixed set of overlays, digests and installer that CI tested together.
 `main` moves every night.
 
+In the commands below, replace `<owner>/<repo>` with the repository you install from: your
+fork, or e.g. Zapata-Technology/bigbang-chainguard (the reference deployment).
+
 ```bash
-TAG=4.0.0-cg.1          # the release you chose: Releases page, newest first
-# While the repository is private, download with gh (a login with access to it):
-gh release download "$TAG" -R Zapata-Technology/bigbang-chainguard \
+REPO=<owner>/<repo>     # the repository whose releases you install
+TAG=<tag>               # the release you chose: Releases page, newest first
+# gh downloads from a private repository too (a login with access to it):
+gh release download "$TAG" -R "$REPO" \
   -p "bigbang-chainguard-$TAG.tar.gz" -p "bigbang-chainguard-$TAG.tar.gz.sigstore.json"
 ```
 
@@ -83,7 +86,7 @@ on purpose (step 5).
 ```bash
 cosign verify-blob --bundle "bigbang-chainguard-$TAG.tar.gz.sigstore.json" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github\.com/Zapata-Technology/bigbang-chainguard/\.github/workflows/release\.yml@refs/heads/main$' \
+  --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/heads/main" \
   "bigbang-chainguard-$TAG.tar.gz"
 tar xzf "bigbang-chainguard-$TAG.tar.gz" && cd "bigbang-chainguard-$TAG"
 ```
@@ -113,7 +116,9 @@ python scripts/bb-install.py status
 ```
 
 `status` lists each package's health, the app URLs, and anything that needs attention: an
-expiring pull token, or a cluster that is behind the release you run it from.
+expiring pull token, a cluster that is behind the release you run it from, or newer releases
+on GitHub (one cached call a day; skipped for a disconnected site). Something wrong:
+[troubleshooting](troubleshooting.md).
 
 ## 5. Upgrade to a newer release
 
@@ -146,5 +151,7 @@ one before it, not from older ones.
 - Something fails: run `status` and include its output in an issue, along with the release
   tag, standard or FIPS, and the packages you enabled. Leave out tokens and `my-site.yaml`
   secrets.
+- A known symptom (ImagePullBackOff, a refused signature, repo1 timeouts): see
+  [troubleshooting](troubleshooting.md).
 - A package-specific problem: check the package notes in [install.md](install.md#fips-notes) first (GitLab, FIPS,
   Keycloak) and `docs/testing.md` ("What the runtime tests found").

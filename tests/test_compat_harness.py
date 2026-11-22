@@ -512,3 +512,23 @@ def test_release_before_can_start_from_an_older_big_bang():
     assert compat.release_before(ls, "ff") == "4.1.0-cg.3"
     assert compat.release_before(ls, "ff", older_than="4.1.0") == "4.0.0-cg.29"
     assert compat.release_before(ls, "ff", older_than="4.0.0") is None
+
+
+def test_oldest_supported_starts_two_released_minors_back():
+    ls = "\n".join(["aa\trefs/tags/4.1.1-cg.19", "ab\trefs/tags/4.1.0-cg.4", "bb\trefs/tags/4.0.0-cg.29",
+                    "cc\trefs/tags/3.35.1-cg.62", "cd\trefs/tags/3.35.0-cg.70", "dd\trefs/tags/3.34.0-cg.5",
+                    "ee\trefs/tags/v1"])
+    # 4.1 -> 4.0 (N-1) -> 3.35 (N-2): across the major, by the minors this repo released;
+    # the newest release of that minor, by patch then revision (3.35.1-cg.62, not 3.35.0-cg.70).
+    assert compat.oldest_supported(ls, "ff", "4.1.1") == "3.35.1-cg.62"
+    assert compat.oldest_supported(ls, "ff", "4.2.0") == "4.0.0-cg.29"
+    assert compat.oldest_supported(ls, "ff", "release-4.2.0") == "4.0.0-cg.29"   # a preview ref
+    assert compat.oldest_supported(ls, "ff", "3.35.1") is None                   # only 3.34 is older
+    assert compat.release_start("oldest-supported", ls, "ff", "4.1.1") == "3.35.1-cg.62"
+    assert compat.release_start("previous", ls, "aa", "4.1.1") == "4.1.0-cg.4"   # this tree's own tag left out
+    assert compat.release_start("previous-bigbang", ls, "ff", "4.1.1") == "4.1.0-cg.4"   # an older patch counts
+    # A pinned tag: that release, if it exists.
+    assert compat.release_start("3.34.0-cg.5", ls, "ff", "4.1.1") == "3.34.0-cg.5"
+    assert compat.release_start("3.34.0-cg.6", ls, "ff", "4.1.1") is None
+    with pytest.raises(SystemExit):
+        compat.release_start("oldest", ls, "ff", "4.1.1")

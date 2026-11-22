@@ -18,7 +18,7 @@ from bbinstall.chart import chart_defaults, fetch_chart
 from bbinstall.checkout import Checkout
 from bbinstall.common import NAMESPACE, STATE_SECRET, confirm, say, step
 from bbinstall.credentials import check_logins
-from bbinstall.images import image_problems
+from bbinstall.images import image_problems, mirror_problems
 from bbinstall.install import install
 from bbinstall.nodes import INOTIFY, inotify_problems, node_inotify, probe_image
 from bbinstall.preflight import prepare
@@ -35,6 +35,8 @@ def check(a):
     anything would stop the install."""
     co, site, defaults, enabled, problems, notes = prepare(a)
     logins = {}
+    if not problems and a.registry_mirror and not a.no_pull_check:
+        problems += mirror_check(co, site, a.fips, enabled, a.registry_mirror)
     if not problems and not a.registry_mirror and not a.no_pull_check:
         step("images (a pull test of each, with your logins)")
         logins = check_logins(co, site)
@@ -51,6 +53,22 @@ def check(a):
         raise SystemExit("\nnot ready:\n  " + "\n  ".join(problems))
     say("\nready: every check passed. Run the same command with `install` (or `upgrade`) to apply it")
     return 0
+
+
+def mirror_check(co, site, fips, enabled, mirror):
+    """Problems for the site registry: every image the install pulls from it, looked up by
+    the digest the overlays pin (a copy made by tag after Chainguard rebuilt the image has
+    another digest, and the nodes would fail with ImagePullBackOff). `co` is the mirrored
+    checkout, so its refs already name the mirror."""
+    host = mirror.split("/", 1)[0]
+    step(f"images in {mirror} (each looked up by its pinned digest)")
+    login = check_logins(co, site, mirror=host).get(host)
+    count, missing = mirror_problems(co, fips, enabled, mirror, login)
+    say(f"{count - len(missing)} of {count} images are in the site registry")
+    if not missing:
+        return []
+    return [f"{len(missing)} image(s) missing from {mirror}; copy them from bb-airgap.py's images.txt, "
+            "keeping each digest (crane copy, skopeo copy --all):"] + [f"  {m}" for m in missing]
 
 
 def node_problems(co, fips, login):
@@ -179,6 +197,14 @@ def upgrade_to_release(a):
 
 
 VELERO_NS = "velero"
+NODE_AGENT = "node-agent"          # the Velero chart's DaemonSet (deployNodeAgent)
+
+
+def pod_volume_backups(backup):
+    """How many pod volumes Velero copied for `backup` (its PodVolumeBackups)."""
+    out = kubectl("-n", VELERO_NS, "get", "podvolumebackups.velero.io", "-l", f"velero.io/backup-name={backup}",
+                  "-o", "json", check=False)
+    return len((json.loads(out) if out else {}).get("items", []))
 
 
 def backup_before_upgrade(timeout, now=time.time, sleep=time.sleep):
@@ -197,10 +223,21 @@ def backup_before_upgrade(timeout, now=time.time, sleep=time.sleep):
                          "the upgrade. Fix Velero (velero backup-location get), or upgrade with --no-backup.")
     name = "bb-upgrade-" + time.strftime("%Y%m%d-%H%M%S", time.gmtime(now()))
     step(f"Velero backup {name} before upgrading")
+    # Volume data (the databases a migration changes) is copied only by Velero's node agent:
+    # S3 object storage has no volume snapshot location. Asking for file-system backups
+    # without the agent would leave every pod volume failed, so ask only when it runs.
+    node_agent = bool(kubectl("-n", VELERO_NS, "get", "daemonset", NODE_AGENT, "-o", "name", check=False))
+    spec = {"includedNamespaces": ["*"], "ttl": "720h0m0s"}
+    if node_agent:
+        spec["defaultVolumesToFsBackup"] = True
+    else:
+        say(f"WARNING: Velero's node agent isn't running, so {name} holds Kubernetes objects only, no "
+            "volume data: restoring it won't bring back a database. The object-storage overlay turns the "
+            "agent on (packages.velero.values.upstream.deployNodeAgent).")
     manifest = {"apiVersion": "velero.io/v1", "kind": "Backup",
                 "metadata": {"name": name, "namespace": VELERO_NS,
                              "labels": {"app.kubernetes.io/managed-by": "bb-install"}},
-                "spec": {"includedNamespaces": ["*"], "ttl": "720h0m0s"}}
+                "spec": spec}
     sh("kubectl", "apply", "-f", "-", stdin=json.dumps(manifest), capture=True)
     deadline = now() + timeout
     phase = ""
@@ -208,7 +245,14 @@ def backup_before_upgrade(timeout, now=time.time, sleep=time.sleep):
         out = kubectl("-n", VELERO_NS, "get", "backups.velero.io", name, "-o", "json", check=False)
         phase = ((json.loads(out) if out else {}).get("status") or {}).get("phase", "")
         if phase == "Completed":
-            say(f"backup {name} completed (restore: velero restore create --from-backup {name})")
+            volumes = pod_volume_backups(name)
+            say(f"backup {name} completed, {volumes} pod volume(s) copied "
+                f"(restore: velero restore create --from-backup {name})")
+            if node_agent and not volumes:
+                say(f"WARNING: {name} copied no pod volumes, so it holds no database or file data: check "
+                    "Velero's node agent (kubectl -n velero get pods) before relying on it")
+            say("note: the backup is kept in this cluster's own object storage; it doesn't survive losing "
+                "the cluster")
             return name
         if phase in ("Failed", "PartiallyFailed", "FailedValidation"):
             raise SystemExit(f"Velero backup {name} ended {phase} (velero backup describe {name} --details); "
@@ -243,9 +287,14 @@ def rollback(a):
     target = a.to or next(h["revision"] for h in reversed(history) if h["revision"] < current
                           and h.get("status") in ("superseded", "deployed"))
     say(f"roll back revision {current} -> {target}")
+    if getattr(a, "plan", False):
+        say("\n--plan/--dry-run: nothing changed; run the same command without it to roll back")
+        return 0
     if not a.yes and not (sys.stdin.isatty() and confirm("Roll back?", default=False)):
         raise SystemExit("not confirmed; nothing changed (--yes skips this question)")
-    sh("helm", "rollback", "bigbang", str(target), "-n", NAMESPACE, "--wait", "--timeout", "15m", capture=True)
+    # --timeout bounds helm's own wait too: a large cluster's rollback can outlast a fixed 15m.
+    sh("helm", "rollback", "bigbang", str(target), "-n", NAMESPACE, "--wait", "--timeout", f"{a.timeout}s",
+       capture=True)
     releases.forget_release()
     step("waiting for the packages")
     time.sleep(10)
@@ -267,6 +316,9 @@ def uninstall(a):
     if made_token:
         what.append("the cgr.dev pull token install made (its Chainguard identity)")
     say("This removes:\n  " + "\n  ".join(what))
+    if getattr(a, "plan", False):
+        say("\n--plan/--dry-run: nothing removed")
+        return 0
     if not a.yes:
         if not sys.stdin.isatty() or input("Type 'uninstall' to continue: ").strip() != "uninstall":
             raise SystemExit("not confirmed; nothing removed (--yes skips this question)")

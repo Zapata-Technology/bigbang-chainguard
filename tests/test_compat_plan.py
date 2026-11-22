@@ -163,10 +163,63 @@ def test_installer_support_file_and_object_storage_changes(tmp_path):
     assert _tests(plan_mod.plan("pull_request", [], ["object-storage.yaml"], True, root)) == [("velero", "standard")]
 
 
-def test_a_new_big_bang_runs_every_test_that_is_not_large_in_both_modes(tmp_path):
+def test_a_new_big_bang_runs_every_test_in_both_modes_and_the_large_ones_standard(tmp_path):
     root = _root(tmp_path)
-    jobs = plan_mod.plan("pull_request", [], ["BIGBANG_VERSION"], True, root)
-    assert len(jobs) == 12 and "gitlab" not in {t for t, _, _ in jobs}
+    jobs = _tests(plan_mod.plan("pull_request", [], ["BIGBANG_VERSION"], True, root))
+    assert len(jobs) == 13
+    assert ("gitlab", "standard") in jobs and ("gitlab", "fips") not in jobs
+    assert ("loki", "fips") in jobs
+
+
+def test_a_large_test_runs_standard_when_its_package_changes_in_the_standard_overlay(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "overlays").mkdir()
+    old = "packages:\n  gitlab:\n    tag: 18.5\n"
+    new = "packages:\n  gitlab:\n    tag: 18.6\n"
+    for name in ("values-chainguard.yaml", "values-chainguard-fips.yaml"):
+        (tmp_path / "overlays" / name).write_text(new)
+    std = ["overlays/values-chainguard.yaml"]
+    assert _tests(plan_mod.plan("pull_request", [], std, True, root, read_base=lambda p: old)) == [
+        ("gitlab", "standard")]
+    # A FIPS-only change: the weekly run, not a ~90-minute job on the pull request.
+    assert plan_mod.plan("pull_request", [], ["overlays/values-chainguard-fips.yaml"], True, root,
+                         read_base=lambda p: old) == []
+    # Digests alone: the smoke tests, never GitLab.
+    digest_old = f"packages:\n  gitlab:\n    tag: 18.5\n    digest: {D1}\n"
+    digest_new = f"packages:\n  gitlab:\n    tag: 18.5\n    digest: {D2}\n"
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(digest_new)
+    jobs = _tests(plan_mod.plan("pull_request", [], std, True, root, read_base=lambda p: digest_old))
+    assert "gitlab" not in {t for t, _ in jobs} and ("kyverno-enforce", "standard") in jobs
+
+
+def test_a_recorded_release_pr_still_runs_the_large_tests_it_has_not_passed(tmp_path):
+    root = _root(tmp_path)
+    jobs = _tests(plan_mod.plan("pull_request", [], ["BIGBANG_VERSION"], True, root, recorded=True,
+                                pending={"gitlab"}))
+    assert jobs == [("gitlab", "standard"), ("keycloak", "standard"), ("kyverno-enforce", "standard"),
+                    ("metrics-server", "standard"), ("velero", "standard")]
+
+
+def _weekly_root(tmp_path):
+    root = _root(tmp_path)
+    (tmp_path / "compat" / "release-upgrade-oldest.yaml").write_text(
+        "test:\n  weekly_and_release: true\n  enable: [loki]\n  setup:\n    - sh compat/support/kyverno-admission.sh\n")
+    return root
+
+
+def test_a_weekly_and_release_test_runs_only_for_its_file_and_a_new_big_bang(tmp_path):
+    root = _weekly_root(tmp_path)
+    name = "release-upgrade-oldest"
+    (tmp_path / "overlays").mkdir()
+    (tmp_path / "overlays" / "values-chainguard.yaml").write_text(_overlay("3.6", D2))
+    old = {"overlays/values-chainguard.yaml": _overlay("3.5", D1)}
+    for changed in (list(old), ["compat/support/kyverno-admission.sh"], ["mapping.yaml"]):
+        jobs = plan_mod.plan("pull_request", [], changed, True, root, read_base=old.get)
+        assert name not in {t for t, _, _ in jobs}, changed
+    assert _tests(plan_mod.plan("pull_request", [], [f"compat/{name}.yaml"], True, root)) == [
+        (name, "standard"), (name, "fips")]
+    assert (name, "fips") in _tests(plan_mod.plan("pull_request", [], ["BIGBANG_VERSION"], True, root))
+    assert name in {t for t, _, _ in plan_mod.plan("schedule", [], [], False, root)}
 
 
 def test_a_release_pr_with_its_matrix_recorded_runs_the_smoke_tests_only(tmp_path):
@@ -182,8 +235,8 @@ def test_a_release_pr_with_its_matrix_recorded_runs_the_smoke_tests_only(tmp_pat
     jobs = _tests(plan_mod.plan("pull_request", [], [*changed, "compat/loki.yaml"], True, root,
                                 read_base=lambda p: old, recorded=True))
     assert ("loki", "fips") in jobs
-    # Not recorded yet: the whole matrix.
-    assert len(plan_mod.plan("pull_request", [], changed, True, root, read_base=lambda p: old)) == 12
+    # Not recorded yet: the whole matrix (GitLab standard only).
+    assert len(plan_mod.plan("pull_request", [], changed, True, root, read_base=lambda p: old)) == 13
 
 
 def test_matrix_recorded_follows_the_results_gate(tmp_path):
@@ -200,6 +253,31 @@ def test_matrix_recorded_follows_the_results_gate(tmp_path):
     assert plan_mod.matrix_recorded(root)
     (tmp_path / "BIGBANG_VERSION").write_text("4.1.2\n")
     assert not plan_mod.matrix_recorded(root)
+
+
+def test_release_pending_is_what_the_release_gate_still_needs(tmp_path):
+    import json
+    root = _weekly_root(tmp_path)
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.1\n")
+    assert plan_mod.release_pending(root) == {"gitlab", "release-upgrade-oldest"}   # nothing recorded
+    (tmp_path / "docs").mkdir()
+    gate = load_script("results-gate")
+    names = ["loki", "keycloak", "gitlab", "release-upgrade-oldest", *gate.REQUIRED]
+
+    def results(passed, version="4.1.1"):
+        return [{"test": t, "mode": "standard", "result": "pass", "bigbang": version} for t in passed]
+    data = {"tests": [{"test": t} for t in names], "results": results(["loki", "keycloak", *gate.REQUIRED])}
+    (tmp_path / "docs" / "test-results.json").write_text(json.dumps(data))
+    # The ordinary matrix is recorded; GitLab isn't, and the new test has never passed (not required yet).
+    assert plan_mod.matrix_recorded(root)
+    assert plan_mod.release_pending(root) == {"gitlab"}
+    # Once it passed on an older version, the new one needs it too.
+    data["results"] += results(["release-upgrade-oldest", "gitlab"], "4.1.0")
+    (tmp_path / "docs" / "test-results.json").write_text(json.dumps(data))
+    assert plan_mod.release_pending(root) == {"gitlab", "release-upgrade-oldest"}
+    data["results"] += results(["release-upgrade-oldest", "gitlab"])
+    (tmp_path / "docs" / "test-results.json").write_text(json.dumps(data))
+    assert plan_mod.release_pending(root) == set()
 
 
 def test_a_deleted_test_file_alone_runs_nothing(tmp_path):
@@ -248,10 +326,16 @@ def test_the_release_upgrade_data_tests_follow_their_packages_and_run_weekly():
 
 def test_a_big_bang_ref_runs_the_preview_handful(tmp_path):
     root = _root(tmp_path)
-    (tmp_path / "compat" / "release-upgrade.yaml").write_text("test:\n  enable: [kyverno]\n")
+    for name in ("release-upgrade", "release-upgrade-keycloak", "release-upgrade-mattermost",
+                 "installer-upgrade-to"):
+        (tmp_path / "compat" / f"{name}.yaml").write_text("test:\n  enable: [kyverno]\n")
     assert _tests(plan_mod.plan("workflow_call", [], [], False, root, bigbang_ref="release-4.2.0")) == [
-        ("kyverno-enforce", "standard"), ("kyverno-enforce", "fips"), ("metrics-server", "standard"),
-        ("release-upgrade", "standard")]
+        ("installer-upgrade-to", "standard"), ("kyverno-enforce", "standard"), ("kyverno-enforce", "fips"),
+        ("metrics-server", "standard"), ("release-upgrade", "standard"), ("release-upgrade-keycloak", "standard"),
+        ("release-upgrade-mattermost", "standard")]
+    # Every PREVIEW test exists in this repo, standard runners only (FIPS just for the smallest).
+    assert {n for n, _ in plan_mod.PREVIEW} <= set(plan_mod.all_tests())
+    assert not any(plan_mod.large(n) for n, _ in plan_mod.PREVIEW)
     # Named tests still win.
     assert _tests(plan_mod.plan("workflow_dispatch", ["loki"], [], False, root, bigbang_ref="master")) == [
         ("loki", "standard")]

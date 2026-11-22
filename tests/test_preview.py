@@ -8,6 +8,14 @@ from conftest import ROOT, load_script, require_bash
 pv = load_script("bb-preview")
 
 
+def test_a_dispatch_never_cancels_the_daily_run():
+    """One `bigbang-preview` group with cancel-in-progress let a manual dispatch cancel the
+    daily run's kind tests on the release branch halfway."""
+    wf = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "bigbang-preview.yml"), encoding="utf-8"))
+    assert wf["concurrency"]["cancel-in-progress"] is False
+    assert "workflow_dispatch" in wf["concurrency"]["group"] and "github.run_id" in wf["concurrency"]["group"]
+
+
 def test_a_newer_kubernetes_requirement_is_reported():
     assert pv.kube_problem({"kubeVersion": ">=1.36.0-0"}, "1.35.8")
     assert pv.kube_problem({"kubeVersion": ">=1.35.0-0"}, "1.35.8") is None

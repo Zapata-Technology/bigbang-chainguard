@@ -630,3 +630,141 @@ def test_a_package_without_post_renderers_is_pinned_through_its_digest_values():
     other = {"image": {"repository": "cgr.dev/example.com/keycloak", "tag": "26.8.2"}}
     convert.value_digest_pins(other, c, skip={"keycloak"})
     assert "digest" not in other["image"]
+
+
+def test_same_patch_holds_members_with_their_own_version_line_to_the_rails_patch():
+    """Gitaly, KAS and Pages are tagged with the GitLab release themselves; GitLab Shell and the
+    registry follow gitlab-base's. With same_patch they all run the patch the Rails images
+    have (19.5.6), not their own newest (19.5.8: gitaly 19.5.6 beside gitaly-fips 19.5.8)."""
+    tags = {"web": ["19.5.5", "19.5.6"], "web-fips": ["19.5.5", "19.5.6"],
+            "gitaly": ["19.5.6", "19.5.8"], "gitaly-fips": ["19.5.5", "19.5.6", "19.5.8"],
+            "shell": ["19.5.6", "19.5.8"], "shell-fips": ["19.5.6", "19.5.8"]}
+    m = {"images": {
+        "gitlab/web": {"group": "gl", "strict": True, "cg": "web", "same_patch": "rails"},
+        "gitlab/gitaly": {"group": "gl", "strict": True, "cg": "gitaly", "same_patch": "rails"},
+        "gitlab/shell": {"group": "gl", "strict": True, "cg": "shell", "same_patch": "rails",
+                         "version_from": "gitlab/web"}}}
+    ib = {"gitlab/web": "v19.5.5-ubi", "gitlab/gitaly": "v19.5.5-ubi", "gitlab/shell": "v14.58.0-ubi"}
+    c = convert.Converter(m, FakeTags(tags), ib_tags=ib)
+    for repo, name in (("gitlab/web", "web"), ("gitlab/gitaly", "gitaly"), ("gitlab/shell", "shell")):
+        assert c.target(repo, ib[repo], "gitlab") == (f"cgr.dev/example.com/{name}:19.5.6",
+                                                      f"cgr.dev/example.com/{name}-fips:19.5.6")
+
+
+def test_gitlab_components_follow_the_rails_patch_in_the_real_mapping():
+    import yaml
+    images = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8"))["images"]
+    cng = "gitlab/gitlab-org/build/cng/"
+    for name in ("gitaly", "gitlab-base", "gitlab-container-registry", "gitlab-kas", "gitlab-pages", "gitlab-shell",
+                 "gitlab-sidekiq-ee", "gitlab-toolbox-ee", "gitlab-webservice-ee", "gitlab-workhorse-ee"):
+        assert images[cng + name].get("same_patch") == "rails", name
+
+
+def test_images_set_by_overrides_are_in_the_version_report():
+    """NeuVector's and Istio's proxy images are set by `overrides`, not a value node the
+    generic rules convert: they were missing from docs/version-differences.md."""
+    tags = {"nv-ctl": ["5.6.4", "5.6.5"], "nv-ctl-fips": ["5.6.5"], "nv-scan": ["4.1"], "nv-scan-fips": ["4.1"],
+            "proxy": ["1.31.4"], "proxy-fips": ["1.31.4"]}
+    m = {"images": {"ironbank/nv/controller": "nv-ctl", "ironbank/nv/scanner": "nv-scan",
+                    "ironbank/istio/proxyv2": "proxy", "ironbank/istio/pilot": "pilot"},
+         "overrides": {
+             "neuvector": {"upstream": {"registry": "@registry", "tag": "@tag:nv-ctl:5.6",
+                                        "controller": {"image": {"repository": "@repo:nv-ctl"}},
+                                        "cve": {"scanner": {"image": {"repository": "@repo:nv-scan",
+                                                                      "tag": "@tag:nv-scan:*"}}}}},
+             "istiod": {"upstream": {"global": {"hub": "@registry", "proxy": {"image": "@repo:proxy"},
+                                                "proxy_init": {"image": "@ref:proxy:ib=ironbank/istio/pilot"},
+                                                "tag": "@tag:proxy:ib=ironbank/istio/pilot"}}}}}
+    discovered = {"packages": {
+        "neuvector": {"key": "packages.neuvector", "rendered": ["registry1.dso.mil/ironbank/nv/controller:5.6.4",
+                                                                "registry1.dso.mil/ironbank/nv/scanner:6"],
+                      "values": [{"path": ["upstream", "controller", "image"], "shape": "repo",
+                                  "value": {"repository": "ironbank/nv/controller"}},
+                                 {"path": ["upstream", "cve", "scanner", "image"], "shape": "repo",
+                                  "value": {"registry": "", "repository": "ironbank/nv/scanner", "tag": "6"}}]},
+        "istiod": {"key": "packages.istiod", "rendered": ["registry1.dso.mil/ironbank/istio/pilot:1.31.3"],
+                   "values": [{"path": ["upstream", "global"], "shape": "hub",
+                               "value": {"hub": "registry1.dso.mil/ironbank/istio", "tag": "1.31.3"}}]}}}
+    m["ignore"] = [{"release": "neuvector", "path": "upstream.controller.image"},
+                   {"release": "neuvector", "path": "upstream.cve.scanner.image"}]
+    m["hubs"] = {"istiod": {"upstream.image": "ironbank/istio/pilot"}}
+    files, c = convert.generate(discovered, m, FakeTags({**tags, "pilot": ["1.31.4"], "pilot-fips": ["1.31.4"]}),
+                                "4.1.1")
+    md = files["docs/version-differences.md"]
+    assert "| `ironbank/nv/controller:5.6.4` | `nv-ctl:5.6.5` | `nv-ctl-fips:5.6.5` | Chainguard | newer patch |" in md
+    assert "| `ironbank/nv/scanner:6` | `nv-scan:4.1` | `nv-scan-fips:4.1` | Chainguard | older major |" in md
+    # Istio's proxy is never rendered (injected): its Iron Bank tag is istiod's release.
+    assert "| `ironbank/istio/proxyv2:1.31.3` | `proxy:1.31.4` | `proxy-fips:1.31.4` |" in md
+    assert md.count("ironbank/istio/proxyv2") == 1   # proxy.image and proxy_init.image: one row
+    assert "| neuvector | ironbank/nv/controller:5.6.4 | nv-ctl:5.6.5 |" in files["docs/images.md"]
+
+
+def test_retarget_deploys_another_mapped_image_at_a_value_path():
+    """Grafana's chown init container ran Iron Bank's UBI for `chown` alone."""
+    m = {"images": {"ironbank/ubi": {"stays": "UBI"}, "ironbank/busybox": "bb",
+                    "ironbank/base": {"build": "base"}},
+         "retarget": {"grafana": {"upstream.initChownData.image": "ironbank/busybox",
+                                  "upstream.curl": "ironbank/base"}}}
+    tags = {"bb": ["1.38.0"], "bb-fips": ["1.38.0"]}
+    ib = {"ironbank/busybox": "1.38.0", "ironbank/base": "2.1.0"}
+    c = convert.Converter(m, FakeTags(tags), ib_tags=ib)
+    std, fips = {}, {}
+    info = {"key": "packages.grafana", "rendered": [], "values": [
+        {"path": ["upstream", "initChownData", "image"], "shape": "repo",
+         "value": {"registry": "registry1.dso.mil", "repository": "ironbank/ubi", "tag": "9.8"}},
+        {"path": ["upstream", "curl"], "shape": "string", "value": "registry1.dso.mil/ironbank/ubi:9.8"}]}
+    c.package("grafana", info, std, fips)
+    assert std["upstream"]["initChownData"]["image"] == {"registry": "cgr.dev/example.com", "repository": "bb",
+                                                         "tag": "1.38.0"}
+    assert fips["upstream"]["initChownData"]["image"]["repository"] == "bb-fips"
+    assert any(r[1] == "ironbank/busybox:1.38.0" and "in place of ironbank/ubi:9.8" in r[4] for r in c.rows)
+    # A build with no BUILD_REGISTRY stays on Iron Bank: the path keeps Big Bang's own image.
+    assert "curl" not in std["upstream"]
+    assert ("grafana", "ironbank/ubi:9.8", "Iron Bank", "Iron Bank", "UBI") in c.rows
+    assert not any(r[1].startswith("ironbank/base") for r in c.rows)
+    c = convert.Converter(m, FakeTags(tags), "ghcr.io/me", ib_tags=ib)
+    std, fips = {}, {}
+    c.package("grafana", info, std, fips)
+    assert std["upstream"]["curl"].startswith("ghcr.io/me/bigbang-base:")
+
+
+def test_a_build_with_until_is_reported_once_the_org_has_the_image():
+    m = {"images": {"ironbank/op": {"build": "minio-operator", "until": "op"}}}
+    c = convert.Converter(m, FakeTags({}))
+    c.target("ironbank/op", "v7.1.1", "minio-operator")
+    assert not c.ready
+    c = convert.Converter(m, FakeTags({"op": ["7.1.1"]}))
+    c.target("ironbank/op", "v7.1.1", "minio-operator")
+    assert c.ready == {("ironbank/op", "op")}
+
+
+def test_until_needs_stays_or_build():
+    import bbcommon
+    bbcommon.validate_mapping({"images": {"a": {"build": "x", "until": "y"}, "b": {"stays": "x", "until": "y"}}})
+    with pytest.raises(ValueError, match="until: only with stays or build"):
+        bbcommon.validate_mapping({"images": {"a": {"cg": "x", "until": "y"}}})
+
+
+def test_fortify_mysql_wait_init_container_is_renamed_to_the_mysql8_mapping():
+    """Big Bang's fortify post-renderer adds a mysql-wait init container with a hardcoded
+    registry1 mysql8 image (chart/templates/fortify/_postrenderers.tpl, 4.1.1); no value
+    reaches it. A kustomize rename after Big Bang's own post-renderer moves it to whatever
+    the mysql8 entry in mapping.yaml resolves to."""
+    import yaml
+    real = yaml.safe_load(open(os.path.join(ROOT, "mapping.yaml"), encoding="utf-8"))
+    mysql8 = "ironbank/opensource/mysql/mysql8"
+    assert mysql8 in real["post_renderers"]["packages.fortify"]
+    m = real["images"][mysql8]
+    m = {"cg": m} if isinstance(m, str) else m
+    name, fips = m["cg"], m.get("fips", m["cg"] + "-fips") if "fips" in m else m["cg"] + "-fips"
+    fips = fips or name
+    discovered = {"packages": {"fortify": {"key": "packages.fortify", "values": [],
+                                           "rendered": [f"registry1.dso.mil/{mysql8}:8.4.13"]}}}
+    tags = {name: ["8.4.13"], fips: ["8.4.13"]}
+    files, c = convert.generate(discovered, {"images": {mysql8: m},
+                                             "post_renderers": {"packages.fortify": [mysql8]}}, FakeTags(tags), "4.1.1")
+    for f, repo in (("values-chainguard.yaml", name), ("values-chainguard-fips.yaml", fips)):
+        images = yaml.safe_load(files[f"overlays/{f}"])["packages"]["fortify"]["postRenderers"][0]["kustomize"]["images"]
+        rename = next(i for i in images if i["name"] == f"registry1.dso.mil/{mysql8}")
+        assert rename["newName"] == f"cgr.dev/example.com/{repo}" and rename["newTag"] == "8.4.13"
+        assert rename["digest"] == c.tags.pinned(repo, "8.4.13")

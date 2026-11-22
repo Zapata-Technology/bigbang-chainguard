@@ -14,22 +14,27 @@ runs only the tests its change can affect:
     PREVIEW handful, a smoke test in both modes and the release-to-release upgrade;
   - the weekly schedule: every test, both modes;
   - a pull request (the union of):
-    - BIGBANG_VERSION changed: every test that isn't `large: true`, both modes; once the
-      pull request carries that version's recorded matrix (results-gate.py passes on it:
-      update.yml's release track records the PR's own runs), SMOKE instead, and its
-      overlays' package changes add nothing: the matrix covered them, and each rebuild of
-      the release PR from a newer main otherwise re-ran ~70 kind jobs;
+    - BIGBANG_VERSION changed: every test, both modes, but the `large: true` ones (GitLab,
+      ~90 minutes each) standard only; once the pull request carries that version's
+      recorded matrix (results-gate.py passes on it: update.yml's release track records the
+      PR's own runs), SMOKE instead, plus the large and `weekly_and_release: true` tests
+      that `results-gate.py --release` still misses (standard), and its overlays' package
+      changes add nothing: the matrix covered them, and each rebuild of the release PR from
+      a newer main otherwise re-ran ~70 kind jobs;
     - compat/<test>.yaml changed: that test (large ones too), both modes;
     - compat/support/<file> changed: the tests that use that file, standard;
     - an overlay's package changed beyond its digests: the tests that enable that package,
       in that overlay's mode (values-chainguard-fips.yaml: FIPS; values-object-storage.yaml
-      or object-storage.yaml: the tests with values_files, standard);
+      or object-storage.yaml: the tests with values_files, standard); a large test only
+      for the standard overlay, standard (a FIPS-only change waits for the weekly run);
     - the installer (scripts/bb-install.py, scripts/bbinstall/): the installer tests, standard;
     - an image built here (builds/<name>/): the tests whose images use {build: <name>},
       standard, and SMOKE;
     - anything else that reaches a cluster (the harness, flux/, mapping.yaml, orgs/, digest-only
       overlay changes, this workflow): SMOKE, standard;
     - docs, unit tests, everything else: nothing.
+  A `weekly_and_release: true` test (an expensive upgrade from an old release) runs only for
+  its own file and a new BIGBANG_VERSION, never for the package, support or harness rules.
   A pull request's FIPS modes need --fips (compat.yml passes it except on manual runs).
 
 It also prints `bigbang-key` (the Actions cache key of the Big Bang clone the test jobs
@@ -56,10 +61,13 @@ TEST_FILE = re.compile(r"^compat/([^/]+)\.yaml$")
 # it is large.
 SMOKE = ["kyverno-enforce", "metrics-server", "object-storage", "keycloak", "kiali", "velero"]
 # A Big Bang branch before its release: small tests that deploy Flux, Kyverno's policies and
-# the overlays' post-renderers (FIPS too), and the upgrade a site will run from the newest
-# release. Each is 10-15 minutes on a free standard runner.
+# the overlays' post-renderers (FIPS too), and the upgrades a site will run from the newest
+# release: the release-to-release one, the two that carry data across (Keycloak's and
+# Mattermost's schema migrations are what a new Big Bang moves), and the installer's
+# `upgrade --to`. Each is 10-20 minutes on a free standard runner.
 PREVIEW = [("kyverno-enforce", "standard"), ("kyverno-enforce", "fips"), ("metrics-server", "standard"),
-           ("release-upgrade", "standard")]
+           ("release-upgrade", "standard"), ("release-upgrade-keycloak", "standard"),
+           ("release-upgrade-mattermost", "standard"), ("installer-upgrade-to", "standard")]
 BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
 # A branch or tag name: it becomes a file's contents, a cache key and a git ref.
 REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
@@ -84,9 +92,21 @@ def test_text(name, root=ROOT):
     return open(os.path.join(root, "compat", f"{name}.yaml"), encoding="utf-8").read()
 
 
+def flag(name, key, root=ROOT):
+    """Whether `key: true` is set under the test's `test:` block."""
+    return bool(re.search(rf"^  {re.escape(key)}: true", test_text(name, root), re.M))
+
+
 def large(name, root=ROOT):
-    """`large: true` under test: (GitLab): weekly and on demand only."""
-    return bool(re.search(r"^  large: true", test_text(name, root), re.M))
+    """`large: true` under test: (GitLab): weekly, on demand, and standard-only on the pull
+    requests that reach it (its own file, a new Big Bang, its package's overlay entry)."""
+    return flag(name, "large", root)
+
+
+def weekly_and_release(name, root=ROOT):
+    """`weekly_and_release: true`: weekly, on demand, on its own file's pull request and on
+    a new Big Bang (a release PR); not for the package or harness changes of every PR."""
+    return flag(name, "weekly_and_release", root)
 
 
 def enabled(name, root=ROOT):
@@ -125,33 +145,61 @@ def changed_packages(old, new):
     return real, digests
 
 
-def matrix_recorded(root=ROOT):
-    """True when this checkout's docs/test-results.json holds BIGBANG_VERSION's matrix
-    (results-gate.py's rule)."""
-    path = os.path.join(root, "docs", "test-results.json")
-    if not os.path.exists(path):
-        return False
+def results_gate():
+    """scripts/results-gate.py as a module (its rules, not a copy of them)."""
     spec = importlib.util.spec_from_file_location("results_gate", os.path.join(HERE, "results-gate.py"))
     gate = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gate)
+    return gate
+
+
+def gate_gaps(root=ROOT, release=False):
+    """results-gate.py's (required, other) gaps on this checkout, or None without
+    docs/test-results.json."""
+    path = os.path.join(root, "docs", "test-results.json")
+    if not os.path.exists(path):
+        return None
     version = open(os.path.join(root, "BIGBANG_VERSION"), encoding="utf-8").read().strip()
-    data = json.load(open(path, encoding="utf-8"))
-    return gate.gaps(version, data, gate.large_tests(root), gate.flagged("registry1", root)) == ([], [])
+    return results_gate().missing(version, json.load(open(path, encoding="utf-8")), root, release)
 
 
-def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: "", recorded=False):
+def matrix_recorded(root=ROOT):
+    """True when this checkout's docs/test-results.json holds BIGBANG_VERSION's matrix
+    (results-gate.py's rule)."""
+    return gate_gaps(root) == ([], [])
+
+
+def release_pending(root=ROOT):
+    """The large and weekly_and_release tests a release PR still has to pass:
+    `results-gate.py --release` finds no standard pass for them on BIGBANG_VERSION."""
+    gaps = gate_gaps(root, release=True)
+    only = results_gate().release_only(root)
+    return {t for t in (gaps[0] + gaps[1] if gaps else only) if t in only}
+
+
+def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: "", recorded=False, pending=()):
     """{(test, mode)} for a pull request that changes these files. `recorded`: the pull
-    request already carries its BIGBANG_VERSION's matrix (matrix_recorded)."""
+    request already carries its BIGBANG_VERSION's matrix (matrix_recorded); `pending`: the
+    large and weekly_and_release tests that version still needs (release_pending)."""
     tests = all_tests(root)
     modes = ["standard", "fips"] if fips else ["standard"]
     jobs = set()
+    big = {t for t in tests if large(t, root)}
+    # Run only for their own file and a new Big Bang (the weekly run covers the rest).
+    rare = big | {t for t in tests if weekly_and_release(t, root)}
 
     def add(names, run_modes):
         jobs.update((n, m) for n in names for m in run_modes if m in modes)
 
     covered = "BIGBANG_VERSION" in changed and recorded
     if "BIGBANG_VERSION" in changed and not recorded:
-        add([t for t in tests if not large(t, root)], modes)
+        add([t for t in tests if t not in big], modes)
+        # GitLab on a release PR, standard only: ~90 minutes a job; FIPS waits for the week.
+        add(sorted(big), ["standard"])
+    elif covered:
+        # Recorded without them (results-gate.py leaves them out of its ordinary matrix): run
+        # them until they pass, so the release PR's `--release` gate can turn green.
+        add([t for t in sorted(pending) if t in tests], ["standard"])
     smoke = covered
     for path in changed:
         m = TEST_FILE.match(path)
@@ -159,32 +207,38 @@ def pull_request_jobs(changed, fips, root=ROOT, read_base=lambda path: "", recor
             add([m.group(1)], modes)
         elif path.startswith("compat/support/"):
             base = os.path.basename(path)
-            add([t for t in tests if base in test_text(t, root)], ["standard"])
+            add([t for t in tests if base in test_text(t, root) and not weekly_and_release(t, root)], ["standard"])
         elif path in OVERLAY_MODES and not covered:
             new = open(os.path.join(root, path), encoding="utf-8").read() if os.path.exists(os.path.join(root, path)) else ""
             real, digests = changed_packages(read_base(path), new)
-            add([t for t in tests if not large(t, root) and enabled(t, root) & real], [OVERLAY_MODES[path]])
+            add([t for t in tests if t not in rare and enabled(t, root) & real], [OVERLAY_MODES[path]])
+            if OVERLAY_MODES[path] == "standard":
+                # GitLab's own entry (a new chart or tag): its large tests, standard only.
+                add([t for t in sorted(big) if enabled(t, root) & real], ["standard"])
             smoke = smoke or bool(digests)
         elif path in OVERLAY_MODES:
             pass
         elif path in OBJECT_STORAGE:
-            add([t for t in tests if not large(t, root) and "values_files" in test_text(t, root)], ["standard"])
+            add([t for t in tests if t not in rare and "values_files" in test_text(t, root)], ["standard"])
         elif INSTALLER.match(path):
-            add([t for t in tests if re.search(r"^  installer: true", test_text(t, root), re.M)], ["standard"])
+            add([t for t in tests if t not in rare and re.search(r"^  installer: true", test_text(t, root), re.M)],
+                ["standard"])
         elif CLUSTER.match(path):
             smoke = True
         elif BUILD.match(path):
             # A release PR whose matrix is recorded already ran these with its builds.
             if not covered:
                 name = re.escape(BUILD.match(path).group(1))
-                add([t for t in tests if re.search(r"\{build: " + name + r"[,}]", test_text(t, root))], ["standard"])
+                add([t for t in tests if t not in rare
+                     and re.search(r"\{build: " + name + r"[,}]", test_text(t, root))], ["standard"])
             smoke = True
     if smoke:
         add([t for t in SMOKE if t in tests], ["standard"])
     return jobs
 
 
-def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigbang_ref="", recorded=False):
+def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigbang_ref="", recorded=False,
+         pending=()):
     """[(test, mode, minutes)] for the run, in test order."""
     modes = ["standard", "fips"] if fips else ["standard"]
     if named:
@@ -193,7 +247,7 @@ def plan(event, named, changed, fips, root=ROOT, read_base=lambda path: "", bigb
         tests = all_tests(root)
         jobs = {(n, m) for n, m in PREVIEW if n in tests}
     elif event == "pull_request":
-        jobs = pull_request_jobs(changed, fips, root, read_base, recorded)
+        jobs = pull_request_jobs(changed, fips, root, read_base, recorded, pending)
     else:
         jobs = {(n, m) for n in all_tests(root) for m in modes}
     order = {"standard": 0, "fips": 1}
@@ -285,10 +339,13 @@ def main():
     changed = changed_files(a.changed_from) if a.changed_from else []
     read_base = base_reader(a.changed_from) if a.changed_from else (lambda path: "")
     recorded = a.event == "pull_request" and "BIGBANG_VERSION" in changed and matrix_recorded()
+    pending = release_pending() if recorded else set()
     if recorded:
-        print("BIGBANG_VERSION's matrix is recorded on this pull request: smoke tests only", file=sys.stderr)
+        print("BIGBANG_VERSION's matrix is recorded on this pull request: smoke tests only"
+              + (f", and {', '.join(sorted(pending))} (no pass on this version yet)" if pending else ""),
+              file=sys.stderr)
     jobs = plan(a.event, named, changed, a.fips, read_base=read_base, bigbang_ref=a.bigbang_ref,
-                recorded=recorded)
+                recorded=recorded, pending=pending)
     print("matrix=" + json.dumps({"include": [{"test": t, "mode": m, "minutes": mins} for t, m, mins in jobs]}))
     print("count=" + str(len(jobs)))
     print("bigbang-key=" + key)

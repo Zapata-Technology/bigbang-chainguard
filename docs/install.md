@@ -1,14 +1,13 @@
 # Installing and upgrading: the details
 
 The [README](../README.md#install) has the short path: `check`, `install`, `upgrade`. This
-page has everything behind it: what each step does, the options, the logins, and how to
-do it by hand.
+page has everything behind it: what each step does, the options, the logins, and
+[how to do it by hand](#doing-it-by-hand). Something went wrong: [troubleshooting](troubleshooting.md).
 
-The overlays in this repository were generated for `zapatatechnology.com` (each file's
-header says which org), and its releases point at Zapata's private org and build registry.
-For another org, generate them first ([your own Chainguard org](your-org.md); the quickstart's
-[Using this outside Zapata Technology](quickstart.md#using-this-outside-zapata-technology)
-has the steps).
+The overlays in a copy of this repository are generated for one Chainguard org (each file's
+header says which), and its releases point at that org and its build registry. For another
+org, generate them first ([your own Chainguard org](your-org.md); the quickstart's
+[Using it with your own org](quickstart.md#using-it-with-your-own-org) has the steps).
 
 ## The installer
 
@@ -35,6 +34,14 @@ python scripts/bb-install.py upgrade --to latest   # or --to 4.1.0, --to 4.1.0-c
   and the build registry, with your logins (the environment, the site file, an earlier
   install's, or a short-lived token from your chainctl login; none is stored). A refused
   pull from the org is usually an image your Chainguard plan doesn't cover;
+- the nodes' memory: their total allocatable memory against what the enabled packages need
+  (about 16 GiB for Big Bang's defaults, more for GitLab, Elasticsearch, Anchore and the
+  like); a warning, not a problem;
+- a load balancer: Big Bang's gateways are LoadBalancer Services, so it warns when nothing in
+  the cluster seems to give one an address (no cloud provider, MetalLB, kube-vip or k3s's
+  ServiceLB, and no existing LoadBalancer Service with an address);
+- object storage: `OBJECT_STORAGE_ENDPOINT` set in the environment but different from the
+  endpoint the overlays were generated for is a problem (regenerate with `bb-run.py`);
 - the nodes, when NeuVector is on: each node's inotify limits (`fs.inotify.max_user_instances`
   8192 and `fs.inotify.max_user_watches` 524288 or more; NeuVector's enforcer exits at the
   common default of 128 instances). Nothing in the Kubernetes API shows them, so a pod on each
@@ -45,7 +52,8 @@ It exits non-zero and lists each problem, so it also works in a pipeline. `insta
 the same checks before it changes anything.
 
 The first `install` asks for your domain and packages and writes `my-site.yaml` (or pass
-`--domain` and `--enable`; `init` does only that step). Later runs read it; `--site` names
+`--domain`, `--enable` and `--disable`, which turns default packages off; `init` does only
+that step). Later runs read it; `--site` names
 another file.
 
 **The images this repo builds are private** when the build registry is (GHCR packages are
@@ -86,8 +94,8 @@ machine).
 8. **Wait and report:** every HelmRelease and pod, any running image that isn't the
    conversion's, the gateway addresses to point DNS at, and each app's URL.
 
-Re-run `install` to upgrade after pulling new overlays, to switch to FIPS (`--fips`) or back,
-or to apply a changed site file. `uninstall` removes Big Bang, SeaweedFS and Flux; SeaweedFS's
+Re-run `install` to switch to FIPS (`--fips`) or back, or to apply a changed site file. To
+move to newer overlays use `upgrade`, which takes the Velero backup first. `uninstall` removes Big Bang, SeaweedFS and Flux; SeaweedFS's
 volume, the stored keys and a pull token the installer made stay unless you add
 `--delete-data`. `compat/installer*.yaml` run the installer end to end on kind in CI.
 
@@ -102,7 +110,7 @@ Big Bang doesn't create on its own. The installer picks one way and remembers it
 | `gatewayCerts` in the site file | Left alone. |
 
 **Releases.** Each change to what gets deployed is released as `<Big Bang version>-cg.<n>`
-(for example `4.0.0-cg.2`) with an archive to install from and notes listing the image
+(for example `4.1.1-cg.2`) with an archive to install from and notes listing the image
 changes. Install from a release rather than `main` to know exactly what you run; `install`
 prints the release it deploys. Each archive is signed keylessly by the release workflow; the
 release notes show the `cosign verify-blob` command that checks it.
@@ -190,16 +198,29 @@ it needs:
 
 Then restrict who can read Secrets ([SECURITY.md](../SECURITY.md), "Credentials in the cluster").
 
-**Upgrades.** `install --plan` (same flags) shows what a run would change and stops: the
-Big Bang version, standard to FIPS or back, packages turned on or off, and each image tag
-that moves. `rollback` returns the release to the previous revision (or `--to N`) and waits;
-Flux then downgrades the packages, which a package whose data has moved forward (a
-database migration) may not accept, so check `--plan` before upgrading.
+**Upgrades.** `install --plan` (or `--dry-run`; same flags) shows what a run would change
+and stops: the Big Bang version, standard to FIPS or back, packages turned on or off, and
+each image tag that moves. `rollback` returns the release to the previous revision (or
+`--to N`) and waits up to `--timeout` seconds; `rollback --dry-run` shows the revision it
+would go to, and `uninstall --dry-run` what it would remove. Flux then downgrades the
+packages, which a package whose data has moved forward (a database migration) may not
+accept, so check `--plan` before upgrading.
 
 **Upgrading.** `upgrade` takes a Velero backup of the cluster before it changes anything,
 when Velero runs with an Available backup location (`bb-upgrade-<time>`, kept 30 days); a
-backup that fails stops the upgrade. That backup, not `rollback`, undoes a database
-migration: `velero restore create --from-backup <name>`. `--no-backup` skips it. Each Big
+backup that fails stops the upgrade. `--no-backup` skips it. What the backup holds:
+
+- **Volume data only when Velero's node agent runs.** With the object-storage overlay (the
+  default) Velero has no volume snapshot location; volumes are copied by the node agent's
+  file-system backup, which the overlay turns on and `upgrade` asks for
+  (`defaultVolumesToFsBackup`). `upgrade` reports how many pod volumes it copied, and warns
+  when the agent isn't running or copied none: such a backup brings back Kubernetes objects,
+  not a database. Restoring a namespace from a backup that has its volumes (`velero restore
+  create --from-backup <name> --include-namespaces <ns>`, after deleting the namespace)
+  undoes a database migration; `rollback` doesn't.
+- **Only this cluster's object storage.** The backup goes to the same SeaweedFS (or S3) the
+  cluster uses, so it doesn't protect against losing the cluster or that storage. Copy it
+  elsewhere, or point Velero's location at storage outside the cluster, for that. Each Big
 Bang release this repo moves to has upgrade notes in [docs/upgrades/](upgrades/): the
 package charts and Iron Bank images that change, new major versions first. Read them, and
 Big Bang's own release notes, before upgrading.
@@ -215,8 +236,9 @@ newest `-cg.<n>`) or `--to latest` (the newest release). The installer:
    of 60 calls an hour);
 2. refuses a release older than the one the cluster runs unless `--allow-downgrade`
    (`rollback` is the usual way back);
-3. downloads the release archive into `work/releases/<tag>/`, checks it against the
-   release's sha256 file and verifies its signature with `cosign` exactly as the
+3. downloads the release archive into `work/releases/<tag>/` (under the current directory
+   with `bb-docker.sh`), checks it against the release's sha256 file and verifies its
+   signature with `cosign` exactly as the
    [quickstart](quickstart.md#2-check-it-came-from-this-repository) does (the release
    workflow on main only). A digest or signature that doesn't match stops the upgrade, and so
    does a missing sha256 file, signature bundle or `cosign`, unless `--allow-unverified`:
@@ -248,8 +270,14 @@ example by a scheduled `git fetch` of each package repository); the mirror is re
 **Disconnected sites.** On a connected machine, `scripts/bb-airgap.py --site my-site.yaml
 [--fips] --out bundle/` gathers what the site's packages need: this checkout with Big Bang's
 chart and Flux rendered to plain manifests, a bare git clone of Big Bang and of each enabled
-package at its pinned tag, and `images.txt` (every image the install runs, as `<source>
-<name:tag>`). It doesn't copy images: moving them into the site's registry is the site's
+package at its pinned tag, `images.txt` and `SHA256SUMS` (a checksum of every file in the
+bundle; `sha256sum -c SHA256SUMS` on the other side). `images.txt` has every image the
+install runs as `<source> <name:tag>`, the source at the digest the overlays pin
+(`cgr.dev/<org>/tempo@sha256:...`), then the installer image, then, commented out, the Iron
+Bank images enabled packages keep. Copy each whole index (`crane copy`, `skopeo copy --all`)
+so the digest stays the same: the overlays pull by digest, and Chainguard rebuilds images
+under the same tag, so a copy made by tag later has another digest and the pods fail with
+ImagePullBackOff. It doesn't copy images: moving them into the site's registry is the site's
 step, with its own tooling and under its Chainguard license. Inside the site:
 
 ```bash
@@ -259,8 +287,12 @@ python3 bigbang-chainguard/scripts/bb-install.py install --site my-site.yaml   -
 
 `--registry-mirror` points every Chainguard and built image (and Kyverno's allow list) at the
 site registry, takes its credentials from `MIRROR_USERNAME`/`MIRROR_PASSWORD` if it needs
-them, and is remembered. The default packages need 54 images and 17 repositories; packages
-that keep Iron Bank images need those too (`bundle.json` lists them). Signature checks need
+them, and is remembered. `check --registry-mirror ...` (and `install`, before it changes
+anything) looks up every image the enabled packages pull in the site registry by its pinned
+digest, with manifest requests only, and lists each one that's missing. `bundle.json` counts
+the images and repositories the site's packages need; packages that keep Iron Bank images
+need those too (it lists them). Iron Bank images aren't rewritten by `--registry-mirror`:
+mirror `registry1.dso.mil` in the nodes' container runtime for those. Signature checks need
 Sigstore's public services, so leave `--verify-signatures` off inside a disconnected site.
 
 **GitOps.** `install --gitops DIR` does everything except the `helm` step: it writes `DIR`
@@ -268,6 +300,51 @@ Sigstore's public services, so leave `--verify-signatures` off inside a disconne
 applies it. Commit `DIR` to your own git repository and point a Flux Kustomization at it
 (`DIR/README.md` has the YAML); the credentials stay in the cluster Secret
 `bigbang/bb-install-values`, out of git.
+
+## Doing it by hand
+
+What `install` runs, in order, for a site that can't run the installer. The installer adds
+the checks, the prompts and the cluster Secret; by hand those are yours. `<overlays>` is a
+checkout or release directory, `site.yaml` your site file, `creds.yaml` a values file that
+holds only credentials (keep it out of git).
+
+1. **Chart.** Big Bang's chart at the version in the overlays' header, from repo1's git
+   archive: `python scripts/bb-install.py chart` writes it to `work/charts/`.
+2. **Check** the cluster: Kubernetes 1.35+, a default StorageClass (for SeaweedFS), and
+   `helm template bigbang <chart> -n bigbang -f overlays/values-chainguard.yaml
+   [-f overlays/values-chainguard-fips.yaml] -f overlays/values-object-storage.yaml -f site.yaml`
+   renders without errors.
+3. **Flux's pull secret:** `kubectl create namespace flux-system`, then
+   `kubectl -n flux-system create secret docker-registry private-registry
+   --docker-server=cgr.dev --docker-username=... --docker-password=...` (a pull token; add the
+   build registry's login to the same dockerconfigjson when its images are private).
+4. **Flux:** `kubectl apply --server-side --force-conflicts -k flux/` (or `flux-fips/`), then wait for the
+   four controllers in `flux-system` to be Available.
+5. **SeaweedFS** (when the overlays' object storage is the in-cluster SeaweedFS):
+   `kubectl create namespace seaweedfs`; the same `private-registry` Secret there; the
+   `seaweedfs-s3` Secret with key `s3.json` (S3 identities with an access key and secret you
+   generate; `scripts/objstore.py` `s3_config` writes the format); `kubectl -n seaweedfs
+   delete job seaweedfs-buckets --ignore-not-found`; `kubectl apply -k seaweedfs/` (or
+   `seaweedfs-fips/`); wait for `deploy/seaweedfs` and `job/seaweedfs-buckets`.
+6. **Big Bang:** `helm upgrade -i bigbang <chart> -n bigbang --create-namespace
+   -f overlays/values-chainguard.yaml [-f overlays/values-chainguard-fips.yaml]
+   [-f overlays/values-object-storage.yaml] -f site.yaml -f creds.yaml --timeout 15m`.
+   `creds.yaml` holds `registryCredentials` (each registry's login), the object-storage keys
+   of the packages you enabled only (`scripts/bb-object-storage.py --credentials-template`
+   writes the skeleton), and Keycloak's admin and database passwords (14+ characters for
+   FIPS). Then ask Flux to apply the new values now:
+   `kubectl annotate --overwrite helmrelease --all -A reconcile.fluxcd.io/requestedAt="$(date +%s)"`.
+7. **TLS:** Big Bang's public gateway serves the Secret `istio-gateway/public-cert`: a
+   cert-manager Certificate for `*.<domain>` from your ClusterIssuer, or your own certificate
+   in the site file's `gatewayCerts`.
+8. **Signatures** (with Kyverno): the installer's Kyverno ClusterPolicy is built by
+   `signature_policy` in `scripts/bbinstall/signatures.py`; leave it out, or apply it in
+   Audit first.
+9. **Wait:** `kubectl get helmrelease -A` until every one is Ready, then the pods in each
+   package namespace; point DNS for the domain at the `istio-gateway` LoadBalancer address.
+
+Upgrading by hand is the same steps with the new release's files, after a Velero backup
+(`velero backup create <name> --default-volumes-to-fs-backup`).
 
 ## Vulnerabilities
 
@@ -284,6 +361,11 @@ Iron Bank image's public recipe builds FROM, as a floor (`--ironbank-bases`).
   the standard image, and `docs/images.md` lists them.
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
   keystores. Set those in the site's `packages.keycloak.values` before switching.
+- Kibana on the FIPS overlay (`kibana-fips`) refuses to start unless
+  `xpack.security.fipsMode.enabled` is `true`, and Kibana allows that setting only with an
+  Elastic Platinum or Enterprise license (or a trial). A FIPS site running Kibana needs that
+  license and `packages.elasticsearchKibana.values.kibana.config.xpack.security.fipsMode.enabled: true`
+  in its site file.
 - Switching an existing deployment is `bb-install.py install --fips` (and back without `--fips`).
 
 ## GitLab and GitLab Runner notes

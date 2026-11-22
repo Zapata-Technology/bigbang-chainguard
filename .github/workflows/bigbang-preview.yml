@@ -21,9 +21,12 @@ on:
 permissions:
   contents: read
 
+# Never cancel a run in progress: a manual dispatch (one ref) cancelled the daily run's kind
+# tests on the release branch halfway (each a billed 10-20 minutes). Scheduled runs share one
+# group and queue; each dispatch gets its own group (run_id), so neither waits on the other.
 concurrency:
-  group: bigbang-preview
-  cancel-in-progress: true
+  group: bigbang-preview-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'schedule' }}
+  cancel-in-progress: false
 
 jobs:
   # The refs to preview: the dispatched one, else master and an untagged release branch.
@@ -206,7 +209,11 @@ jobs:
     needs: refs
     if: needs.refs.outputs.release != ''
     permissions:
-      actions: read     # compat.yml's results job: this run's result artifacts
+      # compat.yml's results job reads this run's result artifacts and its record-release job
+      # runs gh workflow run update.yml (write includes read). Both are skipped when called
+      # with a ref, but GitHub checks a called workflow's permissions first: without this the
+      # run failed at startup (startup_failure) from #263 on.
+      actions: write
       contents: read
       id-token: write   # Log into Chainguard
       packages: read    # BUILD_REGISTRY images

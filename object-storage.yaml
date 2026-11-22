@@ -79,6 +79,25 @@ packages:
       # nulls and Velero's CRD rejects them (compat/velero.yaml). S3 holds backups only:
       # no volume snapshot locations.
       packages.velero.values.upstream.configuration.volumeSnapshotLocation: []
+      # Without snapshots, volume data reaches S3 only through Velero's node agent (file-system
+      # backup, kopia): without it a backup holds Kubernetes objects and no database. The
+      # upstream key deploys the agent's DaemonSet; Big Bang's chart reads the top-level one
+      # (packages.velero.values.deployNodeAgent) to add the Kyverno PolicyExceptions the agent
+      # needs (root, hostPath /var/lib/kubelet/pods). bb-install.py upgrade's backup uses it.
+      packages.velero.values.upstream.deployNodeAgent: true
+      packages.velero.values.deployNodeAgent: true
+      # Kopia writes its repository config under /udmrepo (and a cache), and Big Bang runs
+      # Velero with a read-only root filesystem: "mkdir /udmrepo: read-only file system"
+      # skipped every pod volume (compat/velero.yaml, 2026-11-20). True on Iron Bank's
+      # images too: it's Big Bang's securityContext, not the image. Writable emptyDirs.
+      packages.velero.values.upstream.extraVolumes: &velero-kopia-volumes
+        - {name: udmrepo, emptyDir: {}}
+        - {name: kopia-cache, emptyDir: {}}
+      packages.velero.values.upstream.extraVolumeMounts: &velero-kopia-mounts
+        - {name: udmrepo, mountPath: /udmrepo}
+        - {name: kopia-cache, mountPath: /.cache}
+      packages.velero.values.upstream.nodeAgent.extraVolumes: *velero-kopia-volumes
+      packages.velero.values.upstream.nodeAgent.extraVolumeMounts: *velero-kopia-mounts
     credentials: [packages.velero.values.upstream.credentials.secretContents.cloud]
     buckets: [velero]
 

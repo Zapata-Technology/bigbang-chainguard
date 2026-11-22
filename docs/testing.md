@@ -27,9 +27,9 @@ flowchart LR
 | **CVE gate** (`bb-cve.py --changed-from`) | every PR | An image the change adds with a fixable Critical CVE that the image it replaces (the same repository's tag on main) didn't already have; a carried-over Critical is listed but doesn't fail. Web IDE extension manifests in GitLab (`/srv/gitlab/public/assets/webpack/`, read by grype as handlebars, npm, ...) are not counted. It logs into GHCR to scan the private `bigbang-*` images, and reports an image it can't scan as SCAN FAILED, not as a CVE. The weekly report lists each Critical with its fixed-in version. |
 | **Builds** (`builds.yml`) | PRs that touch `builds/`, and merges | A rebuilt image whose tools, versions, user or FIPS default changed; a fixable critical CVE; a cosign without the signing flags `builds.yml` uses (`ci.yml` checks) |
 | **Run on kind** (`compat.yml`) | the tests a pull request's change reaches; the smoke set for a digest-only change; the full matrix weekly; or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
-| **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for <!-- required-tests -->`release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`<!-- /required-tests -->. Large tests and `registry1: true` tests are outside it. A skip is not a pass. It does not run the matrix |
-| **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. See below |
-| **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips`; a pull request that touches it stays standard | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
+| **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for <!-- required-tests -->`release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`<!-- /required-tests -->. Large tests and `weekly_and_release: true` tests count only on a pull request that changes `BIGBANG_VERSION` (`--base`: the release PR, which runs them); a `weekly_and_release` test that has never passed is not required yet. `registry1: true` tests and the VM tests' rows (`rke2-*`, `fips-kernel-*`) are outside it. A skip is not a pass. It does not run the matrix |
+| **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. Records `fips-kernel-<test>` rows in the table below. See below |
+| **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips`; a pull request that touches it or changes `BIGBANG_VERSION` (the release PR) stays standard. Records `rke2-default` rows in the table below | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
 
 ## Running packages on kind
 
@@ -46,9 +46,12 @@ Each `compat/<test>.yaml` names:
 - the images the test is about (`expect`);
 - optional `setup` commands, `values`, `values_files`, `forbid_log`, and `debug` commands;
 - for an upgrade, `upgrade_from`: the mapping to install first, or `release: previous` to
-  install the newest release's overlays and Flux first, and commands to run on it (write
-  data) and after Big Bang is upgraded to the test's mapping (see "Release-to-release
-  upgrades" below);
+  install the newest release's overlays and Flux first (`previous-bigbang`: the newest
+  release of the Big Bang version before; `oldest-supported`: of the Big Bang minor two
+  before; or a release tag), and commands to run on it (write data) and after Big Bang is
+  upgraded to the test's mapping (see "Release-to-release upgrades" below);
+- `weekly_and_release: true` for an expensive test that runs weekly, on its own file's pull
+  request and on a release PR, not for every package change;
 - `registry1: true` when it pulls from Iron Bank. Without `REGISTRY1_USERNAME` and
   `REGISTRY1_PASSWORD` (repository secrets in CI) such a test prints `RESULT ...: SKIPPED`
   and exits 0: a missing account is not an image failure.
@@ -107,9 +110,15 @@ change replaced:
 
 A pull request runs them when it changes their files or `upgrade-data.py`, when Keycloak's
 or Mattermost's overlay entry changes beyond its digests (a new version: when a migration
-happens), and for a new Big Bang; the weekly run runs all three in both modes. GitLab's
+happens), and for a new Big Bang; the weekly run runs all three in both modes.
+
+`release-upgrade-oldest` starts further back: from the newest release of the Big Bang minor
+two before this tree's (`release: oldest-supported`; on 4.1 that is 3.35, across the major),
+with Kyverno, Headlamp and Grafana, as a site that skipped a release or two upgrades. It is
+`weekly_and_release: true`: the weekly run and a release PR run it, not every pull request.
+The release PR's gate requires it once it has passed once. GitLab's
 upgrade isn't tested: its fresh install is already a large test (about 25 minutes on kind,
-weekly only), and an upgrade with its migrations would roughly double it.
+weekly and on release PRs), and an upgrade with its migrations would roughly double it.
 
 One kind test, as `compat.yml` runs it:
 
@@ -168,7 +177,7 @@ its Big Bang version, date and run. Every compat.yml job records its result (art
 (the weekly schedule and manual runs) with `scripts/test-results.py update --from-main` and
 puts the table in its bot pull request. A test with no newer run keeps its last result. Edit
 a test's description in `docs/test-results.json`, then run `python scripts/test-results.py
-update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Every test has a `check` that proves the package does its job, not only that its pods are Ready (`tests/test_compat_files.py` requires one). Large tests run weekly and on demand; the rest on every pull request that touches what clusters run.
+update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Every test has a `check` that proves the package does its job, not only that its pods are Ready (`tests/test_compat_files.py` requires one). Large tests run weekly, on demand, and standard-only on the release PR and the pull requests that change their package; `weekly_and_release` tests weekly and on the release PR; the rest on every pull request that touches what clusters run. `rke2.yml` and `fips-kernel.yml` record their runs here too (`rke2-default`, `fips-kernel-<test>`), outside the results gate.
 
 <!-- results:start -->
 <!-- GENERATED by scripts/test-results.py from docs/test-results.json: edit a test's description there; results come from compat.yml runs. Don't edit this table. -->
@@ -179,6 +188,7 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | release-upgrade | Kyverno (Enforce), Headlamp and Grafana installed from the newest release (`<Big Bang>-cg.<n>`), then upgraded to the change's Flux and overlays. On 4.0 the newest release was `3.35.1-cg.62`, so the test crosses the major: Big Bang 3's keys and ClusterPolicies first, then Big Bang 4's `packages.*` and CEL policies | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | What a site pinned to a release does when it moves to the next one. Check: Kyverno admits the org image and refuses docker.io before and after; Grafana's database ok; no pod still runs an image digest the release pinned and the change replaced |
 | release-upgrade-keycloak | Keycloak and Big Bang's PostgreSQL (on a PersistentVolume) installed from the newest release, a realm, realm role and user written with kcadm, then upgraded to the change's Flux and overlays | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Data across a release upgrade (Keycloak's schema migration). Check: after the upgrade, and a restart of Keycloak and PostgreSQL if it didn't replace them, the same realm (its id), the user with its role, and the user logs in with the password set before; plus release-upgrade's stale-digest check |
 | release-upgrade-mattermost | Mattermost (operator, PostgreSQL from the org's images, files on SeaweedFS) installed from the newest release, a user, team and post with an attached file written through the REST API, then upgraded | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Data across a release upgrade (Mattermost's database migrations, object storage). Check: after the upgrade, and a server restart if it didn't replace the server, the user logs in, the team and post are there, and the file's bytes come back; database status OK |
+| release-upgrade-oldest (weekly, release PRs) | Kyverno, Headlamp and Grafana installed from the newest release of the Big Bang minor two before this tree's (`release: oldest-supported`, N-2: on 4.1 that is `3.35.1-cg.<n>`), then upgraded to the change's Flux and overlays | no run recorded | no run recorded | What a site that skipped a release or two does. Weekly and on release PRs only (`weekly_and_release`); results-gate requires it on a release PR once it has passed once. Check: Headlamp serves its UI and Grafana's database is ok after the upgrade; no pod still runs an image digest the release pinned and the change replaced |
 | installer-upgrade-to | `bb-install.py upgrade --to` from the previous Big Bang release's own installer to the newest release, with Tempo on SeaweedFS and a Keycloak realm written before the upgrade | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: the realm, role and user survive and the user logs in; the cluster records the new release; Tempo's stored S3 keys still work |
 | keycloak-migration | Keycloak and Big Bang's PostgreSQL installed on the org's previous Keycloak line, a realm, role and user written with kcadm, then upgraded to this tree's Keycloak | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | A real schema migration. Check: Keycloak's version changed, and the realm, the user with its role, and the login survive |
 | mattermost-migration | Mattermost (operator, PostgreSQL, files on SeaweedFS) installed on the org's previous major line, a team, post and file written, then upgraded to this tree's Mattermost | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | A real database migration. Check: the server version changed, the user logs in, and the team, post and file bytes are still there |
@@ -206,7 +216,7 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | gatekeeper | Gatekeeper 3.23 and its kubectl jobs | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: a docker.io Pod refused, an org-image Pod admitted, the audit ran (found the allow-list gap below) |
 | metrics-server | metrics-server 0.9 | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | kind's kubelet certificates may need `--kubelet-insecure-tls`. Check: `kubectl top nodes` and `top pods` return numbers |
 | thanos | Thanos 0.42 with Prometheus, blocks on SeaweedFS | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: Query lists the sidecar and store gateway and answers `up` (found the DNS problem below) |
-| velero | Velero 1.18 and the AWS plugin, backups on SeaweedFS | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: a backup of a test namespace to SeaweedFS reaches Completed |
+| velero | Velero 1.18, the AWS plugin and the node agent, backups on SeaweedFS | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: a PVC's data is backed up with file-system backup, its namespace deleted and restored, and the data read back |
 | istio-ambient | Istio CNI and ztunnel 1.31 | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Check: traffic between two ambient pods goes through ztunnel over HBONE |
 | installer | `bb-install.py` end to end: Tempo on SeaweedFS, Keycloak, chart downloaded from repo1 | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | Generated S3 keys and Keycloak password. Then `check` passes on the cluster (render and every-image pull test), refuses the same site file in Big Bang 3's keys, and `upgrade` converts it to a plan that changes nothing |
 | installer-tls | Default TLS: cert-manager self-signed CA, `*.bigbang.test` on the public gateway | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | HTTPS through the gateway verified against the CA |
@@ -225,6 +235,10 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | eck-kibana | Big Bang's elasticsearchKibana on the ECK operator: one master and one data node, one Kibana, prometheus-elasticsearch-exporter (mmap off, small heaps) | no run recorded | no run recorded | Check: Kibana's status API says available; the exporter counts both nodes. The test points the exporter at the cluster's HTTPS service (Big Bang leaves it on localhost). FIPS mode runs no Kibana: kibana-fips needs `xpack.security.fipsMode.enabled`, which Kibana allows only on a Platinum or Enterprise license (What the runtime tests found) |
 | fortify | Fortify's MySQL (Bitnami chart, org mysql) with the mysqld-exporter sidecar; SSC scaled to zero and the keystore Job off | no run recorded | no run recorded | Fortify SSC is licensed and on Iron Bank, so only its supporting images run. Check: the exporter reports mysql_up 1 |
 | anchore-enterprise | Anchore Enterprise's UI Redis (redis-bb, org redis) with the redis-exporter sidecar; every Anchore Deployment scaled to zero, the upgrade Job off | no run recorded | no run recorded | Anchore Enterprise is licensed, on Iron Bank and needs an external PostgreSQL, so only its supporting images run. Check: the exporter reports redis_up 1 |
+| rke2-default | Big Bang's default packages installed with `bb-install.py` on RKE2's CIS profile (PSA `restricted`) in a KVM VM (`rke2.yml`) | no run recorded | no run recorded | Weekly, on release PRs and on its own files; not in results-gate. Pull requests standard only. Check: `cluster-check.py` (every HelmRelease and pod Ready, no restarts, no admission refusals) and the CIS profile held |
+| fips-kernel-kyverno-enforce | `compat/kyverno-enforce.yaml` with the FIPS overlay on k3s in an AlmaLinux 9 VM with a FIPS-mode kernel (`fips-kernel.yml`) | no run recorded | no run recorded | Weekly; FIPS only; not in results-gate. Check: the test's own checks, and `fips_enabled=1` before and after |
+| fips-kernel-grafana | `compat/grafana.yaml` with the FIPS overlay on k3s in an AlmaLinux 9 VM with a FIPS-mode kernel (`fips-kernel.yml`) | no run recorded | no run recorded | Weekly; FIPS only; not in results-gate. Check: the test's own checks, and `fips_enabled=1` before and after |
+| fips-kernel-keycloak | `compat/keycloak.yaml` with the FIPS overlay on k3s in an AlmaLinux 9 VM with a FIPS-mode kernel (`fips-kernel.yml`) | no run recorded | no run recorded | Weekly; FIPS only; not in results-gate. Check: the test's own checks, and `fips_enabled=1` before and after |
 | sonarqube-26.10 | - | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | **PASS** on 4.1.1, 2026-11-20 ([run 44751127538](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/44751127538)) | - |
 <!-- results:end -->
 
@@ -239,7 +253,7 @@ value, or they are not in the committed overlays yet:
   Deployment `progressDeadlineSeconds` 2400 is `progress_deadline`. Both reach the overlay
   the next time `bb-convert.py` runs online. They are not in the committed overlays until that run.
 - metrics-server `--kubelet-insecure-tls` stays in `compat/metrics-server.yaml` only.
-- The org's `neuvector-manager-fips` repository has no tags, so `orgs/zapatatechnology.com.yaml`
+- The reference org's `neuvector-manager-fips` repository has no tags, so its file in `orgs/`
   keeps the standard manager (`fips: null`). A Ready manager pod on the FIPS overlay is
   still that standard image.
 - Kibana on the FIPS overlay needs an Elastic Platinum or Enterprise license (or a 30-day
@@ -326,7 +340,9 @@ FIPS provider) look at it. `fips-kernel.yml` covers that gap:
 5. checks `fips_enabled` again after the test, so a pass always means a FIPS kernel.
 
 It runs weekly, on pull requests that change it, and by hand from main
-(`gh workflow run fips-kernel.yml --ref main`). The artifact `fips-kernel-<test>` holds the
+(`gh workflow run fips-kernel.yml --ref main`). Each job records its result as
+`fips-kernel-<test>` (FIPS mode; artifact `compat-result-fips-kernel-<test>-fips`) for the
+results table, outside `results-gate`. The artifact `fips-kernel-<test>` holds the
 usual `compat.log` and `diag/`, plus the VM's kernel log, k3s log and serial console. SELinux
 is permissive in the VM (k3s's SELinux policy is another package repository); the VM gets
 4 vCPUs on the runner's 2 CPUs (Kubernetes schedules by requests; kind's four nodes share
@@ -394,9 +410,14 @@ plus RKE2's defaults (`kube-system`, which holds Istio's CNI agent, `cis-operato
 `tigera-operator`) and `local-path-storage`. Every other namespace (Flux, SeaweedFS, Kyverno,
 Loki, Tempo, Grafana, Kiali, cert-manager, the gateway) must pass `restricted`.
 
-It runs weekly (Sunday 11:00 UTC), on pull requests that change it, and by hand from main
+It runs weekly (Sunday 11:00 UTC), on pull requests that change it or `BIGBANG_VERSION` (the
+release PR: a new Big Bang on RKE2 before it merges; not on overlay changes, since a path
+filter can't tell a tag change from the nightly digest refresh), and by hand from main
 (`gh workflow run rke2.yml --ref main`; from another branch the Chainguard login fails, as
-for the kind tests). The harden-runner egress policy blocks every host it doesn't list, the
+for the kind tests). A scheduled or pull request run stops at once with an error when
+`RKE2_RUNNER` is empty: `ubuntu-latest` can't pass it. Each job records its result as
+`rke2-default` (artifact `compat-result-rke2-default-<mode>`), which `test-results.py update`
+puts in the results table; `results-gate` never requires it. The harden-runner egress policy blocks every host it doesn't list, the
 VM's traffic included (it leaves through the runner): Sigstore's hosts are on the list because
 Kyverno fetches its trust roots to check each image's signature for the installer's signature
 policy; blocked, every Deployment timed out in Kyverno's webhook. The artifacts
@@ -479,13 +500,17 @@ These are kind-on-GitHub-Actions limits, not image problems:
 ### Large tests
 
 <!-- compat-flags -->
-Tests with `large: true`: `gitlab`, `gitlab-runner`. Tests with `registry1: true`: `vault-upgrade`.
+Tests with `large: true`: `gitlab`, `gitlab-runner`. Tests with `registry1: true`: `vault-upgrade`. Tests with `weekly_and_release: true`: `release-upgrade-oldest`.
 <!-- /compat-flags -->
 
 A compat file with `large: true` (GitLab, GitLab Runner) needs more memory and time than
 the other tests (`timeout:` in seconds; the job gets 90 minutes). It runs in the weekly
-`compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes only that test's
-`compat/<test>.yaml`, and by hand
+`compat.yml` schedule (Sunday 06:00 UTC), on a pull request that changes its
+`compat/<test>.yaml`, and, standard only, on a release PR (a new `BIGBANG_VERSION`, until
+it has passed on that version) and on a pull request whose standard overlay changes its
+package beyond the digests (a FIPS-only change waits for the weekly run). The release PR's
+`results-gate` (`--base`) requires its standard pass, so GitLab gates a new Big Bang;
+every other pull request's gate leaves it out, since they don't run it. By hand
 from main: `gh workflow run compat.yml --ref main -f tests=gitlab,gitlab-runner`. A manual
 run from another branch fails at the Chainguard login: the CI identity trusts main and pull
 requests only.
@@ -498,7 +523,8 @@ installer tests for `scripts/bb-install.py` and `scripts/bbinstall/`, and the sm
 (`kyverno-enforce`, `metrics-server`, `object-storage`, `keycloak`, `kiali`, `velero`)
 <!-- /smoke-tests -->
 for harness, Flux, mapping and digest-only changes. GitLab stays out of that list. Docs
-and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test; a new
+and unit tests run none. A new `BIGBANG_VERSION` and the weekly schedule run every test (a
+release PR: the large ones standard only); a new
 push to a pull request cancels its older run. A full run is ~70 jobs and ~600 runner minutes,
 so the selection keeps a month's pull requests within the Actions allowance.
 
@@ -509,13 +535,16 @@ While Big Bang has an untagged `release-X.Y.Z` branch, `bigbang-preview.yml` als
 and rediscovers its images; each test job puts that discovery and the ref in place of
 `discovery/images.json` and `BIGBANG_VERSION` in its own checkout (nothing is committed),
 so `bb-compat.py` converts the overlays and Flux for the ref. With no `tests` it runs
-`compat-plan.py`'s `PREVIEW` handful: `kyverno-enforce` in both modes, `metrics-server`, and
-`release-upgrade` (the newest release of this repo upgraded to the branch), on standard
-runners. The results go in the ref's preview issue, and are marked `preview` so the table
+`compat-plan.py`'s `PREVIEW` handful: `kyverno-enforce` in both modes, `metrics-server`,
+`release-upgrade`, `release-upgrade-keycloak` and `release-upgrade-mattermost` (the newest
+release of this repo upgraded to the branch, the last two with data across Keycloak's and
+Mattermost's migrations), and `installer-upgrade-to` (this tree's installer between the
+published releases), standard mode, on standard runners. A manual dispatch of
+`bigbang-preview.yml` has its own concurrency group and never cancels the daily run. The results go in the ref's preview issue, and are marked `preview` so the table
 above never shows them. By hand, from main: `gh workflow run compat.yml --ref main -f
 bigbang_ref=release-X.Y.Z` (add `-f tests=<names>` for others).
 
-The MinIO server has no kind test. Zapata's org file keeps it on Iron Bank, and CI has no
+The MinIO server has no kind test. The reference org's file in `orgs/` keeps it on Iron Bank, and CI has no
 registry1 credentials. The MinIO operator does: `compat/minio-operator.yaml` passed on
 Big Bang 4.0.0. Mattermost is not large: `compat/mattermost.yaml` runs the server with
 the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on SeaweedFS.

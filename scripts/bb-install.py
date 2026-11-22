@@ -22,8 +22,9 @@
                      --allow-downgrade; --repo OWNER/REPO for a fork
   bb-install.py upgrade --list
                      the releases newer than the one the cluster runs
-  bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b]
-                     write a starter site file (no credentials in it)
+  bb-install.py init [--site my-site.yaml] [--domain example.com] [--enable a,b] [--disable c,d]
+                     write a starter site file (no credentials in it); --disable turns
+                     default packages off
   bb-install.py install [--site my-site.yaml] [--fips]
                      the checks above (stops before changing anything if one fails), pull
                      secrets, Flux, SeaweedFS (random S3 keys), Big Bang with the overlays in
@@ -32,16 +33,16 @@
   bb-install.py status
                      HelmReleases, pods that aren't healthy (with their last log lines),
                      and running images that aren't the conversion's
-  bb-install.py install ... --plan
+  bb-install.py install ... --plan (or --dry-run)
                      what an install would change (version, FIPS, packages, image tags)
-  bb-install.py rollback [--to N] [--yes]
+  bb-install.py rollback [--to N] [--timeout S] [--dry-run] [--yes]
                      the bigbang release back to an earlier revision, then wait and report
-  bb-install.py uninstall [--delete-data] [--keep-flux] [--yes]
+  bb-install.py uninstall [--delete-data] [--keep-flux] [--dry-run] [--yes]
                      Big Bang, SeaweedFS (its volume and S3 keys stay unless
                      --delete-data), Flux
 
-`install` is safe to re-run: it is also how you upgrade, switch to FIPS (--fips) or
-back, and apply a changed site file. Big Bang's chart comes from repo1's public git archive
+`install` is safe to re-run: it is how you switch to FIPS (--fips) or back and apply a
+changed site file. To move to newer overlays, use `upgrade` (it takes the Velero backup). Big Bang's chart comes from repo1's public git archive
 (no Iron Bank login); --chart takes a local chart or an oci:// ref instead. It deploys what this checkout's overlays were
 generated for (the org and object storage are read from their headers), so regenerate
 them first (bb-run.py) if you changed mapping.yaml or the org.
@@ -87,6 +88,7 @@ def main():
     p.add_argument("--site", default="my-site.yaml")
     p.add_argument("--domain")
     p.add_argument("--enable", help="comma-separated packages to turn on, e.g. keycloak,velero")
+    p.add_argument("--disable", help="comma-separated default packages to turn off, e.g. neuvector,kiali")
     p.add_argument("--force", action="store_true")
     p.add_argument("--yes", action="store_true", help="don't ask anything")
     p = argparse.ArgumentParser(add_help=False)   # check, install and upgrade share these
@@ -94,6 +96,7 @@ def main():
                    help="the site file (default my-site.yaml; written first, as by init, if it doesn't exist)")
     p.add_argument("--domain", help="for a new site file: the domain the packages are served under")
     p.add_argument("--enable", help="for a new site file: comma-separated packages to turn on")
+    p.add_argument("--disable", help="for a new site file: comma-separated default packages to turn off")
     p.add_argument("--fips", action="store_true", help="FIPS images (re-run without it to switch back)")
     p.add_argument("--chart", help="Big Bang chart: a local path or an oci:// ref (default: downloaded from "
                                    "repo1's git archive, no Iron Bank login needed)")
@@ -121,7 +124,7 @@ def main():
                         "$BUILD_SIGNER, else any repo of the ghcr.io owner)")
     p.add_argument("--org-id", help="Chainguard org ID signatures must be under (chainctl iam organizations "
                                     "list; default $CHAINGUARD_ORG_ID, else any Chainguard signer)")
-    p.add_argument("--plan", action="store_true",
+    p.add_argument("--plan", "--dry-run", dest="plan", action="store_true",
                    help="show what would change (version, FIPS, packages, image tags) and stop")
     p.add_argument("--registry-mirror", metavar="PREFIX",
                    help="the site registry holding the images (air-gapped; bb-airgap.py lists them): "
@@ -164,14 +167,20 @@ def main():
     sub.add_parser("status", help="what's running and what isn't")
     p = sub.add_parser("rollback", help="return the bigbang release to an earlier revision")
     p.add_argument("--to", type=int, help="revision (default: the one before the current)")
-    p.add_argument("--timeout", type=int, default=2700)
+    p.add_argument("--timeout", type=int, default=2700,
+                   help="seconds for helm rollback and for the packages to be ready (default 2700)")
+    p.add_argument("--plan", "--dry-run", dest="plan", action="store_true",
+                   help="show the revision it would roll back to and stop")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     p = sub.add_parser("uninstall", help="remove Big Bang, SeaweedFS and Flux")
     p.add_argument("--delete-data", action="store_true", help="also SeaweedFS's volume and the stored keys")
     p.add_argument("--keep-flux", action="store_true")
+    p.add_argument("--plan", "--dry-run", dest="plan", action="store_true",
+                   help="show what it would remove and stop")
     p.add_argument("--yes", action="store_true", help="don't ask for confirmation")
     a = ap.parse_args()
-    a.argv = sys.argv[1:]     # upgrade --to passes these on to the release's installer
+    # upgrade --to passes these on to the release's installer; an older one knows only --plan.
+    a.argv = ["--plan" if x == "--dry-run" else x for x in sys.argv[1:]]
     return {"init": init, "check": check, "install": install, "upgrade": upgrade, "chart": chart,
             "status": status, "rollback": rollback, "uninstall": uninstall}[a.cmd](a)
 

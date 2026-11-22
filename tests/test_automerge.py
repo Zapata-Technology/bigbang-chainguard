@@ -490,9 +490,10 @@ COMPAT = yaml.safe_load(open(os.path.join(ROOT, ".github", "workflows", "compat.
 RECORD = next(s for s in COMPAT["jobs"]["record-release"]["steps"] if "gh workflow run update.yml" in s.get("run", ""))
 
 
-def run_record(tmp_path, states, gate_rc=1):
+def run_record(tmp_path, states, gate_rc=1, release_rc=None, tests="success"):
     """record-release's step with fake gh (each `api` call answers the next of `states`),
-    python3 (the results gate exits gate_rc) and sleep. Returns (process, gh log)."""
+    python3 (the results gate exits gate_rc; with --release, release_rc, default gate_rc)
+    and sleep; TESTS is the test job's result. Returns (process, gh log)."""
     import shutil
     import subprocess
     import pytest
@@ -506,14 +507,15 @@ def run_record(tmp_path, states, gate_rc=1):
     scripts = {
         "gh": '#!/bin/sh\necho "$*" >> "$FAKE_LOG"\n[ "$1" = api ] || exit 0\n'
               'head -1 "$FAKE_STATES"; sed -i 1d "$FAKE_STATES"\n',
-        "python3": f"#!/bin/sh\nexit {gate_rc}\n",
+        "python3": (f'#!/bin/sh\ncase "$*" in *--release*) exit {gate_rc if release_rc is None else release_rc};; '
+                    f'esac\nexit {gate_rc}\n'),
         "sleep": "#!/bin/sh\n",
     }
     for name, body in scripts.items():
         (bindir / name).write_text(body, encoding="utf-8")
         (bindir / name).chmod(0o755)
     env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", FAKE_LOG=str(log),
-               FAKE_STATES=str(tmp_path / "states"), GITHUB_REPOSITORY="o/r", GH_TOKEN="t")
+               FAKE_STATES=str(tmp_path / "states"), GITHUB_REPOSITORY="o/r", GH_TOKEN="t", TESTS=tests)
     p = subprocess.run(["bash", "-c", RECORD["run"]], env=env, capture_output=True, text=True, cwd=tmp_path)
     return p, log.read_text(encoding="utf-8")
 
@@ -539,3 +541,16 @@ def test_record_release_fails_when_update_never_starts(tmp_path):
 def test_record_release_does_nothing_once_the_matrix_is_recorded(tmp_path):
     p, log = run_record(tmp_path, [], gate_rc=0)
     assert p.returncode == 0 and "workflow run" not in log
+
+
+def test_record_release_records_large_tests_only_when_they_passed(tmp_path):
+    """The ordinary matrix is recorded; GitLab (or a weekly_and_release test) is not. A pass
+    is recorded; a failure is not, since recording it pushes the PR and re-runs the same
+    ~90-minute job in a loop."""
+    p, log = run_record(tmp_path, ["in_progress - u"], gate_rc=0, release_rc=1)
+    assert p.returncode == 0 and log.count("workflow run update.yml") == 1, p.stdout + p.stderr
+    (tmp_path / "failed").mkdir()
+    p, log = run_record(tmp_path / "failed", [], gate_rc=0, release_rc=1, tests="failure")
+    assert p.returncode == 0 and "workflow run" not in log
+    assert "::error::a large or weekly_and_release test failed" in p.stdout
+    assert "--release" in RECORD["run"] and "needs.test.result" in str(RECORD["env"])

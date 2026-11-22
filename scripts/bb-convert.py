@@ -52,6 +52,18 @@ def set_path(tree, path, value):
     tree[path[-1]] = value
 
 
+def node_ref(n):
+    """(Iron Bank repo, tag or None) of a discovered value node (string, repo or name shape)."""
+    v = n["value"]
+    if n["shape"] == "string":
+        ib_repo, ib_tag = split_ref(v)
+        return ib_repo, ib_tag or n.get("tag")
+    key = "repository" if n["shape"] == "repo" else "image"   # "name": {registry?, image, tag}
+    reg = v.get("registry", "")
+    ib_repo, _ = split_ref(f"{reg}/{v[key]}" if reg else v[key])
+    return ib_repo, (v.get("tag", v.get("release")) if n["shape"] == "repo" else v.get("tag"))
+
+
 class Converter:
     def __init__(self, mapping, tags, registry="", strict=False, ib_tags=None):
         self.cg = f"{REGISTRY}/{tags.org}"
@@ -65,6 +77,8 @@ class Converter:
         self.defaults = mapping.get("template_defaults", [])
         self.ignore = mapping.get("ignore", [])
         self.unpinned = mapping.get("unpinned", {})   # release -> {org repo: why it stays on its tag}
+        self.retarget = mapping.get("retarget", {})   # release -> {value path: Iron Bank repo to deploy there}
+        self.override_refs = {}  # release -> {override path: {"standard"|"fips": ref, "base", "version"}}
         self.tags = tags
         self.rows = []          # (release, ironbank ref, standard, fips, note)
         self.missing = set()    # org repos needed but absent
@@ -95,6 +109,9 @@ class Converter:
                 self.ready.add((ib_repo, m["until"]))
             return None
         if "build" in m:
+            if m.get("until") and any(parse(t) for t in self.tags.tags(m["until"]) or []):
+                # Chainguard publishes an image that may replace this build.
+                self.ready.add((ib_repo, m["until"]))
             t = build_target(m, self.build_registry)
             if not t:
                 self.rows.append((release, ib, "Iron Bank", "Iron Bank",
@@ -279,6 +296,54 @@ class Converter:
         line = (m["same_patch"], parse(want)[0][:2]) if want and parse(want) else None
         return self._group_patch.get(m["group"], {}).get(line)
 
+    def retargeted(self, release, path, ib_repo, ib_tag):
+        """target() for the image at a value path, or for the image mapping.yaml `retarget`
+        deploys there instead (at the tag Big Bang deploys that image with elsewhere): a
+        UBI image whose container needs only a shell and a few tools. If that image stays
+        on Iron Bank (a build with no BUILD_REGISTRY), the path keeps Big Bang's own image."""
+        instead = self.retarget.get(release, {}).get(".".join(map(str, path)))
+        if not instead:
+            return self.target(ib_repo, ib_tag, release)
+        start = len(self.rows)
+        t = self.target(instead, self.ib_tags.get(instead), release)
+        if not t:
+            del self.rows[start:]
+            return self.target(ib_repo, ib_tag, release)
+        why = f"in place of {ib_repo}:{ib_tag} (mapping retarget)"
+        self.rows[start:] = [(*r[:4], f"{r[4]}; {why}" if r[4] else why) for r in self.rows[start:]]
+        return t
+
+    def override_rows(self, release, info):
+        """Rows for the images a mapping `overrides` block set (NeuVector's, Istio's proxy),
+        so docs/images.md and docs/version-differences.md list them like any other. The Iron
+        Bank image is the one discovery found at that value path (or above it), else the one
+        mapping.yaml maps to the token's name; its tag is the one Big Bang deploys."""
+        nodes = [n for n in info.get("values", []) if n["shape"] in ("string", "repo", "name")]
+        for path, rec in sorted(self.override_refs.get(release, {}).items()):
+            if not rec.get("standard"):
+                continue
+            node = max((n for n in nodes if tuple(path[:len(n["path"])]) == tuple(n["path"])),
+                       key=lambda n: len(n["path"]), default=None)
+            if node:
+                ib_repo, ib_tag = node_ref(node)
+            else:
+                ib_repo = next((r for r, m in self.images.items()
+                                if (m if isinstance(m, str) else m.get("cg")) == rec["base"]), None)
+                ib_tag = None
+                if rec["version"].startswith("ib="):
+                    ib_tag = self.ib_tags.get(rec["version"][3:])
+            if not ib_repo:
+                continue
+            ib_tag = ib_tag or self.ib_tags.get(ib_repo) or next(
+                (t for r, t in map(split_ref, info.get("rendered", [])) if r == ib_repo), None)
+            if ib_tag:
+                self.rows.append((release, f"{ib_repo}:{ib_tag}", rec["standard"], rec.get("fips", rec["standard"]),
+                                  "set by mapping overrides"))
+
+    def _record_override(self, release, path, fips, base, version, ref):
+        rec = self.override_refs.setdefault(release, {}).setdefault(tuple(path), {"base": base, "version": version})
+        rec["fips" if fips else "standard"] = ref
+
     def ignored(self, release, path):
         dotted = ".".join(map(str, path))
         return any(i["release"] == release and (dotted == i["path"] or dotted.startswith(i["path"] + "."))
@@ -307,21 +372,9 @@ class Converter:
                         set_path(fips_vals, dotted.split("."), t[1])
                     covered.add(ib_repo)
                 continue
-            if shape == "string":
-                ib_repo, ib_tag = split_ref(v)
-                ib_tag = ib_tag or n.get("tag")
-            elif shape == "repo":
-                reg = v.get("registry", "")
-                full = f'{reg}/{v["repository"]}' if reg else v["repository"]
-                ib_repo, _ = split_ref(full)
-                ib_tag = v.get("tag", v.get("release"))
-            else:  # "name": {registry?, image, tag}
-                reg = v.get("registry", "")
-                full = f'{reg}/{v["image"]}' if reg else v["image"]
-                ib_repo, _ = split_ref(full)
-                ib_tag = v.get("tag")
+            ib_repo, ib_tag = node_ref(n)
             covered.add(ib_repo)
-            t = self.target(ib_repo, ib_tag, release)
+            t = self.retargeted(release, path, ib_repo, ib_tag)
             if not t:
                 continue
             for vals, ref in ((std_vals, t[0]), (fips_vals, t[1])):
@@ -381,22 +434,24 @@ class Converter:
                                 set_path(vals, d["path"].split(".")[:-1] + [k], copy.deepcopy(v))
                     covered.add(ib_repo)
 
-    def overrides(self, release, spec, fips, tag=None):
+    def overrides(self, release, spec, fips, tag=None, path=(), tag_version=""):
         """Expand a mapping.yaml `overrides` block. Tokens:
           @repo:<name>            <name>, or <name>-fips in the FIPS overlay
           @tag:<name>:<version>   org tag of <name>(-fips) for <version> (same rules as images);
                                   <version> "ib=<Iron Bank repo>" means that image's deployed tag
           @ref:<name>:<version>   cgr.dev/<org>/<name>(-fips):<tag>
           @registry               cgr.dev/<org>
+        Each image an @repo (with a tag) or @ref names is recorded for override_rows().
         """
         if isinstance(spec, dict):
             # A chart-wide tag (NeuVector's) belongs to every @repo below it: carry it down
             # so those images are recorded for digest_pins() too.
             if isinstance(spec.get("tag"), str) and spec["tag"].startswith("@tag:"):
                 tag = self.overrides(release, spec["tag"], fips)
-            return {k: self.overrides(release, v, fips, tag) for k, v in spec.items()}
+                tag_version = spec["tag"].split(":", 2)[2] if spec["tag"].count(":") >= 2 else ""
+            return {k: self.overrides(release, v, fips, tag, path + (k,), tag_version) for k, v in spec.items()}
         if isinstance(spec, list):
-            return [self.overrides(release, v, fips, tag) for v in spec]
+            return [self.overrides(release, v, fips, tag, path + (i,), tag_version) for i, v in enumerate(spec)]
         if not (isinstance(spec, str) and spec.startswith("@")):
             return spec
         if spec == "@registry":
@@ -414,12 +469,14 @@ class Converter:
             if tag and not tag.startswith("@") and tag in (self.tags.tags(name) or []):
                 self.used.setdefault(release, {"standard": set(), "fips": set()})[
                     "fips" if fips else "standard"].add(f"{self.cg}/{name}:{tag}")
+                self._record_override(release, path, fips, base, tag_version, f"{self.cg}/{name}:{tag}")
             return name
         tags = self.tags.tags(name)
         if tags is None:
             self.missing.add(name)
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"org has no {name}"))
             return spec
+        version_spec = version
         if version.startswith("ib="):
             version = self.ib_tags.get(version[3:], "")
         tag, note = resolve(version, tags, allow_ahead=not self.strict)
@@ -429,6 +486,8 @@ class Converter:
         # The image an override names is deployed like any other: digest_pins() pins it.
         used = self.used.setdefault(release, {"standard": set(), "fips": set()})
         used["fips" if fips else "standard"].add(f"{self.cg}/{name}:{tag}")
+        if kind == "ref":
+            self._record_override(release, path, fips, base, version_spec, f"{self.cg}/{name}:{tag}")
         return tag if kind == "tag" else f"{self.cg}/{name}:{tag}"
 
     def flux(self, info):
@@ -595,6 +654,7 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
             spec = mapping["overrides"][release]
             _merge_into(s, c.overrides(release, spec, False))
             _merge_into(f, c.overrides(release, spec, True))
+            c.override_rows(release, info)
         if s:
             set_path(std, key + root, _merge(_get(std, key + root), s))
         if f:
@@ -901,7 +961,8 @@ def required_images(discovered, mapping, version):
 
     images = mapping["images"]
     for release, info in discovered["packages"].items():
-        for ib_repo, _ in ironbank_refs(info):
+        instead = list(mapping.get("retarget", {}).get(release, {}).values())
+        for ib_repo in [r for r, _ in ironbank_refs(info)] + instead:
             m = images.get(ib_repo)
             if m is None:
                 continue
@@ -1119,7 +1180,7 @@ def main():
             print(f"  {r[0]}: {r[1]} -> {r[4]}")
         rc = 1
     if c.ready:
-        print("Ready to convert (the org now has tags; change the `stays` entry in mapping.yaml):")
+        print("Ready to convert (the org now has tags; change the `stays` or `build` entry in mapping.yaml):")
         for ib, repo in sorted(c.ready):
             print(f"  {ib} -> {repo}")
     if c.unpin:

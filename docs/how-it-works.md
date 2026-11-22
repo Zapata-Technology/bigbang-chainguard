@@ -255,7 +255,12 @@ Kyverno's `defaultRegistry`), which would otherwise win. For the few packages th
 can't express, `mapping.yaml` has these escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
-- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag).
+- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag). The
+  images they set are listed in `docs/images.md` and `docs/version-differences.md` like the rest.
+- `retarget`: a value path that deploys another mapped image instead of Big Bang's (GitLab's
+  upgrade check, Grafana's chown init container, Fortify's MySQL volume permissions and
+  SonarQube's password hook ran Iron Bank's UBI for a shell and a few tools; they get busybox
+  or `bigbang-base`). With that image on Iron Bank (no `BUILD_REGISTRY`), the path keeps Big Bang's.
 - `template_defaults`: images a template defaults with no value behind it (Big Bang's wait job);
   `beside` sets values next to it in the same releases (the wait job's seccomp profile, which
   Pod Security Admission's `restricted` level requires); `patch_keys` get `patch` as a
@@ -293,7 +298,10 @@ can't express, `mapping.yaml` has these escape hatches:
 
 An Iron Bank image with no Chainguard equivalent yet can be marked
 `{stays: <reason>, until: <chainguard repo>}`. The conversion then reports when your org's
-repo has tags, so you know when to switch it over.
+repo has tags, so you know when to switch it over. An image this repo builds takes `until` too
+(`{build: <name>, until: <chainguard repo>}`): `bb-convert.py` reports when the org has the
+Chainguard image and `scripts/bb-leftovers.py` when the catalog does, so it can be compared
+with the build and replace it.
 
 [`docs/adding-a-package.md`](adding-a-package.md) walks through mapping a new image.
 
@@ -308,7 +316,8 @@ repo has tags, so you know when to switch it over.
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.
 - **CI** (`ci.yml`): unit tests, then discovery, conversion and verification for both modes.
 - **Releases** (`release.yml`): every merge that changes what you deploy (overlays, Flux,
-  SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>`, for example
+  SeaweedFS, the installer) is a release `<Big Bang version>-cg.<n>` once CI's `verify`
+  passed on that commit (`scripts/release.py` `DEPLOYABLE` lists the files), for example
   `4.0.0-cg.40`; `n` starts again at 1 with each Big Bang version. A release holds the
   install archive, its sha256, a Sigstore signature and notes listing the image changes
   since the previous release (configuration changes are in its list of merged pull

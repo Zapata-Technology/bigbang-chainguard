@@ -26,7 +26,9 @@ from release import REPO_FILE, github_remote, release_identity
 
 API = "https://api.github.com/repos/{repo}/releases?per_page=100&page={page}"
 DOWNLOAD = "https://github.com/{repo}/releases/download/{tag}/{name}"
-CACHE = os.path.join(ROOT, "work", "releases")
+# BB_RELEASE_CACHE: bb-docker.sh points it at the site directory, since the image's checkout
+# isn't writable by the uid the container runs as.
+CACHE = os.environ.get("BB_RELEASE_CACHE") or os.path.join(ROOT, "work", "releases")
 TAG = re.compile(r"^(\d+)\.(\d+)\.(\d+)-cg\.(\d+)$")
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 # upgrade's own options, not passed on to the release's installer: (option, takes a value)

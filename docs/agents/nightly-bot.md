@@ -32,6 +32,15 @@ runs every kind test, compat.yml's `record-release` job then dispatches `update.
 dispatches again if another update run replaced it while it was pending), and the
 release track copies those results (`test-results.py update --from-branch bot/bigbang-release`,
 this version's results only) into the PR, so its gate turns green within about an hour.
+The release PR's gate (`results-gate.py --base`, because it changes `BIGBANG_VERSION`) also
+requires the large tests (GitLab, GitLab Runner) and the `weekly_and_release` tests
+(`release-upgrade-oldest`, once it has passed once), which the release PR runs in standard
+mode. Once the ordinary matrix is recorded, each rebuild of the PR re-runs only the smoke
+tests and those still missing; `record-release` dispatches `update.yml` again only when they
+passed. A failed GitLab job on a release PR is a real failure (the compat check is red):
+triage it (`ci-triage.py`), re-run a flake, and a person decides whether to merge without it.
+The release PR also runs `rke2.yml` (standard): its `rke2-default` row is recorded but never
+gates, and with `RKE2_RUNNER` unset it fails at once with an error instead of running.
 `python scripts/test-results.py update --from-main 20`
 (or `update --run <id>`) copies real artifacts into `docs/test-results.json`. A red gate
 after that matrix is recorded is a real failure, and so is a gate line

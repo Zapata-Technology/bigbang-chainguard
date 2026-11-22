@@ -309,9 +309,10 @@ def test_smoke_required_and_compat_flags_match_the_code():
         assert _marked(text, "required-tests") == set(gate.REQUIRED), rel
     testing = open(os.path.join(ROOT, "docs", "testing.md"), encoding="utf-8").read()
     flags = _marked(testing, "compat-flags")
-    assert "large: true" in flags and "registry1: true" in flags
-    names = flags - {"large: true", "registry1: true"}
-    assert names == gate.flagged("large") | gate.flagged("registry1")
+    keys = {"large: true", "registry1: true", "weekly_and_release: true"}
+    assert keys <= flags
+    names = flags - keys
+    assert names == gate.flagged("large") | gate.flagged("registry1") | gate.flagged("weekly_and_release")
 
 
 def test_readme_does_not_hard_code_the_iron_bank_count():
@@ -382,3 +383,56 @@ def test_ci_skips_only_the_steps_that_need_chainguard_for_a_fork():
     for name in ("Unit tests", "Lint (ruff; rules in pyproject.toml)", "Discovery is current"):
         step = next(s for s in job["steps"] if s.get("name") == name)
         assert "FORK" not in step.get("if", ""), name
+
+
+# --- org-neutral shared files: one org's name lives in orgs/, NOTICE and LICENSE ---
+
+# Hand-written files every copy of the repository shares. Generated files name the org they
+# were generated for (their headers say so), and docs/upgrades/ notes are written by update.yml.
+NEUTRAL_ROOTS = ["README.md", "mapping.yaml", "scripts", "compat", "docs", "builds", ".github"]
+NEUTRAL_SKIP = set(GENERATED) | {"docs/test-results.json"}
+NEUTRAL_TEXT = (".md", ".py", ".yaml", ".yml", ".sh", ".json", ".txt", "Dockerfile", "CODEOWNERS")
+# (file, text on the line): the only places a shared file may name the reference deployment.
+# Keep this list short; anything true for one org goes in orgs/<org>.yaml.
+ORG_NAME_ALLOWED = [
+    ("README.md", "Zapata Technology's (Zapata-Technology/bigbang-chainguard)"),   # the reference deployment
+    ("README.md", "Copyright 2026 Zapata Technology; see [NOTICE](NOTICE)"),  # the license line
+    ("docs/quickstart.md", "fork, or e.g. Zapata-Technology/bigbang-chainguard (the reference deployment)"),
+    (".github/CODEOWNERS", "* @randallzapata"),                  # the repo's owner; a fork changes it
+    # GitHub needs an absolute URL for a contact link; a fork changes it.
+    (".github/ISSUE_TEMPLATE/config.yml", "url: https://github.com/Zapata-Technology/bigbang-chainguard/security"),
+    # Pending another pull request that edits mapping.yaml; reword it there.
+    ("mapping.yaml", "(Zapata removed the org minio repos)"),
+]
+
+
+def neutral_files():
+    """Shared, hand-written text files (repo-relative paths)."""
+    for root in NEUTRAL_ROOTS:
+        path = os.path.join(ROOT, root)
+        found = [path] if os.path.isfile(path) else glob.glob(os.path.join(path, "**", "*"), recursive=True)
+        for p in found:
+            rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
+            if (os.path.isfile(p) and p.endswith(NEUTRAL_TEXT) and rel not in NEUTRAL_SKIP
+                    and not rel.startswith("docs/upgrades/") and "__pycache__" not in rel):
+                yield rel
+
+
+def test_shared_files_do_not_name_one_org():
+    """Other orgs (and the Big Bang team) adopt the repo as it is: a shared file names no one
+    org except where ORG_NAME_ALLOWED says why."""
+    bad = []
+    for rel in neutral_files():
+        text = open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace").read()
+        if rel == "docs/testing.md":   # its results table is generated (links to the runs)
+            text = re.sub(r"<!-- results:start -->.*?<!-- results:end -->", "", text, flags=re.S)
+        for n, line in enumerate(text.splitlines(), 1):
+            if "zapata" in line.lower() and not any(rel == f and s in line for f, s in ORG_NAME_ALLOWED):
+                bad.append(f"{rel}:{n}: {line.strip()}")
+    assert not bad, "name the org in orgs/<org>.yaml, or use <owner>/<repo>:\n" + "\n".join(bad)
+
+
+def test_org_name_allow_list_is_still_needed():
+    """An entry whose line is gone is removed, so the list stays the real exceptions."""
+    for f, s in ORG_NAME_ALLOWED:
+        assert s in open(os.path.join(ROOT, f), encoding="utf-8").read(), (f, s)

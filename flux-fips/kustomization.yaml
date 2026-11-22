@@ -18,10 +18,10 @@ images:
   name: ghcr.io/fluxcd/notification-controller
   newName: cgr.dev/zapatatechnology.com/flux-notification-controller-fips
   newTag: 1.10.1
-- digest: sha256:62a82334a0ee7e25ab7f7a59b407cf034d75a9f17fadf3c5a68b511264b6bd61
+- digest: sha256:2c6cfbc9230e144ab0659070edd191540e198e749df2983576c4885359da1149
   name: ghcr.io/fluxcd/source-controller
   newName: cgr.dev/zapatatechnology.com/flux-source-controller-fips
-  newTag: 1.10.1
+  newTag: 1.10.2
 kind: Kustomization
 patches:
 - patch: "$patch: delete\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: image-automation-controller\n  namespace:\
