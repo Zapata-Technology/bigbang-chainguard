@@ -184,7 +184,7 @@ refreshes them.
   - **Release-to-release upgrade tests** on every new Big Bang, weekly, and on changes to the
     packages they cover, including one from two Big Bang minors back.
   - **About 800 unit tests**.
-- **Problems found and fixed before you hit them.** The runtime tests found **48 problems**
+- **Problems found and fixed before you hit them.** The runtime tests found **49 problems**
   that rendering alone would miss. The list is
   [docs/testing.md](docs/testing.md#what-the-runtime-tests-found). Most fixes are in
   the overlays. GitLab's PostgreSQL lock setting is the site database (the installer

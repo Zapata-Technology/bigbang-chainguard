@@ -382,7 +382,18 @@ overrides:
       enforcer: {image: {repository: "@repo:neuvector-enforcer"}}
       manager: {image: {repository: "@repo:neuvector-manager"}}
       cve:
-        scanner: {image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}}
+        # The scanner unpacks its CVE database and each image it scans under /tmp. In
+        # Chainguard's scanner (and -fips) /tmp is 755 and owned by 65532, so it is writable
+        # only by root with CAP_DAC_OVERRIDE; on RKE2 with Big Bang's defaults it was not, the
+        # scanner logged "mkdir /tmp/neuvector: permission denied" forever, never registered
+        # with the controller, and NeuVector scanned nothing while every pod stayed Ready
+        # (rke2.yml with neuvector_report, 2026-11-22; reproduced with docker as uid 1000 and
+        # with --cap-drop ALL). Iron Bank's image has a 1777 /tmp. An emptyDir is writable
+        # by any user; no size limit, since scanning a large image needs its layers there.
+        scanner:
+          image: {registry: "", repository: "@repo:neuvector-scanner", tag: "@tag:neuvector-scanner:*"}
+          volumes: [{name: scanner-tmp, emptyDir: {}}]
+          volumeMounts: [{name: scanner-tmp, mountPath: /tmp}]
     # The monitor subchart builds the exporter's image from its own chart-wide registry
     # (monitor.registry) and ignores exporter.image.registry, so the generated blank
     # registry rendered "/neuvector-prometheus-exporter:<tag>" (compat/neuvector.yaml).

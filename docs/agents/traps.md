@@ -179,5 +179,10 @@ The fixes are `overrides.fortify` in `mapping.yaml`; `tests/test_fortify_mysql.p
   `caching_sha2_password` sends the password with RSA-OAEP SHA-1, which Go's FIPS 140 mode
   refuses (`crypto/rsa: use of hash functions other than SHA-2 or SHA-3`). Use TLS: the
   exporter's `--tls.insecure-skip-verify` (loopback; mysqld's certificate is self-made).
+- **A directory the image's own user owns.** Chainguard images often own `/tmp` (or a data
+  directory) by their nonroot user (65532) at 755. A chart that runs the container as another
+  user, or as root without capabilities, can't write there, though Iron Bank's image (1777)
+  could: NeuVector's scanner on RKE2 never loaded its database, yet every pod stayed Ready.
+  Mount an emptyDir there (`overrides`). Pods Ready is not the app working: check it does its job.
 - **An empty pod log for a crashing database** can mean it logs to a file: `log-error=stderr`
   is a file name (`<datadir>/stderr.err`). See [compat-failure.md](compat-failure.md) step 3.
