@@ -107,7 +107,7 @@ lists the ones your org doesn't have yet.
 | `prometheus-blackbox-exporter` | `prometheus-blackbox-exporter-fips` | monitoring |
 | `prometheus-config-reloader` | `prometheus-config-reloader-fips` | alloy, monitoring |
 | `prometheus-elasticsearch-exporter` | `prometheus-elasticsearch-exporter-fips` | ek |
-| `prometheus-mysqld-exporter` | `prometheus-mysqld-exporter-fips` | fortify |
+| `prometheus-mysqld-exporter-iamguarded` | `prometheus-mysqld-exporter-iamguarded-fips` | fortify |
 | `prometheus-node-exporter` | `prometheus-node-exporter-fips` | monitoring |
 | `prometheus-operator` | `prometheus-operator-fips` | monitoring |
 | `prometheus-redis-exporter-iamguarded` | `prometheus-redis-exporter-iamguarded-fips` | anchore-enterprise, argocd, authservice, harbor |

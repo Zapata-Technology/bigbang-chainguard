@@ -296,7 +296,7 @@ packages:
         images:
         - digest: sha256:0b31a52aba0482e6684eb7651062544d96162fffb29edec8df00d16be9efdbb6
           name: cgr.dev/zapatatechnology.com/configmap-reload-fips
-        - digest: sha256:5e8a9a7b8ba15e53d33dd73032e15e67ef1b6b0e56b556d77df0b671c9e6aa1b
+        - digest: sha256:5e5f71df451473ff7599290b086df26c7688b09abfda93809ad2918ca811667e
           name: cgr.dev/zapatatechnology.com/fluent-bit-fips
         - digest: sha256:a0e82b7eba9928bcb17e83f7a0d7cbbdbdcadf7fdb8ca3e370269f2421398cfd
           name: ghcr.io/zapata-technology/bigbang-base-fips
@@ -328,8 +328,8 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:9f6b5ccee7f5b74fc195d384f8af6a8407f7b59d328a7915c69b70328e351eba
           name: cgr.dev/zapatatechnology.com/mysql-fips
-        - digest: sha256:280ef20ede3de08d94f2f5ac20a49e8a8417ecd9c7a136923ff9ca70e32a4535
-          name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-fips
+        - digest: sha256:01739efde0990098f7ed21c0275bd7b0f1a165ee470d716d623310b3c366c5a4
+          name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded-fips
         - digest: sha256:a0e82b7eba9928bcb17e83f7a0d7cbbdbdcadf7fdb8ca3e370269f2421398cfd
           name: ghcr.io/zapata-technology/bigbang-base-fips
         patches:
@@ -346,8 +346,12 @@ packages:
         metrics:
           image:
             registry: cgr.dev/zapatatechnology.com
-            repository: prometheus-mysqld-exporter-fips
+            repository: prometheus-mysqld-exporter-iamguarded-fips
             tag: 0.21.0
+        primary:
+          args:
+          - --defaults-file=/opt/bitnami/mysql/conf/my.cnf
+          - --plugin-dir=/usr/lib/mysql-8.4/plugin
         volumePermissions:
           image:
             registry: ghcr.io/zapata-technology
