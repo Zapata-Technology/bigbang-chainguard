@@ -296,7 +296,7 @@ packages:
         images:
         - digest: sha256:53dd9e762cf23387f95fd66bd26f80959ccd779e97b2d3f4b8e24b2e91c18e58
           name: cgr.dev/zapatatechnology.com/configmap-reload
-        - digest: sha256:a73f9ea25c17b845d9d5c473e8ec9aea21c5c3a64b0169e5e97d11e24c733252
+        - digest: sha256:d6767cc3263b0642851067410ba164b99dd03c9dd98e4a6b59c5060b1a78c1fc
           name: cgr.dev/zapatatechnology.com/fluent-bit
         - digest: sha256:f8debfa8e15318ab64a1c3fd4350af28cab344332c3d7b1bcbc7f721c3ed562a
           name: ghcr.io/zapata-technology/bigbang-base
