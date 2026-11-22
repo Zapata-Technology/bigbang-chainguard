@@ -585,6 +585,11 @@ unpinned:
 # is neither enabled by a compat test nor listed here with the reason, so a new package
 # gets a kind test or a stated reason it has none.
 untested:
+  packages.fortify: >-
+    Fortify SSC is licensed and on Iron Bank. Its Bitnami MySQL on Chainguard's mysql now gets
+    past the args and plugin-dir mismatches (overrides.fortify) and its exporter runs
+    (-iamguarded), but mysqld still exits during first-time init (compat run 44985613524);
+    compat/fortify.yaml comes back with that fix.
   packages.twistlock: >-
     Prisma Cloud (Twistlock) is licensed, with no free mode, and every image it runs is the
     vendor's on Iron Bank (images: stays); the org images in its overlay (the wait job's
