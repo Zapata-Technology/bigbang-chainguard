@@ -77,6 +77,7 @@ python scripts/ci-triage.py --flakes  # jobs re-run in the last 30 days; FIX at 
 python scripts/egress-audit.py        # hosts a workflow reached that its harden-runner list doesn't name
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 python scripts/bb-onboard.py --org <org> --repo OWNER/REPO [--apply]   # set up a new org and copy (dry run without --apply)
+gh workflow run rke2.yml --ref main -f neuvector_report=true   # Big Bang on RKE2 + NeuVector's scan of every deployed image (artifact nv-report[-fips]; scripts/nv-report.py)
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
