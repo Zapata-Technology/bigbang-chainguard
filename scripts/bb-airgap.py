@@ -234,7 +234,9 @@ def main():
 
     step("images")
     map_text = open(os.path.join(ROOT, "docs", "images.md"), encoding="utf-8").read()
-    pins = {r: d for r, d in pinned_refs(co, a.fips, co.registry) if d}
+    # The org's images and the ones built here (BUILD_REGISTRY): both are digest-pinned, and
+    # a site that copies either by tag gets another digest after a rebuild (ImagePullBackOff).
+    pins = {r: d for r, d in pinned_refs(co, a.fips, [co.registry, _build_registry(co)]) if d}
     images = image_list(map_text, releases(enabled), a.fips, extra, pins)
     installer = installer_refs(ROOT, _build_registry(co), a.fips)
     iron_bank = iron_bank_refs(map_text, releases(enabled))

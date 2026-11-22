@@ -1415,6 +1415,18 @@ def test_a_cluster_that_cant_give_load_balancers_an_address_is_noted(monkeypatch
     assert preflight.loadbalancer_note([]) is None
 
 
+def test_a_digest_set_in_values_is_carried_like_a_post_renderer_pin():
+    """Keycloak has no post-renderers; its charts' image.digest values pin it (#283)."""
+    refs = {}
+    images._walk_refs({"upstream": {"image": {"repository": "cgr.dev/o/keycloak", "tag": "26.8.2",
+                                              "digest": "sha256:" + "a" * 64}},
+                       "postgresql": {"image": {"registry": "cgr.dev/o", "repository": "postgres", "tag": "18.7"}},
+                       "job": "ghcr.io/me/bigbang-base:1", "other": "docker.io/x:1"},
+                      ["cgr.dev/o", "ghcr.io/me"], refs)
+    assert refs == {"cgr.dev/o/keycloak:26.8.2": "sha256:" + "a" * 64, "cgr.dev/o/postgres:18.7": None,
+                    "ghcr.io/me/bigbang-base:1": None}
+
+
 def test_refs_split_by_tag_or_digest():
     assert images.split_repo("o/tempo:2.8.1") == ("o/tempo", "2.8.1")
     assert images.split_repo("o/tempo@sha256:abc") == ("o/tempo", "sha256:abc")
@@ -1424,8 +1436,12 @@ def test_refs_split_by_tag_or_digest():
 
 def test_pinned_refs_carry_the_overlays_digests():
     co = checkout.Checkout(ROOT)
-    refs = images.pinned_refs(co, False, co.registry)
-    assert refs and all(r.startswith(co.registry + "/") and ":" in r.rsplit("/", 1)[1] for r, _ in refs)
+    # The org's registry and BUILD_REGISTRY: the images built here are digest-pinned too
+    # (#273), and a mirrored checkout puts both under the site registry.
+    registries = [co.registry, checkout._build_registry(co)]
+    refs = images.pinned_refs(co, False, registries)
+    assert refs and all(any(r.startswith(p + "/") for p in registries if p) and ":" in r.rsplit("/", 1)[1]
+                        for r, _ in refs)
     pinned = [(r, d) for r, d in refs if d]
     assert len(pinned) > len(refs) // 2 and all(d.startswith("sha256:") and len(d) == 71 for _, d in pinned)
     flux = yaml.safe_load(open(os.path.join(ROOT, "flux", "kustomization.yaml"), encoding="utf-8"))["images"]
