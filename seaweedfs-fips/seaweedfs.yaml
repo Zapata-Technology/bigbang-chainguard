@@ -144,7 +144,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: buckets
-        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.54-dev@sha256:600ee779a9476867aac7f72cd4b5965bc005930f0a47cd45af214040b30d151b
+        image: cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.54-dev@sha256:7400c22d878be536bf8537a2415c246859973bd30447a4db24d2bb271eadefd6
         command:
         - /bin/sh
         - -c
