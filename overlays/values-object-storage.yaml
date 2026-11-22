@@ -99,6 +99,7 @@ packages:
                 to:
                   k8s:
                     seaweedfs/seaweedfs:8333: true
+      deployNodeAgent: true
       upstream:
         configuration:
           backupStorageLocation:
@@ -110,3 +111,25 @@ packages:
             name: default
             provider: aws
           volumeSnapshotLocation: []
+        deployNodeAgent: true
+        extraVolumeMounts:
+        - mountPath: /udmrepo
+          name: udmrepo
+        - mountPath: /.cache
+          name: kopia-cache
+        extraVolumes:
+        - emptyDir: {}
+          name: udmrepo
+        - emptyDir: {}
+          name: kopia-cache
+        nodeAgent:
+          extraVolumeMounts:
+          - mountPath: /udmrepo
+            name: udmrepo
+          - mountPath: /.cache
+            name: kopia-cache
+          extraVolumes:
+          - emptyDir: {}
+            name: udmrepo
+          - emptyDir: {}
+            name: kopia-cache
