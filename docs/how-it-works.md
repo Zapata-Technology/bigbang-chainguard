@@ -255,7 +255,9 @@ Kyverno's `defaultRegistry`), which would otherwise win. For the few packages th
 can't express, `mapping.yaml` has these escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
-- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag). The
+- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag), and
+  path-specific fixes where a Chainguard image's layout differs from Iron Bank's (Fortify's
+  MySQL: entrypoint args, `--plugin-dir`, `--socket`, the FIPS exporter's TLS). The
   images they set are listed in `docs/images.md` and `docs/version-differences.md` like the rest.
 - `retarget`: a value path that deploys another mapped image instead of Big Bang's (GitLab's
   upgrade check, Grafana's chown init container, Fortify's MySQL volume permissions and
@@ -282,7 +284,8 @@ can't express, `mapping.yaml` has these escape hatches:
 - `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
   a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
-  (Keycloak in Big Bang 4, still true on 4.1.0); their images stay on tags instead of digests.
+  (Keycloak in Big Bang 4, still true on 4.1.0); their images are pinned through the charts'
+  own `image.digest` values instead (`value_digest_pins` in `bb-convert.py`).
 - `min_version` (on an image): an Iron Bank tag on an older line takes the newest release
   (kubectl `1.34`: Vault pins the end-of-life 1.30).
 - `max_version` (on an image): never a tag newer than this, to hold a release whose images
@@ -291,7 +294,7 @@ can't express, `mapping.yaml` has these escape hatches:
   Iron Bank's tag. PostgreSQL (`18.7` is `18.6`'s patch release) and kafka-native (the org
   stopped rebuilding 4.3 once 4.4 shipped, so 4.3's CVEs piled up).
 - `untested`: packages no kind test enables, with why (Twistlock: licensed, vendor images
-  only). Not used by the conversion; a unit test fails on a package in the overlays that is
+  only; MinIO). Not used by the conversion; a unit test fails on a package in the overlays that is
   neither enabled by a `compat/*.yaml` nor listed here.
 - `scan_reviewed`: what `scripts/bb-scan.py` found in the package charts and how each is
   handled. CI fails on a new finding.
@@ -310,7 +313,10 @@ with the build and replace it.
 - **Nightly** (`update.yml`): regenerates against the newest org patches and Iron Bank
   recipes, and opens a PR. `automerge.yml` merges it once every check on it has passed
   (CI, the builds and every kind test). It leaves a new Big Bang release, or a PR labeled
-  `hold`, for a person to merge.
+  `hold`, for a person to merge (a patch release merges itself when the
+  `AUTOMERGE_BIGBANG_PATCHES` variable is `true`). It refuses a release PR for the Big Bang
+  main already has (opened by a run that started before the release merged), and leaves a
+  PR open while `results-gate` has no recorded matrix yet.
 - **New Big Bang release**: the same job bumps `BIGBANG_VERSION` and re-runs discovery.
   If the release adds an image that `mapping.yaml` doesn't cover, CI fails on that PR and
   names it. Add the mapping (or a `stays` entry with the reason) and push to the bot branch.

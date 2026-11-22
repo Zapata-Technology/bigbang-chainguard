@@ -583,7 +583,8 @@ retarget:
     curlContainerImage: ironbank/big-bang/base
 
 # Big Bang keys whose HelmRelease template can't take post-renderers (bb-scan.py finds
-# them): bb-convert gives them none, so their images stay on tags (no digest pin).
+# them): bb-convert gives them none; their images are pinned through the charts' own
+# image.digest values instead (value_digest_pins).
 no_post_renderers:
   packages.keycloak: Big Bang 4's keycloak/helmrelease.yaml writes postRenderers without the key (still true on 4.1.0)
 

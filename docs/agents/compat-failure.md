@@ -14,6 +14,15 @@ Part of the maintainer playbooks. The loop and the rules are in [AGENTS.md](../.
    else (a CR's status, a file in a pod), add a `setup:` line
    `sh compat/support/watch.sh <name> "<kubectl command>"` and a `debug:` line
    `cat $COMPAT_OUT/watch-<name>.log`.
-3. Fix the cause in `mapping.yaml` (or a builder), not in the test, unless the test itself
+3. A container that exits with an empty log, or anything that takes more than one kind
+   run to understand: reproduce it with `docker run` on your machine first (minutes, not a
+   30-minute run). Use what the pod uses: `helm template` the package chart with the
+   overlay's values for the container spec and ConfigMaps, the same image digest, user
+   (`-u <runAsUser>`), env, args and mounts. Mount config files read-only at mode 0644:
+   a bind mount from Windows is world-writable, and mysqld ignores a world-writable
+   `my.cnf`, which hides the very failure. A database may log to a file rather than
+   stderr (Big Bang's MySQL: `<datadir>/stderr.err`); add a `debug:` line that reads it.
+   Sidecars share the pod's network: `docker run --network container:<db>`.
+4. Fix the cause in `mapping.yaml` (or a builder), not in the test, unless the test itself
    is wrong. Record what you found in `docs/testing.md` ("What the runtime tests found").
 
