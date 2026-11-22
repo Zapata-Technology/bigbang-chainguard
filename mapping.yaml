@@ -355,12 +355,22 @@ overrides:
     # docker, 2026-11-22). --socket names the default, so no link is made; the [client]
     # section's /var/run path still reaches it. Iron Bank's UBI image has no /var/run link.
     # mysqld's log goes to <datadir>/stderr.err (Big Bang's log-error=stderr is a file name).
+    # The FIPS exporter (Go in FIPS 140 mode) couldn't log in: without TLS, MySQL 8.4's
+    # caching_sha2_password sends the password RSA-OAEP with SHA-1, which Go's FIPS mode
+    # refuses ("crypto/rsa: use of hash functions other than SHA-2 or SHA-3 is not allowed";
+    # compat/fortify.yaml --fips, 2026-11-22). Over TLS the password goes inside the channel.
+    # mysqld's TLS certificate is the one it generates itself (no CA to check against) and
+    # the exporter connects over the pod's loopback, so it skips verification. The chart
+    # appends extraArgs.primary to the exporter's command line.
     mysql:
       primary:
         args:
           - --defaults-file=/opt/bitnami/mysql/conf/my.cnf
           - --plugin-dir=/usr/lib/mysql-8.4/plugin
           - --socket=/run/mysqld/mysqld.sock
+      metrics:
+        extraArgs:
+          primary: [--tls.insecure-skip-verify]
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6). The tag
