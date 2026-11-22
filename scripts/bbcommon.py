@@ -42,7 +42,7 @@ def setting(name, arg=None):
 # refuses it instead of silently ignoring it.
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
                     "bash_wait_jobs", "bash_commands", "post_renderers", "chart_registry_builds", "no_post_renderers",
-                    "progress_deadline", "unpinned", "ignore",
+                    "progress_deadline", "unpinned", "ignore", "retarget",
                     "scan_reviewed"}
 IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
@@ -75,6 +75,8 @@ def validate_mapping(mapping, source="mapping.yaml"):
             problems.append(f"images.{ib}.fallback: only 'ironbank' is supported")
         if m.get("follow") not in (None, "major"):
             problems.append(f"images.{ib}.follow: only 'major' is supported")
+        if m.get("until") and not {"stays", "build"} & set(m):
+            problems.append(f"images.{ib}.until: only with stays or build")
     for job in (mapping.get("bash_commands") or {}).values():
         for ref in job:
             if set(ref) != {"kind", "name", "container"}:

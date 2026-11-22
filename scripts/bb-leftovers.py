@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Report which Iron Bank leftovers Chainguard now publishes.
 
-mapping.yaml marks an image with no Chainguard equivalent `{stays: ..., until: <name>}`.
-bb-convert converts it once the org's <name> repository has tags; this looks one step
+mapping.yaml marks an image with no Chainguard equivalent `{stays: ..., until: <name>}`, and
+an image this repo builds that Chainguard publishes too `{build: ..., until: <name>}`.
+bb-convert reports it once the org's <name> repository has tags; this looks one step
 earlier, in Chainguard's catalog, so the nightly report says when to add the repository:
 
   bb-leftovers.py [--mapping mapping.yaml] [--org <org>]
@@ -50,8 +51,8 @@ def main():
     a = ap.parse_args()
     org = setting("CHAINGUARD_ORG", a.org)
     mapping = load_mapping(org, a.mapping)
-    waiting = sorted({(m["until"], ib) for ib, m in mapping["images"].items()
-                      if isinstance(m, dict) and m.get("until")})
+    waiting = sorted({(m["until"], ib + (" (built here)" if "build" in m else ""))
+                      for ib, m in mapping["images"].items() if isinstance(m, dict) and m.get("until")})
     print("Iron Bank leftovers waiting on Chainguard:")
     for name, ib in waiting:
         for n in (name, f"{name}-fips"):
