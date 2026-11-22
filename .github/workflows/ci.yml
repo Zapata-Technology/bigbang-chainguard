@@ -274,6 +274,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # no git push here: keep the token out of .git/config
+          fetch-depth: 0   # the base branch's BIGBANG_VERSION (--base)
 
+      # A pull request that moves BIGBANG_VERSION (the release PR) must also record the large
+      # (GitLab) and weekly_and_release tests, which it runs and other pull requests don't.
       - name: This Big Bang version has a recorded compat matrix
-        run: python3 scripts/results-gate.py
+        env:
+          BASE: ${{ github.base_ref }}
+        run: python3 scripts/results-gate.py ${BASE:+--base "origin/$BASE"}

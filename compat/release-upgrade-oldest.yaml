@@ -1,0 +1,35 @@
+# Release to release, from an older release: what a site that skipped a release or two runs
+# when it moves to this tree. release-upgrade.yaml starts from the newest release; this one
+# from the newest release of the Big Bang minor two before this tree's (`release:
+# oldest-supported`, N-2: on 4.1.x that is 3.35.1-cg.<n>, across Big Bang's major), so every
+# package moves two minors of its chart and image at once. Big Bang is installed from that
+# release's overlays and Flux, checked, then upgraded with this tree's Flux and overlays and
+# checked again. Fails if a pod still runs an image digest the release pinned and this tree
+# doesn't, besides the usual readiness, image policy and OOM checks.
+# No kyvernoPolicies: their values differ between Big Bang 3 and 4 (release-upgrade.yaml's
+# note), and `upgrade_from.values` would have to change with each Big Bang minor. Kyverno,
+# Headlamp and Grafana take the same test values on both.
+# `weekly_and_release`: the weekly run and a release PR (a new BIGBANG_VERSION) run it, not
+# every pull request (compat-plan.py); results-gate.py requires it on a release PR once it
+# has passed once.
+images: {}
+test:
+  weekly_and_release: true
+  enable: [kyverno, headlamp, grafana]
+  expect: [kyverno, headlamp, grafana]
+  upgrade_from:
+    release: oldest-supported
+    check:
+      # The starting install runs: Kyverno's controllers are Available on the old release.
+      - kubectl -n kyverno wait --for=condition=Available deploy --all --timeout=300s
+  check:
+    # Headlamp serves its UI after the upgrade.
+    - kubectl get --raw /api/v1/namespaces/headlamp/services/headlamp-headlamp:4466/proxy/ | grep -i '<title>headlamp'
+    # Grafana is up after the upgrade and reaches its database.
+    - >-
+      p=$(kubectl -n monitoring get pod -l app.kubernetes.io/name=grafana -o jsonpath='{.items[0].metadata.name}')
+      && out=$(kubectl get --raw "/api/v1/namespaces/monitoring/pods/$p:3000/proxy/api/health")
+      && echo "$out" && echo "$out" | grep -q '"database": *"ok"'
+  debug:
+    - "kubectl get helmrelease -A -o custom-columns=NAME:.metadata.name,READY:.status.conditions[0].status,REVISION:.status.lastAttemptedRevision"
+    - "kubectl get pods -A -o custom-columns=NS:.metadata.namespace,POD:.metadata.name,IMAGES:.spec.containers[*].image"

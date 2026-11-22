@@ -42,9 +42,57 @@ def test_large_tests_are_read_from_compat_files(tmp_path):
     assert gate.large_tests(str(tmp_path)) == {"gitlab"}
 
 
+def _flag_root(tmp_path):
+    (tmp_path / "compat").mkdir()
+    (tmp_path / "compat" / "gitlab.yaml").write_text("test:\n  large: true\n")
+    (tmp_path / "compat" / "release-upgrade-oldest.yaml").write_text("test:\n  weekly_and_release: true\n")
+    (tmp_path / "compat" / "loki.yaml").write_text("test:\n  enable: [loki]\n")
+    return str(tmp_path)
+
+
+def test_large_and_weekly_tests_are_required_only_on_a_release(tmp_path):
+    """Other pull requests never run them; a release PR runs them (compat-plan.py) and must
+    record them. A weekly_and_release test that never passed anywhere is bedding in."""
+    root = _flag_root(tmp_path)
+    passes = [{"test": t, "mode": "standard", "result": "pass", "bigbang": "4.1.1"} for t in ("loki", *gate.REQUIRED)]
+    data = {"tests": [{"test": t} for t in ("loki", "gitlab", "release-upgrade-oldest")], "results": passes}
+    assert gate.missing("4.1.1", data, root) == ([], [])
+    assert gate.missing("4.1.1", data, root, release=True) == ([], ["gitlab"])
+    data["results"].append({"test": "release-upgrade-oldest", "mode": "standard", "result": "pass", "bigbang": "4.1.0"})
+    assert gate.missing("4.1.1", data, root, release=True) == ([], ["gitlab", "release-upgrade-oldest"])
+    assert gate.missing("4.1.1", data, root) == ([], [])
+
+
+def test_the_vm_tests_rows_are_never_required():
+    """rke2.yml and fips-kernel.yml record rows too (test-results.py); described or not,
+    they are not part of compat.yml's matrix."""
+    passes = [{"test": t, "mode": "standard", "result": "pass", "bigbang": "4.1.1"} for t in gate.REQUIRED]
+    data = {"tests": [{"test": "rke2-default"}, {"test": "fips-kernel-keycloak"}],
+            "results": passes + [{"test": "rke2-default", "mode": "standard", "result": "fail", "bigbang": "4.1.1"}]}
+    assert gate.gaps("4.1.1", data, set()) == ([], [])
+
+
+def test_base_makes_a_new_big_bang_a_release(tmp_path, monkeypatch, capsys):
+    import json
+    root = _flag_root(tmp_path)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "BIGBANG_VERSION").write_text("4.1.1\n")
+    passes = [std(t, "pass", bigbang="4.1.1") for t in ("loki", *gate.REQUIRED)]
+    (tmp_path / "docs" / "test-results.json").write_text(json.dumps(
+        {"tests": [{"test": "loki"}, {"test": "gitlab"}], "results": passes}))
+    monkeypatch.setattr(gate, "ROOT", root)
+    monkeypatch.setattr(gate, "base_version", lambda ref, root: {"origin/main": "4.1.0", "same": "4.1.1"}.get(ref))
+    assert gate.main([]) == 0
+    assert gate.main(["--base", "same"]) == 0
+    assert gate.main(["--base", "unreadable"]) == 0   # git can't tell: the ordinary gate
+    assert gate.main(["--base", "origin/main"]) == 1
+    assert "no standard pass for 1 other tests: gitlab" in capsys.readouterr().err
+    assert gate.main(["--release"]) == 1
+
+
 def std(test, result, finished="2026-11-20T00:00:00Z", **extra):
     return {"test": test, "mode": "standard", "result": result, "bigbang": "4.1.0",
-            "finished": finished, "run_url": f"https://example/runs/{test}", **extra}
+            "finished": finished, "run_url": f"https://example/runs/{test}"} | extra
 
 
 def run_gate(tmp_path, monkeypatch, capsys, results, tests=("loki", "mimir")):

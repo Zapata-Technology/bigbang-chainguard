@@ -42,7 +42,10 @@ $COMPAT_TO_RELEASE (compat/installer-upgrade-to.yaml).
 `upgrade_from.release: previous-bigbang` starts a release upgrade from the newest release
 of the Big Bang version before this tree's instead of the newest release, so the
 packages' versions (and their database migrations) change in the upgrade
-(compat/release-upgrade-mattermost.yaml).
+(compat/release-upgrade-mattermost.yaml). `release: oldest-supported` starts from the newest
+release of the Big Bang minor two before this tree's (N-2: a site that skipped a release;
+compat/release-upgrade-oldest.yaml), and a release tag (`release: 4.0.0-cg.29`) from that
+release.
 
 Pull credentials come from the environment and are never printed:
   CGR_TOKEN                   cgr.dev token (chainctl auth token --audience cgr.dev)
@@ -159,11 +162,9 @@ def registry1_skip(test, env):
     return f"needs Iron Bank pulls (registry1: true); {' and '.join(missing)} not set"
 
 
-def release_before(ls_remote, head, older_than=None):
-    """The newest release tag (from `git ls-remote --tags` output) not at commit `head`: on
-    a pull request that is the release sites run now; on main, once the release workflow
-    has tagged it, the one before. With `older_than` (a Big Bang version), the newest
-    release of an older Big Bang version: an upgrade that moves the packages' versions."""
+def remote_tags(ls_remote, head):
+    """Tags in `git ls-remote --tags` output, but those at commit `head` (this tree's own
+    release, once release.yml has tagged main)."""
     at = {}
     for line in ls_remote.splitlines():
         sha, ref = line.split("\t")
@@ -172,11 +173,51 @@ def release_before(ls_remote, head, older_than=None):
             at[tag[:-3]] = sha   # an annotated tag's commit
         else:
             at.setdefault(tag, sha)
-    tags = [t for t, sha in at.items() if sha != head]
+    return [t for t, sha in at.items() if sha != head]
+
+
+def release_before(ls_remote, head, older_than=None):
+    """The newest release tag (from `git ls-remote --tags` output) not at commit `head`: on
+    a pull request that is the release sites run now; on main, once the release workflow
+    has tagged it, the one before. With `older_than` (a Big Bang version), the newest
+    release of an older Big Bang version: an upgrade that moves the packages' versions."""
+    tags = remote_tags(ls_remote, head)
     if older_than:
         tags = [t for t in tags if releases.tag_key(t)
                 and releases.version_key(releases.bigbang_of(t)) < releases.version_key(older_than)]
     return previous_tag(tags)
+
+
+def oldest_supported(ls_remote, head, bigbang, back=2):
+    """The newest release of the Big Bang minor `back` minors before `bigbang`'s (N-2 by
+    default), counting the minors this repo released (4.1 -> 4.0 -> 3.35: a major's first
+    minor follows the last one of the major before). A site that skipped a release or two
+    upgrades from there. None when this repo has no release that old."""
+    current = releases.version_key(bigbang)[:2]
+    minors = sorted({releases.tag_key(t)[:2] for t in remote_tags(ls_remote, head) if releases.tag_key(t)
+                     and releases.tag_key(t)[:2] < current}, reverse=True)
+    if len(minors) < back:
+        return None
+    want = minors[back - 1]
+    return previous_tag([t for t in remote_tags(ls_remote, head)
+                         if releases.tag_key(t) and releases.tag_key(t)[:2] == want])
+
+
+# upgrade_from.release: where a release upgrade starts. A tag (4.0.0-cg.29) pins one.
+RELEASE_STARTS = ("previous", "previous-bigbang", "oldest-supported")
+
+
+def release_start(start, ls_remote, head, bigbang):
+    """The release tag `upgrade_from.release: <start>` names (see fetch_release), or None."""
+    if start == "previous":
+        return release_before(ls_remote, head)
+    if start == "previous-bigbang":
+        return release_before(ls_remote, head, bigbang)
+    if start == "oldest-supported":
+        return oldest_supported(ls_remote, head, bigbang)
+    if releases.tag_key(start):
+        return start if start in remote_tags(ls_remote, "") else None
+    raise SystemExit(f"upgrade_from.release: {start!r} isn't {', '.join(RELEASE_STARTS)} or a release tag")
 
 
 BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
@@ -185,17 +226,19 @@ BIGBANG_GIT = "https://repo1.dso.mil/big-bang/bigbang.git"
 def fetch_release(dest, start="previous"):
     """Extract the previous release's overlays, Flux kustomizations and BIGBANG_VERSION
     into `dest` (git archive of its tag; works in a shallow checkout). `start`: previous
-    (the newest release) or previous-bigbang (the newest release of the Big Bang version
+    (the newest release), previous-bigbang (the newest release of the Big Bang version
     before this tree's: its packages' versions change in the upgrade, so their database
-    migrations run). Returns the tag and the Big Bang chart it deploys: work/bigbang's when
-    the versions match, else a clone of its Big Bang tag."""
-    if start not in ("previous", "previous-bigbang"):
-        raise SystemExit(f"upgrade_from.release: {start!r} isn't previous or previous-bigbang")
-    older = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip() if start == "previous-bigbang" else None
+    migrations run), oldest-supported (the newest release of the Big Bang minor two before
+    this tree's: a site that skipped releases), or a release tag (4.0.0-cg.29: that one).
+    Returns the tag and the Big Bang chart it deploys: work/bigbang's when the versions
+    match, else a clone of its Big Bang tag."""
+    if start not in RELEASE_STARTS and not releases.tag_key(start):
+        raise SystemExit(f"upgrade_from.release: {start!r} isn't {', '.join(RELEASE_STARTS)} or a release tag")
+    bigbang = open(os.path.join(ROOT, "BIGBANG_VERSION")).read().strip()
     head = sh("git", "-C", ROOT, "rev-parse", "HEAD", capture=True).strip()
-    tag = release_before(sh("git", "-C", ROOT, "ls-remote", "--tags", "origin", capture=True), head, older)
+    tag = release_start(start, sh("git", "-C", ROOT, "ls-remote", "--tags", "origin", capture=True), head, bigbang)
     if not tag:
-        raise SystemExit("upgrade_from.release: no earlier release to upgrade from")
+        raise SystemExit(f"upgrade_from.release: {start}: no release to upgrade from")
     sh("git", "-C", ROOT, "fetch", "-q", "--depth", "1", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
     archive = subprocess.run(["git", "-C", ROOT, "archive", "--format=tar", tag, "overlays", "flux", "flux-fips",
                               "BIGBANG_VERSION"], capture_output=True, check=True).stdout

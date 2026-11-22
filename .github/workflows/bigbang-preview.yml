@@ -21,9 +21,12 @@ on:
 permissions:
   contents: read
 
+# Never cancel a run in progress: a manual dispatch (one ref) cancelled the daily run's kind
+# tests on the release branch halfway (each a billed 10-20 minutes). Scheduled runs share one
+# group and queue; each dispatch gets its own group (run_id), so neither waits on the other.
 concurrency:
-  group: bigbang-preview
-  cancel-in-progress: true
+  group: bigbang-preview-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'schedule' }}
+  cancel-in-progress: false
 
 jobs:
   # The refs to preview: the dispatched one, else master and an untagged release branch.

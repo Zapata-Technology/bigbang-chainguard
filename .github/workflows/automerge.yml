@@ -38,7 +38,9 @@ name: Auto-merge - nightly update
 
 on:
   workflow_run:
-    workflows: [CI, "Compat - upgrade tests", "Build - Big Bang images"]
+    # RKE2 runs on a release PR (its BIGBANG_VERSION) and can finish last: without its event
+    # a green patch release would wait for a person. It never runs on bot/bigbang-update.
+    workflows: [CI, "Compat - upgrade tests", "Build - Big Bang images", "RKE2 - Big Bang on RKE2 with the CIS profile"]
     types: [completed]
 
 permissions:
