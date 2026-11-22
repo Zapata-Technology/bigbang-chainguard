@@ -205,11 +205,12 @@ images:
   ironbank/opensource/haproxy/haproxy-latest: {cg: haproxy, fips: null}
   ironbank/opensource/shellcheck/shellcheck: {stays: "redis-ha's helm test image (helm test only)", until: shellcheck}
   ironbank/opensource/nginx/nginx: nginx
-  # Fortify's Bitnami MySQL chart needs the Bitnami layout (--defaults-file=/opt/bitnami/mysql/
-  # conf/my.cnf): the plain mysql image refused it and Fortify's database never started
-  # (compat/fortify.yaml, 2026-11-20). Chainguard ships that layout as mysql-iamguarded, at
-  # Iron Bank's 8.4.13. It has no FIPS variant (ask Chainguard); mysql-fips fails the same way.
-  ironbank/opensource/mysql/mysql8: {cg: mysql-iamguarded, fips: null}
+  # Fortify's MySQL: the plain image, which has the official image's docker-entrypoint.sh as
+  # Iron Bank's does (it initialises the datadir). Not mysql-iamguarded: its layout is
+  # /opt/iamguarded and /iamguarded, not the /opt/bitnami and /bitnami the chart mounts, and its
+  # entrypoint runs setup only for run.sh, so mysqld met an empty /bitnami/mysql/data
+  # (compat/fortify.yaml, 2026-11-21). Big Bang's args need overrides.fortify below.
+  ironbank/opensource/mysql/mysql8: mysql
   ironbank/afdco/docker/busybox: busybox
   # Big Bang's own job base image (bash + kubectl + yq + jq on UBI). scripts/bb-build.py base
   # rebuilds it FROM the org's kubectl -dev images; with BUILD_REGISTRY empty it stays.
@@ -322,6 +323,16 @@ overrides:
         proxy: {image: "@repo:istio-proxy"}
         proxy_init: {image: "@ref:istio-proxy:ib=ironbank/opensource/istio/pilot"}
         tag: "@tag:istio-proxy:ib=ironbank/opensource/istio/pilot"   # same Istio release; the proxy is only injected, never rendered
+  fortify:
+    # Big Bang runs Fortify's MySQL with args [mysqld, --defaults-file=/opt/bitnami/mysql/conf/my.cnf]
+    # for Iron Bank's image, whose ENTRYPOINT is docker-entrypoint.sh alone. Chainguard's
+    # mysql has ENTRYPOINT [docker-entrypoint.sh, mysqld], so mysqld got a second "mysqld"
+    # first and refused --defaults-file ("unknown variable 'defaults-file=...'", then "data
+    # directory /var/lib/mysql/ is unusable"; compat/fortify.yaml, 2026-11-20). Without the
+    # leading mysqld the container runs what Iron Bank's does. Helm replaces lists.
+    mysql:
+      primary:
+        args: ["--defaults-file=/opt/bitnami/mysql/conf/my.cnf"]
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6).
