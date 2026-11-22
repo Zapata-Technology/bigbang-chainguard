@@ -226,7 +226,7 @@ sequenceDiagram
     participant PR as Pull request
     participant CI as ci.yml + builds.yml + compat.yml
     participant M as main
-    participant B as builds.yml + release.yml (push)
+    participant B as builds.yml (push) + release.yml (after CI's verify)
     participant G as BUILD_REGISTRY + GitHub release
 
     N->>N: newest Big Bang tag? fetch, discover
@@ -265,9 +265,10 @@ failure that won't recover, and fails it on an OOM kill. Every job uploads its l
 and the cluster's state as an artifact. See [testing.md](testing.md).
 
 `automerge.yml` reads the pull request and its check runs with the workflow's own
-token and merges with `RELEASE_PAT`, so the merge starts `builds.yml` and `release.yml`
-on main (a merge made with the workflow token wouldn't). Each such merge that changes
-what users deploy becomes a release `<bigbang>-cg.<n>`.
+token and merges with `RELEASE_PAT`, so the merge starts `builds.yml` and CI on main (a
+merge made with the workflow token wouldn't). When CI's `verify` passes on that commit,
+`release.yml` runs; each merge that changes what users deploy becomes a release
+`<bigbang>-cg.<n>`.
 `cve-report.yml` compares Iron Bank's and Chainguard's images with grype every week.
 
 `bb-leftovers.py` checks each `{stays: ..., until: <name>}` image against Chainguard's

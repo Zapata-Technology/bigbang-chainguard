@@ -93,8 +93,73 @@ def test_no_repository_no_release(monkeypatch):
 
 def test_release_runs_only_from_main_with_a_timeout():
     job = workflow("release.yml")["jobs"]["release"]
-    assert job["if"] == "github.ref == 'refs/heads/main'"
+    assert job["if"].startswith("github.ref == 'refs/heads/main' &&")
     assert job["timeout-minutes"] <= 30
+
+
+def test_release_waits_for_ci_on_main_pushes_only():
+    """A release is cut after CI finished on a push to this repository's main, never on the
+    push itself (CI's verify might still fail) and never for a pull request's CI run."""
+    wf = workflow("release.yml")
+    on = wf.get(True) or wf["on"]
+    assert set(on) == {"workflow_run", "workflow_dispatch"}
+    assert on["workflow_run"] == {"workflows": ["CI"], "types": ["completed"], "branches": ["main"]}
+    assert workflow("ci.yml")["name"] == "CI" and release.VERIFY in workflow("ci.yml")["jobs"]
+    job = wf["jobs"]["release"]
+    for cond in ("github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'",
+                 "github.event.workflow_run.head_repository.full_name == github.repository"):
+        assert cond in job["if"], cond
+    assert job["permissions"]["checks"] == "read"
+    checkout = next(s for s in job["steps"] if "actions/checkout@" in s.get("uses", ""))
+    assert checkout["with"]["ref"] == "${{ github.event.workflow_run.head_sha || github.sha }}"
+    run = next(s["run"] for s in job["steps"] if s.get("name") == "Release")
+    assert "release.py --after-ci" in run and "release.py --require-verify" in run
+
+
+def gate_args(**kw):
+    return type("A", (), {"require_verify": False, "after_ci": False, **kw})()
+
+
+@pytest.mark.parametrize("changed, verify, want", [
+    (["docs/install.md", "tests/test_x.py", "README.md"], "success", "no deployable file changed"),
+    (["overlays/values-chainguard.yaml"], "success", None),
+    (["docs/x.md", "scripts/bbinstall/install.py"], "success", None),
+    (["overlays/values-chainguard.yaml"], "failure", "is failure, not success"),
+    (["overlays/values-chainguard.yaml"], None, "is missing"),
+])
+def test_after_ci_releases_deployable_changes_once_verify_passed(monkeypatch, changed, verify, want):
+    monkeypatch.setattr(release, "behind", lambda prev: False)
+    monkeypatch.setattr(release, "changed_since", lambda prev: changed)
+    monkeypatch.setattr(release, "verify_result", lambda repo, sha: verify)
+    monkeypatch.setattr(release, "git", lambda *a: "abc123")
+    stop = release.gate(gate_args(after_ci=True), "o/r", "4.1.1-cg.1")
+    assert (stop is None) if want is None else (want in stop), stop
+
+
+def test_after_ci_skips_a_commit_older_than_the_latest_release(monkeypatch):
+    monkeypatch.setattr(release, "behind", lambda prev: True)
+    monkeypatch.setattr(release, "verify_result", lambda repo, sha: pytest.fail("no API call needed"))
+    assert "older than the latest release" in release.gate(gate_args(after_ci=True), "o/r", "4.1.1-cg.3")
+
+
+def test_manual_release_still_needs_verify(monkeypatch):
+    """workflow_dispatch releases whatever changed, but only a verified commit."""
+    monkeypatch.setattr(release, "changed_since", lambda prev: pytest.fail("a manual release ignores paths"))
+    monkeypatch.setattr(release, "git", lambda *a: "abc123")
+    monkeypatch.setattr(release, "verify_result", lambda repo, sha: "pending")
+    assert "is pending" in release.gate(gate_args(require_verify=True), "o/r", None)
+    monkeypatch.setattr(release, "verify_result", lambda repo, sha: "success")
+    assert release.gate(gate_args(require_verify=True), "o/r", None) is None
+    assert release.gate(gate_args(), "o/r", None) is None     # a local --dry-run asks nothing
+
+
+def test_deployable_matches_files_and_directories():
+    assert all(p.endswith("/**") or "*" not in p for p in release.DEPLOYABLE)
+    assert release.deployable("overlays/values-chainguard.yaml")
+    assert release.deployable("scripts/bbinstall/x.py") and release.deployable("BIGBANG_VERSION")
+    for no in ("overlays", "overlaysX/a", "scripts/bb-convert.py", "docs/install.md", "tests/test_release.py",
+               "BIGBANG_VERSION.bak", ".github/workflows/ci.yml"):
+        assert not release.deployable(no), no
 
 
 def local_imports(path, seen):
@@ -114,8 +179,7 @@ def local_imports(path, seen):
 
 
 def test_release_paths_cover_what_the_installer_runs_and_no_other_script():
-    on = workflow("release.yml")
-    paths = (on.get(True) or on["on"])["push"]["paths"]
+    paths = release.DEPLOYABLE
     assert "scripts/**" not in paths
     want = {"scripts/bb-install.py"}
     for name in local_imports(os.path.join(SCRIPTS, "bb-install.py"), set()):

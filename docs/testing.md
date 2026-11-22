@@ -233,7 +233,7 @@ value, or they are not in the committed overlays yet:
   Deployment `progressDeadlineSeconds` 2400 is `progress_deadline`. Both reach the overlay
   the next time `bb-convert.py` runs online. They are not in the committed overlays until that run.
 - metrics-server `--kubelet-insecure-tls` stays in `compat/metrics-server.yaml` only.
-- The org's `neuvector-manager-fips` repository has no tags, so `orgs/zapatatechnology.com.yaml`
+- The reference org's `neuvector-manager-fips` repository has no tags, so its file in `orgs/`
   keeps the standard manager (`fips: null`). A Ready manager pod on the FIPS overlay is
   still that standard image.
 
@@ -495,7 +495,7 @@ runners. The results go in the ref's preview issue, and are marked `preview` so 
 above never shows them. By hand, from main: `gh workflow run compat.yml --ref main -f
 bigbang_ref=release-X.Y.Z` (add `-f tests=<names>` for others).
 
-The MinIO server has no kind test. Zapata's org file keeps it on Iron Bank, and CI has no
+The MinIO server has no kind test. The reference org's file in `orgs/` keeps it on Iron Bank, and CI has no
 registry1 credentials. The MinIO operator does: `compat/minio-operator.yaml` passed on
 Big Bang 4.0.0. Mattermost is not large: `compat/mattermost.yaml` runs the server with
 the operator built here, PostgreSQL from `compat/support/app-deps.py` and files on SeaweedFS.

@@ -4,11 +4,10 @@ The [README](../README.md#install) has the short path: `check`, `install`, `upgr
 page has everything behind it: what each step does, the options, the logins, and
 [how to do it by hand](#doing-it-by-hand). Something went wrong: [troubleshooting](troubleshooting.md).
 
-The overlays in this repository were generated for `zapatatechnology.com` (each file's
-header says which org), and its releases point at Zapata's private org and build registry.
-For another org, generate them first ([your own Chainguard org](your-org.md); the quickstart's
-[Using this outside Zapata Technology](quickstart.md#using-this-outside-zapata-technology)
-has the steps).
+The overlays in a copy of this repository are generated for one Chainguard org (each file's
+header says which), and its releases point at that org and its build registry. For another
+org, generate them first ([your own Chainguard org](your-org.md); the quickstart's
+[Using it with your own org](quickstart.md#using-it-with-your-own-org) has the steps).
 
 ## The installer
 
@@ -362,6 +361,11 @@ Iron Bank image's public recipe builds FROM, as a floor (`--ironbank-bases`).
   the standard image, and `docs/images.md` lists them.
 - Keycloak FIPS (BC-FIPS) needs an admin password of at least 14 characters and BCFKS
   keystores. Set those in the site's `packages.keycloak.values` before switching.
+- Kibana on the FIPS overlay (`kibana-fips`) refuses to start unless
+  `xpack.security.fipsMode.enabled` is `true`, and Kibana allows that setting only with an
+  Elastic Platinum or Enterprise license (or a trial). A FIPS site running Kibana needs that
+  license and `packages.elasticsearchKibana.values.kibana.config.xpack.security.fipsMode.enabled: true`
+  in its site file.
 - Switching an existing deployment is `bb-install.py install --fips` (and back without `--fips`).
 
 ## GitLab and GitLab Runner notes

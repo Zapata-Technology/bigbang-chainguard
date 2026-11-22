@@ -3,36 +3,26 @@
 # release holds the archive to install from, its sha256 and a keyless Sigstore signature
 # (verifiable against this workflow), and notes with the image changes since the previous
 # release (scripts/release.py). The signature is recorded in Sigstore's public log.
+#
+# It runs after CI, not on the push: a release is tagged only once CI's `verify` passed on
+# that exact commit. workflow_run has no path filter, so release.py --after-ci decides:
+# it releases only when a file in its DEPLOYABLE list changed since the previous release
+# (docs-only and test-only commits cut none). Measuring from the last release, not the
+# last commit, means a deployable change whose CI failed is released by the next commit
+# that passes. workflow_run also fires again when CI is re-run, so a flaky `verify` that
+# passes on re-run still releases. It waits on `verify` only (release.py reads that check
+# run), not the whole CI conclusion: results-gate can be red on main while the overlays
+# are fine.
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - BIGBANG_VERSION
-      - overlays/**
-      - flux/**
-      - flux-fips/**
-      - seaweedfs/**
-      - seaweedfs-fips/**
-      - discovery/images.json
-      - mapping.yaml
-      - object-storage.yaml
-      - orgs/**
-      # The installer and the scripts it imports at runtime (tests/test_release.py checks
-      # this list against bb-install.py's imports); a change to any other script deploys
-      # nothing new, so it cuts no release.
-      - requirements.txt
-      - scripts/bb-install.py
-      - scripts/bbinstall/**
-      - scripts/bbcluster.py
-      - scripts/bbcommon.py
-      - scripts/objstore.py
-      - scripts/orgtags.py
-      - scripts/release.py
-      - .github/workflows/release.yml
   # Runs only from main (the job's `if`): the signature's identity names the ref, and
   # bb-install.py upgrade --to and docs/quickstart.md accept release.yml@refs/heads/main only.
+  # A manual run releases main's HEAD whatever changed, still only after `verify` passed.
   workflow_dispatch:
 
 permissions:
@@ -44,12 +34,20 @@ concurrency:
 
 jobs:
   release:
-    if: github.ref == 'refs/heads/main'
+    # workflow_run: only CI runs for pushes to this repository's main. `branches: [main]`
+    # alone also matches a pull request whose head branch is called main, from a fork.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 20   # a release takes about a minute
     permissions:
       contents: write   # the tag and the release
       id-token: write   # cosign keyless: the archive's signature names this workflow
+      checks: read      # release.py reads CI's verify check run on the commit
     steps:
       - name: Harden the runner (block unlisted outbound calls)
         uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
@@ -73,6 +71,8 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # The commit CI verified, not main's newest: main may have moved on since.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0   # every tag, to number the release and diff against the last one
           persist-credentials: false
 
@@ -92,6 +92,11 @@ jobs:
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
         run: |
           python3 -m pip install --quiet -r requirements.txt
-          python3 scripts/release.py
+          if [ "$EVENT" = workflow_run ]; then
+            python3 scripts/release.py --after-ci
+          else
+            python3 scripts/release.py --require-verify
+          fi
