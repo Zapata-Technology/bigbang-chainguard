@@ -6,11 +6,11 @@ image:
   standard:
     name: bigbang-installer
     tag: 4.1.1-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:3c7dd7bb5ae1be0bf1e10354598a44a660bae3390e854bf4c8dc749198a99bea
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:b63bb442b2042735661a1281288243edf8a9a35d5b1326e2bc9a158aebb08777
   fips:
     name: bigbang-installer-fips
     tag: 4.1.1-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:5cc9e01c707e10b7b953a9d95234fb555f2aaa0a70c0944d3fb4c8499ed91eff
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.6-dev@sha256:9fad6a8364021446a70b98623710cdad9ef55f500608b08237b2436afd777902
 packages:
 - bash
 - cosign
