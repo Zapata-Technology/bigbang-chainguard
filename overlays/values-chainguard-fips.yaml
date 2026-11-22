@@ -981,7 +981,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-fips
         - digest: sha256:81d29a7fea315b7b5afe4b6c724e9d67351adc645ea7260bcdd372460f0de2ff
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno-fips
-        - digest: sha256:0e6a4bbf7a9af7961f44385b6763f1c14b8fabf21dffb7a973f9b3a79362fcca
+        - digest: sha256:ddacdef3d91cae84e149d990db00bc4b061893119f88cd39a4d6f9d23ab565f5
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-ui-fips
     values:
       upstream:
