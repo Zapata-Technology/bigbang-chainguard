@@ -283,3 +283,25 @@ def test_scan_repository_gives_up_after_its_timeout():
             raise urllib.error.HTTPError(path, 304, "scanning", {}, io.BytesIO())
     with pytest.raises(urllib.error.HTTPError):
         nv.scan_repository(Api(), {}, timeout=30, clock=lambda: t[0], sleep=lambda s: t.__setitem__(0, t[0] + s))
+
+
+def test_a_failed_digest_scan_logs_neuvector_s_reason_and_retries_by_tag():
+    """RKE2 run 45063275137: every by-digest scan of NeuVector's own images got HTTP 500, with
+    no reason in the log. Log the body (without the password) and try the overlay's tag."""
+    calls, logged = [], []
+
+    def scan(api, req):
+        calls.append(req["tag"])
+        if req["tag"].startswith("sha256:"):
+            raise urllib.error.HTTPError("u", 500, "err", {}, io.BytesIO(b'{"message": "bad tag for tok"}'))
+        return {"digest": D4, "base_os": "wolfi", "modules": [{"name": "x"}], "vulnerabilities": []}
+    rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-controller@{D4}"], [], {"cgr.dev": ("_token", "tok")},
+                               org=ORG, tags={D4: "5.6.4"}, log=logged.append, scan=scan)
+    assert calls == [D4, "5.6.4"]
+    assert any("HTTP 500" in m and "bad tag for ***" in m for m in logged)
+    assert not any("tok" in m.replace("***", "") for m in logged if "HTTP" in m)
+    assert rows[0]["scan_status"] == "repository (by tag)" and rows[0]["digest"] == D4
+    # The tag moved after the deployment: the row says the scan wasn't of the deployed image.
+    rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-controller@{D5}"], [], {}, org=ORG,
+                               tags={D5: "5.6.4"}, log=lambda *_: None, scan=scan)
+    assert rows[0]["scan_status"].startswith("repository (by tag; scanned sha256:")

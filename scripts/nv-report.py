@@ -24,6 +24,8 @@ NeuVector leaves its own containers out of its workload list: with --pod-images 
 running container's image, from kubectl), each image the workload scan didn't report is
 scanned by reference (POST /v1/scan/repository) at its deployed digest, with the pull
 credentials in CGR_USERNAME/CGR_PASSWORD (cgr.dev) and BUILD_REGISTRY_USERNAME/_TOKEN.
+A failed scan logs NeuVector's reason and is retried at the overlay's tag for that digest
+(the row says when the tag's digest is no longer the deployed one).
 
 `origin` is `chainguard` (cgr.dev/<CHAINGUARD_ORG>), `built-here` (BUILD_REGISTRY: built
 FROM the org's images) or `other` (RKE2's own images, the storage provisioner). An image
@@ -257,6 +259,18 @@ def scan_repository(api, req, timeout=900, poll=10, clock=time.time, sleep=time.
         sleep(poll)
 
 
+def error_text(e, secret=""):
+    """The first 300 characters of an HTTP error's body (NeuVector says why in its JSON
+    `message`), with the registry password taken out in case it is echoed back."""
+    try:
+        body = e.read().decode("utf-8", "replace")
+    except Exception:
+        return ""
+    if secret:
+        body = body.replace(secret, "***")
+    return " ".join(body.split())[:300]
+
+
 def repository_scans(api, pod_images, images, creds, org="", build_registry="", tags=None, log=print,
                      scan=scan_repository):
     """Scan, by reference, each image the pods run that the workload scan didn't report.
@@ -286,13 +300,26 @@ def repository_scans(api, pod_images, images, creds, org="", build_registry="", 
         req = {"registry": f"https://{'registry-1.docker.io' if host == 'docker.io' else host}",
                "repository": repo, "tag": at, "username": user, "password": password}
         log(f"repository scan: {host}/{repo}@{at[:19]}")
+        how = "repository"
         try:
             report = scan(api, req)
         except urllib.error.HTTPError as e:
-            log(f"  failed: HTTP {e.code}")
+            log(f"  failed: HTTP {e.code}: {error_text(e, password)}")
             report = None
+            # The RKE2 run (45063275137) got HTTP 500 for every digest; the same images
+            # scanned by tag on another cluster. The tag may have moved since (a rebuild),
+            # so the row says which digest NeuVector scanned.
+            if digest and tags.get(digest):
+                log(f"  retrying by tag {tags[digest]}")
+                try:
+                    report = scan(api, dict(req, tag=tags[digest]))
+                    scanned = report.get("digest", "")
+                    how = "repository (by tag)" if scanned in ("", digest) else \
+                        f"repository (by tag; scanned {scanned[:19]}, not the deployed digest)"
+                except urllib.error.HTTPError as e2:
+                    log(f"  failed again: HTTP {e2.code}: {error_text(e2, password)}")
         row = entry(ref, digest or (report or {}).get("digest", ""), report or {},
-                    (report or {}).get("base_os", ""), "repository" if report is not None else "failed",
+                    (report or {}).get("base_os", ""), how if report is not None else "failed",
                     org, build_registry, tags)
         row["containers"] = n
         out[key] = row
@@ -312,6 +339,8 @@ def markdown(result):
         flag = " (none found: not read)" if r["packages"] == 0 else ""
         if r.get("scan_status") == "repository":
             flag += " (scanned by reference)"
+        elif str(r.get("scan_status", "")).startswith("repository (by tag"):
+            flag += " (scanned by tag" + ("; not the deployed digest)" if "not the deployed" in r["scan_status"] else ")")
         elif r.get("scan_status") == "failed":
             flag = " (scan failed)"
         lines.append(f"| {r['origin']} | `{r['image']}` | {r['tag'] or r['digest'][7:19]} | {c['Critical']} | {c['High']} "
