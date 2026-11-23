@@ -436,6 +436,13 @@ class Converter:
                                 set_path(vals, d["path"].split(".")[:-1] + [k], copy.deepcopy(v))
                     covered.add(ib_repo)
 
+    def max_version(self, name):
+        """The max_version of the images entry that maps to the org's <name>, if any."""
+        for m in self.images.values():
+            if isinstance(m, dict) and m.get("cg") == name and m.get("max_version"):
+                return m["max_version"]
+        return None
+
     def overrides(self, release, spec, fips, tag=None, path=(), tag_version=""):
         """Expand a mapping.yaml `overrides` block. Tokens:
           @repo:<name>            <name>, or <name>-fips in the FIPS overlay
@@ -478,6 +485,9 @@ class Converter:
             self.missing.add(name)
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"org has no {name}"))
             return spec
+        # The images entry for <name> (`cg: <name>`, or the bare name) caps the tag too:
+        # its max_version holds an override's @tag just as it holds the image itself.
+        tags = capped(tags, self.max_version(base), None, None)
         version_spec = version
         if version.startswith("ib="):
             version = self.ib_tags.get(version[3:], "")

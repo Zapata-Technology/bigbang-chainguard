@@ -892,3 +892,15 @@ def test_cr_digests_entries_are_validated():
                 {"x": {"a": "sha"}}, {"packages.x": ["a"]}):
         with pytest.raises(ValueError, match="cr_digests"):
             bbcommon.validate_mapping({"images": {}, "cr_digests": bad})
+
+
+def test_override_tag_respects_the_images_entry_max_version():
+    # NeuVector's scanner tag comes from an override (@tag:neuvector-scanner:*); its images
+    # entry's max_version must hold it back (v4.330 never registered, 2026-11-23).
+    mapping = {"images": {"ironbank/neuvector/neuvector/scanner": {"cg": "scan", "max_version": "4.329"}}}
+    c = convert.Converter(mapping, FakeTags({"scan": ["v4.328", "v4.329", "v4.330"], "scan-fips": ["v4.328", "v4.330"]}))
+    assert c.overrides("neuvector", {"tag": "@tag:scan:*"}, False) == {"tag": "v4.329"}
+    assert c.overrides("neuvector", {"tag": "@tag:scan:*"}, True) == {"tag": "v4.328"}
+    # Without a cap the newest wins.
+    c = convert.Converter({"images": {}}, FakeTags({"scan": ["v4.329", "v4.330"]}))
+    assert c.overrides("neuvector", {"tag": "@tag:scan:*"}, False) == {"tag": "v4.330"}
