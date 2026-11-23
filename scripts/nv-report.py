@@ -287,8 +287,30 @@ def error_text(e, secret=""):
     return " ".join(body.split())[:300]
 
 
+# cgr.dev sometimes answers the first manifest request for a digest with HTTP 503
+# "policy evaluation unavailable" (reproduced with NeuVector's standalone scanner and curl,
+# 2026-11-23); a request a little later gets 200. NeuVector doesn't retry a 503 and reports
+# HTTP 500 "Image not found", so every by-reference scan on RKE2 failed. Retry it.
+NOT_FOUND_RETRIES, NOT_FOUND_WAIT = 4, 20
+
+
+def scan_retrying(api, req, scan, log, secret, sleep, retries=NOT_FOUND_RETRIES, wait=NOT_FOUND_WAIT):
+    """scan(api, req), repeated while NeuVector says "Image not found" (a transient registry
+    error behind it); raises the last HTTPError, its reason already logged."""
+    for attempt in range(retries + 1):
+        try:
+            return scan(api, req)
+        except urllib.error.HTTPError as e:
+            text = error_text(e, secret)
+            log(f"  failed: HTTP {e.code}: {text}")
+            if attempt == retries or e.code != 500 or "Image not found" not in text:
+                raise
+            log(f"  retrying in {wait} s ({attempt + 1} of {retries}; cgr.dev may have answered 503)")
+            sleep(wait)
+
+
 def repository_scans(api, pod_images, images, creds, org="", build_registry="", tags=None, log=print,
-                     scan=scan_repository, repo_tags=None):
+                     scan=scan_repository, repo_tags=None, sleep=time.sleep):
     """Scan, by reference, each image the pods run that the workload scan didn't report.
 
     NeuVector leaves its own containers out of /v1/workload, so its controller, enforcer,
@@ -318,9 +340,8 @@ def repository_scans(api, pod_images, images, creds, org="", build_registry="", 
         log(f"repository scan: {host}/{repo}@{at[:19]}")
         how = "repository"
         try:
-            report = scan(api, req)
-        except urllib.error.HTTPError as e:
-            log(f"  failed: HTTP {e.code}: {error_text(e, password)}")
+            report = scan_retrying(api, req, scan, log, password, sleep)
+        except urllib.error.HTTPError:
             report = None
             # NeuVector 5.6 answers a digest with HTTP 500 "Image not found" (RKE2 run
             # 45097553250); the same images scanned by tag on another cluster. The tag may
@@ -330,12 +351,12 @@ def repository_scans(api, pod_images, images, creds, org="", build_registry="", 
             if digest and tag:
                 log(f"  retrying by tag {tag}")
                 try:
-                    report = scan(api, dict(req, tag=tag))
+                    report = scan_retrying(api, dict(req, tag=tag), scan, log, password, sleep, retries=1)
                     scanned = report.get("digest", "")
                     how = "repository (by tag)" if scanned in ("", digest) else \
                         f"repository (by tag; scanned {scanned[:19]}, not the deployed digest)"
-                except urllib.error.HTTPError as e2:
-                    log(f"  failed again: HTTP {e2.code}: {error_text(e2, password)}")
+                except urllib.error.HTTPError:
+                    log("  failed again")
         row = entry(ref, digest or (report or {}).get("digest", ""), report or {},
                     (report or {}).get("base_os", ""), how if report is not None else "failed",
                     org, build_registry, tags)
