@@ -42,6 +42,9 @@ def test_age_looks_up_every_image_in_parallel_and_reports_the_stale_one(tmp_path
 
         def created(self, repo, tag):
             return built[repo]
+
+        def tags(self, repo):
+            return ["1.37.2-dev"]
     (tmp_path / "images.md").write_text(MAP)
     monkeypatch.setattr(age, "OrgTags", Tags)
     monkeypatch.setattr(age.sys, "argv", ["bb-age.py", "--org", "example.com", "--images", str(tmp_path / "images.md")])
@@ -99,3 +102,35 @@ def test_flux_images_show_their_digest_pins():
                      "newTag": "1.7.1"}]}
     assert images.kustomization_images(k) == [P + "flux-helm-controller@sha256:" + "b" * 64,
                                               P + "flux-kustomize-controller:1.7.1"]
+
+
+def test_newer_minor_is_the_same_major_and_suffix():
+    tags = ["0.34.2", "0.35.0", "v0.35.0", "0.35", "1.0.0", "0.36.0-dev", "0.34.3"]
+    assert age.newer_minor("0.34.2", tags) in ("0.35.0", "v0.35.0")
+    assert age.newer_minor("0.35.0", tags) is None                 # 1.0.0 is another major
+    assert age.newer_minor("0.34.2-dev", tags) == "0.36.0-dev"
+    assert age.newer_minor("latest", tags) is None
+    assert age.newer_minor("0.34", ["0.35"]) == "0.35"             # a stream tag when that is all there is
+
+
+def test_a_line_left_behind_by_a_newer_minor_is_superseded():
+    """Alertmanager 0.34.2: last built 2026-11-09, the day before 0.35.0; on 2026-11-22 it
+    still had glibc CVE-2026-84243 (High) that 0.35.0 fixed. 30 days would wait until December."""
+    now = datetime.datetime(2026, 11, 22, tzinfo=datetime.timezone.utc)
+
+    class Tags:
+        created_at = {("am", "0.34.2"): "2026-11-09T20:44:16Z", ("am", "0.35.0"): "2026-11-19T07:28:49Z",
+                      ("kept", "2.0.0"): "2026-11-10T00:00:00Z", ("kept", "2.1.0"): "2026-11-01T00:00:00Z",
+                      ("fresh", "1.0.0"): "2026-11-21T00:00:00Z", ("fresh", "1.1.0"): "2026-11-21T12:00:00Z"}
+
+        def tags(self, repo):
+            return {"am": ["0.34.2", "0.35.0"], "kept": ["2.0.0", "2.1.0"], "fresh": ["1.0.0", "1.1.0"]}[repo]
+
+        def created(self, repo, tag):
+            return self.created_at[(repo, tag)]
+    t = Tags()
+    refs = [("am", "0.34.2"), ("kept", "2.0.0"), ("fresh", "1.0.0")]
+    ages = {ref: age.age_days(t.created(*ref), now) for ref in refs}
+    # kept: its newer minor was built before it (both lines maintained); fresh: rebuilt yesterday.
+    assert age.superseded(refs, ages, t, now, 7) == [("am", "0.34.2", 12, "0.35.0", 2)]
+    assert age.superseded(refs, ages, t, now, 14) == []          # a warning first, then a failure

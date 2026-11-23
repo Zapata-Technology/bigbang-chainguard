@@ -89,7 +89,10 @@ images:
   ironbank/kiwigrid/k8s-sidecar: k8s-sidecar
   ironbank/opensource/fluent/fluent-bit: fluent-bit
   ironbank/opensource/prometheus/prometheus: prometheus
-  ironbank/opensource/prometheus/alertmanager: prometheus-alertmanager
+  # Chainguard stopped rebuilding 0.34 when 0.35 came out (0.34.2 last built 2026-11-09):
+  # glibc CVE-2026-84243 (High) stays unfixed there and 0.35.0 has none (NeuVector report,
+  # 2026-11-22). Iron Bank is on 0.34.2.
+  ironbank/opensource/prometheus/alertmanager: {cg: prometheus-alertmanager, min_version: "0.35"}
   ironbank/opensource/prometheus/node-exporter: prometheus-node-exporter
   ironbank/opensource/prometheus/blackbox_exporter: prometheus-blackbox-exporter
   ironbank/opensource/prometheus/snmp_exporter: {cg: prometheus-snmp-exporter, fips: null}
@@ -284,8 +287,8 @@ images:
 hubs:
   istiod:
     upstream.image: ironbank/opensource/istio/pilot
-    # The sidecar proxy is set in overrides.istiod: istio-init takes its image from
-    # global.hub + proxy.image + global.tag, not from a full proxy.image reference.
+    # The sidecar proxy is set in overrides.istiod (proxy.image and proxy_init.image, both
+    # full references, so cr_digests can pin them).
   istio-cni:
     upstream.image: ironbank/opensource/istio/install-cni
   ztunnel:
@@ -333,7 +336,7 @@ overrides:
     upstream:
       global:
         hub: "@registry"
-        proxy: {image: "@repo:istio-proxy"}
+        proxy: {image: "@ref:istio-proxy:ib=ironbank/opensource/istio/pilot"}   # full: cr_digests pins it
         proxy_init: {image: "@ref:istio-proxy:ib=ironbank/opensource/istio/pilot"}
         tag: "@tag:istio-proxy:ib=ironbank/opensource/istio/pilot"   # same Istio release; the proxy is only injected, never rendered
   fortify:
@@ -604,14 +607,51 @@ no_post_renderers:
 # bb-convert sets at two tags in one release (docs/images.md): it notes that one, since
 # kustomize pins one digest per name. The argocd entries below predate that and say why.
 unpinned:
-  istiod:
-    istio-proxy: injected into pods from istiod's ConfigMap, which a post-renderer can't reach
   mattermost:
     kubectl: its two wait jobs run two kubectl lines (1.36, 1.37); kustomize pins one digest per name
   argocd:
     redis: redis (8.10) and redis-ha (8.8, off in Big Bang) name two redis lines; kustomize pins one digest per name
     prometheus-redis-exporter-iamguarded: redis-bb's exporter is Iron Bank's 1.96; redis-ha's (off in Big Bang)
       is 1.86, which the org lacks, so it takes the newest, and the two differ whenever Chainguard is ahead
+
+# Images a digest pin can't reach: Converter.digest_pins is a kustomize images entry, and
+# kustomize rewrites only the `image` of `containers`/`initContainers` entries. An image set
+# in a custom resource (Prometheus, Alertmanager, ECK, Mattermost, Kiali, Alloy) or in an
+# operator flag (--prometheus-config-reloader, --thanos-default-base-image,
+# --acme-http01-solver-image) ran on its tag, so a Chainguard rebuild reached clusters
+# without a pull request; bb-verify counted them as pinned until bb-images learnt where
+# kustomize reaches (2026-11-22, found by the NeuVector report). Each entry: a value path
+# under the package's values to the image, and how its digest gets there (bb-convert
+# cr_digest_pins): `sha` (kube-prometheus-stack's image.sha, bare hex) or `digest` (the
+# chart's image.digest, sha256:<hex>) beside the image, `ref` (a full-reference string such
+# as Istio's proxy.image gets @<digest>), or a post-renderer patch on a custom
+# resource: {patch: <Kind>, field: image} sets spec.image to repository:tag@digest (ECK);
+# field: version sets spec.version to the digest (the Mattermost operator then writes
+# image@digest); field: kiali sets spec.deployment.image_version/image_digest (the Kiali
+# operator writes image_name@sha256:<hex>) and keeps the tag as its version label.
+cr_digests:
+  packages.monitoring:
+    upstream.prometheus.prometheusSpec.image: sha
+    upstream.alertmanager.alertmanagerSpec.image: sha
+    upstream.prometheusOperator.prometheusConfigReloader.image: sha
+    upstream.prometheusOperator.thanosImage: sha
+    upstream.thanosRuler.thanosRulerSpec.image: sha
+  packages.alloy:
+    upstream.collectorCommon.alloy.image: digest
+    upstream.collectorCommon.alloy.configReloader.image: digest
+  packages.certManager:
+    upstream.acmesolver.image: digest
+  packages.elasticsearchKibana:
+    elasticsearch.image: {patch: Elasticsearch, field: image}
+    kibana.image: {patch: Kibana, field: image}
+  packages.mattermost:
+    image: {patch: Mattermost, field: version}
+  packages.kiali:
+    upstream.cr.spec.deployment: {patch: Kiali, field: kiali}
+  packages.istiod:
+    # injected from istiod's ConfigMap: no post-renderer reaches the pods
+    upstream.global.proxy.image: ref
+    upstream.global.proxy_init.image: ref
 
 # Big Bang packages (packages.<name>: why) that no kind test (compat/*.yaml) enables. Not
 # used by the conversion: tests/test_compat_files.py fails when a package in the overlays

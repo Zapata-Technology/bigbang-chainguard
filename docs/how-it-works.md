@@ -281,8 +281,13 @@ can't express, `mapping.yaml` has these escape hatches:
   makes the command `/bin/bash` (Fortify's keystore job).
 - `progress_deadline`: Deployments that must outlast Kubernetes' 600s progress deadline
   (GitLab's migrations, 2400s). A post-renderer patch, so it does not replace the digest pins.
-- `unpinned`: org images that stay on their exact tag, with why (Istio's injected proxy;
-  a repository a package uses at two tags). `bb-verify.py` fails on any other unpinned image.
+- `unpinned`: org images that stay on their exact tag, with why (a repository a package
+  uses at two tags). `bb-verify.py` fails on any other unpinned image.
+- `cr_digests`: images the digest pins can't reach. Kustomize rewrites only the images of
+  `containers` and `initContainers` entries, so an image in a custom resource (Prometheus,
+  Alertmanager, ECK, Mattermost, Kiali, Alloy), an operator flag or istiod's injection
+  ConfigMap gets its digest from the chart's own value (`sha`, `digest`), a full reference
+  (`ref`), or a post-renderer patch on the resource (`{patch: <Kind>, field: image | version | kiali}`).
 - `no_post_renderers`: packages whose Big Bang template can't take a post-renderer
   (Keycloak in Big Bang 4, still true on 4.1.0); their images are pinned through the charts'
   own `image.digest` values instead (`value_digest_pins` in `bb-convert.py`).

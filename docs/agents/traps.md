@@ -86,6 +86,13 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   `update.yml` on main regenerates the overlays.
 - **An org image stops being rebuilt** when Chainguard drops its line (Vault's kubectl 1.30):
   `bb-age.py` fails CI after 30 days. Raise the line with `min_version` or `version`.
+  A line a newer minor replaced goes stale sooner (Alertmanager 0.34 kept a High CVE that
+  0.35.0 fixed): `bb-age.py` warns after 7 days and fails after 14. Check the chart takes
+  the newer minor (the package's kind test) before raising it.
+- **A digest pin only reaches pod specs.** Flux's kustomize `images` rewrites the `image` of
+  `containers`/`initContainers` entries and nothing else: a custom resource's `spec.image`,
+  an operator's `--...-image` flag or istiod's injection values keep their tag. List such an
+  image in `mapping.yaml` `cr_digests`; `bb-verify.py` fails until it is pinned.
 - `bb-convert.py --offline` with a stale `.tags.json` rewrites overlays with old tags:
   regenerate online.
 - **Large kind tests (GitLab) run weekly, standard only on the release PR** (whose gate

@@ -367,7 +367,7 @@ def test_render_emulates_kustomize_digest_pins():
     images = load_script("bb-images")
     pin = {"name": "cgr.dev/o/app", "digest": "sha256:" + "a" * 64}
     assert images.kustomize_image("cgr.dev/o/app", "1.2", pin) == "cgr.dev/o/app@sha256:" + "a" * 64
-    assert images.kustomize_image("cgr.dev/o/app", "", pin).endswith("@sha256:" + "a" * 64)   # tag set elsewhere (a CR)
+    assert images.kustomize_image("cgr.dev/o/app", "", pin).endswith("@sha256:" + "a" * 64)   # a bare name in a pod spec
     assert images.kustomize_image("r1/x", "1", {"newName": "cgr.dev/o/x", "newTag": "2"}) == "cgr.dev/o/x:2"
     assert images.kustomize_image("cgr.dev/o/x", "", {"newName": "cgr.dev/o/y"}) == "cgr.dev/o/y"
     assert images.kustomize_image("cgr.dev/o/x", "1", None) is None
@@ -768,3 +768,127 @@ def test_fortify_mysql_wait_init_container_is_renamed_to_the_mysql8_mapping():
         rename = next(i for i in images if i["name"] == f"registry1.dso.mil/{mysql8}")
         assert rename["newName"] == f"cgr.dev/example.com/{repo}" and rename["newTag"] == "8.4.13"
         assert rename["digest"] == c.tags.pinned(repo, "8.4.13")
+
+
+def test_render_pins_only_what_kustomize_reaches_and_applies_the_cr_patches():
+    """Kustomize rewrites only containers/initContainers images (kubectl kustomize 5.8, any
+    depth): a custom resource's spec.image or an operator flag keeps the chart's tag, which
+    bb-verify used to count as pinned (Prometheus, Alertmanager, ECK, Kiali, ... ran on tags)."""
+    images = load_script("bb-images")
+    pin = "sha256:" + "a" * 64
+    text = """
+kind: Prometheus
+metadata: {name: p}
+spec:
+  image: cgr.dev/o/prometheus:3.16.0
+  containers:
+  - {name: side, image: cgr.dev/o/sidecar:1}
+---
+kind: Deployment
+metadata: {name: op}
+spec:
+  template:
+    spec:
+      containers:
+      - name: op
+        image: cgr.dev/o/operator:1
+        args: [--prometheus-config-reloader=cgr.dev/o/reloader:2]
+---
+kind: Elasticsearch
+metadata: {name: es}
+spec: {image: "cgr.dev/o/elasticsearch:9.5.6", version: 9.5.6}
+---
+kind: Mattermost
+metadata: {name: mm}
+spec: {image: cgr.dev/o/mattermost, version: 12.0.2}
+"""
+    reach = set()
+    found = images.images_in(text, reach)
+    assert reach == {"cgr.dev/o/sidecar:1", "cgr.dev/o/operator:1"}
+    assert {"cgr.dev/o/prometheus:3.16.0", "cgr.dev/o/reloader:2", "cgr.dev/o/elasticsearch:9.5.6"} <= found
+    patches = [
+        {"target": {"kind": "Elasticsearch"},
+         "patch": json.dumps([{"op": "replace", "path": "/spec/image", "value": f"cgr.dev/o/elasticsearch:9.5.6@{pin}"}])},
+        {"target": {"kind": "Mattermost"}, "patch": json.dumps([{"op": "replace", "path": "/spec/version", "value": pin}])},
+        {"target": {"kind": "Deployment", "name": "other"},
+         "patch": json.dumps([{"op": "add", "path": "/spec/x", "value": 1}])},     # another target: untouched
+        {"target": {"kind": "Deployment"}, "patch": "spec: {replicas: 2}"},          # strategic merge: skipped
+    ]
+    after = images.images_in(images.apply_patches(text, patches))
+    assert f"cgr.dev/o/elasticsearch:9.5.6@{pin}" in after
+    assert f"cgr.dev/o/mattermost@{pin}" in after          # the operator runs image@version
+    assert "cgr.dev/o/mattermost" not in after
+    kiali = "kind: Kiali\nspec:\n  deployment: {image_name: cgr.dev/o/kiali, image_version: '%s', image_digest: sha256}\n" % ("b" * 64)
+    assert images.images_in(kiali) == {"cgr.dev/o/kiali@sha256:" + "b" * 64}
+    alloy = "kind: Alloy\nspec:\n  image: {registry: cgr.dev/o, repository: alloy, tag: 1.21.3, digest: '%s'}\n" % ("c" * 64)
+    assert images.images_in(alloy) == {"cgr.dev/o/alloy:1.21.3@sha256:" + "c" * 64}
+
+
+def test_cr_digests_pin_images_kustomize_cannot_reach():
+    """mapping cr_digests: a digest value beside the image, a full reference, or a JSON patch."""
+    org = {"prometheus": ["3.16.0"], "prometheus-fips": ["3.16.0"], "alloy": ["1.21.3"], "alloy-fips": ["1.21.3"],
+           "elasticsearch": ["9.5.6"], "elasticsearch-fips": ["9.5.6"], "mattermost": ["12.0.2"],
+           "kiali": ["2.34.1"], "kiali-fips": ["2.34.1"], "istio-proxy": ["1.31.4"], "istio-proxy-fips": ["1.31.4"],
+           "thanos": ["0.42.5"]}
+    c = convert.Converter(MAPPING, FakeTags(org))
+    c.cg = "cgr.dev/example.com"
+    pin = c.tags.pinned
+    cg = c.cg
+    std = {"upstream": {"prometheus": {"prometheusSpec": {"image": {"registry": cg, "repository": "prometheus",
+                                                                     "tag": "3.16.0"}}},
+                        "thanosImage": {"registry": cg, "repository": "thanos", "tag": "0.42.5"},
+                        "alloy": {"image": {"registry": cg, "repository": "alloy", "tag": "1.21.3"}},
+                        "global": {"proxy": {"image": f"{cg}/istio-proxy:1.31.4"}},
+                        "cr": {"spec": {"deployment": {"image_name": f"{cg}/kiali", "image_version": "2.34.1"}}}},
+           "elasticsearch": {"image": {"repository": f"{cg}/elasticsearch", "tag": "9.5.6"}},
+           "image": {"name": f"{cg}/mattermost", "tag": "12.0.2"},
+           "missing": {"image": {"repository": f"{cg}/nothere", "tag": "1"}}}
+    fips = {"upstream": {"prometheus": {"prometheusSpec": {"image": {"repository": "prometheus-fips"}}},
+                         "global": {"proxy": {"image": f"{cg}/istio-proxy-fips:1.31.4"}}},
+            "elasticsearch": {"image": {"repository": f"{cg}/elasticsearch-fips"}}}
+    entries = {
+        "upstream.prometheus.prometheusSpec.image": "sha",
+        "upstream.thanosImage": "sha",
+        "upstream.alloy.image": "digest",
+        "upstream.global.proxy.image": "ref",
+        "upstream.cr.spec.deployment": {"patch": "Kiali", "field": "kiali"},
+        "elasticsearch.image": {"patch": "Elasticsearch", "field": "image"},
+        "image": {"patch": "Mattermost", "field": "version"},
+        "missing.image": "digest",
+    }
+    patches = convert.cr_digest_pins(entries, c, std, fips)
+    up = std["upstream"]
+    assert up["prometheus"]["prometheusSpec"]["image"]["sha"] == pin("prometheus", "3.16.0").removeprefix("sha256:")
+    assert fips["upstream"]["prometheus"]["prometheusSpec"]["image"]["sha"] == \
+        pin("prometheus-fips", "3.16.0").removeprefix("sha256:")
+    assert up["thanosImage"]["sha"] == pin("thanos", "0.42.5").removeprefix("sha256:")
+    assert "thanosImage" not in fips["upstream"]          # same image in FIPS: inherited, not repeated
+    assert up["alloy"]["image"]["digest"] == pin("alloy", "1.21.3")
+    assert up["global"]["proxy"]["image"] == f"{cg}/istio-proxy:1.31.4@" + pin("istio-proxy", "1.31.4")
+    assert fips["upstream"]["global"]["proxy"]["image"] == f"{cg}/istio-proxy-fips:1.31.4@" + pin("istio-proxy-fips", "1.31.4")
+    assert "digest" not in std["missing"]["image"]        # the org can't resolve it: stays on its tag
+    ops = {p["target"]["kind"]: json.loads(p["patch"]) for p in patches["standard"]}
+    assert ops["Elasticsearch"] == [{"op": "replace", "path": "/spec/image",
+                                     "value": f"{cg}/elasticsearch:9.5.6@" + pin("elasticsearch", "9.5.6")}]
+    assert ops["Mattermost"] == [{"op": "replace", "path": "/spec/version", "value": pin("mattermost", "12.0.2")}]
+    assert {o["path"]: o["value"] for o in ops["Kiali"]} == {
+        "/spec/deployment/image_version": pin("kiali", "2.34.1").removeprefix("sha256:"),
+        "/spec/deployment/image_digest": "sha256", "/spec/deployment/version_label": "2.34.1"}
+    # FIPS gets a whole list of its own (Helm replaces lists), with the FIPS image's digest.
+    fips_ops = {p["target"]["kind"]: json.loads(p["patch"]) for p in patches["fips"]}
+    assert fips_ops["Elasticsearch"][0]["value"] == f"{cg}/elasticsearch-fips:9.5.6@" + pin("elasticsearch-fips", "9.5.6")
+    assert fips_ops["Mattermost"] == ops["Mattermost"]   # FIPS uses the same image here: the same patch
+    # mapping unpinned wins.
+    other = {"image": {"repository": f"{cg}/alloy", "tag": "1.21.3"}}
+    convert.cr_digest_pins({"image": "digest"}, c, other, {}, skip={"alloy"})
+    assert "digest" not in other["image"]
+
+
+def test_cr_digests_entries_are_validated():
+    bbcommon = load_script("bbcommon")
+    good = {"images": {}, "cr_digests": {"packages.x": {"a.image": "sha", "b": {"patch": "K", "field": "image"}}}}
+    bbcommon.validate_mapping(good)
+    for bad in ({"packages.x": {"a": "hex"}}, {"packages.x": {"a": {"patch": "K", "field": "tag"}}},
+                {"x": {"a": "sha"}}, {"packages.x": ["a"]}):
+        with pytest.raises(ValueError, match="cr_digests"):
+            bbcommon.validate_mapping({"images": {}, "cr_digests": bad})

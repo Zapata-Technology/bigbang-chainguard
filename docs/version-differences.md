@@ -15,14 +15,14 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | older major | 1 |
-| newer minor | 10 |
+| newer minor | 11 |
 | newer patch | 38 |
-| same | 67 |
+| same | 66 |
 | numbered differently | 9 |
 | stays on Iron Bank | 18 |
 | **total** | **144** |
 
-## Different version line (12)
+## Different version line (13)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -38,6 +38,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.1` | `flux-notification-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.2` | `flux-source-controller-fips:1.10.2` | Chainguard | newer minor | flux |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
+| `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:v0.35.0` | `prometheus-alertmanager-fips:v0.35.0` | Chainguard | newer minor | monitoring |
 
 ## Newer patch, same line (38)
 
@@ -82,7 +83,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (67)
+## Same version (66)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -141,7 +142,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/mysql/mysql8:8.4.13` | `mysql:8.4.13` | `mysql-fips:8.4.13` | Chainguard | same | fortify |
 | `ironbank/opensource/neuvector/registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13` | `ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13` | built here | same | neuvector |
 | `ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1` | `gatekeeper:3.23.1` | `gatekeeper-fips:3.23.1` | Chainguard | same | gatekeeper |
-| `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:0.34.2` | `prometheus-alertmanager-fips:0.34.2` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/blackbox_exporter:v0.29.1` | `prometheus-blackbox-exporter:0.29.1` | `prometheus-blackbox-exporter-fips:0.29.1` | Chainguard | same | monitoring |
 | `ironbank/opensource/prometheus/jmx-exporter:1.7.0` | `ghcr.io/zapata-technology/bigbang-jmx-exporter:1.7.0-busybox1.38.0` | `ghcr.io/zapata-technology/bigbang-jmx-exporter-fips:1.7.0-busybox1.38.0` | built here | same | sonarqube |
 | `ironbank/opensource/prometheus/memcached-exporter:v0.18.0` | `memcached-exporter:0.18.0` | `memcached-exporter-fips:0.18.0` | Chainguard | same | logging-loki, mimir |
