@@ -846,7 +846,7 @@ packages:
           tag: '18.7'
       upstream:
         image:
-          digest: sha256:1474b4697afda79a9cefb5bad7174b69c4cd6bc793fa030b61286e56ad7736e4
+          digest: sha256:858706e9ed0f99b9e2e1a9b8b772b6ada34820554a3f2276969314e7770cb800
           repository: cgr.dev/zapatatechnology.com/keycloak-fips
           tag: 26.8.2
         podSecurityContext:
@@ -859,14 +859,14 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:137458e52d4e8bc2ea6b55ea743478b7d07a4c3eea907aaed67f277448ec8750
+        - digest: sha256:9a77037672d061315291dea2303702516952f8f2fa4ca49b931258f96f1f702f
           name: cgr.dev/zapatatechnology.com/kiali-fips
         - digest: sha256:595ab143a894e57f0252c3f8374ea291b0563f8aba43b56a48752b6d356f8078
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:8c834912cefd443aecd2c04c246bc158eeb4666ffebb6ea3b129876001c701e5
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         patches:
-        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "137458e52d4e8bc2ea6b55ea743478b7d07a4c3eea907aaed67f277448ec8750"},
+        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "9a77037672d061315291dea2303702516952f8f2fa4ca49b931258f96f1f702f"},
             {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"}, {"op": "add", "path": "/spec/deployment/version_label",
             "value": "v2.35.0"}]'
           target:
