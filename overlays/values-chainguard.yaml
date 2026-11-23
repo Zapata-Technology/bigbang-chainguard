@@ -854,7 +854,7 @@ packages:
           tag: '18.7'
       upstream:
         image:
-          digest: sha256:7e158c1a19e5553c5f83446cd482c6b28f68ec68e32d2af273837faa4290b49b
+          digest: sha256:9d4272a53522bbe9c2e7cfad135d40c244f541aba9c289bebb132a7978bf4488
           repository: cgr.dev/zapatatechnology.com/keycloak
           tag: 26.8.2
         podSecurityContext:
@@ -867,14 +867,14 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:9c21fd4b89a969fe040f13646d160576944d063886fd1a83e5b9524118691a41
+        - digest: sha256:48ca56d652393102f84cec891b17f8be838705f1d7410932905a5b68c6ad511a
           name: cgr.dev/zapatatechnology.com/kiali
         - digest: sha256:eb54ecda4f7d44a56e9b84c755c8e61f8bf87a2d3bde58a7dc8a10c882c1e993
           name: cgr.dev/zapatatechnology.com/kiali-operator
         - digest: sha256:f06738734a6e34765942b3ccb63c8a94d25e45d0f7273dc2b22a87eb3adc605b
           name: cgr.dev/zapatatechnology.com/kubectl
         patches:
-        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "9c21fd4b89a969fe040f13646d160576944d063886fd1a83e5b9524118691a41"},
+        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "48ca56d652393102f84cec891b17f8be838705f1d7410932905a5b68c6ad511a"},
             {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"}, {"op": "add", "path": "/spec/deployment/version_label",
             "value": "v2.35.0"}]'
           target:

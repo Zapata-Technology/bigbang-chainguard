@@ -846,7 +846,7 @@ packages:
           tag: '18.7'
       upstream:
         image:
-          digest: sha256:1474b4697afda79a9cefb5bad7174b69c4cd6bc793fa030b61286e56ad7736e4
+          digest: sha256:858706e9ed0f99b9e2e1a9b8b772b6ada34820554a3f2276969314e7770cb800
           repository: cgr.dev/zapatatechnology.com/keycloak-fips
           tag: 26.8.2
         podSecurityContext:
