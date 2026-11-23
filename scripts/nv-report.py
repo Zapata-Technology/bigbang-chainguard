@@ -305,7 +305,7 @@ def scan_retrying(api, req, scan, log, secret, sleep, retries=NOT_FOUND_RETRIES,
             log(f"  failed: HTTP {e.code}: {text}")
             if attempt == retries or e.code != 500 or "Image not found" not in text:
                 raise
-            log(f"  retrying in {wait} s ({attempt + 1} of {retries}; cgr.dev may have answered 503)")
+            log(f"  retrying in {wait} s ({attempt + 1} of {retries}; a registry 503, or the scanner has no egress)")
             sleep(wait)
 
 
