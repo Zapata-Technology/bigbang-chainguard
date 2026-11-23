@@ -15,14 +15,14 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | older major | 1 |
-| newer minor | 11 |
+| newer minor | 15 |
 | newer patch | 38 |
-| same | 66 |
+| same | 62 |
 | numbered differently | 9 |
 | stays on Iron Bank | 18 |
 | **total** | **144** |
 
-## Different version line (13)
+## Different version line (17)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -38,6 +38,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.1` | `flux-notification-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.2` | `flux-source-controller-fips:1.10.2` | Chainguard | newer minor | flux |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
+| `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:v1.22.0` | `grafana-alloy-fips:v1.22.0` | Chainguard | newer minor | alloy |
+| `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:v0.42.1` | `grafana-rollout-operator-fips:v0.42.1` | Chainguard | newer minor | logging-loki, mimir |
+| `ironbank/opensource/kiali/kiali-operator:v2.34.1` | `kiali-operator:v2.35.0` | `kiali-operator-fips:v2.35.0` | Chainguard | newer minor | kiali |
+| `ironbank/opensource/kiali/kiali:v2.34.1` | `kiali:v2.35.0` | `kiali-fips:v2.35.0` | Chainguard | newer minor | kiali |
 | `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:v0.35.0` | `prometheus-alertmanager-fips:v0.35.0` | Chainguard | newer minor | monitoring |
 
 ## Newer patch, same line (38)
@@ -83,7 +87,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (66)
+## Same version (62)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -112,15 +116,11 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/external-secrets/external-secrets:v2.14.0` | `external-secrets:2.14.0` | `external-secrets-fips:2.14.0` | Chainguard | same | external-secrets |
 | `ironbank/opensource/fluent/fluent-bit:v5.1.5` | `fluent-bit:5.1.5` | `fluent-bit-fips:5.1.5` | Chainguard | same | fluentbit |
 | `ironbank/opensource/go-gitea/gitea:28.3.0` | `gitea:28.3.0` | `gitea-fips:28.3.0` | Chainguard | same | renovate |
-| `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:1.21.3` | `grafana-alloy-fips:1.21.3` | Chainguard | same | alloy |
-| `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:0.41.1` | `grafana-rollout-operator-fips:0.41.1` | Chainguard | same | logging-loki, mimir |
 | `ironbank/opensource/grafana/tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1` | built here | same | tempo |
 | `ironbank/opensource/grafana/tempo:3.1.1` | `tempo:3.1.1` | `tempo-fips:3.1.1` | Chainguard | same | tempo |
 | `ironbank/opensource/headlamp-k8s/headlamp:v0.46.0` | `headlamp:0.46.0` | `headlamp-fips:0.46.0` | Chainguard | same | headlamp |
 | `ironbank/opensource/jetstack/cert-manager-acmesolver:v1.21.3` | `cert-manager-acmesolver:1.21.3` | `cert-manager-acmesolver-fips:1.21.3` | Chainguard | same | cert-manager |
 | `ironbank/opensource/jimmidyson/configmap-reload:v0.15.0` | `configmap-reload:0.15.0` | `configmap-reload-fips:0.15.0` | Chainguard | same | fluentbit |
-| `ironbank/opensource/kiali/kiali-operator:v2.34.1` | `kiali-operator:2.34.1` | `kiali-operator-fips:2.34.1` | Chainguard | same | kiali |
-| `ironbank/opensource/kiali/kiali:v2.34.1` | `kiali:2.34.1` | `kiali-fips:2.34.1` | Chainguard | same | kiali |
 | `ironbank/opensource/kubernetes-sigs/metrics-server:v0.9.1` | `metrics-server:0.9.1` | `metrics-server-fips:0.9.1` | Chainguard | same | metrics-server |
 | `ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0` | `kube-state-metrics:2.20.0` | `kube-state-metrics-fips:2.20.0` | Chainguard | same | monitoring |
 | `ironbank/opensource/kubernetes/kubectl:v1.35` | `kubectl:1.35-dev` | `kubectl-fips:1.35-dev` | Chainguard | same | istio-egress-gateway |
