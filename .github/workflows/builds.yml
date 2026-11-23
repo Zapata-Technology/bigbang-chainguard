@@ -11,8 +11,6 @@
 #   tempo-query       Tempo's Jaeger storage backend built from upstream's source (Go)
 #   minio-operator, minio-operator-sidecar  the MinIO Operator and its Tenant sidecar,
 #                     built from upstream's (archived) source (Go)
-#   gitaly-init-cgroups  GitLab's Gitaly cgroups init container, built from Gitaly's source (Go)
-#   registry-adapter  NeuVector's Harbor scanner adapter built from upstream's source (Go, cgo)
 #
 # builds/<name>/release.yaml, when present with other tags, is the same build pinned for a
 # newer Big Bang release (update.yml's release track holds it there until published, so
@@ -84,7 +82,7 @@ jobs:
     strategy: &strategy
       fail-fast: false
       matrix:
-        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, gitaly-init-cgroups, registry-adapter, installer]
+        name: [grafana-plugins, base, devops-tester, vault, jmx-exporter, mattermost-operator, tempo-query, minio-operator, minio-operator-sidecar, installer]
     env: &env
       CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
       BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}

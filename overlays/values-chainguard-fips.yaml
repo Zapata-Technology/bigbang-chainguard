@@ -444,6 +444,8 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee-fips
         - digest: sha256:9659e9bdf857125b21484e497899f0675721b0712eb559110a70b13753538b93
           name: cgr.dev/zapatatechnology.com/gitaly-fips
+        - digest: sha256:0f45f9d53bd69976d5f100b5617a0541e5eff5d62ae5fc91f548dbe0c7187d0a
+          name: cgr.dev/zapatatechnology.com/gitaly-init-cgroups-fips
         - digest: sha256:495fdc4e87a59147c9a48a471e09081405e552a0101d1617e23f4d14cd298c1e
           name: cgr.dev/zapatatechnology.com/gitlab-base-fips
         - digest: sha256:698035941ac05323bbd996072d67a51fbfe4060baf93ac878a97db2b488359ba
@@ -468,8 +470,6 @@ packages:
           name: ghcr.io/zapata-technology/bigbang-base-fips
         - digest: sha256:b0068fa1ad73065dc07b78fc9ffdf05b02df90b74c007995a50e095bd7d3e75d
           name: ghcr.io/zapata-technology/bigbang-devops-tester-fips
-        - digest: sha256:7c56946e1c08dc2882e4ae8736db933489928ebb32bbba63c2ae7717f0fb1024
-          name: ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips
         patches:
         - patch: '[{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]'
           target:
@@ -510,8 +510,8 @@ packages:
             cgroups:
               initContainer:
                 image:
-                  repository: ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips
-                  tag: v19.5.5-ubi
+                  repository: cgr.dev/zapatatechnology.com/gitaly-init-cgroups-fips
+                  tag: 19.5.8
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly-fips
               tag: 19.5.6
@@ -859,14 +859,14 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:137458e52d4e8bc2ea6b55ea743478b7d07a4c3eea907aaed67f277448ec8750
+        - digest: sha256:9a77037672d061315291dea2303702516952f8f2fa4ca49b931258f96f1f702f
           name: cgr.dev/zapatatechnology.com/kiali-fips
         - digest: sha256:595ab143a894e57f0252c3f8374ea291b0563f8aba43b56a48752b6d356f8078
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:8c834912cefd443aecd2c04c246bc158eeb4666ffebb6ea3b129876001c701e5
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         patches:
-        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "137458e52d4e8bc2ea6b55ea743478b7d07a4c3eea907aaed67f277448ec8750"},
+        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "9a77037672d061315291dea2303702516952f8f2fa4ca49b931258f96f1f702f"},
             {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"}, {"op": "add", "path": "/spec/deployment/version_label",
             "value": "v2.35.0"}]'
           target:
@@ -1411,15 +1411,12 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-manager
         - digest: sha256:7bc5da19f47f9a6462a8711d114c7ece6fe7f2870b72c4c1165cab42f648102b
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter-fips
+        - digest: sha256:2c3fd037aaf58853903fb6bf63526990465de54f51f494b9c04eb23c3e591495
+          name: cgr.dev/zapatatechnology.com/neuvector-registry-adapter-fips
         - digest: sha256:5f5aea21f867aa0d4ece2f1a5b050c4706429c31ad7778c5e40e032944e61d13
           name: cgr.dev/zapatatechnology.com/neuvector-scanner-fips
         - digest: sha256:285bd329bef9045b54ff289770ae13632cead1fed3288d1ea89729ba1d6146b4
           name: ghcr.io/zapata-technology/bigbang-base-fips
-        - digest: sha256:a5e818c8843911e0e2aa58a09aeb41c5368f9b1d6823028647d08da18093a0e7
-          name: ghcr.io/zapata-technology/bigbang-registry-adapter-fips
-        - digest: sha256:a5e818c8843911e0e2aa58a09aeb41c5368f9b1d6823028647d08da18093a0e7
-          name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter-fips
-          newName: ghcr.io/zapata-technology/bigbang-registry-adapter-fips
     values:
       bbtests:
         scripts:
@@ -1438,9 +1435,9 @@ packages:
         cve:
           adapter:
             image:
-              registry: ghcr.io/zapata-technology
-              repository: bigbang-registry-adapter-fips
-              tag: v0.2.13
+              registry: cgr.dev/zapatatechnology.com
+              repository: neuvector-registry-adapter-fips
+              tag: 0.2.14
           scanner:
             image:
               registry: ''

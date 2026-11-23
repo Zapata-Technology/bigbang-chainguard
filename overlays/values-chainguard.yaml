@@ -452,6 +452,8 @@ packages:
           name: cgr.dev/zapatatechnology.com/commercial-gitlab-workhorse-ee
         - digest: sha256:5f8e3b3fe310d0a8437b5f0a69f7ebd249e9075efc395de9c5acc51b16909d31
           name: cgr.dev/zapatatechnology.com/gitaly
+        - digest: sha256:b992af8990fc271afde4aa532a862c8a42f8e519accbd7922ae9e0bc89ccb9b3
+          name: cgr.dev/zapatatechnology.com/gitaly-init-cgroups
         - digest: sha256:7967fa1b25fe2b795524527881e62f5cc9a0e035189fd335edd2d5da54e94031
           name: cgr.dev/zapatatechnology.com/gitlab-base
         - digest: sha256:d8c8ca188755b1f86b841d14818d37e2bc5f05e4dcf0ba79e8878fc4fd7b9436
@@ -476,8 +478,6 @@ packages:
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:bce442840d9a8c03c8b6d3b0707c94ac93c7a6c9c8b46df9cdd482b5386c6efb
           name: ghcr.io/zapata-technology/bigbang-devops-tester
-        - digest: sha256:4478277c00e0e0a64f10d5c90436238192ddb341c3826c004dd8e58fd26cf361
-          name: ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups
         patches:
         - patch: '[{"op": "add", "path": "/spec/progressDeadlineSeconds", "value": 2400}]'
           target:
@@ -518,8 +518,8 @@ packages:
             cgroups:
               initContainer:
                 image:
-                  repository: ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups
-                  tag: v19.5.5-ubi
+                  repository: cgr.dev/zapatatechnology.com/gitaly-init-cgroups
+                  tag: 19.5.8
             image:
               repository: cgr.dev/zapatatechnology.com/gitaly
               tag: 19.5.6
@@ -1427,15 +1427,12 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-manager
         - digest: sha256:a357cd36b3c44659dc67f9994dc8ee478b36aeb31661376e73ad4e185bed06d4
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
+        - digest: sha256:ec4af83db53402730a8eca1c11990689fa9c9546e742ccb5528206ec6a1a57b9
+          name: cgr.dev/zapatatechnology.com/neuvector-registry-adapter
         - digest: sha256:27aad5a116afbd8972a1001e15058a05d670b471d10f07345d71170e525e5c59
           name: cgr.dev/zapatatechnology.com/neuvector-scanner
         - digest: sha256:903ff4e43e528adca1e9449072ae801cdec2a7fe7472d0e854350e35ef744343
           name: ghcr.io/zapata-technology/bigbang-base
-        - digest: sha256:aad3b0fb2b65d2fa732295543a79aaccd36f803319497fb1b5289e5cea75108b
-          name: ghcr.io/zapata-technology/bigbang-registry-adapter
-        - digest: sha256:aad3b0fb2b65d2fa732295543a79aaccd36f803319497fb1b5289e5cea75108b
-          name: cgr.dev/zapatatechnology.com/bigbang-registry-adapter
-          newName: ghcr.io/zapata-technology/bigbang-registry-adapter
     values:
       bbtests:
         scripts:
@@ -1454,9 +1451,9 @@ packages:
         cve:
           adapter:
             image:
-              registry: ghcr.io/zapata-technology
-              repository: bigbang-registry-adapter
-              tag: v0.2.13
+              registry: cgr.dev/zapatatechnology.com
+              repository: neuvector-registry-adapter
+              tag: 0.2.14
           scanner:
             image:
               registry: ''

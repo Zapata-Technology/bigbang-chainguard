@@ -22,7 +22,7 @@ flowchart LR
     F --> D[bb-images.py<br/>render everything,<br/>find each image and<br/>the value that sets it]
     D --> DJ[discovery/images.json]
 
-    IB --> BLD["bb-build.py &lt;name&gt;<br/>builds/*/recipe.yaml<br/>+ scripts/buildhooks/<br/>(base, grafana-plugins, devops-tester,<br/>vault, jmx-exporter, mattermost-operator,<br/>tempo-query, minio-operator(-sidecar),<br/>gitaly-init-cgroups, registry-adapter, installer)"]
+    IB --> BLD["bb-build.py &lt;name&gt;<br/>builds/*/recipe.yaml<br/>+ scripts/buildhooks/<br/>(base, grafana-plugins, devops-tester,<br/>vault, jmx-exporter, mattermost-operator,<br/>tempo-query, minio-operator(-sidecar),<br/>installer)"]
     ORG --> BLD
     BLD --> BY[builds/*/build.yaml]
 
@@ -89,11 +89,11 @@ Two more options change this per image:
 
 Chainguard doesn't publish Big Bang's own images (base, grafana-plugins, devops-tester).
 For those, a script converts **Iron Bank's own recipe** into a build FROM your org's images.
-Eight more get a build for what Chainguard's image lacks or doesn't publish: Vault (the
+Six more get a build for what Chainguard's image lacks or doesn't publish: Vault (the
 curl Big Bang's post-start hook needs), the JMX exporter (SonarQube's init container copies
 its jar with sh and curl), and, built from upstream's source, the Mattermost Operator,
-tempo-query, the MinIO Operator and its sidecar, GitLab's gitaly-init-cgroups and NeuVector's
-registry adapter. The table
+tempo-query, and the MinIO Operator and its sidecar. (GitLab's gitaly-init-cgroups and
+NeuVector's registry adapter were built here too until Chainguard published them, 2026-11-23.) The table
 lists them all.
 
 ```mermaid
@@ -130,8 +130,6 @@ from `build.yaml`.
 | `bigbang-mattermost-operator` | `opensource/mattermost/mattermost-operator` (built from upstream's source) | `go(-fips)-dev` or `kubectl(-fips)-dev`, onto `glibc-openssl(-fips)` or `kubectl(-fips)` |
 | `bigbang-tempo-query` | `opensource/grafana/tempo-query` (built from upstream's source) | as the Mattermost Operator |
 | `bigbang-minio-operator`, `bigbang-minio-operator-sidecar` | `opensource/minio/operator`, `operator-sidecar` (archived; built from upstream's archived source) | as the Mattermost Operator |
-| `bigbang-gitaly-init-cgroups` | none: GitLab's CNG `gitaly-init-cgroups` (built from Gitaly's source as CNG builds it) | as the Mattermost Operator |
-| `bigbang-registry-adapter` | `opensource/neuvector/registry-adapter` (built from upstream's source, cgo) | as the Mattermost Operator |
 | `bigbang-installer` | none (the installer itself: bb-install.py, kubectl, helm, Python, the chart) | `kubectl(-fips)-dev` |
 
 The Go builds (the Mattermost Operator, tempo-query, the MinIO Operator) use the `go`/`glibc-openssl` images when the org has them. Without

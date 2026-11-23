@@ -139,11 +139,9 @@ images:
   # controller passes registry-adapter.yaml.
   ironbank/neuvector/neuvector/scanner: {cg: neuvector-scanner, max_version: "4.329"}
   ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
-  # No Chainguard registry-adapter image: scripts/bb-build.py registry-adapter builds it from
-  # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
-  # The catalog now has neuvector-registry-adapter (0.2.14, 2026-11-21): `until` reports when the
-  # org has it, to compare with this build.
-  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter, until: neuvector-registry-adapter}
+  # Chainguard's neuvector-registry-adapter (added to the catalog 2026-11-21) replaced the
+  # build from upstream's source (builds/registry-adapter) on 2026-11-23.
+  ironbank/opensource/neuvector/registry-adapter: neuvector-registry-adapter
   ironbank/twistlock/console/console: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/twistlock/defender/defender: {stays: "Prisma Cloud (Twistlock) is proprietary; vendor image only"}
   ironbank/anchore/enterprise/enterprise: {stays: "Anchore Enterprise is proprietary; vendor image only"}
@@ -279,11 +277,9 @@ images:
   gitlab/gitlab-org/build/cng/gitlab-webservice-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-webservice-ee}
   gitlab/gitlab-org/build/cng/gitlab-workhorse-ee: {<<: *gitlab, same_patch: rails, cg: commercial-gitlab-workhorse-ee}
   gitlab/gitlab-org/build/cng/kubectl: {<<: *gitlab, cg: gitlab-kubectl, version: "*"}
-  # No Chainguard gitaly-init-cgroups image (Gitaly's cgroups init container, off by
-  # default): scripts/bb-build.py gitaly-init-cgroups builds it from Gitaly's source as GitLab's
-  # CNG does, FROM the org's images; with BUILD_REGISTRY empty it stays on registry1. The catalog
-  # now has gitaly-init-cgroups (19.5.8, 2026-11-21): `until` reports when the org has it.
-  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {build: gitaly-init-cgroups, until: gitaly-init-cgroups}
+  # Gitaly's cgroups init container (off by default). Chainguard's gitaly-init-cgroups (added
+  # to the catalog 2026-11-21) replaced the build from Gitaly's source on 2026-11-23.
+  gitlab/gitlab-org/build/cng/gitaly-init-cgroups: {<<: *gitlab, cg: gitaly-init-cgroups}
   # No Chainguard equivalent; Iron Bank's images at the same GitLab release.
   gitlab/gitlab-org/build/cng/gitlab-zoekt: {stays: "no Chainguard gitlab-zoekt image (code search, off by default)", until: gitlab-zoekt}
   gitlab/gitlab-org/build/cng/gitlab-openbao: {stays: "GitLab's own OpenBao build; Chainguard's openbao is upstream's"}
@@ -554,9 +550,8 @@ bash_commands:
 # rendered cgr.dev/<org>/bigbang-registry-adapter (compat/registry-adapter.yaml).
 # bb-convert writes a Flux postRenderers kustomize rewrite to BUILD_REGISTRY, or, with no
 # BUILD_REGISTRY (the image stays on Iron Bank), from cgr.dev/<org>/ironbank/... back to registry1.
-chart_registry_builds:
-  packages.neuvector:
-    - ironbank/opensource/neuvector/registry-adapter
+# None now: the registry adapter is Chainguard's (2026-11-23), under the org's registry.
+chart_registry_builds: {}
 
 post_renderers:
   packages.fortify:
