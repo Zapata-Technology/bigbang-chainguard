@@ -279,6 +279,25 @@ jobs:
           # the rollout, then keep the forward up (a dropped one is restarted). nv-report.py
           # retries its login while the API comes up.
           kubectl -n neuvector rollout status deploy/neuvector-controller-pod --timeout=600s
+          # Big Bang's default NetworkPolicies let NeuVector's scanner reach only the Kubernetes
+          # API, so a by-reference scan can't pull from a registry: each one waits 60 s and
+          # fails "Image not found". For this report only (not the overlays), let the scanner
+          # and controller reach registries on 443; a deployer who wants registry scans adds
+          # the same egress (neuvector.values.networkPolicies.egress.from.scanner.to.cidr).
+          kubectl apply -f - <<'EOF'
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: nv-report-registry-egress
+            namespace: neuvector
+          spec:
+            podSelector:
+              matchExpressions:
+                - {key: app, operator: In, values: [neuvector-scanner-pod, neuvector-controller-pod]}
+            policyTypes: [Egress]
+            egress:
+              - ports: [{port: 443, protocol: TCP}]
+          EOF
           (while true; do kubectl -n neuvector port-forward deploy/neuvector-controller-pod 10443:10443; sleep 2; done) \
             >> "$RUNNER_TEMP/nv-port-forward.log" 2>&1 &
           trap 'kill %1 2>/dev/null || true' EXIT
