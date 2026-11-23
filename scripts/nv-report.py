@@ -24,8 +24,9 @@ NeuVector leaves its own containers out of its workload list: with --pod-images 
 running container's image, from kubectl), each image the workload scan didn't report is
 scanned by reference (POST /v1/scan/repository) at its deployed digest, with the pull
 credentials in CGR_USERNAME/CGR_PASSWORD (cgr.dev) and BUILD_REGISTRY_USERNAME/_TOKEN.
-A failed scan logs NeuVector's reason and is retried at the overlay's tag for that digest
-(the row says when the tag's digest is no longer the deployed one).
+A failed scan logs NeuVector's reason and is retried at the image's tag (the overlay's pin,
+else docs/images.md): NeuVector 5.6 answers a digest with "Image not found". The row says
+when the tag's digest is no longer the deployed one.
 
 `origin` is `chainguard` (cgr.dev/<CHAINGUARD_ORG>), `built-here` (BUILD_REGISTRY: built
 FROM the org's images) or `other` (RKE2's own images, the storage provisioner). An image
@@ -180,6 +181,21 @@ def overlay_tags(path):
     return tags
 
 
+def images_md_tags(path, org):
+    """{cgr.dev/<org>/<repo>: tag} from docs/images.md, standard and FIPS columns: the tag of
+    an image whose pin carries no newTag (NeuVector's, set by one chart-wide tag)."""
+    out = {}
+    if not (path and org and os.path.exists(path)):
+        return out
+    for line in open(path, encoding="utf-8"):
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        for cell in cells[2:4] if len(cells) >= 4 else []:
+            m = re.fullmatch(r"([a-z0-9][\w.-]*):([\w.+-]+)", cell)
+            if m:
+                out.setdefault(f"cgr.dev/{org}/{m.group(1)}", m.group(2))
+    return out
+
+
 def origin(image, org, build_registry):
     if org and image.startswith(f"cgr.dev/{org}/"):
         return "chainguard"
@@ -272,14 +288,14 @@ def error_text(e, secret=""):
 
 
 def repository_scans(api, pod_images, images, creds, org="", build_registry="", tags=None, log=print,
-                     scan=scan_repository):
+                     scan=scan_repository, repo_tags=None):
     """Scan, by reference, each image the pods run that the workload scan didn't report.
 
     NeuVector leaves its own containers out of /v1/workload, so its controller, enforcer,
     manager and scanner images come from here: POST /v1/scan/repository at the deployed
     digest, with the registry's pull credentials (creds: host -> (username, password)).
     """
-    tags, out = tags or {}, {}
+    tags, out, repo_tags = tags or {}, {}, repo_tags or {}
     seen = {i["digest"] or i["image"] for i in images}
     counts = {}
     for ref in pod_images:
@@ -306,13 +322,15 @@ def repository_scans(api, pod_images, images, creds, org="", build_registry="", 
         except urllib.error.HTTPError as e:
             log(f"  failed: HTTP {e.code}: {error_text(e, password)}")
             report = None
-            # The RKE2 run (45063275137) got HTTP 500 for every digest; the same images
-            # scanned by tag on another cluster. The tag may have moved since (a rebuild),
-            # so the row says which digest NeuVector scanned.
-            if digest and tags.get(digest):
-                log(f"  retrying by tag {tags[digest]}")
+            # NeuVector 5.6 answers a digest with HTTP 500 "Image not found" (RKE2 run
+            # 45097553250); the same images scanned by tag on another cluster. The tag may
+            # have moved since (a rebuild), so the row says which digest NeuVector scanned.
+            # NeuVector's own pins carry no newTag: their tag comes from docs/images.md.
+            tag = tags.get(digest) or repo_tags.get(f"{host}/{repo}")
+            if digest and tag:
+                log(f"  retrying by tag {tag}")
                 try:
-                    report = scan(api, dict(req, tag=tags[digest]))
+                    report = scan(api, dict(req, tag=tag))
                     scanned = report.get("digest", "")
                     how = "repository (by tag)" if scanned in ("", digest) else \
                         f"repository (by tag; scanned {scanned[:19]}, not the deployed digest)"
@@ -393,7 +411,9 @@ def main():
                            org, build, tags)
         if a.pod_images:
             refs = [line.strip() for line in open(a.pod_images, encoding="utf-8") if line.strip()]
-            images = ordered(images + repository_scans(api, refs, images, registry_creds(), org, build, tags))
+            md = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "images.md")
+            images = ordered(images + repository_scans(api, refs, images, registry_creds(), org, build, tags,
+                                                       repo_tags=images_md_tags(md, org)))
     finally:
         api.logout()
     run = ""
