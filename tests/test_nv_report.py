@@ -325,6 +325,22 @@ def test_an_image_whose_pin_has_no_tag_is_retried_at_its_images_md_tag(tmp_path)
             raise urllib.error.HTTPError("u", 500, "err", {}, io.BytesIO(b'{"message": "Image not found"}'))
         return {"digest": D4, "modules": [{"name": "x"}], "vulnerabilities": []}
     rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-controller-fips@{D4}"], [], {}, org=ORG,
-                               log=lambda *_: None, scan=scan, repo_tags=repo_tags)
-    assert calls == [D4, "5.6.4"] and rows[0]["scan_status"] == "repository (by tag)"
+                               log=lambda *_: None, scan=scan, repo_tags=repo_tags, sleep=lambda _: None)
+    assert calls == [D4] * (nv.NOT_FOUND_RETRIES + 1) + ["5.6.4"] and rows[0]["scan_status"] == "repository (by tag)"
     assert nv.images_md_tags(str(tmp_path / "missing.md"), ORG) == {}
+
+
+def test_image_not_found_is_retried_at_the_digest():
+    """cgr.dev's transient 503 ("policy evaluation unavailable") reaches the report as
+    NeuVector's HTTP 500 "Image not found"; a later try at the same digest succeeds."""
+    calls, waits = [], []
+
+    def scan(api, req):
+        calls.append(req["tag"])
+        if len(calls) < 3:
+            raise urllib.error.HTTPError("u", 500, "err", {}, io.BytesIO(b'{"message": "Image not found"}'))
+        return {"digest": D4, "base_os": "chainguard", "modules": [{"name": "x"}], "vulnerabilities": []}
+    rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-manager@{D4}"], [], {}, org=ORG,
+                               log=lambda *_: None, scan=scan, sleep=waits.append)
+    assert calls == [D4, D4, D4] and waits == [nv.NOT_FOUND_WAIT] * 2
+    assert rows[0]["scan_status"] == "repository" and rows[0]["digest"] == D4
