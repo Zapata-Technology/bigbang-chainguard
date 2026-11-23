@@ -210,7 +210,9 @@ class Converter:
         cluster only through the nightly pull request, after its tests. A post-renderer, not
         values: charts reuse image tags in labels and version checks, where a digest breaks
         them. A repository the release uses at two tags is left unpinned (kustomize matches
-        by name only), as are images set in custom resources rather than pod specs."""
+        by name only). Kustomize rewrites only the images of `containers` and `initContainers`
+        lists: an image set in a custom resource or an operator flag is pinned by
+        cr_digest_pins() instead."""
         by_repo = {}
         for ref in self.used.get(release, {}).get(variant, ()):
             repo, tag = ref.rsplit(":", 1)
@@ -531,6 +533,84 @@ def value_digest_pins(node, c, skip=(), base=None):
             value_digest_pins(v, c, skip, b.get(k))
 
 
+def image_of(node):
+    """(repository, tag) a values node names: {registry?, repository, tag}, Mattermost's
+    {name, tag}, or the Kiali CR's {image_name, image_version}; (None, None) otherwise."""
+    if isinstance(node, str) and ":" in node.rsplit("/", 1)[-1] and "@" not in node:
+        repo, _, tag = node.rpartition(":")    # a full reference (Istio's proxy.image)
+        return repo, tag
+    if not isinstance(node, dict):
+        return None, None
+    for name_key, tag_key in (("repository", "tag"), ("name", "tag"), ("image_name", "image_version")):
+        repo, tag = node.get(name_key), node.get(tag_key)
+        if isinstance(repo, str) and tag is not None:
+            reg = node.get("registry") if name_key == "repository" else None
+            return (f"{reg}/{repo}" if reg else repo), str(tag)
+    return None, None
+
+
+def cr_digest_pins(entries, c, std_values, fips_values, skip=()):
+    """Pin the images mapping.yaml `cr_digests` lists for one package, in place, and return
+    the post-renderer patches {"standard": [...], "fips": [...]} it needs.
+
+    Kustomize's images transformer rewrites only `containers`/`initContainers` entries, so
+    a digest pin never reaches Prometheus' or Alertmanager's spec.image, an operator's
+    --...-image flag, or ECK's, Mattermost's and Kiali's custom resources: those ran on
+    their tags, and a Chainguard rebuild reached clusters without a pull request. Each
+    entry is a value path (under the package's values) to the image's node, and how:
+      sha | digest              the chart's own value beside the image (hex | sha256:<hex>)
+      ref                       a full-reference string value gets @sha256:... appended
+                                (Istio uses global.proxy.image as-is when it has a "/")
+      {patch: Kind, field: image}    the resource's spec.image = repository:tag@sha256:...
+      {patch: Kind, field: version}  spec.version = sha256:... (Mattermost: the operator
+                                     then writes image@sha256:...)
+      {patch: Kind, field: kiali}    spec.deployment image_version = <hex>, image_digest =
+                                     sha256, version_label = the tag (the operator writes
+                                     image_name@sha256:<hex>)
+    The FIPS overlay layers on the standard one, so a FIPS image gets its own digest.
+    An image the org can't resolve, or listed in `skip` (mapping unpinned), keeps its tag."""
+    patches = {"standard": [], "fips": []}
+    for path, how in entries.items():
+        keys = path.split(".")
+        s_node = _get(std_values, keys)
+        f_own = _get(fips_values, keys)
+        if isinstance(s_node, dict):
+            f_node = {**s_node, **(f_own if isinstance(f_own, dict) else {})}
+        else:
+            f_node = f_own or s_node
+        for variant, node, tree in (("standard", s_node, std_values), ("fips", f_node, fips_values)):
+            repo, tag = image_of(node)
+            if not repo:
+                continue
+            if repo.startswith(f"{c.cg}/"):
+                digest = None if repo[len(c.cg) + 1:] in skip else c.tags.pinned(repo[len(c.cg) + 1:], tag)
+            else:
+                digest = c.build_digest_of(repo, tag)
+            if not digest:
+                continue
+            if how == "ref":
+                if variant == "standard" or node != s_node:   # FIPS: only its own reference
+                    set_path(tree, keys, f"{repo}:{tag}@{digest}")
+                continue
+            if how in ("sha", "digest"):
+                value = digest.removeprefix("sha256:") if how == "sha" else digest
+                # the FIPS overlay inherits the standard value: write it only where it differs
+                if variant == "standard" or value != _get(std_values, keys).get(how):
+                    set_path(tree, keys + [how], value)
+                continue
+            field = how["field"]
+            if field == "image":
+                ops = [{"op": "replace", "path": "/spec/image", "value": f"{repo}:{tag}@{digest}"}]
+            elif field == "version":
+                ops = [{"op": "replace", "path": "/spec/version", "value": digest}]
+            else:
+                ops = [{"op": "add", "path": "/spec/deployment/image_version", "value": digest.removeprefix("sha256:")},
+                       {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"},
+                       {"op": "add", "path": "/spec/deployment/version_label", "value": tag}]
+            patches[variant].append({"target": {"kind": how["patch"]}, "patch": json.dumps(ops)})
+    return patches
+
+
 def chart_registry_builds(mapping, c, bb_key, variant):
     """Kustomize image rewrites for images this repo builds in a chart that prefixes every
     image with one chart-wide registry (mapping chart_registry_builds): the overlay sets that
@@ -667,6 +747,21 @@ def generate(discovered, mapping, tags, bigbang_version, registry="", strict=Fal
             skip = set(c.unpinned.get(release, {}))
             value_digest_pins(_get(std, key), c, skip)
             value_digest_pins(_get(fips, key), c, skip, base=_get(std, key))
+        # Images set where those pins can't reach (custom resources, operator flags).
+        cr = mapping.get("cr_digests", {}).get(info["key"])
+        if cr:
+            skip = set(c.unpinned.get(release, {}))
+            skip |= {f"{r}-fips" for r in skip}
+            vals = [_get(std, key + ["values"]), _get(fips, key + ["values"])]  # {} when absent: attach below
+            cr_patches = cr_digest_pins(cr, c, vals[0], vals[1], skip)
+            for tree, v in zip((std, fips), vals):
+                if v and _get(tree, key + ["values"]) is not v:
+                    set_path(tree, key + ["values"], v)
+            for tree, variant in ((std, "standard"), (fips, "fips")):
+                if cr_patches[variant]:
+                    pr = _get(tree, key + ["postRenderers"]) or [{"kustomize": {}}]
+                    pr[0]["kustomize"].setdefault("patches", []).extend(cr_patches[variant])
+                    set_path(tree, key + ["postRenderers"], pr)
         for tree, variant in (() if info["key"] in mapping.get("no_post_renderers", {})
                               else ((std, "standard"), (fips, "fips"))):
             pins = c.digest_pins(release, variant) + chart_registry_builds(mapping, c, info["key"], variant)

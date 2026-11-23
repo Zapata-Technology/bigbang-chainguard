@@ -83,29 +83,47 @@ def _looks_like_image(s):
     return "." in host or ":" in host
 
 
-def _collect(node, found):
+# Kustomize's images transformer (Flux post-renderers) rewrites only the `image` of an
+# entry in a `containers` or `initContainers` list, at any depth. An image anywhere else
+# (a custom resource's spec.image, an operator flag, Kiali's image_name) keeps what the
+# chart rendered, so a post-renderer pin there would only look applied.
+KUSTOMIZE_LISTS = ("containers", "initContainers")
+
+
+def _collect(node, found, reach=None, in_list=False):
     if isinstance(node, dict):
         img = node.get("image")
+        if _looks_like_image(img) and str(node.get("version", "")).startswith("sha256:") and "@" not in img:
+            img = f"{img}@{node['version']}"   # Mattermost CR: the operator runs image@version
         if _looks_like_image(img):
             found.add(img)
+            if in_list and reach is not None:
+                reach.add(img)
         repo = node.get("repository")
         if _looks_like_image(repo) or (isinstance(repo, str) and isinstance(node.get("registry"), str)):
             ref = f'{node["registry"]}/{repo}' if isinstance(node.get("registry"), str) and node["registry"] else repo
-            tag = node.get("tag")
+            tag, digest = node.get("tag"), node.get("digest")
             if _looks_like_image(ref):
-                found.add(f"{ref}:{tag}" if isinstance(tag, (str, int, float)) and str(tag) else ref)
+                ref = f"{ref}:{tag}" if isinstance(tag, (str, int, float)) and str(tag) else ref
+                # a chart's own digest value (Alloy's image.digest, with or without "sha256:")
+                if isinstance(digest, str) and digest:
+                    ref += "@" + (digest if digest.startswith("sha256:") else f"sha256:{digest}")
+                found.add(ref)
         if _looks_like_image(node.get("image_name")):  # Kiali CR
             v = node.get("image_version")
-            found.add(f'{node["image_name"]}:{v}' if v else node["image_name"])
+            d = node.get("image_digest")
+            # image_digest names the hash type when image_version is the hash itself
+            found.add(f'{node["image_name"]}@{d}:{v}' if d and v else
+                      f'{node["image_name"]}:{v}' if v else node["image_name"])
         for k, v in node.items():
             if k in ("args", "command") and isinstance(v, list):
                 for a in v:
                     for m in IMAGE_RE.finditer(str(a)):
                         found.add(m.group(0))
-            _collect(v, found)
+            _collect(v, found, reach, k in KUSTOMIZE_LISTS and isinstance(v, list))
     elif isinstance(node, list):
         for v in node:
-            _collect(v, found)
+            _collect(v, found, reach, in_list)
     elif isinstance(node, str) and len(node) > 40 and ("image" in node) and node.lstrip()[:1] in "{-a":
         # JSON/YAML embedded in a ConfigMap (Istio injector values, operator configs)
         try:
@@ -116,17 +134,20 @@ def _collect(node, found):
             except yaml.YAMLError:
                 return
         if isinstance(inner, (dict, list)):
-            _collect(inner, found)
+            _collect(inner, found)   # not a pod spec: a post-renderer never reaches it
 
 
-def images_in(text):
+def images_in(text, reach=None):
     """Every image a rendered release deploys: container image fields, split
     registry/repository/tag blocks in CRs, Kiali's image_name, image refs in
-    container args, and the same inside JSON/YAML embedded in ConfigMaps."""
-    found = set()
+    container args, and the same inside JSON/YAML embedded in ConfigMaps. `reach`, a set,
+    receives the ones a post-renderer's kustomize images entry can rewrite (KUSTOMIZE_LISTS)."""
+    found, near = set(), set()
     for doc in yaml.load_all(text, Loader=BASE_LOADER):  # BaseLoader: CRDs use odd tags like "="
         if doc:
-            _collect(doc, found)
+            _collect(doc, found, near)
+    if reach is not None:
+        reach |= {f.strip('"') for f in near}
     return {f.strip('"') for f in found}
 
 
@@ -167,18 +188,59 @@ def bigbang_releases(bigbang, extra_values):
             if raw:
                 deep_merge(merged, safe_load(raw) or {})
         deep_merge(merged, spec.get("values") or {})
-        renames = {}
+        renames, patches = {}, []
         for pr in spec.get("postRenderers") or []:
             for img in (pr.get("kustomize") or {}).get("images") or []:
                 renames[img["name"]] = img
+            patches += (pr.get("kustomize") or {}).get("patches") or []
         yield {
             "renames": renames,
+            "patches": patches,
             "release": spec.get("releaseName", hr["metadata"]["name"]),
             "namespace": spec.get("targetNamespace", "default"),
             "repo": repos.get(src, src),
             "path": spec["chart"]["spec"]["chart"],
             "values": merged,
         }
+
+
+def _pointer(doc, path):
+    """(parent, key) of a JSON pointer in doc, creating missing maps; None if a list is in the way."""
+    keys = [k.replace("~1", "/").replace("~0", "~") for k in path.lstrip("/").split("/")]
+    for k in keys[:-1]:
+        if not isinstance(doc, dict):
+            return None
+        doc = doc.setdefault(k, {})
+    return (doc, keys[-1]) if isinstance(doc, dict) else None
+
+
+def apply_patches(text, patches):
+    """The rendered manifests with a post-renderer's JSON 6902 patches applied (add and
+    replace on map fields, by target kind and name): the image a custom resource ends up
+    with after bb-convert's cr_digests patches. Other patches change no image and are skipped."""
+    ops = []
+    for p in patches:
+        try:
+            body = json.loads(p.get("patch") or "")
+        except ValueError:
+            continue   # a strategic-merge patch
+        if isinstance(body, list):
+            ops.append((p.get("target") or {}, [o for o in body if o.get("op") in ("add", "replace")]))
+    if not ops:
+        return text
+    docs = [d for d in yaml.load_all(text, Loader=BASE_LOADER) if d]
+    for d in docs:
+        if not isinstance(d, dict):
+            continue
+        for target, body in ops:
+            if target.get("kind") not in (None, d.get("kind")) or \
+                    target.get("name") not in (None, (d.get("metadata") or {}).get("name")):
+                continue
+            for o in body:
+                at = _pointer(d, o["path"])
+                if at:
+                    at[0][at[1]] = o["value"] if isinstance(o["value"], (dict, list)) else str(o["value"])
+    return yaml.safe_dump_all(docs, sort_keys=False)
 
 
 def kustomize_image(name, tag, entry):
@@ -252,6 +314,7 @@ def package(r, by_repo):
     rc, out, err = render_package(chart, r["values"], r["release"], r["namespace"])
     if rc:
         return r["release"], None, err.strip().splitlines()[-1] if err.strip() else "render failed"
+    out = apply_patches(out, r.get("patches") or [])
     merged = deep_merge(chart_defaults(chart), r["values"])
     nodes = []
     for path, shape, node in image_nodes(merged):
@@ -279,8 +342,11 @@ def package(r, by_repo):
             entry["list_path"] = list(path[:ints[0]])
             entry["list_value"] = _get(merged, path[:ints[0]])
         nodes.append(entry)
-    rendered = set()
-    for ref in images_in(out):
+    rendered, reach = set(), set()
+    for ref in images_in(out, reach):
+        if ref not in reach or "@" in ref:
+            rendered.add(ref)   # a field kustomize doesn't rewrite, or already pinned by the chart
+            continue
         name, _, tag = ref.rpartition(":") if ":" in ref.rsplit("/", 1)[-1] else (ref, "", "")
         rendered.add(kustomize_image(name, tag, r["renames"].get(name)) or ref)
     return r["release"], {"key": os.path.basename(d), "rendered": sorted(rendered), "values": nodes}, None

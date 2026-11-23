@@ -42,7 +42,7 @@ def setting(name, arg=None):
 # refuses it instead of silently ignoring it.
 MAPPING_SECTIONS = {"images", "hubs", "value_roots", "template_defaults", "overrides", "version_labels",
                     "bash_wait_jobs", "bash_commands", "post_renderers", "chart_registry_builds", "no_post_renderers",
-                    "progress_deadline", "unpinned", "ignore", "retarget",
+                    "progress_deadline", "unpinned", "cr_digests", "ignore", "retarget",
                     "scan_reviewed", "untested"}
 IMAGE_OPTIONS = {
     "cg": str, "fips": (str, type(None)), "version": (str, int, float), "suffix": str,
@@ -50,6 +50,12 @@ IMAGE_OPTIONS = {
     "fallback": str, "strict": bool, "group": str, "same_patch": str, "version_from": str,
     "min_version": str, "max_version": str, "follow": str,
 }
+# cr_digests: how a digest reaches an image a post-renderer's kustomize images entry can't
+# (bb-convert.cr_digest_pins). A value beside the image (sha: bare hex, as kube-prometheus-stack
+# wants; digest: sha256:<hex>), a full-reference string (ref), or a JSON patch on a custom
+# resource's field.
+CR_DIGEST_VALUES = {"sha", "digest", "ref"}
+CR_DIGEST_FIELDS = {"image", "version", "kiali"}
 # One of these says where the image goes; the rest only adjust it.
 IMAGE_TARGETS = {"cg", "stays", "build", "ref"}
 
@@ -81,6 +87,17 @@ def validate_mapping(mapping, source="mapping.yaml"):
         for ref in job:
             if set(ref) != {"kind", "name", "container"}:
                 problems.append(f"bash_commands entry {ref!r}: needs exactly kind, name, container")
+    # cr_digests: {packages.<name>: {value path: sha | digest | {patch: <Kind>, field: ...}}}.
+    for key, entries in (mapping.get("cr_digests") or {}).items():
+        if not str(key).startswith(("packages.", "addons.")) or not isinstance(entries, dict):
+            problems.append(f"cr_digests.{key}: needs a packages.<name> key and a map of value paths")
+            continue
+        for path, how in entries.items():
+            ok = (isinstance(how, str) and how in CR_DIGEST_VALUES) or (isinstance(how, dict) and set(how) == {"patch", "field"}
+                                              and how["field"] in CR_DIGEST_FIELDS)
+            if not ok:
+                problems.append(f"cr_digests.{key}.{path}: {how!r} is not one of {sorted(CR_DIGEST_VALUES)} "
+                                f"or {{patch: <Kind>, field: {'|'.join(sorted(CR_DIGEST_FIELDS))}}}")
     # untested: {packages.<name>: why no compat/*.yaml enables it} (tests/test_compat_files.py).
     for key, why in (mapping.get("untested") or {}).items():
         if not str(key).startswith("packages.") or not (isinstance(why, str) and why.strip()):

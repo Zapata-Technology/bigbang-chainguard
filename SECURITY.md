@@ -42,8 +42,11 @@ boundaries.
   tests run it. The images this repo builds (`BUILD_REGISTRY`) are pinned the same way,
   so a push over one of their tags can't reach a cluster unreviewed either (the converter
   reads their digests with the job's GitHub token; without one they keep their tags).
-  Images set inside custom resources (Kiali's CR, Istio's injected proxy) and a repository
-  a package uses at two tags stay on their tags.
+  Images set inside custom resources, operator flags or istiod's injection values (Prometheus,
+  Alertmanager, ECK, Mattermost, Kiali, Alloy, Istio's sidecars), where that post-renderer
+  can't reach, are pinned through the chart's own digest value or a patch on the resource
+  (`mapping.yaml` `cr_digests`). Only a repository a package uses at two tags (`unpinned`)
+  stays on its tags.
 - **The registry allow list matches whole registries.** Big Bang's Kyverno and Gatekeeper
   policies admit an image whose name starts with an allowed entry; every entry ends in
   `/`, so `ghcr.io/<owner>/` doesn't also admit `ghcr.io/<owner>-anything/...`.
@@ -151,8 +154,8 @@ latest run's summary for current numbers.
 
 - **Sigstore's public log** records each release and image signature, with this
   repository's name and image names, even while the repository is private.
-- **Tag-only images** (Keycloak in Big Bang 4, custom resources) pick up a Chainguard
-  rebuild without the nightly tests; the README's "Known gaps" lists them.
+- **Tag-only images** (a repository a package uses at two tags: `mapping.yaml` `unpinned`)
+  pick up a Chainguard rebuild without the nightly tests.
 - **Iron Bank leftovers** need registry1 credentials at the site and follow Iron Bank's
   patch schedule, not Chainguard's.
 - **A cluster installed before enforce became the default keeps audit mode** (it remembers its

@@ -181,7 +181,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | monitoring | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.2 | prometheus-config-reloader-fips:0.95.2 | prometheus-config-reloader: Iron Bank v0.95.1 -> newest 0.95 patch; prometheus-config-reloader-fips: Iron Bank v0.95.1 -> newest 0.95 patch |
 | monitoring | ironbank/opensource/prometheus-operator/prometheus-operator:v0.95.1 | prometheus-operator:0.95.2 | prometheus-operator-fips:0.95.2 | prometheus-operator: Iron Bank v0.95.1 -> newest 0.95 patch; prometheus-operator-fips: Iron Bank v0.95.1 -> newest 0.95 patch |
-| monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.2 | prometheus-alertmanager:0.34.2 | prometheus-alertmanager-fips:0.34.2 |  |
+| monitoring | ironbank/opensource/prometheus/alertmanager:v0.34.2 | prometheus-alertmanager:v0.35.0 | prometheus-alertmanager-fips:v0.35.0 | prometheus-alertmanager: Iron Bank v0.34.2 is below min_version 0.35; newest release; prometheus-alertmanager-fips: Iron Bank v0.34.2 is below min_version 0.35; newest release |
 | monitoring | ironbank/opensource/prometheus/blackbox_exporter:v0.29.1 | prometheus-blackbox-exporter:0.29.1 | prometheus-blackbox-exporter-fips:0.29.1 |  |
 | monitoring | ironbank/opensource/prometheus/node-exporter:v1.12.1 | prometheus-node-exporter:1.12.1 | prometheus-node-exporter-fips:1.12.1 |  |
 | monitoring | ironbank/opensource/prometheus/prometheus:v3.16.0 | prometheus:3.16.0 | prometheus-fips:3.16.0 |  |
