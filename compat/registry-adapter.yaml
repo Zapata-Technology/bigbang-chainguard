@@ -1,6 +1,5 @@
-# NeuVector's registry adapter built here from upstream's source (builds/registry-adapter),
-# FROM the org's images, in place of Iron Bank's. The harness builds
-# bigbang-registry-adapter and loads it into kind. Big Bang leaves the chart's
+# NeuVector's registry adapter: Chainguard's neuvector-registry-adapter (until 2026-11-23 a
+# build from upstream's source), in place of Iron Bank's. Big Bang leaves the chart's
 # cve.adapter off, so the test turns it on, with test-only Harbor credentials (the
 # adapter's API takes basic auth; Harbor would hold the same pair).
 #
@@ -10,11 +9,11 @@
 # the neuvector namespace, so a setup job waits for it and then creates the Secret; the
 # adapter's pod starts once the Secret is there.
 images:
-  ironbank/opensource/neuvector/registry-adapter: {build: registry-adapter}
+  ironbank/opensource/neuvector/registry-adapter: neuvector-registry-adapter
 test:
   enable: [neuvector]
   namespaces: [neuvector]
-  expect: [bigbang-registry-adapter]
+  expect: [neuvector-registry-adapter]
   values:
     packages:
       neuvector:

@@ -100,8 +100,8 @@ def freeze_go(new, old, raise_go=False, path=""):
     return held
 
 
-# --- Go programs built from upstream's source (the mattermost-operator, tempo-query, minio and
-# gitaly-init-cgroups hooks) ---
+# --- Go programs built from upstream's source (the mattermost-operator, tempo-query and minio
+# hooks) ---
 #
 # Org image pairs to build in and run on, in order of preference: the first the org has.
 # The Go images carry the toolchain (go-fips: Chainguard's FIPS Go); kubectl -dev gets
@@ -117,7 +117,7 @@ GO_PACKAGE = "go"
 # builds against Go's own validated FIPS 140-3 module instead (GOFIPS140=v1.0.0-..., the
 # fips140v1.0 tag, fips140=on), still with cgo. Both are FIPS builds. A native build also
 # records CGO_ENABLED: 0 for a static program, 1 for one that needs cgo (fips_build_missing's
-# cgo argument; the registry adapter).
+# cgo argument; the registry adapter, built here until 2026-11-23).
 GO_FIPS_BUILDS = {
     "toolchain": [[r"^build\tCGO_ENABLED=1$",
                    r"^build\tGOEXPERIMENT=\S*(systemcrypto|opensslcrypto|boringcrypto|strictfipsruntime)"],

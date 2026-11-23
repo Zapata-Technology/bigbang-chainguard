@@ -363,41 +363,6 @@ def test_go_build_problems(monkeypatch):
     assert problems("img", "/tempo-query", "standard", {}, [], cgo=True) == []
 
 
-ADAPTER, adapter = build("registry-adapter")
-
-
-def test_registry_adapter_recipe():
-    users = ADAPTER["users"]
-    ib = adapter.recipe(*recipe("registry-adapter"), users)
-    assert ib == {"upstream": "v0.2.13", "binary": "/usr/local/bin/adapter", "user": "nobody", "uid": "65534:65534"}
-    manifest, dockerfile = recipe("registry-adapter")
-    with pytest.raises(SystemExit):   # a user with no known uid
-        adapter.recipe(manifest, dockerfile.replace("USER nobody", "USER adapter"), users)
-    with pytest.raises(SystemExit):   # no longer upstream's make build
-        adapter.recipe(manifest, dockerfile.replace("make build", "go build ./..."), users)
-    with pytest.raises(SystemExit):   # copied somewhere the entrypoint doesn't run
-        adapter.recipe(manifest, dockerfile.replace("/usr/local/bin/\n", "/opt/\n"), users)
-
-
-def test_registry_adapter_is_built_from_source(monkeypatch):
-    tarball = operator_tarball("module github.com/neuvector/registry-adapter\n\ngo 1.27.0\n")
-
-    def fetch(url):
-        if url.endswith("/@latest"):
-            return b'{"Version": "v4.1.8"}' if "go-jose" in url else b'{"Version": "v0.62.0"}'
-        assert url == "https://codeload.github.com/neuvector/registry-adapter/tar.gz/refs/tags/v0.2.13"
-        return tarball
-    monkeypatch.setattr(bbbuild, "fetch", fetch)
-    src = adapter.source(ADAPTER, "v0.2.13")
-    assert src["go"] == "1.27.0" and src["go_get"] == ["golang.org/x/net@v0.62.0", "github.com/go-jose/go-jose/v4@v4.1.8"]
-    spec = {"adapter": src, "ironbank": {"binary": "/usr/local/bin/adapter"}, "user": "65534:65534",
-            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
-    std = bbbuild.recipe_build_args(ADAPTER, spec, "standard")
-    fips = bbbuild.recipe_build_args(ADAPTER, spec, "fips")
-    assert std["ADAPTER_VERSION"] == "v0.2.13" and fips["FIPS"] == "native" and std["RUN_USER"] == "65534:65534"
-    assert std["ADAPTER_GO_GET"].split() == src["go_get"] and std["BINARY"] == "/usr/local/bin/adapter"
-
-
 MINIO, bbminio = build("minio-operator")
 SIDECAR, _ = build("minio-operator-sidecar")
 
@@ -457,54 +422,6 @@ def test_minio_builders_share_one_dockerfile():
     for r, binary in ((MINIO, "/minio-operator"), (SIDECAR, "/minio-operator-sidecar")):
         assert r["hook"] == "minio" and r["dockerfile"] == "minio-operator"
         assert f"FROM runtime AS {r['program']}\nENTRYPOINT [\"{binary}\"]" in dockerfile
-
-
-GITALY, gitaly_init = build("gitaly-init-cgroups")
-
-
-def test_gitaly_init_cgroups_recipe():
-    # GitLab's CNG recipe: gitaly/Dockerfile builds the module, gitaly-init-cgroups/Dockerfile copies it.
-    init_df, gitaly_df = fixture_text("cng/gitaly-init-cgroups.Dockerfile"), fixture_text("cng/gitaly.Dockerfile")
-    assert gitaly_init.recipe(init_df, gitaly_df) == {"binary": "/setup_cgroups", "module": "tools/gitaly-init-cgroups"}
-    with pytest.raises(SystemExit):   # copied somewhere the command doesn't run
-        gitaly_init.recipe(init_df.replace('CMD ["/setup_cgroups"]', 'CMD ["/bin/setup"]'), gitaly_df)
-    with pytest.raises(SystemExit):   # CNG stops building it in the gitaly image
-        gitaly_init.recipe(init_df, gitaly_df.replace("go build -C", "make -C"))
-
-
-def test_gitaly_init_cgroups_tag():
-    assert gitaly_init.gitaly_tag("v19.4.2-ubi") == "v19.4.2"
-    assert gitaly_init.gitaly_tag("v19.4.2") == "v19.4.2"
-    with pytest.raises(SystemExit):
-        gitaly_init.gitaly_tag("19.4")
-
-
-def test_gitaly_init_cgroups_source(monkeypatch):
-    import io
-    import tarfile
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz", format=tarfile.PAX_FORMAT, pax_headers={"comment": "5" * 40}) as t:
-        body = b"module gitlab.com/gitlab-org/gitaly/tools/gitaly-init-cgroups\n\ngo 1.25.0\n"
-        info = tarfile.TarInfo("gitaly-v19.4.2-tools-gitaly-init-cgroups/tools/gitaly-init-cgroups/go.mod")
-        info.size = len(body)
-        t.addfile(info, io.BytesIO(body))
-
-    def fetch(url):
-        if url.endswith("/LICENSE"):
-            assert url == "https://gitlab.com/gitlab-org/gitaly/-/raw/v19.4.2/LICENSE"
-            return b"The MIT License (MIT)\n"
-        assert url == ("https://gitlab.com/gitlab-org/gitaly/-/archive/v19.4.2/gitaly-v19.4.2.tar.gz"
-                       "?path=tools/gitaly-init-cgroups")
-        return buf.getvalue()
-    monkeypatch.setattr(bbbuild, "fetch", fetch)
-    src = gitaly_init.source(GITALY, "v19.4.2", "tools/gitaly-init-cgroups")
-    assert src["go"] == "1.25.0" and src["commit"] == "5" * 40 and src["go_get"] == []
-    assert src["license_sha256"] == hashlib.sha256(b"The MIT License (MIT)\n").hexdigest()
-    spec = {"gitaly": src, "cng": {"binary": "/setup_cgroups"}, "user": "0:0",
-            "image": {"standard": {"go_package": "go"}, "fips": {"go_package": "go", "fips": "native"}}}
-    args = bbbuild.recipe_build_args(GITALY, spec, "standard")
-    assert args["GITALY_MODULE"] == "tools/gitaly-init-cgroups" and args["RUN_USER"] == "0:0"
-    assert args["BINARY"] == "/setup_cgroups" and args["GITALY_LICENSE"].endswith("/v19.4.2/LICENSE")
 
 
 # --- every build has a recipe; the recipes, bb-build.py and the workflows agree ---

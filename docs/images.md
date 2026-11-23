@@ -70,7 +70,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gatekeeper | ironbank/opensource/openpolicyagent/gatekeeper:v3.23.1 | gatekeeper:3.23.1 | gatekeeper-fips:3.23.1 |  |
 | gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi | gitlab-certificates:19.5.8 | gitlab-certificates-fips:19.5.8 | gitlab-certificates: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi | cfssl-self-sign:19.5.8 | cfssl-self-sign-fips:19.5.8 | cfssl-self-sign: Iron Bank v19.5.5-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups:v19.5.5-ubi | ghcr.io/zapata-technology/bigbang-gitaly-init-cgroups-fips:v19.5.5-ubi | built FROM the org's images by scripts/bb-build.py gitaly-init-cgroups |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi | gitaly-init-cgroups:19.5.8 | gitaly-init-cgroups-fips:19.5.8 | gitaly-init-cgroups: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitaly-init-cgroups-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.6 | gitaly-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi | gitlab-base:19.5.6 | gitlab-base-fips:19.5.6 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.6 | gitlab-container-registry-fips:19.5.6 |  |
@@ -194,7 +194,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | neuvector | ironbank/neuvector/neuvector/manager:5.6.4 | neuvector-manager:5.6.4 | neuvector-manager:5.6.4 | set by mapping overrides |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16) |
 | neuvector | ironbank/neuvector/neuvector/scanner:6 | neuvector-scanner:v4.329 | neuvector-scanner-fips:v4.328 | set by mapping overrides |
-| neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter:v0.2.13 | ghcr.io/zapata-technology/bigbang-registry-adapter-fips:v0.2.13 | built FROM the org's images by scripts/bb-build.py registry-adapter |
+| neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | neuvector-registry-adapter:0.2.14 | neuvector-registry-adapter-fips:0.2.14 | neuvector-registry-adapter: Iron Bank v0.2.13 -> newest 0.2 patch; neuvector-registry-adapter-fips: Iron Bank v0.2.13 -> newest 0.2 patch |
 | neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |

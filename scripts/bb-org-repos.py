@@ -8,9 +8,8 @@ entitlement doesn't cover.
 
 Without names it asks bb-convert.py which repositories discovery needs and the org lacks
 (`--missing`; `--optional` adds the ones whose images otherwise stay on Iron Bank).
-`--build-bases` adds the bases two of this repo's builds use when the org has them: go and
-go-fips (the Mattermost Operator), glibc-openssl and glibc-openssl-fips (NeuVector's
-registry adapter).
+`--build-bases` adds the bases this repo's Go builds use when the org has them: go and
+go-fips (the build toolchain), glibc-openssl and glibc-openssl-fips (the runtime).
 
 For each name it looks up the catalog entry and, with --apply, runs what AGENTS.md
 ("Add a repository to the org") describes:
