@@ -305,3 +305,26 @@ def test_a_failed_digest_scan_logs_neuvector_s_reason_and_retries_by_tag():
     rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-controller@{D5}"], [], {}, org=ORG,
                                tags={D5: "5.6.4"}, log=lambda *_: None, scan=scan)
     assert rows[0]["scan_status"].startswith("repository (by tag; scanned sha256:")
+
+
+def test_an_image_whose_pin_has_no_tag_is_retried_at_its_images_md_tag(tmp_path):
+    """NeuVector's own images: one chart-wide tag, so their digest pins carry no newTag and the
+    by-tag retry never ran (RKE2 run 45097553250: "Image not found" for every digest)."""
+    md = tmp_path / "images.md"
+    md.write_text("| Package | Iron Bank image | Standard | FIPS | Notes |\n|---|---|---|---|---|\n"
+                  "| neuvector | ironbank/neuvector/neuvector/controller:5.6.4 | neuvector-controller:5.6.4 "
+                  "| neuvector-controller-fips:5.6.4 | set by mapping overrides |\n")
+    repo_tags = nv.images_md_tags(str(md), ORG)
+    assert repo_tags == {f"cgr.dev/{ORG}/neuvector-controller": "5.6.4",
+                         f"cgr.dev/{ORG}/neuvector-controller-fips": "5.6.4"}
+    calls = []
+
+    def scan(api, req):
+        calls.append(req["tag"])
+        if req["tag"].startswith("sha256:"):
+            raise urllib.error.HTTPError("u", 500, "err", {}, io.BytesIO(b'{"message": "Image not found"}'))
+        return {"digest": D4, "modules": [{"name": "x"}], "vulnerabilities": []}
+    rows = nv.repository_scans(None, [f"cgr.dev/{ORG}/neuvector-controller-fips@{D4}"], [], {}, org=ORG,
+                               log=lambda *_: None, scan=scan, repo_tags=repo_tags)
+    assert calls == [D4, "5.6.4"] and rows[0]["scan_status"] == "repository (by tag)"
+    assert nv.images_md_tags(str(tmp_path / "missing.md"), ORG) == {}
