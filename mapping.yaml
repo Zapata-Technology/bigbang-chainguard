@@ -50,8 +50,12 @@ images:
   ironbank/istio-ecosystem/authservice: authservice
 
   # --- Kiali ---
-  ironbank/opensource/kiali/kiali: kiali
-  ironbank/opensource/kiali/kiali-operator: kiali-operator
+  # Kiali, Alloy and the rollout operator run a minor ahead of Big Bang's charts (the user's
+  # call, 2026-11-22, for security): Chainguard stopped rebuilding the Iron Bank lines when
+  # the next minor came out, and their fixable CVEs piled up (bb-age.py SUPERSEDED). The
+  # server and operator move together: the operator deploys the server.
+  ironbank/opensource/kiali/kiali: {cg: kiali, min_version: "2.35"}
+  ironbank/opensource/kiali/kiali-operator: {cg: kiali-operator, min_version: "2.35"}
 
   # --- Policy ---
   ironbank/opensource/kyverno: kyverno
@@ -67,7 +71,7 @@ images:
   ironbank/opensource/openpolicyagent/gatekeeper: gatekeeper
 
   # --- Logging / tracing / metrics ---
-  ironbank/opensource/grafana/alloy: grafana-alloy
+  ironbank/opensource/grafana/alloy: {cg: grafana-alloy, min_version: "1.22"}   # a minor ahead: see kiali above
   ironbank/opensource/grafana/alloy-operator: {cg: grafana-alloy-operator, version: "0.9"}   # Chainguard tags the operator release (0.9.x), Iron Bank the app (1.11)
   ironbank/opensource/grafana/helm-chart-toolbox-kubectl: {cg: kubectl, version: "1.34", suffix: dev}   # toolbox "1.0" is its own version, not kubectl's
   ironbank/opensource/grafana/loki: loki
@@ -80,7 +84,7 @@ images:
   # source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/grafana/tempo-query: {build: tempo-query}
   ironbank/opensource/grafana/mimir: grafana-mimir
-  ironbank/opensource/grafana/rollout-operator: grafana-rollout-operator
+  ironbank/opensource/grafana/rollout-operator: {cg: grafana-rollout-operator, min_version: "0.42"}   # a minor ahead: see kiali above
   ironbank/opensource/grafana/grafana-image-renderer: {cg: grafana-image-renderer, fips: null}
   # Big Bang builds Grafana with plugins baked in. scripts/bb-build.py grafana-plugins
   # rebuilds it FROM the org's grafana / grafana-fips images using Iron Bank's own

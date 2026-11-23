@@ -9,7 +9,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 |---|---|---|---|---|
 | alloy | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | alloy | ironbank/opensource/grafana/alloy-operator:1.14.4 | grafana-alloy-operator:0.9 | grafana-alloy-operator-fips:0.9 | grafana-alloy-operator: VERSION PINNED to 0.9 (Iron Bank 1.14.4); grafana-alloy-operator-fips: VERSION PINNED to 0.9 (Iron Bank 1.14.4) |
-| alloy | ironbank/opensource/grafana/alloy:v1.21.3 | grafana-alloy:1.21.3 | grafana-alloy-fips:1.21.3 |  |
+| alloy | ironbank/opensource/grafana/alloy:v1.21.3 | grafana-alloy:v1.22.0 | grafana-alloy-fips:v1.22.0 | grafana-alloy: Iron Bank v1.21.3 is below min_version 1.22; newest release; grafana-alloy-fips: Iron Bank v1.21.3 is below min_version 1.22; newest release |
 | alloy | ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0 | kubectl:1.34-dev | kubectl-fips:1.34-dev | kubectl: VERSION PINNED to 1.34 (Iron Bank 1.0); kubectl-fips: VERSION PINNED to 1.34 (Iron Bank 1.0) |
 | alloy | ironbank/opensource/prometheus-operator/prometheus-config-reloader:v0.95.1 | prometheus-config-reloader:0.95.2 | prometheus-config-reloader-fips:0.95.2 | prometheus-config-reloader: Iron Bank v0.95.1 -> newest 0.95 patch; prometheus-config-reloader-fips: Iron Bank v0.95.1 -> newest 0.95 patch |
 | anchore-enterprise | ironbank/anchore/cli/cli:0.9.4 | Iron Bank | Iron Bank | Anchore CLI test image (bbtests only) |
@@ -123,8 +123,8 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | keycloak | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | keycloak | ironbank/opensource/keycloak/keycloak:26.8.1 | keycloak:26.8.2 | keycloak-fips:26.8.2 | keycloak: Iron Bank 26.8.1 -> newest 26.8 patch; keycloak-fips: Iron Bank 26.8.1 -> newest 26.8 patch |
 | keycloak | ironbank/opensource/postgres/postgresql:18.6 | postgres:18.7 | postgres-fips:18.7 | postgres: Iron Bank 18.6 -> newest 18.x release (follow: major); postgres-fips: Iron Bank 18.6 -> newest 18.x release (follow: major) |
-| kiali | ironbank/opensource/kiali/kiali-operator:v2.34.1 | kiali-operator:2.34.1 | kiali-operator-fips:2.34.1 |  |
-| kiali | ironbank/opensource/kiali/kiali:v2.34.1 | kiali:2.34.1 | kiali-fips:2.34.1 |  |
+| kiali | ironbank/opensource/kiali/kiali-operator:v2.34.1 | kiali-operator:v2.35.0 | kiali-operator-fips:v2.35.0 | kiali-operator: Iron Bank v2.34.1 is below min_version 2.35; newest release; kiali-operator-fips: Iron Bank v2.34.1 is below min_version 2.35; newest release |
+| kiali | ironbank/opensource/kiali/kiali:v2.34.1 | kiali:v2.35.0 | kiali-fips:v2.35.0 | kiali: Iron Bank v2.34.1 is below min_version 2.35; newest release; kiali-fips: Iron Bank v2.34.1 is below min_version 2.35; newest release |
 | kiali | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | kyverno | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | kyverno | ironbank/opensource/kyverno/kyverno/background-controller:v1.19.2 | kyverno-background-controller:1.19.2 | kyverno-background-controller-fips:1.19.2 |  |
@@ -147,7 +147,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | logging-loki | ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner:3.6.18 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
 | logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.10 | loki-fips:3.7.10 | loki: Iron Bank 3.7.9 -> newest 3.7 patch; loki-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
-| logging-loki | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
+| logging-loki | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:v0.42.1 | grafana-rollout-operator-fips:v0.42.1 | grafana-rollout-operator: Iron Bank v0.41.1 is below min_version 0.42; newest release; grafana-rollout-operator-fips: Iron Bank v0.41.1 is below min_version 0.42; newest release |
 | logging-loki | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | logging-loki | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
 | logging-loki | ironbank/opensource/minio/minio:RELEASE.2025-10-15T17-29-55Z | Iron Bank | Iron Bank | MinIO not used by Zapata; org minio repos removed 2026-10-27 |
@@ -161,7 +161,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | mimir | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | mimir | ironbank/opensource/apache/kafka-native:4.3.2 | kafka-native:4.4.0 | kafka-native:4.4.0 | kafka-native: Iron Bank 4.3.2 -> newest 4.x release (follow: major); no FIPS variant; FIPS overlay keeps the standard image |
 | mimir | ironbank/opensource/grafana/mimir:3.2.4 | grafana-mimir:3.2.6 | grafana-mimir-fips:3.2.6 | grafana-mimir: Iron Bank 3.2.4 -> newest 3.2 patch; grafana-mimir-fips: Iron Bank 3.2.4 -> newest 3.2 patch |
-| mimir | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:0.41.1 | grafana-rollout-operator-fips:0.41.1 |  |
+| mimir | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:v0.42.1 | grafana-rollout-operator-fips:v0.42.1 | grafana-rollout-operator: Iron Bank v0.41.1 is below min_version 0.42; newest release; grafana-rollout-operator-fips: Iron Bank v0.41.1 is below min_version 0.42; newest release |
 | mimir | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
 | mimir | ironbank/opensource/nginx/nginx:1.31.8 | nginx:1.31.9 | nginx-fips:1.31.9 | nginx: Iron Bank 1.31.8 -> newest 1.31 patch; nginx-fips: Iron Bank 1.31.8 -> newest 1.31 patch |
 | mimir | ironbank/opensource/prometheus/memcached-exporter:v0.18.0 | memcached-exporter:0.18.0 | memcached-exporter-fips:0.18.0 |  |
