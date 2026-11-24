@@ -13,14 +13,14 @@ image:
   standard:
     name: bigbang-minio-operator
     tag: v7.1.1
-    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:3f638367e0a0642fc4abd2af7d62d048e37b2175b60c31e26dc454e0a935825c
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:6bbb166c8260b3037391d952dcae26b00b0167d6ff759487d37d926673ccf79c
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:7988410d8f2a451ea68cd9b1a78ab64a8be08c3bba8257b04487ad951efea72a
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:e1616de824108ed9ec3a00ab3813b5205b4b1f27c4a1e09bf1fec830166bb5bf
     go_package: ''
   fips:
     name: bigbang-minio-operator-fips
     tag: v7.1.1
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:567a03ad022832ee7ec124918d34ed0e0b8686e0b5a8d2c1bc864391e77dcfe7
-    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:886d370de8f8523c61a5f44a0ad6b304c926fee1d0540237f1a7117e240ed2cf
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:d6c10aaf419e6641319a5402d0055120c8f75cc865bb6bb18be115cb7e489155
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:7bf82db2c24b8386ade8899bceb1d5e7b354972df67bb984d9119b5be869851e
     go_package: ''
     fips: toolchain
 minio:
