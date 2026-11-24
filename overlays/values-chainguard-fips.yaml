@@ -1491,7 +1491,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:0b699d59fc649f3eb2198fc716bd566e81a3ee45baeca8a8080af42d51b7991f
+        - digest: sha256:f1ab60437b3a57f35f90238649efe512f41d03bdec570d8c4ea653bf3f51264b
           name: cgr.dev/zapatatechnology.com/sonarqube
         - digest: sha256:a83308c73e70fb5857059330add314791ef0daeaecbefc6b7760cdc5efb9a88b
           name: ghcr.io/zapata-technology/bigbang-base-fips
