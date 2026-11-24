@@ -10,7 +10,7 @@ images:
   name: ghcr.io/fluxcd/helm-controller
   newName: cgr.dev/zapatatechnology.com/flux-helm-controller
   newTag: 1.7.2
-- digest: sha256:fac38686c63ec970065e640731a220c234eeaa6219bd6024184470cd667ab578
+- digest: sha256:765577eae09515ad98450deabd981a180483f2579ec8f362a780cf260ba1634d
   name: ghcr.io/fluxcd/kustomize-controller
   newName: cgr.dev/zapatatechnology.com/flux-kustomize-controller
   newTag: 1.10.2
