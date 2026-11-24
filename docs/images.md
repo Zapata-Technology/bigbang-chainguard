@@ -200,7 +200,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | public-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | renovate | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2 | built FROM the org's images by scripts/bb-build.py devops-tester |
 | renovate | ironbank/container-hardening-tools/renovate/renovate:44.97.2 | renovate:44.259.0 | renovate-fips:44.259.0 | renovate: MINOR AHEAD: org has no 44.97.x; using 44.259.0 (Iron Bank 44.97.2); renovate-fips: MINOR AHEAD: org has no 44.97.x; using 44.259.0 (Iron Bank 44.97.2) |
-| renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | gitea:28.3.0 | gitea-fips:28.3.0 |  |
+| renovate | ironbank/opensource/go-gitea/gitea:28.3.0 | gitea:v28.4.0 | gitea-fips:v28.4.0 | gitea: Iron Bank 28.3.0 is below min_version 28.4; newest release; gitea-fips: Iron Bank 28.3.0 is below min_version 28.4; newest release |
 | renovate | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | sonarqube | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base; in place of ironbank/redhat/ubi/ubi9:9.8 (mapping retarget) |

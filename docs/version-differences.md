@@ -15,14 +15,14 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | older major | 1 |
-| newer minor | 18 |
+| newer minor | 19 |
 | newer patch | 40 |
-| same | 57 |
+| same | 56 |
 | numbered differently | 9 |
 | stays on Iron Bank | 18 |
 | **total** | **144** |
 
-## Different version line (20)
+## Different version line (21)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -41,6 +41,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/neuvector/neuvector/enforcer:5.6.4` | `neuvector-enforcer:v5.7.0` | `neuvector-enforcer-fips:v5.7.0` | Chainguard | newer minor | neuvector |
 | `ironbank/neuvector/neuvector/manager:5.6.4` | `neuvector-manager:v5.7.0` | `neuvector-manager:v5.7.0` | Chainguard | newer minor | neuvector |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
+| `ironbank/opensource/go-gitea/gitea:28.3.0` | `gitea:v28.4.0` | `gitea-fips:v28.4.0` | Chainguard | newer minor | renovate |
 | `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:v1.22.0` | `grafana-alloy-fips:v1.22.0` | Chainguard | newer minor | alloy |
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:v0.42.1` | `grafana-rollout-operator-fips:v0.42.1` | Chainguard | newer minor | logging-loki, mimir |
 | `ironbank/opensource/kiali/kiali-operator:v2.34.1` | `kiali-operator:v2.35.0` | `kiali-operator-fips:v2.35.0` | Chainguard | newer minor | kiali |
@@ -92,7 +93,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (57)
+## Same version (56)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -116,7 +117,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/elasticsearch-exporter:v1.11.0` | `prometheus-elasticsearch-exporter:1.11.0` | `prometheus-elasticsearch-exporter-fips:1.11.0` | Chainguard | same | ek |
 | `ironbank/opensource/external-secrets/external-secrets:v2.14.0` | `external-secrets:2.14.0` | `external-secrets-fips:2.14.0` | Chainguard | same | external-secrets |
 | `ironbank/opensource/fluent/fluent-bit:v5.1.5` | `fluent-bit:5.1.5` | `fluent-bit-fips:5.1.5` | Chainguard | same | fluentbit |
-| `ironbank/opensource/go-gitea/gitea:28.3.0` | `gitea:28.3.0` | `gitea-fips:28.3.0` | Chainguard | same | renovate |
 | `ironbank/opensource/grafana/tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query:3.1.1` | `ghcr.io/zapata-technology/bigbang-tempo-query-fips:3.1.1` | built here | same | tempo |
 | `ironbank/opensource/grafana/tempo:3.1.1` | `tempo:3.1.1` | `tempo-fips:3.1.1` | Chainguard | same | tempo |
 | `ironbank/opensource/headlamp-k8s/headlamp:v0.46.0` | `headlamp:0.46.0` | `headlamp-fips:0.46.0` | Chainguard | same | headlamp |

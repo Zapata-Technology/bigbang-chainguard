@@ -180,9 +180,10 @@ images:
   # No Chainguard mattermost-operator image: scripts/bb-build.py mattermost-operator builds it from
   # upstream's source FROM the org's images; with BUILD_REGISTRY empty it stays on Iron Bank.
   ironbank/opensource/mattermost/mattermost-operator: {build: mattermost-operator}
-  # Renovate's test fixture (bbtests). Big Bang 4.1 pins gitea 28.3.0, the line Chainguard's
-  # gitea and gitea-fips carry (2026-11-21); fallback keeps Iron Bank's if an org lacks them.
-  ironbank/opensource/go-gitea/gitea: {cg: gitea, fallback: ironbank}
+  # Renovate's test fixture (bbtests). Big Bang 4.1 pins gitea 28.3.0; Chainguard moved to 28.4
+  # and last built 28.3.0 on 2026-11-16 (bb-age.py: superseded), so min_version takes 28.4.
+  # fallback keeps Iron Bank's if an org lacks them.
+  ironbank/opensource/go-gitea/gitea: {cg: gitea, fallback: ironbank, min_version: "28.4"}
   # Mimir's Kafka (off by default). The org stopped rebuilding 4.3 once 4.4 shipped: 4.3.2
   # carried a fixable glibc High that 4.4.0 doesn't (2026-11-17), so follow 4.x.
   ironbank/opensource/apache/kafka-native: {cg: kafka-native, fips: null, fallback: ironbank, follow: major}

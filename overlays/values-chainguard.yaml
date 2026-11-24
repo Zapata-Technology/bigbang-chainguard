@@ -1159,7 +1159,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:2a61080d697d73723217673832b68d6243300802176f15962052e95802fe0d52
+        - digest: sha256:c240dfcefb9930e2722818d589804db1f4db8bac981019c6f78caad4cad81b00
           name: cgr.dev/zapatatechnology.com/metrics-server
     values:
       upstream:
@@ -1419,17 +1419,17 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:46d883fb3f77c1b5cd60ea47ae87fa6cfcb44d7fe32ef980995f2f0922b4c375
+        - digest: sha256:b67ccb947f024836f60fc4a7937dc9480b75f8ae9094b62f712a28235fc53a69
           name: cgr.dev/zapatatechnology.com/neuvector-controller
-        - digest: sha256:b3facf6ae6a33ec421210dbbb3250894be22404671f15eaa596cfffe84559051
+        - digest: sha256:6990637599095457da0a56a44c492a264cbe21fa16bef75bceb59eebc66bf1f3
           name: cgr.dev/zapatatechnology.com/neuvector-enforcer
-        - digest: sha256:05fbd406ceb5926c7bfbec327e32a8a4edd6ecce3e2fa43c7420066e280126f3
+        - digest: sha256:530d80761cd6bc6fc5319d0219cfbb7cac5e37f96c7335ad17abaff28abf84d9
           name: cgr.dev/zapatatechnology.com/neuvector-manager
-        - digest: sha256:a357cd36b3c44659dc67f9994dc8ee478b36aeb31661376e73ad4e185bed06d4
+        - digest: sha256:48c45691f2ed85c98ad1a8206555b96dccd737bae5445ac30a7c4ade7e4432d8
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
         - digest: sha256:6ce4175fdff463c39660a4ba19145ac1b8ef6c31551807cf6a002818c2776b42
           name: cgr.dev/zapatatechnology.com/neuvector-registry-adapter
-        - digest: sha256:8c1b8cad918de0f79baef38260afea860feeab8c56a36ea4a2389ee94bb90280
+        - digest: sha256:7ec0bf1a198d7dad892af1bc8fe0d877409901e094293d819e67a96064eb96d4
           name: cgr.dev/zapatatechnology.com/neuvector-scanner
         - digest: sha256:3feef1c13fba5d62d19fe3e6f8e48af7e4fd5f9c4de5da3d92ff1ba652f7d2b2
           name: ghcr.io/zapata-technology/bigbang-base
@@ -1482,7 +1482,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:2f77a8e9ef5ab59a6ce314fa282307cf9e381054e6cf2f41c864654ce008f97c
+        - digest: sha256:9cf93676acee132dbb0c68b0abd08c28ce6528f8699c02eb6865c300bc11af75
           name: cgr.dev/zapatatechnology.com/gitea
         - digest: sha256:1997b4adc402d917038f716205804620d2283fbdf813d3fcbee6774e627ec3de
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -1494,7 +1494,7 @@ packages:
       bbtests:
         scripts:
           envs:
-            GITEA_IMAGE: cgr.dev/zapatatechnology.com/gitea:28.3.0
+            GITEA_IMAGE: cgr.dev/zapatatechnology.com/gitea:v28.4.0
           image: ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2
           networkWait:
             image: cgr.dev/zapatatechnology.com/kubectl:1.37-dev
@@ -1599,7 +1599,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:ad6c9755185afd302380344802129cdaab8ed596286f1f8c9df5c82dfddf8fa1
+        - digest: sha256:428215f7ed9f4bee19b0475f3474bca34ec64f97090f55c73102ab1c793c8e6b
           name: cgr.dev/zapatatechnology.com/vault-csi-provider
         - digest: sha256:5dcfbe1c082840f7a475f90159c01104ff3f7c650cff01c1057d6fb7f9ac19f2
           name: cgr.dev/zapatatechnology.com/vault-k8s
