@@ -237,7 +237,8 @@ Kyverno's `defaultRegistry`), which would otherwise win. For the few packages th
 can't express, `mapping.yaml` has these escape hatches:
 
 - `hubs`: Istio builds names from `hub`; the overlay sets full image references instead.
-- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag), and
+- `overrides`: hand-written values with live tag tokens (NeuVector's shared registry/tag, held
+  by the image entry's `min_version` and `max_version` like the image itself), and
   path-specific fixes where a Chainguard image's layout differs from Iron Bank's (Fortify's
   MySQL: entrypoint args, `--plugin-dir`, `--socket`, the FIPS exporter's TLS). The
   images they set are listed in `docs/images.md` and `docs/version-differences.md` like the rest.

@@ -22,7 +22,7 @@ flowchart TB
         direction LR
         D["Discover<br/>every image<br/>Big Bang deploys"] --> M["Map and pin<br/>each to its Chainguard<br/>image, by digest"]
         M --> T["Test<br/>render both modes;<br/>kind smoke on a digest change,<br/>full matrix weekly"]
-        T --> R["Release<br/>signed, e.g. 4.1.0-cg.n"]
+        T --> R["Release<br/>signed, e.g. 4.1.1-cg.n"]
     end
 
     subgraph YOU["3 · You"]

@@ -150,6 +150,13 @@ The pull request gate (`bb-cve.py --changed-from`) fails only on a *fixable* Cri
 image the change adds, so these images were already in place or have no fix yet. Check the
 latest run's summary for current numbers.
 
+**In a running deployment** (Big Bang's default packages on RKE2, scanned by the NeuVector
+they deploy, 2026-11-24; [testing.md](docs/testing.md#neuvectors-scan-of-every-deployed-image)):
+NeuVector reports 1 Critical and 29 High in the standard images and 0 and 29 in FIPS, almost
+all Go libraries compiled into binaries that Chainguard's advisories mark not affected. grype,
+which reads those advisories, finds 5 High in each SeaweedFS image (apache/thrift 0.24.0,
+waiting on a Chainguard rebuild) and nothing else.
+
 ## Residual risks
 
 - **Sigstore's public log** records each release and image signature, with this

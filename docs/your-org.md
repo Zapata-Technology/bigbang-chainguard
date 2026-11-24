@@ -116,10 +116,10 @@ The console shows the same as **Contact us for access** next to the image's tags
   FIPS, with the packages that use each. Fewer packages need fewer images.
   `python scripts/bb-org-repos.py --org <your org>` prints what discovery needs; `--apply`
   adds it. `--optional` adds the repositories whose images otherwise stay on Iron Bank, and
-  `--build-bases` adds `go`, `go-fips`, `glibc-openssl` and `glibc-openssl-fips`, which two
-  of the [images this repo builds](how-it-works.md#images-this-repo-builds) use (without
-  them the Mattermost Operator builds with Wolfi's Go, and NeuVector's registry adapter
-  stays on Iron Bank).
+  `--build-bases` adds `go`, `go-fips`, `glibc-openssl` and `glibc-openssl-fips`, which the
+  [images this repo builds](how-it-works.md#images-this-repo-builds) from upstream's Go
+  source use: the Mattermost Operator, tempo-query, and the MinIO Operator and its sidecar
+  (without them they build with Wolfi's Go).
 - **What's not entitled:** ask your Chainguard account team, or "Contact us for access" on
   the image in the console, with the image names and catalog IDs the script prints. Then
   run the script again: the repositories exist and only need the sync. A plan with a swap

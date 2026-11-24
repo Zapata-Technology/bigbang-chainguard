@@ -62,7 +62,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[Iron Bank tag, e.g. v1.20.3] --> M{Below min_version?}
+    A[Iron Bank tag, e.g. v1.20.3] --> X[Org tags above max_version<br/>set aside, if it is set]
+    X --> M{Below min_version?}
     M -- yes --> N[Newest release<br/>noted in docs/images.md]
     M -- no --> B{Org has a 1.20.x patch?}
     B -- yes --> C[Newest 1.20 patch]
@@ -83,7 +84,14 @@ Two more options change this per image:
   exporter use this, because Chainguard tags them with the GitLab release.
 - `min_version:` raises an end-of-life line to the newest release. kubectl uses `1.34`, so a
   chart that pins an end-of-life kubectl (Vault's 1.30, in Big Bang 3) doesn't pull an
-  image Chainguard stopped rebuilding.
+  image Chainguard stopped rebuilding. NeuVector uses `5.7`: Big Bang 4.1.1 ships 5.6.4,
+  whose Chainguard controller and enforcer had High CVEs that 5.7.0 doesn't.
+- `max_version:` holds an image at or below a release while a newer one is known broken.
+  NeuVector's scanner was held at v4.329 while v4.330 couldn't register with controller
+  5.6.4; 5.7.0 lifted the hold.
+
+Both also bound a tag an override takes from an image (`@tag:<name>:...`), so NeuVector's
+one chart-wide tag for its controller, enforcer and manager follows the controller's entry.
 
 ## 3. Images this repo builds
 
@@ -159,7 +167,7 @@ flowchart TB
         SF["Site file<br/>written first<br/>if missing"] --> PF["Preflight<br/>tools, Kubernetes 1.35+,<br/>StorageClass, domain,<br/>package dependencies"]
         PF --> UP{"Upgrade path<br/>4 needs 3.35.1 first,<br/>never an older major"}
         UP --> RD["Render<br/>helm template with the<br/>overlays + site file"]
-        RD --> PC["Pull test<br/>every Chainguard and<br/>built image, your logins"]
+        RD --> PC["Pull test<br/>every Chainguard and<br/>built image, your logins<br/>(a registry 5xx is retried)"]
     end
 
     subgraph INS["install / upgrade: only when every check passed"]
