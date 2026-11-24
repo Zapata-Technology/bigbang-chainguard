@@ -33,7 +33,9 @@ python scripts/bb-install.py upgrade --to latest   # or --to 4.1.0, --to 4.1.0-c
 - images: a pull test of every image the enabled packages deploy from your Chainguard org
   and the build registry, with your logins (the environment, the site file, an earlier
   install's, or a short-lived token from your chainctl login; none is stored). A refused
-  pull from the org is usually an image your Chainguard plan doesn't cover;
+  pull from the org is usually an image your Chainguard plan doesn't cover. A registry that
+  answers 5xx is asked again (after 5 s, then 20 s) and then reported as the registry
+  failing, not as your login;
 - the nodes' memory: their total allocatable memory against what the enabled packages need
   (about 16 GiB for Big Bang's defaults, more for GitLab, Elasticsearch, Anchore and the
   like); a warning, not a problem;
@@ -47,6 +49,11 @@ python scripts/bb-install.py upgrade --to latest   # or --to 4.1.0, --to 4.1.0-c
   common default of 128 instances). Nothing in the Kubernetes API shows them, so a pod on each
   node, in a `bb-install-check` namespace the check deletes after, reads them with the org's
   busybox image. A node it can't read is a note, not a problem; `--no-node-check` skips it.
+
+NeuVector scans running workloads with Big Bang's defaults. Its registry scans (an image
+by name, before it runs) also need its scanner to reach the registry, which Big Bang's
+default NetworkPolicies don't allow: [Troubleshooting](troubleshooting.md#neuvectors-registry-scans-fail-image-not-found)
+has the site-file values.
 
 It exits non-zero and lists each problem, so it also works in a pipeline. `install` runs
 the same checks before it changes anything.

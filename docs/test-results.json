@@ -113,7 +113,7 @@
     },
     {
       "test": "neuvector",
-      "runs": "controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1",
+      "runs": "controller, enforcer and manager 5.7, scanner 4.330, prometheus-exporter 1.1",
       "notes": "The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics"
     },
     {

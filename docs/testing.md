@@ -207,7 +207,7 @@ update`; never edit the table itself (`tests/test_repo_rules.py` checks it). Eve
 | mimir | memcached-exporter 0.18, rollout-operator 0.41 | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | Check: a gauge written through the gateway's OTLP endpoint is read back from PromQL |
 | mimir-kafka | Mimir on ingest storage: Kafka on the org's kafka-native (off in Big Bang) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | Check: a gauge written through the gateway's OTLP endpoint goes through Kafka and is read back from PromQL |
 | monitoring | blackbox-exporter 0.29, snmp-exporter 0.31, config-reloader 0.94 | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | With Headlamp, Big Bang's trigger for the Blackbox exporter: a probe of Headlamp returns `probe_success 1`. The SNMP exporter (switched on by the test) serves metrics with its built-in `if_mib` config; FIPS keeps the standard SNMP image (no `-fips`). Monitoring's k8s-sidecar belongs to kube-prometheus-stack's Grafana, which Big Bang turns off; the grafana and loki tests run it |
-| neuvector | controller, enforcer, manager, scanner 5.6, prometheus-exporter 1.1 | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
+| neuvector | controller, enforcer and manager 5.7, scanner 4.330, prometheus-exporter 1.1 | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | The exporter (the `monitor` subchart, switched on by the test without the monitoring stack) logs in as a `metrics` reader and serves `nv_` metrics |
 | renovate | renovate 44.190 | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | A CronJob. Check: one run of it completes on Renovate's `local` platform (no git platform token in CI) |
 | kyverno-enforce | `restrict-image-registries` (Big Bang 4: a CEL `ValidatingPolicy`) in Enforce with Headlamp and Grafana | **PASS** on 4.1.1, 2026-11-22 ([run 45036672001](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45036672001)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | Proves the overlay's allow list admits them. Check: an org-image Pod is admitted and the same Pod from docker.io refused (server dry-run) |
 | object-storage | Tempo 3 on SeaweedFS (`OBJECT_STORAGE=seaweedfs`), no MinIO | **PASS** on 4.1.1, 2026-11-22 ([run 45036672001](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45036672001)) | **PASS** on 4.1.1, 2026-11-22 ([run 45030093928](https://github.com/Zapata-Technology/bigbang-chainguard/actions/runs/45030093928)) | Credentials only for enabled packages. Check: a span sent over OTLP is found by trace ID, and Tempo 3's live-store writes its block to the bucket (`max_block_duration` 30s; Tempo 3 has no `/flush`) |
@@ -479,6 +479,42 @@ remained:
 **Fourth run (run 42066570084):** all 19 HelmReleases Ready on RKE2's CIS profile. The one
 problem left was the exporter's startup restarts, judged before it had run 10 minutes:
 `cluster-check.py` now waits for that.
+
+### NeuVector's scan of every deployed image
+
+By hand only (`gh workflow run rke2.yml --ref main -f neuvector_report=true`), after the
+install the job has the NeuVector that Big Bang deploys scan every image the cluster runs,
+and uploads the result (artifact `nv-report[-fips]`: `nv-report.json` and `nv-report.md`,
+also in the job summary). It is not part of the recorded result.
+
+```mermaid
+flowchart LR
+    I[bb-install.py install<br/>Big Bang's default packages] --> W[NeuVector scans<br/>every running container]
+    I --> NP["Test-only NetworkPolicy:<br/>scanner + controller to 443"]
+    NP --> R
+    W --> P{packages found?}
+    P -- yes --> J[nv-report.py]
+    P -- "no: its own images,<br/>or none found" --> R["Scan by reference<br/>POST /v1/scan/repository<br/>at the deployed digest"]
+    R --> J
+    J --> A[(nv-report.json + .md<br/>per image: origin, digest,<br/>counts, each CVE)]
+```
+
+- **Login.** `nv-report.py` logs in as `admin` with the chart's bootstrap password and sets a
+  random one, as NeuVector requires on first login; neither is printed or saved. The API is
+  reached through a port-forward to the controller (Big Bang creates no API Service).
+- **NeuVector's own images** are left out of its workload scan, so they, and any image it
+  found no packages in, are scanned by reference with the org's pull token. That needs the
+  scanner to reach the registry: Big Bang's default NetworkPolicies allow it only the
+  Kubernetes API, so each such scan waited 60 s and failed "Image not found" until the step
+  added the policy above (run 45224818136; [Troubleshooting](troubleshooting.md#neuvectors-registry-scans-fail-image-not-found)
+  has the site's version). A "Image not found" is still retried, for a registry's transient 503.
+- **Results (2026-11-24, run 45325627270, NeuVector 5.7.0, CVE database 4.330):** every
+  image scanned in both modes. NeuVector reports 1 Critical and 29 High (standard) and 0 and
+  29 (FIPS) across 38 Chainguard images, most of them `golang.org/x/net` compiled into Go
+  binaries; grype, which reads Chainguard's advisories, reports none of those, and its only
+  Highs are 5 in each SeaweedFS image (apache/thrift 0.24.0, no newer Chainguard tag). RKE2's
+  own 11 images carry 24 Critical and 151 High. NeuVector 5.6.4 (the first scan, 2026-11-22)
+  had 14 and 10 High in grype in its controller and enforcer; `min_version: "5.7"` moved it.
 
 ## CI environment notes
 
