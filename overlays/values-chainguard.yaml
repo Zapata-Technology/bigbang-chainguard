@@ -1290,7 +1290,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
         - digest: sha256:f8414dcd03c2238c0786021bc5277098496cb3c7989c79ca5bbce05a7449202d
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter
-        - digest: sha256:9f3d790930744dfd8afd0e8d98a322ad551fa2ea344d93a7cb870c2f17ebd468
+        - digest: sha256:8551567381861a770a35a50006a01c8c5a7fca4e3ddc8ab4825988be9443add8
           name: cgr.dev/zapatatechnology.com/prometheus-operator
         - digest: sha256:d83b1d8dadaa64ccc0d46598b00ab0ebae6979151c2bb909e9da607cac905bd2
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
@@ -1601,7 +1601,7 @@ packages:
         images:
         - digest: sha256:428215f7ed9f4bee19b0475f3474bca34ec64f97090f55c73102ab1c793c8e6b
           name: cgr.dev/zapatatechnology.com/vault-csi-provider
-        - digest: sha256:5dcfbe1c082840f7a475f90159c01104ff3f7c650cff01c1057d6fb7f9ac19f2
+        - digest: sha256:e9dc18df47179b812f2eb3e9db1306381f0e4f91f4c54285fc4d1e7ca1d43ff8
           name: cgr.dev/zapatatechnology.com/vault-k8s
         - digest: sha256:554cff94296ef77e5f395a21af32fce212913f6886cd380fd6d6349ba6ab8fa1
           name: ghcr.io/zapata-technology/bigbang-vault
