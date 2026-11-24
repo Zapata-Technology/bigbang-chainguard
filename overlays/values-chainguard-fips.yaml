@@ -1274,7 +1274,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-fips
         - digest: sha256:f9e14a2880c21dc52e1897274a0a98ccc2248d2b4f921d914bb9dca895e97767
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
-        - digest: sha256:89e13d53c2e7d541d8a66a2859cc1b28c00bfb26e83453e08e2e9fff906847e5
+        - digest: sha256:aa9bcbae97fba8998e9acaa0b56bf714034caf4dd139154e35380ce844c7979a
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
         - digest: sha256:d83b1d8dadaa64ccc0d46598b00ab0ebae6979151c2bb909e9da607cac905bd2
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
