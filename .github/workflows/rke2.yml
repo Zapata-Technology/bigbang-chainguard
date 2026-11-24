@@ -71,7 +71,7 @@ jobs:
     steps:
       # Block every outbound call not listed: the runner's own downloads (packages, the VM
       # image, Helm, chainctl), and the VM's, which leave through the runner (RKE2's release,
-      # local-path-provisioner from Docker Hub, the org's images, Big Bang's charts on repo1,
+      # local-path's busybox helper from Docker Hub, the org's images, Big Bang's charts on repo1,
       # and Sigstore, which Kyverno asks to verify each image's signature for the installer's
       # signature policy: blocked, every Deployment timed out in Kyverno's webhook).
       # A blocked host shows up as a failed download or pull: add it here if it is expected.
@@ -192,18 +192,7 @@ jobs:
       - name: Python packages
         run: python -m pip install --quiet -r requirements.txt
 
-      - name: Boot a VM with RKE2 (CIS profile)
-        id: vm
-        timeout-minutes: 30
-        run: |
-          bash .github/rke2-vm.sh boot
-          echo "KUBECONFIG=$RUNNER_TEMP/rke2-vm/kubeconfig" >> "$GITHUB_ENV"
-
-      # The API server keeps events for an hour; an admission refusal early in the install
-      # must still count at the end.
-      - name: Keep every event
-        run: bash .github/rke2-vm.sh events
-
+      # Before the VM: its storage provisioner is the org's image (.github/rke2-vm.sh).
       - name: Log into Chainguard
         uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
         with:
@@ -211,6 +200,21 @@ jobs:
           # (tests/test_repo_rules.py); raise it on purpose (AGENTS.md, "chainctl").
           version: 0.2.403
           identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Boot a VM with RKE2 (CIS profile)
+        id: vm
+        timeout-minutes: 30
+        run: |
+          CGR_PULL_TOKEN=$(chainctl auth token --audience cgr.dev)
+          echo "::add-mask::$CGR_PULL_TOKEN"
+          export CGR_PULL_TOKEN
+          bash .github/rke2-vm.sh boot
+          echo "KUBECONFIG=$RUNNER_TEMP/rke2-vm/kubeconfig" >> "$GITHUB_ENV"
+
+      # The API server keeps events for an hour; an admission refusal early in the install
+      # must still count at the end.
+      - name: Keep every event
+        run: bash .github/rke2-vm.sh events
 
       # What a site runs: a site file with Big Bang's defaults, `check` (nothing changes),
       # then `install`. --small-cluster only lowers Flux's requests on the one-node VM.

@@ -395,7 +395,8 @@ test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
 3. configures `profile: cis` with what RKE2's CIS guide requires (the `etcd` user,
    `rke2-cis-sysctl.conf`), RKE2's own CIS PSA configuration (`restricted`, enforced) with
    the exemptions listed below, and local-path-provisioner (manifest by SHA256, images by
-   digest) as the default StorageClass; RKE2's ingress-nginx is off (Big Bang brings Istio's
+   digest; the provisioner is the org's Chainguard image, pulled with its own namespace's
+   secret) as the default StorageClass; RKE2's ingress-nginx is off (Big Bang brings Istio's
    gateway), its metrics-server stays, as at a site;
 4. checks the profile is in effect (etcd runs as `etcd`; PSA refuses a privileged pod in
    `default`) before the install and again after it;
@@ -515,7 +516,9 @@ flowchart LR
   Highs are 5 in each SeaweedFS image (apache/thrift 0.24.0, no newer Chainguard tag). RKE2's
   own 11 images carried 24 Critical and 151 High on v1.35.9; on v1.35.10+rke2r1 (run
   45336505843, same Chainguard results) 2 Critical and 43 High, the 2 Critical in
-  local-path-provisioner (the VM's storage, its newest release). NeuVector 5.6.4 (the first scan, 2026-11-22)
+  local-path-provisioner (the VM's storage, its newest release); the VM now runs Chainguard's
+  local-path-provisioner (grype: Rancher's v0.0.37 2 Critical and 19 High, Chainguard's
+  none), which leaves RKE2's own images. NeuVector 5.6.4 (the first scan, 2026-11-22)
   had 14 and 10 High in grype in its controller and enforcer; `min_version: "5.7"` moved it.
 
 ## CI environment notes

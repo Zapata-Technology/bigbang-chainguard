@@ -34,9 +34,13 @@ RKE2_ARTIFACTS="rke2.linux-amd64.tar.gz rke2-images-core.linux-amd64.tar.zst rke
 
 # RKE2 ships no storage; local-path-provisioner is the usual single-node default. Manifest by
 # checksum, images by digest (its helper image is an unpinned `busybox` in the manifest).
+# The provisioner is Chainguard's (the org's local-path-provisioner): Rancher's v0.0.37 image
+# carried 2 Critical and 19 High in grype, Chainguard's none (NeuVector's scan, 2026-11-24).
+# It is pulled with a Chainguard token in the namespace's own pull secret (CGR_PULL_TOKEN,
+# from rke2.yml), not node-wide credentials, so Big Bang's install still has to bring its own.
 LOCAL_PATH_VERSION=v0.0.37
 LOCAL_PATH_SHA256=9781b39c24f3f651bd6d6e41b561e04e4904bbdb6d4f8c7a6009df3a702dcd65
-LOCAL_PATH_IMAGE=docker.io/rancher/local-path-provisioner:v0.0.37@sha256:e757967a5ec338f6a9b371c5a9688bedaa8c3578ea3dd4db329ea0084be0a86f
+LOCAL_PATH_IMAGE=cgr.dev/${CHAINGUARD_ORG:?CHAINGUARD_ORG}/local-path-provisioner:v0.0.37@sha256:23779110cf1ef29b8565a76f2d21e0ae33e7b673ba333555417e48fa92477a05
 BUSYBOX_IMAGE=docker.io/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
 
 # Namespaces Pod Security Admission leaves alone; every other namespace must pass
@@ -122,7 +126,10 @@ EOF
   sed -e "s|image: docker.io/rancher/local-path-provisioner:$LOCAL_PATH_VERSION|image: $LOCAL_PATH_IMAGE|" \
       -e "s|image: docker.io/library/busybox\$|image: $BUSYBOX_IMAGE|" local-path-storage.yaml > local-path.yaml
   grep -q "$LOCAL_PATH_IMAGE" local-path.yaml && grep -q "$BUSYBOX_IMAGE" local-path.yaml
+  kubectl create namespace local-path-storage --dry-run=client -o yaml | kubectl apply -f -
+  kubectl -n local-path-storage create secret docker-registry cgr --docker-server=cgr.dev     --docker-username=_token --docker-password="${CGR_PULL_TOKEN:?CGR_PULL_TOKEN}"     --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f local-path.yaml
+  kubectl -n local-path-storage patch deploy local-path-provisioner --type merge     -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"cgr"}]}}}}'
   kubectl annotate storageclass local-path storageclass.kubernetes.io/is-default-class=true --overwrite
   # `local` PersistentVolumes, not hostPath ones: Big Bang's Kyverno policy
   # restrict-host-path-mount-pv refused the hostPath PV for Loki's claim (a PV has no
