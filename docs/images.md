@@ -45,7 +45,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | eck-operator | ironbank/elastic/eck-operator/eck-operator:3.5.0 | eck-operator:3.5.0 | eck-operator-fips:3.5.0 |  |
 | ek | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | ek | ironbank/big-bang/cypress:15.21.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
-| ek | ironbank/elastic/elasticsearch/elasticsearch:9.5.6 | elasticsearch:9.5.6 | elasticsearch-fips:9.5.6 |  |
+| ek | ironbank/elastic/elasticsearch/elasticsearch:9.5.6 | elasticsearch:9.5.7 | elasticsearch-fips:9.5.6 | elasticsearch: Iron Bank 9.5.6 -> newest 9.5 patch |
 | ek | ironbank/elastic/kibana/kibana:9.5.6 | kibana:9.5.6 | kibana-fips:9.5.6 |  |
 | ek | ironbank/opensource/elasticsearch-exporter:v1.11.0 | prometheus-elasticsearch-exporter:1.11.0 | prometheus-elasticsearch-exporter-fips:1.11.0 |  |
 | ek | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |

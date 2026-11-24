@@ -16,8 +16,8 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | newer major | 1 |
 | older major | 1 |
 | newer minor | 19 |
-| newer patch | 40 |
-| same | 56 |
+| newer patch | 41 |
+| same | 55 |
 | numbered differently | 9 |
 | stays on Iron Bank | 18 |
 | **total** | **144** |
@@ -48,7 +48,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/kiali/kiali:v2.34.1` | `kiali:v2.35.0` | `kiali-fips:v2.35.0` | Chainguard | newer minor | kiali |
 | `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:v0.35.0` | `prometheus-alertmanager-fips:v0.35.0` | Chainguard | newer minor | monitoring |
 
-## Newer patch, same line (40)
+## Newer patch, same line (41)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -69,6 +69,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.2` | `argocd-fips:3.6.2` | Chainguard | newer patch | argocd |
 | `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1` | built here | newer patch | grafana, monitoring |
 | `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.10` | `loki-canary-fips:3.7.10` | Chainguard | newer patch | logging-loki |
+| `ironbank/elastic/elasticsearch/elasticsearch:9.5.6` | `elasticsearch:9.5.7` | `elasticsearch-fips:9.5.6` | Chainguard | newer patch | ek |
 | `ironbank/istio-ecosystem/authservice:1.1.8` | `authservice:1.1.10` | `authservice-fips:1.1.10` | Chainguard | newer patch | authservice |
 | `ironbank/opensource/goharbor/harbor-core:v2.15.4` | `harbor-core:2.15.5` | `harbor-core-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/goharbor/harbor-exporter:v2.15.4` | `harbor-exporter:2.15.5` | `harbor-exporter-fips:2.15.5` | Chainguard | newer patch | harbor |
@@ -93,7 +94,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (56)
+## Same version (55)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -102,7 +103,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/big-bang/devops-tester:1.4` | `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2` | `ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2` | built here | same | argocd, gitlab, harbor, kyverno-policies, logging-loki, minio, renovate, velero |
 | `ironbank/bitnami/analytics/redis-exporter:v1.97.0` | `prometheus-redis-exporter-iamguarded:1.97.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | same | argocd |
 | `ironbank/elastic/eck-operator/eck-operator:3.5.0` | `eck-operator:3.5.0` | `eck-operator-fips:3.5.0` | Chainguard | same | eck-operator |
-| `ironbank/elastic/elasticsearch/elasticsearch:9.5.6` | `elasticsearch:9.5.6` | `elasticsearch-fips:9.5.6` | Chainguard | same | ek |
 | `ironbank/elastic/kibana/kibana:9.5.6` | `kibana:9.5.6` | `kibana-fips:9.5.6` | Chainguard | same | ek |
 | `ironbank/hashicorp/vault-csi-provider:v1.7.4` | `vault-csi-provider:1.7.4` | `vault-csi-provider-fips:1.7.4` | Chainguard | same | vault |
 | `ironbank/hashicorp/vault/vault-k8s:v1.7.7` | `vault-k8s:1.7.7` | `vault-k8s-fips:1.7.7` | Chainguard | same | vault |
