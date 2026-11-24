@@ -189,9 +189,9 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | monitoring | ironbank/opensource/thanos/thanos:v0.42.5 | thanos:0.42.5 | thanos-fips:0.42.5 |  |
 | neuvector | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
 | neuvector | ironbank/big-bang/cypress:16.2.1 | Iron Bank | Iron Bank | Big Bang CI test image (bbtests); built on cypress/included, which Chainguard does not publish |
-| neuvector | ironbank/neuvector/neuvector/controller:5.6.4 | neuvector-controller:5.6.4 | neuvector-controller-fips:5.6.4 | set by mapping overrides |
-| neuvector | ironbank/neuvector/neuvector/enforcer:5.6.4 | neuvector-enforcer:5.6.4 | neuvector-enforcer-fips:5.6.4 | set by mapping overrides |
-| neuvector | ironbank/neuvector/neuvector/manager:5.6.4 | neuvector-manager:5.6.4 | neuvector-manager:5.6.4 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/controller:5.6.4 | neuvector-controller:v5.7.0 | neuvector-controller-fips:v5.7.0 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/enforcer:5.6.4 | neuvector-enforcer:v5.7.0 | neuvector-enforcer-fips:v5.7.0 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/manager:5.6.4 | neuvector-manager:v5.7.0 | neuvector-manager:v5.7.0 | set by mapping overrides |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16) |
 | neuvector | ironbank/neuvector/neuvector/scanner:6 | neuvector-scanner:v4.329 | neuvector-scanner-fips:v4.328 | set by mapping overrides |
 | neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | neuvector-registry-adapter:0.2.14 | neuvector-registry-adapter-fips:0.2.14 | neuvector-registry-adapter: Iron Bank v0.2.13 -> newest 0.2 patch; neuvector-registry-adapter-fips: Iron Bank v0.2.13 -> newest 0.2 patch |
@@ -273,5 +273,5 @@ Chainguard's current release lines). Test these packages before production, or r
 
 OBJECT_STORAGE=seaweedfs: Big Bang's MinIO is off, and packages use the S3 endpoint http://seaweedfs-s3.seaweedfs.svc.cluster.local:8333 (overlays/values-object-storage.yaml).
 
-- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.54`
-- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.54`
+- `seaweedfs/`: `cgr.dev/zapatatechnology.com/seaweedfs:v4.55`
+- `seaweedfs-fips/`: `cgr.dev/zapatatechnology.com/seaweedfs-fips:v4.55`

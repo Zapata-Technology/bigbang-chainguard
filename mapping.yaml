@@ -128,9 +128,14 @@ images:
   ironbank/elastic/kibana/kibana: kibana
 
   # --- Security ---
-  ironbank/neuvector/neuvector/controller: neuvector-controller
-  ironbank/neuvector/neuvector/enforcer: neuvector-enforcer
-  ironbank/neuvector/neuvector/manager: neuvector-manager
+  # min_version 5.7: Big Bang 4.1.1 ships NeuVector 5.6.4, whose Chainguard images carry High
+  # CVEs that 5.7.0 doesn't (grype with Chainguard's advisories, 2026-11-23: controller 14 High
+  # on 5.6.4-r5, 0 on 5.7.0; enforcer 10 and 0; golang.org/x/net 0.62.0 in NeuVector's own
+  # binaries). overrides.neuvector's chart-wide tag follows the controller's min_version.
+  # Drop it when Big Bang's NeuVector reaches 5.7.
+  ironbank/neuvector/neuvector/controller: {cg: neuvector-controller, min_version: "5.7"}
+  ironbank/neuvector/neuvector/enforcer: {cg: neuvector-enforcer, min_version: "5.7"}
+  ironbank/neuvector/neuvector/manager: {cg: neuvector-manager, min_version: "5.7"}
   # max_version: scanner v4.330 (CVE DB 4.33, 2026-11-23) never registers with controller
   # 5.6.4: its V3 CVE-DB upload ends in EOF after ~33 s and retries forever (controller:
   # "Unable to acquire lock ... scanner_db_upload"), so NeuVector scans nothing and the
@@ -383,7 +388,8 @@ overrides:
   neuvector:
     # NeuVector builds "<registry>/<repository>:<tag>" from one chart-wide registry
     # and tag; Chainguard's scanner is versioned on its own (4.x, not Iron Bank's 6). The tag
-    # is the newest patch of Big Bang's controller release (an exact tag, not the 5.6 stream).
+    # is the newest patch of Big Bang's controller release (an exact tag, not a stream), or the
+    # newest release when that is below the controller's min_version.
     upstream:
       registry: "@registry"
       tag: "@tag:neuvector-controller:ib=ironbank/neuvector/neuvector/controller"

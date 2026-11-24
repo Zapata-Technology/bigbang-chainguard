@@ -436,11 +436,11 @@ class Converter:
                                 set_path(vals, d["path"].split(".")[:-1] + [k], copy.deepcopy(v))
                     covered.add(ib_repo)
 
-    def max_version(self, name):
-        """The max_version of the images entry that maps to the org's <name>, if any."""
+    def max_version(self, name, key="max_version"):
+        """The max_version (or `key`) of the images entry that maps to the org's <name>, if any."""
         for m in self.images.values():
-            if isinstance(m, dict) and m.get("cg") == name and m.get("max_version"):
-                return m["max_version"]
+            if isinstance(m, dict) and m.get("cg") == name and m.get(key):
+                return m[key]
         return None
 
     def overrides(self, release, spec, fips, tag=None, path=(), tag_version=""):
@@ -491,6 +491,10 @@ class Converter:
         version_spec = version
         if version.startswith("ib="):
             version = self.ib_tags.get(version[3:], "")
+        if below_floor(version, self.max_version(base, "min_version")):
+            # Its min_version lifts it like the image itself (NeuVector 5.7: Big Bang's 5.6.4
+            # carried High CVEs that 5.7.0 doesn't, 2026-11-23).
+            version = "*"
         tag, note = resolve(version, tags, allow_ahead=not self.strict)
         if not tag:
             self.rows.append((release, f"override {spec}", "UNRESOLVED", "UNRESOLVED", f"{name}: {note}"))
