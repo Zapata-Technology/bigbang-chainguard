@@ -190,7 +190,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/cert-manager-cainjector-fips
         - digest: sha256:f048cb2d8d1e83df6c783ae4a9c5908622dbf8e17001edc44b5361adf030738b
           name: cgr.dev/zapatatechnology.com/cert-manager-controller-fips
-        - digest: sha256:c69e372f48c9e340a509635ecdbdded2593804396e1a35328cc876903038282b
+        - digest: sha256:a2a09b8200edb19c186c97124da16e65456943ae3c52baac692fea8c3cdc05ea
           name: cgr.dev/zapatatechnology.com/cert-manager-startupapicheck-fips
         - digest: sha256:4066b62e1741fe4df4c6c135c1585c3209e35652172840de4c22707bdc2be792
           name: cgr.dev/zapatatechnology.com/cert-manager-webhook-fips
@@ -995,11 +995,11 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:211f9c4e433c719f9a296c1f2002de356cb0fcf69f7c0740cfa35c6574c18f88
+        - digest: sha256:f457acee928558f56ae3f640fc2a53a02d8f982748c63562dff11d875876e642
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-fips
         - digest: sha256:11a74462260b4977d20038c34465ef6428f70141b5d3af0a1a620b709255d6b2
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno-fips
-        - digest: sha256:28c179cf86e11e174379fcf5f281591b426b1ddf3fd5975a1e12120177cc9b81
+        - digest: sha256:6205f566e6d473868dc27c506aae1b9478d04f5840273b7f01ed3269d34925a7
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-ui-fips
     values:
       upstream:
@@ -1266,7 +1266,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:65cdac497f38451e007b7482393a65dc77505816f68a876d238fdbe97e14cc56
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
-        - digest: sha256:9f4e28a3c179a454069c93989e2209af6c1e26f439b6369cca23693aac63b5f4
+        - digest: sha256:c0d9bb48b4f4fd2d14bf57b569711abba01d392bf03850819d88c8db24ed267c
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
         - digest: sha256:09e51754291a52d635dac80c5475ed192a629a7d942f7e33f6318aa8ed335775
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips

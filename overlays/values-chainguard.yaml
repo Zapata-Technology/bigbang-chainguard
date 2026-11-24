@@ -190,7 +190,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/cert-manager-cainjector
         - digest: sha256:cf1ed812e57a67c2ae746d1d2b1cae856b122559cb5975b882a0ece2ecb32795
           name: cgr.dev/zapatatechnology.com/cert-manager-controller
-        - digest: sha256:f281b5b88623b67cb7c683cb90acbb66a3e598a10bbfeb34196aabad51e61a4d
+        - digest: sha256:3a154eacf94b1975c7b20acac09e0b8f6f8c53e2347366a0259fbaea0778da3f
           name: cgr.dev/zapatatechnology.com/cert-manager-startupapicheck
         - digest: sha256:cae7e60782d8869167e66c4d7f8a6d2a5b1edeadf37c5172e23ada12a3de49ab
           name: cgr.dev/zapatatechnology.com/cert-manager-webhook
@@ -1011,7 +1011,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:353d69bf0208e29e81dd45fbdb6f604beebf5da44fd4290a5bef125599b0250d
+        - digest: sha256:7d8e1eb0583c765550c64a8caaafe396b6020b9452e4327bae3047315c645aa1
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter
         - digest: sha256:0cea5d1c6d1a87831ea2a3cd8e91db721c6d40ba95538bdb24b022a9bfdb121a
           name: cgr.dev/zapatatechnology.com/kyverno-policy-reporter-plugin-kyverno
@@ -1284,7 +1284,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus
         - digest: sha256:f14e380575eacbf48a30be8b82f95d455229d631d2ba1eef2f39cd73d5b06eae
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager
-        - digest: sha256:53ccec3fb1c4c1d0b75e541eee686064f72d369018ccceb9078423de59f535e2
+        - digest: sha256:281cbe01583ecb0042cce3f215c898b07aaf5dc5af0f3222a2432600249b1b15
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter
         - digest: sha256:6edc307b4004fea911c6190afaa252a9cae4a07a25df3a6b81e6211146a7905e
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
