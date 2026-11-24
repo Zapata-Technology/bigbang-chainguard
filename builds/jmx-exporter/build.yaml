@@ -14,7 +14,7 @@ image:
   standard:
     name: bigbang-jmx-exporter
     tag: 1.7.0-busybox1.38.0
-    dev: cgr.dev/zapatatechnology.com/busybox:v1.38.0-dev@sha256:691ca6926da9985ed684e3448d1b14904f7cdddd4a71d77bc7e4b5337a8218c5
+    dev: cgr.dev/zapatatechnology.com/busybox:v1.38.0-dev@sha256:d40899a4b754c4a5d3846131e06f9bfea12912563ca750ab4303f31315da0cfc
   fips:
     name: bigbang-jmx-exporter-fips
     tag: 1.7.0-busybox1.38.0
