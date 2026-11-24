@@ -15,14 +15,14 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|
 | newer major | 1 |
 | older major | 1 |
-| newer minor | 15 |
+| newer minor | 18 |
 | newer patch | 40 |
-| same | 60 |
+| same | 57 |
 | numbered differently | 9 |
 | stays on Iron Bank | 18 |
 | **total** | **144** |
 
-## Different version line (17)
+## Different version line (20)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -37,6 +37,9 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/fluxcd/kustomize-controller:v1.9.5` | `flux-kustomize-controller:1.10.2` | `flux-kustomize-controller-fips:1.10.2` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.1` | `flux-notification-controller-fips:1.10.1` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/source-controller:v1.9.5` | `flux-source-controller:1.10.2` | `flux-source-controller-fips:1.10.2` | Chainguard | newer minor | flux |
+| `ironbank/neuvector/neuvector/controller:5.6.4` | `neuvector-controller:v5.7.0` | `neuvector-controller-fips:v5.7.0` | Chainguard | newer minor | neuvector |
+| `ironbank/neuvector/neuvector/enforcer:5.6.4` | `neuvector-enforcer:v5.7.0` | `neuvector-enforcer-fips:v5.7.0` | Chainguard | newer minor | neuvector |
+| `ironbank/neuvector/neuvector/manager:5.6.4` | `neuvector-manager:v5.7.0` | `neuvector-manager:v5.7.0` | Chainguard | newer minor | neuvector |
 | `ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16` | `neuvector-prometheus-exporter:1.1.0.0` | `neuvector-prometheus-exporter-fips:1.1.0.0` | Chainguard | newer minor | neuvector |
 | `ironbank/opensource/grafana/alloy:v1.21.3` | `grafana-alloy:v1.22.0` | `grafana-alloy-fips:v1.22.0` | Chainguard | newer minor | alloy |
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:v0.42.1` | `grafana-rollout-operator-fips:v0.42.1` | Chainguard | newer minor | logging-loki, mimir |
@@ -89,7 +92,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/redis/redis8-slim:8.10.2` | `redis:8.10.3` | `redis-fips:8.10.3` | Chainguard | newer patch | anchore-enterprise |
 | `ironbank/opensource/redis/redis8-slim:8.8.0` | `redis:8.8.4` | `redis-fips:8.8.4` | Chainguard | newer patch | argocd |
 
-## Same version (60)
+## Same version (57)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
@@ -106,9 +109,6 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/jetstack/cert-manager-controller:v1.21.3` | `cert-manager-controller:1.21.3` | `cert-manager-controller-fips:1.21.3` | Chainguard | same | cert-manager |
 | `ironbank/jetstack/cert-manager-webhook:v1.21.3` | `cert-manager-webhook:1.21.3` | `cert-manager-webhook-fips:1.21.3` | Chainguard | same | cert-manager |
 | `ironbank/kiwigrid/k8s-sidecar:2.14.3` | `k8s-sidecar:2.14.3` | `k8s-sidecar-fips:2.14.3` | Chainguard | same | grafana, logging-loki, monitoring |
-| `ironbank/neuvector/neuvector/controller:5.6.4` | `neuvector-controller:5.6.4` | `neuvector-controller-fips:5.6.4` | Chainguard | same | neuvector |
-| `ironbank/neuvector/neuvector/enforcer:5.6.4` | `neuvector-enforcer:5.6.4` | `neuvector-enforcer-fips:5.6.4` | Chainguard | same | neuvector |
-| `ironbank/neuvector/neuvector/manager:5.6.4` | `neuvector-manager:5.6.4` | `neuvector-manager:5.6.4` | Chainguard | same | neuvector |
 | `ironbank/nirmata/policy-reporter/policy-reporter-ui:2.9.1` | `kyverno-policy-reporter-ui:2.9.1` | `kyverno-policy-reporter-ui-fips:2.9.1` | Chainguard | same | kyverno-reporter |
 | `ironbank/opensource/bats/bats:1.14.0` | `bats:1.14.0` | `bats-fips:1.14.0` | Chainguard | same | grafana, monitoring |
 | `ironbank/opensource/cleanstart/cert-manager-startupapicheck:1.21.3-amd64` | `cert-manager-startupapicheck:1.21.3` | `cert-manager-startupapicheck-fips:1.21.3` | Chainguard | same | cert-manager |

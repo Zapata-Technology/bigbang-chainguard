@@ -904,3 +904,16 @@ def test_override_tag_respects_the_images_entry_max_version():
     # Without a cap the newest wins.
     c = convert.Converter({"images": {}}, FakeTags({"scan": ["v4.329", "v4.330"]}))
     assert c.overrides("neuvector", {"tag": "@tag:scan:*"}, False) == {"tag": "v4.330"}
+
+
+def test_override_tag_follows_the_images_entry_min_version():
+    # NeuVector's chart-wide tag (@tag:...:ib=<controller>) must rise to the newest release
+    # when Big Bang's controller is below the images entry's min_version (5.6.4 -> 5.7.0).
+    mapping = {"images": {"ironbank/neuvector/neuvector/controller": {"cg": "ctl", "min_version": "5.7"}}}
+    c = convert.Converter(mapping, FakeTags({"ctl": ["5.6.4", "5.6.5", "5.7.0"]}))
+    c.ib_tags = {"ironbank/neuvector/neuvector/controller": "5.6.4"}
+    assert c.overrides("neuvector", {"tag": "@tag:ctl:ib=ironbank/neuvector/neuvector/controller"}, False) == {"tag": "5.7.0"}
+    # At or above the floor, the Iron Bank tag's patch is kept.
+    c = convert.Converter({"images": {"x": {"cg": "ctl", "min_version": "5.6"}}}, FakeTags({"ctl": ["5.6.4", "5.7.0"]}))
+    c.ib_tags = {"ironbank/neuvector/neuvector/controller": "5.6.4"}
+    assert c.overrides("neuvector", {"tag": "@tag:ctl:ib=ironbank/neuvector/neuvector/controller"}, False) == {"tag": "5.6.4"}
