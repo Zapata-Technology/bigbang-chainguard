@@ -513,7 +513,9 @@ flowchart LR
   29 (FIPS) across 38 Chainguard images, most of them `golang.org/x/net` compiled into Go
   binaries; grype, which reads Chainguard's advisories, reports none of those, and its only
   Highs are 5 in each SeaweedFS image (apache/thrift 0.24.0, no newer Chainguard tag). RKE2's
-  own 11 images carry 24 Critical and 151 High. NeuVector 5.6.4 (the first scan, 2026-11-22)
+  own 11 images carried 24 Critical and 151 High on v1.35.9; on v1.35.10+rke2r1 (run
+  45336505843, same Chainguard results) 2 Critical and 43 High, the 2 Critical in
+  local-path-provisioner (the VM's storage, its newest release). NeuVector 5.6.4 (the first scan, 2026-11-22)
   had 14 and 10 High in grype in its controller and enforcer; `min_version: "5.7"` moved it.
 
 ## CI environment notes
