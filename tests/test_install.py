@@ -613,6 +613,28 @@ def test_pull_problem_says_what_is_wrong(monkeypatch):
     assert "not found" in images.pull_problem("r.example/o/bigbang-base:1", ("u", "p"))
 
 
+def test_pull_problem_retries_a_registry_5xx_and_says_it_is_the_registry(monkeypatch):
+    # cgr.dev's 500s on 2026-11-23 read "denied with this login" for every image.
+    _registry(monkeypatch, token_code=500)
+    waits = []
+    problem = images.pull_problem("r.example/o/bigbang-base:1", ("u", "p"), sleep=waits.append)
+    assert waits == list(images.SERVER_ERROR_WAITS)
+    assert "the registry failed (HTTP 500)" in problem and "login" not in problem
+    # A 5xx that clears on the next try is no problem.
+    answers = iter([500, 200])
+
+    def flaky(req, timeout=None):
+        if "/token?" in req.full_url and next(answers) == 500:
+            raise urllib.error.HTTPError(req.full_url, 500, "no", {}, None)
+        return real(req, timeout=timeout)
+    _registry(monkeypatch)
+    real = urllib.request.urlopen
+    monkeypatch.setattr(urllib.request, "urlopen", flaky)
+    waits = []
+    assert images.pull_problem("r.example/o/bigbang-base:1", ("u", "p"), sleep=waits.append) is None
+    assert waits == [images.SERVER_ERROR_WAITS[0]]
+
+
 def test_pull_problem_ignores_an_unreachable_registry(monkeypatch):
     def down(*a, **kw):
         raise urllib.error.URLError("no route")

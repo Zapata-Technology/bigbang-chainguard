@@ -23,6 +23,11 @@ fails every pull from that registry. Set the new login in the environment (`CGR_
 login. For the one-year token the installer made itself, see
 [An expired token](#an-expired-chainctl-login-or-pull-token).
 
+**The registry itself is failing.** `check` asks again when a registry answers 5xx, and
+then reports "the registry failed (HTTP 5xx)" instead of blaming the login (cgr.dev answered
+500 for about an hour on 2026-11-23). Wait, and run `check` again; Kyverno's signature check
+fails pods the same way meanwhile ([Kyverno refuses pods](#kyverno-refuses-pods-image-signature-checks)).
+
 **Images built here are private.** GHCR packages are private by default. The pods need a
 login with `read:packages` for the `bigbang-*` images; `install` asks for it and tests it
 ([Registry logins](install.md#registry-logins)).
@@ -78,6 +83,33 @@ controller. Each node needs `fs.inotify.max_user_instances=8192` and
 `fs.inotify.max_user_watches=524288` (a sysctl file in `/etc/sysctl.d/`, applied on boot).
 `bb-install.py check` reads them on each node with a short-lived pod; nothing in the
 Kubernetes API shows them.
+
+## NeuVector's registry scans fail: "Image not found"
+
+A registry scan in NeuVector (Assets > Registries, or `POST /v1/scan/repository`) waits 60 s
+and fails with "Image not found", while every pod runs. Big Bang's default NetworkPolicies let
+NeuVector's scanner reach only the Kubernetes API, so it can't pull from any registry (the
+kubelet pulls the running images from the node, outside the policies). To scan registries,
+let the scanner and the controller reach them on 443 in your site file:
+
+```yaml
+neuvector:
+  values:
+    networkPolicies:
+      egress:
+        from:
+          scanner:
+            to:
+              cidr:
+                0.0.0.0/0:443: true
+          controller:
+            to:
+              cidr:
+                0.0.0.0/0:443: true
+```
+
+Narrow `0.0.0.0/0` to your registries' addresses if you can. bb-common leaves the cloud
+metadata address (169.254.169.254) out. Running workloads are scanned without this.
 
 ## An expired chainctl login or pull token
 
