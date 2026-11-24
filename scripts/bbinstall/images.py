@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -125,10 +126,28 @@ def mirror_problems(co, fips, enabled, mirror, login):
     return len(refs), [p for p in found if p]
 
 
-def pull_problem(ref, login=None):
+# A registry's 5xx is its own failure, not the login's: cgr.dev answered 500 ("tag lookup
+# unavailable", "repository lookup failed") for about an hour on 2026-11-23 and every image
+# read "denied with this login". Ask again after these waits (seconds), then say so.
+SERVER_ERROR_WAITS = (5, 20)
+
+
+def pull_problem(ref, login=None, sleep=time.sleep, waits=SERVER_ERROR_WAITS):
     """None if `ref` (host/repo:tag, or @sha256:<digest>) can be pulled with `login` ((user, password) or None),
     else why not. The registry's v2 token flow, read-only; an unreachable registry isn't a
-    problem here (a proxy may allow the cluster what it denies this machine)."""
+    problem here (a proxy may allow the cluster what it denies this machine). A 5xx is
+    asked again after each of `waits`."""
+    for wait in (*waits, None):
+        problem, code = _pull_attempt(ref, login)
+        if not (code and code >= 500):
+            return problem
+        if wait is None:
+            return f"{ref}: the registry failed (HTTP {code}), {len(waits) + 1} tries; try again later"
+        sleep(wait)
+
+
+def _pull_attempt(ref, login):
+    """(problem or None, the failing HTTP code or None): one pass of pull_problem."""
     host, rest = ref.split("/", 1)
     repo, tag = split_repo(rest)
     url = f"https://{host}/v2/{repo}/manifests/{tag}"
@@ -157,14 +176,14 @@ def pull_problem(ref, login=None):
             try:
                 body = json.load(urllib.request.urlopen(req, timeout=20))
             except urllib.error.HTTPError as e:
-                return f"{ref}: {'the registry refused this login' if login else 'needs a login'} (HTTP {e.code})"
+                return f"{ref}: {'the registry refused this login' if login else 'needs a login'} (HTTP {e.code})", e.code
             code, _ = head({"Authorization": "Bearer " + (body.get("token") or body.get("access_token", ""))})
         elif code == 401 and basic:
             code, _ = head({"Authorization": basic})
     except (urllib.error.URLError, OSError, ValueError, KeyError):
-        return None
+        return None, None
     if code == 200:
-        return None
+        return None, None
     if code == 404:
-        return f"{ref}: not found (not pushed yet, or {'this login' if login else 'no login'} can't see it)"
-    return f"{ref}: {'denied with this login' if login else 'needs a login'} (HTTP {code})"
+        return f"{ref}: not found (not pushed yet, or {'this login' if login else 'no login'} can't see it)", code
+    return f"{ref}: {'denied with this login' if login else 'needs a login'} (HTTP {code})", code
