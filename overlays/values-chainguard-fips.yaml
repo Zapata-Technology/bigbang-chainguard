@@ -242,7 +242,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:8138bb7067a41481653ab67bc6e6e0f39f95a38b22b9c62a1f2ad46c359c42d8
+        - digest: sha256:bbda4604c4acafa6c41e01ee1dbef4f80a016a9546e574239241b6b725588019
           name: cgr.dev/zapatatechnology.com/elasticsearch-fips
         - digest: sha256:2129194c288c53a62e74bbb270954118bd8d753d51a652b0850bf3d23c609fad
           name: cgr.dev/zapatatechnology.com/kibana-fips
@@ -253,7 +253,7 @@ packages:
         - digest: sha256:a83308c73e70fb5857059330add314791ef0daeaecbefc6b7760cdc5efb9a88b
           name: ghcr.io/zapata-technology/bigbang-base-fips
         patches:
-        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch-fips:9.5.6@sha256:8138bb7067a41481653ab67bc6e6e0f39f95a38b22b9c62a1f2ad46c359c42d8"}]'
+        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch-fips:9.5.6@sha256:bbda4604c4acafa6c41e01ee1dbef4f80a016a9546e574239241b6b725588019"}]'
           target:
             kind: Elasticsearch
         - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/kibana-fips:9.5.6@sha256:2129194c288c53a62e74bbb270954118bd8d753d51a652b0850bf3d23c609fad"}]'
@@ -304,7 +304,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:b14c6851152d40cbead40d15faf93e89d634d9326c7efd54252bcf478dd6410a
+        - digest: sha256:8749f763880245d35206aa51e4aa8f95197c1846b5e6a5ad152e5aa6f11a3eb2
           name: cgr.dev/zapatatechnology.com/configmap-reload-fips
         - digest: sha256:a1ef86b9fce7129a0a6bdf915b3a1d1144f39e08b58c2faf0c329bf3ca1991cc
           name: cgr.dev/zapatatechnology.com/fluent-bit-fips
