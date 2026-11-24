@@ -304,7 +304,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:e53d2eaf504a9176056f64bcd503f7ddb5619e78e08d1ab27f409912fdc43a1a
+        - digest: sha256:6a211250545673139c3a1abffc3dcddbf9dc54c4e35af1a347c5a7c9484a5253
           name: cgr.dev/zapatatechnology.com/configmap-reload
         - digest: sha256:1244f4a12c39ec7a6e4e9448da163a465b6c3e8afae675d5994150d19fa816d3
           name: cgr.dev/zapatatechnology.com/fluent-bit
@@ -1170,7 +1170,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:c9819c4c8a111bfcf0bc03fdaf3e201d51859d60cf0205e2ecd3a8681a5816e2
+        - digest: sha256:c283510c6808d02ed2ae93b90fef656e47c0e73f5b6af86e0b59dde0472696ea
           name: cgr.dev/zapatatechnology.com/grafana-mimir
         - digest: sha256:abaf10221a2f59d27b824123765ab4ef5152649fc949e03ab127a26f76618004
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator
@@ -1294,7 +1294,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-operator
         - digest: sha256:d83b1d8dadaa64ccc0d46598b00ab0ebae6979151c2bb909e9da607cac905bd2
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:3cfc8b9b041219481ec03bb61342c02fb5eada7648fafe52243bf51d89c60f54
+        - digest: sha256:25e3abca7de96c63f6a7cec957388643984675619ad332609dc60e14b694f579
           name: cgr.dev/zapatatechnology.com/thanos
         - digest: sha256:3feef1c13fba5d62d19fe3e6f8e48af7e4fd5f9c4de5da3d92ff1ba652f7d2b2
           name: ghcr.io/zapata-technology/bigbang-base
@@ -1406,14 +1406,14 @@ packages:
           thanosImage:
             registry: cgr.dev/zapatatechnology.com
             repository: thanos
-            sha: 3cfc8b9b041219481ec03bb61342c02fb5eada7648fafe52243bf51d89c60f54
+            sha: 25e3abca7de96c63f6a7cec957388643984675619ad332609dc60e14b694f579
             tag: 0.42.5
         thanosRuler:
           thanosRulerSpec:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: thanos
-              sha: 3cfc8b9b041219481ec03bb61342c02fb5eada7648fafe52243bf51d89c60f54
+              sha: 25e3abca7de96c63f6a7cec957388643984675619ad332609dc60e14b694f579
               tag: 0.42.5
   neuvector:
     postRenderers:
@@ -1564,7 +1564,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:3cfc8b9b041219481ec03bb61342c02fb5eada7648fafe52243bf51d89c60f54
+        - digest: sha256:25e3abca7de96c63f6a7cec957388643984675619ad332609dc60e14b694f579
           name: cgr.dev/zapatatechnology.com/thanos
     values:
       upstream:
