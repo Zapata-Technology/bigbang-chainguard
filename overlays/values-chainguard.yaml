@@ -15,7 +15,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:a7e5290d0ac51983177e7625f7fd1223f785be17deddaaf59eb40ef184deda11
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       autoRollingUpgrade:
@@ -60,7 +60,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:3d8a42c46ef87d7c7f3baf9705b39968a9f26f0b36412eecc2dff7b9d3c3ffae
           name: cgr.dev/zapatatechnology.com/redis
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       ui-redis:
@@ -94,7 +94,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/dex
         - digest: sha256:2a5fbfd78074bdbcd3aecf55af037d425a3fd21ad3f96e80893a575ea7f96501
           name: cgr.dev/zapatatechnology.com/haproxy
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -161,7 +161,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:3d8a42c46ef87d7c7f3baf9705b39968a9f26f0b36412eecc2dff7b9d3c3ffae
           name: cgr.dev/zapatatechnology.com/redis
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       image:
@@ -227,7 +227,7 @@ packages:
         images:
         - digest: sha256:5a2912ef2cac137626c0b9c46b0799d3ec17c4b92b98378523f63947360809ce
           name: cgr.dev/zapatatechnology.com/eck-operator
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       upgradeCrds:
@@ -250,7 +250,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:49b6900db79d7c22913f8ed0b4fdbb2dbfb0087b9e5a6a7d4919410c0eb1fd97
           name: cgr.dev/zapatatechnology.com/prometheus-elasticsearch-exporter
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         patches:
         - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch:9.5.6@sha256:1330608eeec3c5beecbb6d70dc024509c8db287b416c001defcec418c45dd02d"}]'
@@ -290,7 +290,7 @@ packages:
         images:
         - digest: sha256:02509efa2cc9e3539664d3d2737b73d09f09db259d454305b26adc0982e507d2
           name: cgr.dev/zapatatechnology.com/external-secrets
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       bbtests:
@@ -308,7 +308,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/configmap-reload
         - digest: sha256:1244f4a12c39ec7a6e4e9448da163a465b6c3e8afae675d5994150d19fa816d3
           name: cgr.dev/zapatatechnology.com/fluent-bit
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       bbtests:
@@ -340,7 +340,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/mysql
         - digest: sha256:365e7678ed2bee84fe99c26778e453fc1ca7878f7d7f15b7120b35fcfa4beaa6
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         patches:
         - patch: '[{"op": "replace", "path": "/spec/template/spec/containers/0/command/0", "value": "/bin/bash"}]'
@@ -383,7 +383,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gatekeeper
         - digest: sha256:1997b4adc402d917038f716205804620d2283fbdf813d3fcbee6774e627ec3de
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       bbtests:
@@ -474,7 +474,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-shell
         - digest: sha256:59202ba51047e0c850b8f9e558c7e47860beacba79173606016abbab5e1ea969
           name: cgr.dev/zapatatechnology.com/nginx
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -623,7 +623,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/grafana-image-renderer
         - digest: sha256:81dc49677b24a0cb9ed7db2216f370f0c6db74d74c30172b5b161d24c680bdd5
           name: cgr.dev/zapatatechnology.com/k8s-sidecar
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:cad323043c3c74d62e029f92142490eeac39706c9c6a4692a0b72a5178bf36f0
           name: ghcr.io/zapata-technology/bigbang-grafana-plugins
@@ -698,7 +698,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
         - digest: sha256:3d8a42c46ef87d7c7f3baf9705b39968a9f26f0b36412eecc2dff7b9d3c3ffae
           name: cgr.dev/zapatatechnology.com/redis
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -1054,7 +1054,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:59202ba51047e0c850b8f9e558c7e47860beacba79173606016abbab5e1ea969
           name: cgr.dev/zapatatechnology.com/nginx
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -1182,7 +1182,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/memcached-exporter
         - digest: sha256:59202ba51047e0c850b8f9e558c7e47860beacba79173606016abbab5e1ea969
           name: cgr.dev/zapatatechnology.com/nginx
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       upgradeJob:
@@ -1223,7 +1223,7 @@ packages:
         images:
         - digest: sha256:1997b4adc402d917038f716205804620d2283fbdf813d3fcbee6774e627ec3de
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -1243,7 +1243,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:000791f3ca824a63691df4492ce3ae82f46c2a6440fc18c1c756c3c96ef5dbd0
           name: ghcr.io/zapata-technology/bigbang-minio-operator
@@ -1296,7 +1296,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
         - digest: sha256:3cfc8b9b041219481ec03bb61342c02fb5eada7648fafe52243bf51d89c60f54
           name: cgr.dev/zapatatechnology.com/thanos
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:cad323043c3c74d62e029f92142490eeac39706c9c6a4692a0b72a5178bf36f0
           name: ghcr.io/zapata-technology/bigbang-grafana-plugins
@@ -1429,9 +1429,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter
         - digest: sha256:6ce4175fdff463c39660a4ba19145ac1b8ef6c31551807cf6a002818c2776b42
           name: cgr.dev/zapatatechnology.com/neuvector-registry-adapter
-        - digest: sha256:27aad5a116afbd8972a1001e15058a05d670b471d10f07345d71170e525e5c59
+        - digest: sha256:8c1b8cad918de0f79baef38260afea860feeab8c56a36ea4a2389ee94bb90280
           name: cgr.dev/zapatatechnology.com/neuvector-scanner
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       bbtests:
@@ -1458,7 +1458,7 @@ packages:
             image:
               registry: ''
               repository: neuvector-scanner
-              tag: v4.329
+              tag: v4.330
             volumeMounts:
             - mountPath: /tmp
               name: scanner-tmp
@@ -1509,9 +1509,9 @@ packages:
         images:
         - digest: sha256:0b699d59fc649f3eb2198fc716bd566e81a3ee45baeca8a8080af42d51b7991f
           name: cgr.dev/zapatatechnology.com/sonarqube
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
-        - digest: sha256:47b5f2ec1f4d62804833e031e1990d95dfcb7c498a9eba15bf3b527164b625b4
+        - digest: sha256:17630e7b7e1ad48a5bdfc426ad924b4af180763555db243af29e26e4350bbb46
           name: ghcr.io/zapata-technology/bigbang-jmx-exporter
     values:
       curlContainerImage: ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6
@@ -1533,9 +1533,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl
         - digest: sha256:7a5075f04fa549ef90e7cd9e3e214f1161f22a0024788a6afb4236db2e1db768
           name: cgr.dev/zapatatechnology.com/tempo
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
-        - digest: sha256:4f45d6c8a8ebc4e4112339ba8d5dd1f09eca078df226ca6779106a7cb4b59ec8
+        - digest: sha256:4fe721237cea904cfb401bce2ecad73b7edca218e1f3c50bbe7cc09e831ebe59
           name: ghcr.io/zapata-technology/bigbang-tempo-query
     values:
       bbtests:
@@ -1581,7 +1581,7 @@ packages:
         images:
         - digest: sha256:1997b4adc402d917038f716205804620d2283fbdf813d3fcbee6774e627ec3de
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
     values:
       bbtests:
@@ -1603,7 +1603,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/vault-csi-provider
         - digest: sha256:5dcfbe1c082840f7a475f90159c01104ff3f7c650cff01c1057d6fb7f9ac19f2
           name: cgr.dev/zapatatechnology.com/vault-k8s
-        - digest: sha256:93473dcda81ea1d76f91037cce169599dbcbc8df9ad2fdeb19a517ae1163a118
+        - digest: sha256:570e5e2c5c9b4825ba2b9f38d590cf61d169e8f0eeb0e00ce43023baa82ace70
           name: ghcr.io/zapata-technology/bigbang-vault
     values:
       bbtests:
@@ -1637,7 +1637,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/velero
         - digest: sha256:7235c8265bb6c23d464a6f2c61d82a034867473244853420e62686ba5cdf571b
           name: cgr.dev/zapatatechnology.com/velero-plugin-for-aws
-        - digest: sha256:431293fbe6ef0a59b6861802377c39dee37a14275f70bb62aec0c78e1adb03e0
+        - digest: sha256:79950b649842750730a166a3609f3d4e4f351e2b52ad362d810758f72dc38bb2
           name: ghcr.io/zapata-technology/bigbang-base
         - digest: sha256:9d8ffb4766b849b69922004b703900b203452d697c55f5b4817dc4f268379b42
           name: ghcr.io/zapata-technology/bigbang-devops-tester

@@ -136,13 +136,10 @@ images:
   ironbank/neuvector/neuvector/controller: {cg: neuvector-controller, min_version: "5.7"}
   ironbank/neuvector/neuvector/enforcer: {cg: neuvector-enforcer, min_version: "5.7"}
   ironbank/neuvector/neuvector/manager: {cg: neuvector-manager, min_version: "5.7"}
-  # max_version: scanner v4.330 (CVE DB 4.33, 2026-11-23) never registers with controller
-  # 5.6.4: its V3 CVE-DB upload ends in EOF after ~33 s and retries forever (controller:
-  # "Unable to acquire lock ... scanner_db_upload"), so NeuVector scans nothing and the
-  # registry adapter reports no scanner (compat/registry-adapter.yaml, both modes, twice).
-  # v4.329 / fips v4.328 passed on 2026-11-22. Drop the hold when a newer scanner or
-  # controller passes registry-adapter.yaml.
-  ironbank/neuvector/neuvector/scanner: {cg: neuvector-scanner, max_version: "4.329"}
+  # Scanner v4.330 (CVE DB 4.33) never registered with controller 5.6.4 (V3 CVE-DB upload
+  # ended in EOF; compat/registry-adapter.yaml failed, 2026-11-23), so it was held at
+  # v4.329. Controller 5.7.0 (min_version above) lifted the hold.
+  ironbank/neuvector/neuvector/scanner: neuvector-scanner
   ironbank/neuvector/neuvector/prometheus-exporter: neuvector-prometheus-exporter
   # Chainguard's neuvector-registry-adapter (added to the catalog 2026-11-21) replaced the
   # build from upstream's source (builds/registry-adapter) on 2026-11-23.
