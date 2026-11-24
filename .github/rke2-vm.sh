@@ -25,8 +25,8 @@ VM_DISK=${VM_DISK:-60G}
 
 # RKE2 on the Kubernetes minor kind and the FIPS VM's k3s run. The release's checksum file is
 # pinned, and it vouches for the tarball and the airgap images; install.sh from the same tag.
-RKE2_VERSION=v1.35.9+rke2r1
-RKE2_SUMS_SHA256=f3dd12b903fc7fa7d98933102069508e7f95322c7da530bd3936e2d7a5f11bce
+RKE2_VERSION=v1.35.10+rke2r1
+RKE2_SUMS_SHA256=5acf29f59c71a59726587650f8915d54bbd898946c239d617e2a0c398936a943
 RKE2_INSTALL_SHA256=2d24db2184dd6b1a5e281fa45cc9a8234c889394721746f89b5fe953fdaaf40a
 # The airgap images RKE2 itself runs (core and the default CNI, Canal), so nothing of RKE2's
 # comes from Docker Hub.

@@ -388,7 +388,7 @@ test and fails at a site. `rke2.yml` covers that gap, the way a site installs:
    both VMs), with twice the runner's CPUs (at least 8) and all but 2 GB of its memory. It runs
    on the runner the repository variable `RKE2_RUNNER` names, else `ubuntu-latest`; on a
    runner under 14 GB the VM gets 12 GB backed by swap (see the results below);
-2. installs RKE2 `v1.35.9+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
+2. installs RKE2 `v1.35.10+rke2r1` (Kubernetes 1.35, the minor kind and the FIPS VM run) from
    its release: the release's checksum file is pinned by SHA256 and vouches for the tarball
    and the airgap images (core and Canal, so nothing of RKE2's comes from Docker Hub);
    `install.sh` from the same tag, also by SHA256 (`.github/rke2-vm.sh`);
