@@ -193,7 +193,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | neuvector | ironbank/neuvector/neuvector/enforcer:5.6.4 | neuvector-enforcer:v5.7.0 | neuvector-enforcer-fips:v5.7.0 | set by mapping overrides |
 | neuvector | ironbank/neuvector/neuvector/manager:5.6.4 | neuvector-manager:v5.7.0 | neuvector-manager:v5.7.0 | set by mapping overrides |
 | neuvector | ironbank/neuvector/neuvector/prometheus-exporter:1-1.0.16 | neuvector-prometheus-exporter:1.1.0.0 | neuvector-prometheus-exporter-fips:1.1.0.0 | neuvector-prometheus-exporter: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16); neuvector-prometheus-exporter-fips: MINOR AHEAD: org has no 1.x; using 1.1.0.0 (Iron Bank 1-1.0.16) |
-| neuvector | ironbank/neuvector/neuvector/scanner:6 | neuvector-scanner:v4.329 | neuvector-scanner-fips:v4.328 | set by mapping overrides |
+| neuvector | ironbank/neuvector/neuvector/scanner:6 | neuvector-scanner:v4.330 | neuvector-scanner-fips:v4.330 | set by mapping overrides |
 | neuvector | ironbank/opensource/neuvector/registry-adapter:v0.2.13 | neuvector-registry-adapter:0.2.14 | neuvector-registry-adapter-fips:0.2.14 | neuvector-registry-adapter: Iron Bank v0.2.13 -> newest 0.2 patch; neuvector-registry-adapter-fips: Iron Bank v0.2.13 -> newest 0.2 patch |
 | neuvector | override @repo:neuvector-manager | neuvector-manager | neuvector-manager | no neuvector-manager-fips tags in the org; FIPS overlay keeps the standard image |
 | passthrough-ingressgateway | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
