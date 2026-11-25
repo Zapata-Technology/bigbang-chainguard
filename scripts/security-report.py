@@ -219,6 +219,10 @@ def trivy_findings(doc):
         for p in r.get("Packages") or []:
             if r.get("Class") == "os-pkgs":
                 pkgs[p.get("Name")] = p.get("Version")
+                # Advisories are filed under the source package: kyverno-fips-1.19's cover its
+                # subpackage kyverno-fips-1.19-background-controller (run 45564634354).
+                if p.get("SrcName") and p["SrcName"] != p.get("Name"):
+                    pkgs.setdefault(p["SrcName"], p.get("SrcVersion") or p.get("Version"))
         for v in r.get("Vulnerabilities") or []:
             vulns.append({"id": v.get("VulnerabilityID"), "aliases": [v.get("VulnerabilityID")],
                           "severity": (v.get("Severity") or "").title(), "package": v.get("PkgName"),
@@ -254,8 +258,9 @@ def scan_one(ref, origin, signers):
         rc, so, se = run(["trivy", "image", "--quiet", "--skip-version-check", "--image-src", "remote",
                           "--scanners", "vuln", "--list-all-pkgs", "--format", "json", ref])
         # Two Trivys share one cache; the second waits a while for its lock, then gives up
-        # ("cache may be in use by another process": 3 of 270 images, run 45558189314).
-        if rc == 0 or "cache may be in use" not in se:
+        # ("cache may be in use by another process": 3 of 270 images, run 45558189314). A
+        # registry read can also fail mid-scan (a panic in net/http, run 45564634354): retry.
+        if rc == 0:
             break
         time.sleep(TRIVY_WAIT * (attempt + 1))
     if rc == 0:
