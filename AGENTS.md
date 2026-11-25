@@ -79,6 +79,7 @@ python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what'
 python scripts/bb-onboard.py --org <org> --repo OWNER/REPO [--apply]   # set up a new org and copy (dry run without --apply)
 gh workflow run rke2.yml --ref main -f neuvector_report=true   # Big Bang on RKE2 + the security report (also weekly): NeuVector, grype, Trivy, Chainguard's advisories, KEV, EPSS, signatures (artifacts nv-report[-fips], security-report; scripts/nv-report.py, scripts/security-report.py)
 gh workflow run rke2.yml --ref main -f report_from_run=<run id>   # rebuild only the security report from that run's nv-report artifacts (no VM)
+gh workflow run rke2.yml --ref main -f report_from_run=<run id> -f publish_report=true   # ...and publish it as the weekly run does: latest release asset, bot/security-report PR (docs/security-report.pdf, .md)
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching

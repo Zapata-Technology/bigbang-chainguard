@@ -91,7 +91,7 @@ def test_the_vm_workflows_record_and_upload_a_result_test_results_reads():
     for name, test in (("rke2.yml", "rke2-default"), ("fips-kernel.yml", "fips-kernel-")):
         wf = _workflow(name)
         assert name in tr.WORKFLOWS
-        [job] = [j for n, j in wf["jobs"].items() if n not in ("alert", "plan", "security-report")]
+        [job] = [j for n, j in wf["jobs"].items() if n not in ("alert", "plan", "security-report", "publish-report")]
         steps = {s.get("name"): s for s in job["steps"]}
         record = steps["Record the result"]
         assert "scripts/test-results.py record" in record["run"] and test in record["run"] + str(record["env"])

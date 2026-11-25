@@ -500,6 +500,13 @@ To rebuild only the report from an earlier run's scans, without the VM:
 gh workflow run rke2.yml --ref main -f report_from_run=<run id>
 ```
 
+**Published.** The weekly run (or `-f publish_report=true`) attaches the PDF to the latest
+release, and opens the bot pull request `bot/security-report` with
+[docs/security-report.pdf](security-report.pdf) and [docs/security-report.md](security-report.md)
+(the counts) when the counts changed; `automerge.yml` merges it when green. Unchanged counts
+open no pull request, so a 2 MB PDF doesn't land in git every week. `release.py` attaches
+`docs/security-report.pdf` to each new release and links it in the notes.
+
 Then the `security-report` job (a standard runner) builds the report from both jobs' scans
 (`scripts/security-report.py`, artifact `security-report`: `security-report.pdf`,
 `report.html`, `images.json`, `cves.json`, `scan.json`):

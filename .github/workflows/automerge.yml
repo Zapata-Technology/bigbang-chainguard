@@ -2,7 +2,8 @@ name: Auto-merge - nightly update
 
 # Merges the nightly bot pull requests (update.yml: bot/bigbang-update, the routine track;
 # bot/bigbang-release, a new Big Bang release; and bot/builds-update / bot/builds-release
-# with build.yaml, or the release track's release.yaml, files held back until published) once every check on its head commit has
+# with build.yaml, or the release track's release.yaml, files held back until published; and
+# rke2.yml's bot/security-report, the weekly docs/security-report.pdf and .md) once every check on its head commit has
 # passed: CI, the image builds and every kind test. Branch
 # protection only requires `verify`, so GitHub's own auto-merge would not wait for the
 # kind tests; this does. It runs each time one of those workflows finishes and merges on
@@ -61,7 +62,8 @@ jobs:
       (github.event.workflow_run.head_branch == 'bot/bigbang-update' ||
        github.event.workflow_run.head_branch == 'bot/bigbang-release' ||
        github.event.workflow_run.head_branch == 'bot/builds-update' ||
-       github.event.workflow_run.head_branch == 'bot/builds-release') &&
+       github.event.workflow_run.head_branch == 'bot/builds-release' ||
+       github.event.workflow_run.head_branch == 'bot/security-report') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -140,7 +142,8 @@ jobs:
             echo "#$pr is labeled hold"; exit 0
           fi
 
-          # The PR must be the bot's own: one commit, touching only what update.yml writes.
+          # The PR must be the bot's own: one commit, touching only what update.yml (or, for
+          # bot/security-report, rke2.yml's publish-report job) writes.
           # Each line "<status> <filename>" (status: added, modified, removed, ...).
           changes=""; page=1
           while :; do
@@ -156,6 +159,7 @@ jobs:
             [ -n "$f" ] || continue
             case "$BRANCH:$f" in
               bot/builds-update:builds/*/build.yaml|bot/builds-release:builds/*/build.yaml) ;;
+              bot/security-report:docs/security-report.pdf|bot/security-report:docs/security-report.md) ;;
               # The release track's held build (bb-held-builds.py --release); a Big Bang PR
               # only deletes one (published, or its release no longer ahead).
               bot/builds-release:builds/*/release.yaml) ;;
