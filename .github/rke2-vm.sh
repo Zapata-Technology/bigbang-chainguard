@@ -124,12 +124,17 @@ EOF
     "https://raw.githubusercontent.com/rancher/local-path-provisioner/$LOCAL_PATH_VERSION/deploy/local-path-storage.yaml"
   echo "$LOCAL_PATH_SHA256  local-path-storage.yaml" | sha256sum -c -
   sed -e "s|image: docker.io/rancher/local-path-provisioner:$LOCAL_PATH_VERSION|image: $LOCAL_PATH_IMAGE|" \
-      -e "s|image: docker.io/library/busybox\$|image: $BUSYBOX_IMAGE|" local-path-storage.yaml > local-path.yaml
+      -e "s|image: docker.io/library/busybox\$|image: $BUSYBOX_IMAGE|" \
+      -e 's|^\( *\)serviceAccountName: local-path-provisioner-service-account$|&\n\1imagePullSecrets: [{name: cgr}]|' \
+      local-path-storage.yaml > local-path.yaml
   grep -q "$LOCAL_PATH_IMAGE" local-path.yaml && grep -q "$BUSYBOX_IMAGE" local-path.yaml
+  grep -q "imagePullSecrets: \[{name: cgr}\]" local-path.yaml
   kubectl create namespace local-path-storage --dry-run=client -o yaml | kubectl apply -f -
-  kubectl -n local-path-storage create secret docker-registry cgr --docker-server=cgr.dev     --docker-username=_token --docker-password="${CGR_PULL_TOKEN:?CGR_PULL_TOKEN}"     --dry-run=client -o yaml | kubectl apply -f -
+  kubectl -n local-path-storage create secret docker-registry cgr --docker-server=cgr.dev \
+    --docker-username=_token --docker-password="${CGR_PULL_TOKEN:?CGR_PULL_TOKEN}" \
+    --dry-run=client -o yaml | kubectl apply -f -
+  # The secret exists before the Deployment, which names it, so the first pull succeeds.
   kubectl apply -f local-path.yaml
-  kubectl -n local-path-storage patch deploy local-path-provisioner --type merge     -p '{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"cgr"}]}}}}'
   kubectl annotate storageclass local-path storageclass.kubernetes.io/is-default-class=true --overwrite
   # `local` PersistentVolumes, not hostPath ones: Big Bang's Kyverno policy
   # restrict-host-path-mount-pv refused the hostPath PV for Loki's claim (a PV has no
