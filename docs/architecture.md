@@ -282,6 +282,10 @@ merge made with the workflow token wouldn't). When CI's `verify` passes on that 
 `release.yml` runs; each merge that changes what users deploy becomes a release
 `<bigbang>-cg.<n>`.
 `cve-report.yml` compares Iron Bank's and Chainguard's images with grype every week.
+`rke2.yml` installs Big Bang's default packages on RKE2's CIS profile every week and builds
+the security report: the NeuVector that Big Bang deploys scans every deployed and pinned
+image, and grype, Trivy, Chainguard's advisories, CISA KEV, EPSS and cosign are checked
+against it (see [testing.md](testing.md#neuvectors-scan-of-every-deployed-image)).
 
 `bb-leftovers.py` checks each `{stays: ..., until: <name>}` image against Chainguard's
 catalog and your org. When Chainguard publishes one, the nightly report says so; add the
@@ -363,6 +367,9 @@ flowchart LR
 - Every input to a build is pinned: Iron Bank's recipe by commit, each download by sha256 or
   digest, and each base image by digest. The SLSA v1 provenance predicate the build job
   writes (not a SLSA Build L3 attestation) lists them.
+- The weekly security report re-checks this from outside the pull request: every pinned
+  image's signature, signed SBOM and digest pin, and its CVEs against Chainguard's
+  advisories ([testing.md](testing.md#neuvectors-scan-of-every-deployed-image)).
 - CI identities are scoped. The Chainguard pull identity is trusted only for this repo's
   `main` branch and pull requests. GitHub Actions are pinned to commit SHAs.
 - The CI, build and nightly runners block every outbound call they don't list
