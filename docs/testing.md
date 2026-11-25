@@ -15,6 +15,9 @@ flowchart LR
     S --> C[Run on kind<br/>compat.yml<br/>one package per job]
     B --> C
     C --> RG[results-gate<br/>recorded standard matrix<br/>for this Big Bang version]
+    C -.weekly.-> RK[RKE2, CIS profile<br/>rke2.yml<br/>standard + FIPS in a VM]
+    RK --> NV[NeuVector scan<br/>deployed + pinned images]
+    NV --> SR[Security report<br/>grype, Trivy, advisories,<br/>KEV, EPSS, cosign]
 ```
 
 | Layer | Runs | Catches |
@@ -486,33 +489,54 @@ problem left was the exporter's startup restarts, judged before it had run 10 mi
 Weekly, and by hand (`gh workflow run rke2.yml --ref main -f neuvector_report=true`), after
 the install the job has the NeuVector that Big Bang deploys scan every image the cluster
 runs, and every other image the overlays pin (Big Bang's optional packages: GitLab, Vault,
-Mattermost and the rest), by reference at the pinned digest. It uploads the result
-(artifact `nv-report[-fips]`: `nv-report.json` and `nv-report.md`, also in the job summary).
-It is not part of the recorded result.
+Mattermost and the rest; `security-report.py pins` lists them), by reference at the pinned
+digest, three at a time (`--jobs 3`). It uploads the result (artifact `nv-report[-fips]`:
+`nv-report.json` and `nv-report.md`, also in the job summary; the optional images are under
+"Not deployed"). It is not part of the recorded result.
+
+To rebuild only the report from an earlier run's scans, without the VM:
+
+```bash
+gh workflow run rke2.yml --ref main -f report_from_run=<run id>
+```
 
 Then the `security-report` job (a standard runner) builds the report from both jobs' scans
 (`scripts/security-report.py`, artifact `security-report`: `security-report.pdf`,
 `report.html`, `images.json`, `cves.json`, `scan.json`):
 
 - **Three scanners.** grype and Trivy scan the same digests from the registry; both read
-  Chainguard's security data, NeuVector doesn't.
+  Chainguard's security data, NeuVector doesn't. Package names and versions are normalized
+  so one finding the scanners spell differently is one row. Trivy is retried (4 tries, 15 s
+  apart) when it fails, as it does while another scan holds its cache lock.
 - **Chainguard's advisories.** Each finding is matched to the advisory for a package in that
   image (packages.cgr.dev and packages.wolfi.dev security databases): not affected, fixed
-  in this build, fixed in a newer build, or none. A Critical or High counts as open unless
-  the advisory says not affected or fixed at or below the installed version.
+  in this build, fixed in a newer build, or none. Advisories are filed under the source
+  package, so a subpackage (Trivy's `SrcName`, as in the FIPS Kyverno images) is matched
+  through it. A Critical or High counts as open unless the advisory says not affected or
+  fixed at or below the installed version.
 - **Exploitation.** Each CVE's place on CISA's Known Exploited Vulnerabilities list and its
   EPSS score (FIRST.org).
 - **Supply chain.** `cosign verify` (the expected keyless signature) and
-  `cosign verify-attestation --type spdxjson` (a signed SBOM) for every org and built image.
+  `cosign verify-attestation --type spdxjson` (a signed SBOM) for every org and built image,
+  and whether the overlays pin it by digest.
+- **The PDF** lists every open Critical; the optional packages' open Highs (several hundred)
+  are counted per image and package. `cves.json` and the report page list each one.
 
 ```mermaid
 flowchart LR
-    N[(nv-report.json<br/>standard + FIPS)] --> S[security-report.py scan]
-    S --> G[grype] & T[Trivy] & C[cosign verify<br/>+ SBOM attestation]
-    G & T & C --> B[security-report.py build]
+    subgraph vm[rke2.yml, per mode, in the VM]
+        PI[security-report.py pins<br/>every image the overlays pin] --> NR[nv-report.py<br/>deployed + not deployed]
+    end
+    NR --> N[(nv-report.json<br/>standard + FIPS)]
+    PR["-f report_from_run=&lt;id&gt;<br/>an earlier run's artifacts"] -.-> N
+    subgraph sr[security-report job, standard runner]
+        S[security-report.py scan] --> G[grype] & T[Trivy<br/>retried] & C[cosign verify<br/>+ SBOM attestation]
+        G & T & C --> B[security-report.py build]
+    end
+    N --> S
     A[(Chainguard and Wolfi<br/>security databases)] --> B
     K[(CISA KEV, FIRST EPSS)] --> B
-    B --> O[(security-report.pdf<br/>images.json, cves.json)]
+    B --> O[(security-report.pdf, report.html<br/>images.json, cves.json, scan.json)]
 ```
 
 ```mermaid
@@ -547,6 +571,20 @@ flowchart LR
   local-path-provisioner (grype: Rancher's v0.0.37 2 Critical and 19 High, Chainguard's
   none), which leaves RKE2's own images. NeuVector 5.6.4 (the first scan, 2026-11-22)
   had 14 and 10 High in grype in its controller and enforcer; `min_version: "5.7"` moved it.
+- **Security report (2026-11-25, run 45570618056, from run 45550267826's scans):**
+
+  | | Images | NeuVector Critical / High | Open after Chainguard's advisories | On KEV | Signed / signed SBOM |
+  |---|---|---|---|---|---|
+  | Deployed, standard | 40 | 1 / 46 | 0 / 10 | 0 | 40 / 40 |
+  | Deployed, FIPS | 40 | 0 / 45 | 0 / 10 | 0 | 40 / 40 |
+  | Optional packages, each mode | 84 | | 72 / 367 | 0 | 84 / 84 |
+
+  The 10 open Highs are SeaweedFS's apache/thrift 0.24.0 (fixed upstream in 0.25.0, waiting
+  on a SeaweedFS release and a Chainguard rebuild). Most of the optional packages' open
+  Criticals are Chromium in `grafana-image-renderer` and Rails in GitLab EE; Chainguard has
+  packaged both fixes (Chromium 158.0.8127.88-r0, GitLab 19.5.8-r0), and the nightly update
+  moves the pins when image tags carry them. The rest are grype's handlebars false positive
+  in GitLab's Web IDE assets, and graphicsmagick and activestorage, with no advisory yet.
 
 ## CI environment notes
 

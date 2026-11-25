@@ -159,7 +159,11 @@ waiting on a Chainguard rebuild) and nothing else. The weekly RKE2 run builds a 
 report from those scans (artifact `security-report`): grype and Trivy beside NeuVector, each
 finding matched to Chainguard's advisory, its CISA KEV status and EPSS score, every pinned
 image of the optional packages scanned by reference, and each image's signature and signed
-SBOM checked with cosign.
+SBOM checked with cosign. The 2026-11-25 report: after Chainguard's advisories, the 40
+deployed images in each mode have 0 Critical and 10 High open (all SeaweedFS's thrift), none
+on CISA's KEV list, and all are signed with a signed SBOM. The optional packages' 84 images
+have 72 Critical and 367 High open, none on KEV, most in GitLab EE and Grafana's image
+renderer, with fixes Chainguard has packaged but not yet published in image tags.
 
 ## Residual risks
 

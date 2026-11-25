@@ -78,6 +78,7 @@ python scripts/egress-audit.py        # hosts a workflow reached that its harden
 python scripts/bb-org-repos.py --quota   # Chainguard plan: room per tier, what's needed, what's unused
 python scripts/bb-onboard.py --org <org> --repo OWNER/REPO [--apply]   # set up a new org and copy (dry run without --apply)
 gh workflow run rke2.yml --ref main -f neuvector_report=true   # Big Bang on RKE2 + the security report (also weekly): NeuVector, grype, Trivy, Chainguard's advisories, KEV, EPSS, signatures (artifacts nv-report[-fips], security-report; scripts/nv-report.py, scripts/security-report.py)
+gh workflow run rke2.yml --ref main -f report_from_run=<run id>   # rebuild only the security report from that run's nv-report artifacts (no VM)
 ```
 
 CI: `ci.yml` (every PR), `builds.yml` (images built here), `compat.yml` (kind, PRs touching
