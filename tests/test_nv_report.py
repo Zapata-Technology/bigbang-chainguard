@@ -344,3 +344,20 @@ def test_image_not_found_is_retried_at_the_digest():
                                log=lambda *_: None, scan=scan, sleep=waits.append)
     assert calls == [D4, D4, D4] and waits == [nv.NOT_FOUND_WAIT] * 2
     assert rows[0]["scan_status"] == "repository" and rows[0]["digest"] == D4
+
+
+def test_optional_scans_cover_pinned_images_no_pod_runs():
+    covered = nv.summarize(nv.containers(WORKLOADS), REPORTS.__getitem__, org=ORG)
+    pinned = [f"cgr.dev/{ORG}/kyverno@{D1}",                        # running: already in the report
+              f"cgr.dev/{ORG}/gitlab-webservice@{D4}", f"cgr.dev/{ORG}/gitlab-webservice@{D4}",
+              f"cgr.dev/{ORG}/vault@{D5}", f"docker.io/library/other@{D5}"]
+    api = RepoApi()
+    rows = nv.optional_scans(api, pinned, covered, {"cgr.dev": ("_token", "tok")}, org=ORG, jobs=2,
+                             log=lambda *_: None,
+                             scan=lambda a, req: a.call("POST", "/v1/scan/repository", {"request": req}).get("report"))
+    assert sorted(r["repository"] for r in api.requests) == [f"{ORG}/gitlab-webservice", f"{ORG}/vault"]
+    assert {(r["image"], r["deployed"], r["containers"]) for r in rows} == {
+        (f"cgr.dev/{ORG}/gitlab-webservice", False, 0), (f"cgr.dev/{ORG}/vault", False, 0)}
+    md = nv.markdown({"bigbang": "4.1.1", "mode": "standard", "run": "", "cvedb": {}, "images": covered + rows})
+    assert "## Not deployed: 2 pinned images" in md
+    assert md.index("gitlab-webservice") > md.index("## Not deployed")

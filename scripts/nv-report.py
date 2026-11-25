@@ -41,6 +41,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 SEVERITIES = ("Critical", "High", "Medium", "Low")
 
@@ -242,6 +243,7 @@ def entry(ref, digest, report, base_os, how, org, build_registry, tags):
         "scan_status": how,
         "packages": len(report.get("modules") or []),
         "containers": 1,
+        "deployed": True,
         "counts": {s: sum(1 for v in vulns if v.get("severity") == s) for s in SEVERITIES},
         "fixable": sum(1 for v in vulns if v.get("fixed_version")),
         "vulnerabilities": [{k: v.get(k) for k in ("name", "severity", "score", "score_v3", "package_name",
@@ -323,55 +325,113 @@ def repository_scans(api, pod_images, images, creds, org="", build_registry="", 
     for ref in pod_images:
         counts[ref] = counts.get(ref, 0) + 1
     for ref, n in sorted(counts.items()):
-        host, repo, at = split_ref(ref)
-        digest = at if at.startswith("sha256:") else ""
-        key = digest or ref
+        key = ref_key(ref)
         if key in seen:
             continue
         seen.add(key)
-        if origin(ref, org, build_registry) == "other":
-            # Only the org's and BUILD_REGISTRY's images: another registry may be one the
-            # runner's egress policy blocks, and a blocked pull waits out the whole timeout.
-            log(f"not scanned by reference (not a Chainguard or built image): {ref}")
-            continue
-        user, password = creds.get(host, ("", ""))
-        req = {"registry": f"https://{'registry-1.docker.io' if host == 'docker.io' else host}",
-               "repository": repo, "tag": at, "username": user, "password": password}
-        log(f"repository scan: {host}/{repo}@{at[:19]}")
-        how = "repository"
-        try:
-            report = scan_retrying(api, req, scan, log, password, sleep)
-        except urllib.error.HTTPError:
-            report = None
-            # NeuVector 5.6 answers a digest with HTTP 500 "Image not found" (RKE2 run
-            # 45097553250); the same images scanned by tag on another cluster. The tag may
-            # have moved since (a rebuild), so the row says which digest NeuVector scanned.
-            # NeuVector's own pins carry no newTag: their tag comes from docs/images.md.
-            tag = tags.get(digest) or repo_tags.get(f"{host}/{repo}")
-            if digest and tag:
-                log(f"  retrying by tag {tag}")
-                try:
-                    report = scan_retrying(api, dict(req, tag=tag), scan, log, password, sleep, retries=1)
-                    scanned = report.get("digest", "")
-                    how = "repository (by tag)" if scanned in ("", digest) else \
-                        f"repository (by tag; scanned {scanned[:19]}, not the deployed digest)"
-                except urllib.error.HTTPError:
-                    log("  failed again")
-        row = entry(ref, digest or (report or {}).get("digest", ""), report or {},
-                    (report or {}).get("base_os", ""), how if report is not None else "failed",
-                    org, build_registry, tags)
-        row["containers"] = n
-        out[key] = row
+        row = scan_ref(api, ref, creds, org, build_registry, tags, repo_tags, log, scan, sleep)
+        if row is not None:
+            row["containers"] = n
+            out[key] = row
     return list(out.values())
 
 
+def ref_key(ref):
+    """An image's identity: its digest when the reference pins one, else the reference."""
+    at = split_ref(ref)[2]
+    return at if at.startswith("sha256:") else ref
+
+
+def scan_ref(api, ref, creds, org="", build_registry="", tags=None, repo_tags=None, log=print,
+             scan=scan_repository, sleep=time.sleep):
+    """One image's row from a by-reference scan, or None for an image from another registry."""
+    tags, repo_tags = tags or {}, repo_tags or {}
+    host, repo, at = split_ref(ref)
+    digest = at if at.startswith("sha256:") else ""
+    if origin(ref, org, build_registry) == "other":
+        # Only the org's and BUILD_REGISTRY's images: another registry may be one the
+        # runner's egress policy blocks, and a blocked pull waits out the whole timeout.
+        log(f"not scanned by reference (not a Chainguard or built image): {ref}")
+        return None
+    user, password = creds.get(host, ("", ""))
+    req = {"registry": f"https://{'registry-1.docker.io' if host == 'docker.io' else host}",
+           "repository": repo, "tag": at, "username": user, "password": password}
+    log(f"repository scan: {host}/{repo}@{at[:19]}")
+    how = "repository"
+    try:
+        report = scan_retrying(api, req, scan, log, password, sleep)
+    except urllib.error.HTTPError:
+        report = None
+        # NeuVector 5.6 answers a digest with HTTP 500 "Image not found" (RKE2 run
+        # 45097553250); the same images scanned by tag on another cluster. The tag may
+        # have moved since (a rebuild), so the row says which digest NeuVector scanned.
+        # NeuVector's own pins carry no newTag: their tag comes from docs/images.md.
+        tag = tags.get(digest) or repo_tags.get(f"{host}/{repo}")
+        if digest and tag:
+            log(f"  retrying by tag {tag}")
+            try:
+                report = scan_retrying(api, dict(req, tag=tag), scan, log, password, sleep, retries=1)
+                scanned = report.get("digest", "")
+                how = "repository (by tag)" if scanned in ("", digest) else \
+                    f"repository (by tag; scanned {scanned[:19]}, not the deployed digest)"
+            except urllib.error.HTTPError:
+                log("  failed again")
+    return entry(ref, digest or (report or {}).get("digest", ""), report or {},
+                 (report or {}).get("base_os", ""), how if report is not None else "failed",
+                 org, build_registry, tags)
+
+
+def optional_scans(api, refs, images, creds, org="", build_registry="", tags=None, repo_tags=None, jobs=3,
+                   log=print, scan=scan_repository, sleep=time.sleep):
+    """Rows for the pinned images the deployment doesn't run (Big Bang's optional packages),
+    each scanned by reference at its pinned digest, `jobs` at a time, marked deployed: false.
+
+    One NeuVector scans what a site would run with those packages on, without the cluster
+    that would take: the scan reads the image, not a container.
+    """
+    seen = {i["digest"] or i["image"] for i in images}
+    todo = []
+    for ref in sorted(set(refs)):
+        if ref_key(ref) not in seen:
+            seen.add(ref_key(ref))
+            todo.append(ref)
+    log(f"{len(todo)} pinned image(s) the deployment doesn't run: scanning each by reference, {jobs} at a time")
+    with ThreadPoolExecutor(max(1, jobs)) as pool:
+        rows = list(pool.map(lambda ref: scan_ref(api, ref, creds, org, build_registry, tags, repo_tags, log,
+                                                  scan, sleep), todo))
+    out = []
+    for row in rows:
+        if row is not None:
+            row["containers"], row["deployed"] = 0, False
+            out.append(row)
+    return out
+
+
 def markdown(result):
-    db, rows = result["cvedb"], result["images"]
+    db, every = result["cvedb"], result["images"]
+    rows = [r for r in every if r.get("deployed", True)]
     lines = [f"# NeuVector scans: Big Bang {result['bigbang']} ({result['mode']})", "",
              f"NeuVector CVE database {db.get('version', '?')}, built {db.get('created', '?')}."
              f" {len(rows)} distinct images from {sum(r['containers'] for r in rows)} running containers.",
-             f" Run: {result['run']}" if result.get("run") else "", "",
-             "| Origin | Image | Tag | Critical | High | Medium | Low | Fixable | Packages | Base OS |",
+             f" Run: {result['run']}" if result.get("run") else "", ""]
+    lines += table(rows)
+    by = {}
+    for r in rows:
+        t = by.setdefault(r["origin"], dict.fromkeys(SEVERITIES, 0))
+        for s in SEVERITIES:
+            t[s] += r["counts"][s]
+    lines += ["", "Totals by origin: " + "; ".join(
+        f"{o}: " + ", ".join(f"{t[s]} {s}" for s in SEVERITIES) for o, t in sorted(by.items())), ""]
+    optional = [r for r in every if not r.get("deployed", True)]
+    if optional:
+        lines += [f"## Not deployed: {len(optional)} pinned images of Big Bang's optional packages, scanned by reference", ""]
+        lines += table(optional)
+        lines += ["", "Totals: " + ", ".join(f"{sum(r['counts'][s] for r in optional)} {s}" for s in SEVERITIES), ""]
+    return "\n".join(line for line in lines if line is not None)
+
+
+def table(rows):
+    lines = ["| Origin | Image | Tag | Critical | High | Medium | Low | Fixable | Packages | Base OS |",
              "|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         c = r["counts"]
@@ -384,14 +444,7 @@ def markdown(result):
             flag = " (scan failed)"
         lines.append(f"| {r['origin']} | `{r['image']}` | {r['tag'] or r['digest'][7:19]} | {c['Critical']} | {c['High']} "
                      f"| {c['Medium']} | {c['Low']} | {r['fixable']} | {r['packages']}{flag} | {r['base_os']} |")
-    by = {}
-    for r in rows:
-        t = by.setdefault(r["origin"], dict.fromkeys(SEVERITIES, 0))
-        for s in SEVERITIES:
-            t[s] += r["counts"][s]
-    lines += ["", "Totals by origin: " + "; ".join(
-        f"{o}: " + ", ".join(f"{t[s]} {s}" for s in SEVERITIES) for o, t in sorted(by.items())), ""]
-    return "\n".join(line for line in lines if line is not None)
+    return lines
 
 
 def registry_creds():
@@ -415,6 +468,10 @@ def main():
     ap.add_argument("--pod-images", help="a file: every running container's image reference, one per line "
                                          "(kubectl); those the workload scan missed are scanned by reference")
     ap.add_argument("--timeout", type=int, default=1200, help="seconds to wait for the scans")
+    ap.add_argument("--optional-images", help="a file: every pinned image reference, one per line "
+                                              "(security-report.py pins); those no pod runs are scanned by "
+                                              "reference and reported as not deployed")
+    ap.add_argument("--jobs", type=int, default=3, help="by-reference scans of --optional-images at once")
     a = ap.parse_args()
     bootstrap, password = os.environ.get("NV_BOOTSTRAP"), os.environ.get("NV_PASSWORD")
     if not bootstrap or not password:
@@ -435,6 +492,11 @@ def main():
             md = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "images.md")
             images = ordered(images + repository_scans(api, refs, images, registry_creds(), org, build, tags,
                                                        repo_tags=images_md_tags(md, org)))
+        if a.optional_images:
+            md = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "images.md")
+            refs = [line.strip() for line in open(a.optional_images, encoding="utf-8") if line.strip()]
+            images = ordered(images + optional_scans(api, refs, images, registry_creds(), org, build, tags,
+                                                     images_md_tags(md, org), a.jobs))
     finally:
         api.logout()
     run = ""

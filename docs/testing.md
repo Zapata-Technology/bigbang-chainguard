@@ -29,7 +29,7 @@ flowchart LR
 | **Run on kind** (`compat.yml`) | the tests a pull request's change reaches; the smoke set for a digest-only change; a release PR: every test (large ones standard); the full matrix weekly; Big Bang's release branch (`bigbang-preview.yml`, a few tests); or by hand | Anything that only shows up at runtime. A watcher reads every container's log during the test, prints errors as they happen and stops early on a failure that won't recover; an OOM kill fails the test. Each job uploads its logs and the cluster's state |
 | **Results gate** (`results-gate.py`) | every pull request and push to `main` (`ci.yml`), separate from `verify` | This `BIGBANG_VERSION` has no standard-mode pass for a described test, or for <!-- required-tests -->`release-upgrade-keycloak`, `release-upgrade-mattermost`, `installer-upgrade-to`, `keycloak-migration`, `mattermost-migration`<!-- /required-tests -->. Large tests and `weekly_and_release: true` tests count only on a pull request that changes `BIGBANG_VERSION` (`--base`: the release PR, which runs them); a `weekly_and_release` test that has never passed is not required yet. `registry1: true` tests and the VM tests' rows (`rke2-*`, `fips-kernel-*`) are outside it. A skip is not a pass. It does not run the matrix |
 | **FIPS kernel** (`fips-kernel.yml`) | weekly, PRs that touch it, or by hand | What a kernel in FIPS mode changes for the FIPS overlay, which kind (the runner's Ubuntu kernel) can't show. Records `fips-kernel-<test>` rows in the table below. See below |
-| **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips` (by hand with `-f neuvector_report=true`, it also uploads NeuVector's scan of every deployed image: `scripts/nv-report.py`, artifact `nv-report[-fips]`); a pull request that touches it or changes `BIGBANG_VERSION` (the release PR) stays standard. Records `rke2-default` rows in the table below | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
+| **RKE2, CIS profile** (`rke2.yml`) | weekly and by hand install standard and `--fips` (weekly, and by hand with `-f neuvector_report=true`, it also builds the security report: NeuVector's scan of every deployed and pinned image, checked against grype, Trivy, Chainguard's advisories, KEV and EPSS, with each image's signature and SBOM: `scripts/nv-report.py`, `scripts/security-report.py`, artifacts `nv-report[-fips]` and `security-report`); a pull request that touches it or changes `BIGBANG_VERSION` (the release PR) stays standard. Records `rke2-default` rows in the table below | Big Bang's default packages, installed with `bb-install.py`, on the cluster most sites run: Pod Security Admission enforcing `restricted`, the CIS kubelet and etcd settings, real volumes. kind and k3s have none of these. kind's `--kubelet-insecure-tls` stays in the metrics-server test. See below |
 
 ## Running packages on kind
 
@@ -483,10 +483,37 @@ problem left was the exporter's startup restarts, judged before it had run 10 mi
 
 ### NeuVector's scan of every deployed image
 
-By hand only (`gh workflow run rke2.yml --ref main -f neuvector_report=true`), after the
-install the job has the NeuVector that Big Bang deploys scan every image the cluster runs,
-and uploads the result (artifact `nv-report[-fips]`: `nv-report.json` and `nv-report.md`,
-also in the job summary). It is not part of the recorded result.
+Weekly, and by hand (`gh workflow run rke2.yml --ref main -f neuvector_report=true`), after
+the install the job has the NeuVector that Big Bang deploys scan every image the cluster
+runs, and every other image the overlays pin (Big Bang's optional packages: GitLab, Vault,
+Mattermost and the rest), by reference at the pinned digest. It uploads the result
+(artifact `nv-report[-fips]`: `nv-report.json` and `nv-report.md`, also in the job summary).
+It is not part of the recorded result.
+
+Then the `security-report` job (a standard runner) builds the report from both jobs' scans
+(`scripts/security-report.py`, artifact `security-report`: `security-report.pdf`,
+`report.html`, `images.json`, `cves.json`, `scan.json`):
+
+- **Three scanners.** grype and Trivy scan the same digests from the registry; both read
+  Chainguard's security data, NeuVector doesn't.
+- **Chainguard's advisories.** Each finding is matched to the advisory for a package in that
+  image (packages.cgr.dev and packages.wolfi.dev security databases): not affected, fixed
+  in this build, fixed in a newer build, or none. A Critical or High counts as open unless
+  the advisory says not affected or fixed at or below the installed version.
+- **Exploitation.** Each CVE's place on CISA's Known Exploited Vulnerabilities list and its
+  EPSS score (FIRST.org).
+- **Supply chain.** `cosign verify` (the expected keyless signature) and
+  `cosign verify-attestation --type spdxjson` (a signed SBOM) for every org and built image.
+
+```mermaid
+flowchart LR
+    N[(nv-report.json<br/>standard + FIPS)] --> S[security-report.py scan]
+    S --> G[grype] & T[Trivy] & C[cosign verify<br/>+ SBOM attestation]
+    G & T & C --> B[security-report.py build]
+    A[(Chainguard and Wolfi<br/>security databases)] --> B
+    K[(CISA KEV, FIRST EPSS)] --> B
+    B --> O[(security-report.pdf<br/>images.json, cves.json)]
+```
 
 ```mermaid
 flowchart LR

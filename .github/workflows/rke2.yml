@@ -30,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       neuvector_report:
-        description: "Also export NeuVector's scans of every deployed image (scripts/nv-report.py)"
+        description: "Also build the security report: NeuVector's scans of every deployed and pinned image, checked against grype, Trivy, Chainguard's advisories, KEV and EPSS (scripts/security-report.py)"
         type: boolean
         default: false
 
@@ -52,7 +52,8 @@ jobs:
     # CI, builds and the kind tests already run the bumped actions. Scheduled, manual and
     # every other pull request's runs are unchanged.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
-    timeout-minutes: 150
+    # 150 minutes for the install; the security report's by-reference scans add up to 60.
+    timeout-minutes: 210
     strategy:
       fail-fast: false
       matrix:
@@ -262,15 +263,16 @@ jobs:
           set -o pipefail
           python scripts/cluster-check.py --events "$RUNNER_TEMP/rke2-vm/logs/events.log" 2>&1             | tee "$RUNNER_TEMP/cluster-check.log"
 
-      # On request (workflow_dispatch input neuvector_report): NeuVector's own scan of every
-      # image the deployment runs, through the controller's API on a local port-forward
+      # Weekly, and on request (workflow_dispatch input neuvector_report): NeuVector's own scan
+      # of every image the deployment runs, and by reference of every pinned image it doesn't
+      # (Big Bang's optional packages), through the controller's API on a local port-forward
       # (Big Bang creates no API Service). It logs in as admin with the chart's bootstrap
       # password and sets a random one, as NeuVector requires on first login; neither is
       # printed or saved. Not part of the recorded result: a failed export fails only this run.
       - name: NeuVector's scans of the deployed images
         id: nvreport
-        if: inputs.neuvector_report && steps.install.outcome == 'success'
-        timeout-minutes: 60
+        if: (inputs.neuvector_report || github.event_name == 'schedule') && steps.install.outcome == 'success'
+        timeout-minutes: 120
         env:
           MODE: ${{ matrix.fips && 'fips' || 'standard' }}
           # NeuVector's own containers aren't in its workload list: nv-report.py scans those
@@ -317,9 +319,11 @@ jobs:
             > "$RUNNER_TEMP/pod-images.txt"
           overlay=overlays/values-chainguard.yaml flux=flux/kustomization.yaml
           if [ "$MODE" = fips ]; then overlay=overlays/values-chainguard-fips.yaml flux=flux-fips/kustomization.yaml; fi
+          python scripts/security-report.py pins --mode "$MODE" > "$RUNNER_TEMP/pinned-images.txt"
           python scripts/nv-report.py --api https://127.0.0.1:10443 --out "$RUNNER_TEMP/nv-report" \
             --mode "$MODE" --overlay "$overlay" --overlay "$flux" --pod-images "$RUNNER_TEMP/pod-images.txt" \
-            --timeout 1500
+            --optional-images "$RUNNER_TEMP/pinned-images.txt" --jobs 3 --timeout 1500
+          cp "$RUNNER_TEMP/pod-images.txt" "$RUNNER_TEMP/pinned-images.txt" "$RUNNER_TEMP/nv-report/"
           cat "$RUNNER_TEMP/nv-report/nv-report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload NeuVector's scans
@@ -416,10 +420,165 @@ jobs:
           if-no-files-found: ignore
           overwrite: true   # a re-run job replaces its earlier attempt's result
 
+  # The security report (weekly, and with neuvector_report): both jobs' NeuVector scans,
+  # each image scanned again with grype and Trivy, its signature and SBOM checked with
+  # cosign, every finding matched to Chainguard's advisory, CISA's KEV list and EPSS
+  # (scripts/security-report.py), and the report printed to PDF with the runner's Chrome.
+  # On a standard runner: none of it needs the VM.
+  security-report:
+    needs: [rke2]
+    if: always() && (inputs.neuvector_report || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      CHAINGUARD_ORG: ${{ vars.CHAINGUARD_ORG }}
+      BUILD_REGISTRY: ${{ vars.BUILD_REGISTRY }}
+      BUILD_SIGNER: ${{ github.repository }}
+      # Trivy's databases from GHCR (mirror.gcr.io is its default).
+      TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+      TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          # cve-report.yml's list (grype, the registries, Docker Hub's CDNs for RKE2's images),
+          # Sigstore for cosign, and the report's feeds: Chainguard's and Wolfi's security
+          # databases, CISA's KEV list and FIRST's EPSS API.
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            *.cgr.dev:443
+            *.r2.cloudflarestorage.com:443
+            api.first.org:443
+            api.github.com:443
+            auth.docker.io:443
+            cgr.dev:443
+            console-api.enforce.dev:443
+            dl.enforce.dev:443
+            files.pythonhosted.org:443
+            fulcio.sigstore.dev:443
+            ghcr.io:443
+            github.com:443
+            grype.anchore.io:443
+            index.docker.io:443
+            issuer.enforce.dev:443
+            objects.githubusercontent.com:443
+            packages.cgr.dev:443
+            packages.wolfi.dev:443
+            pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+            registry-1.docker.io:443
+            rekor.sigstore.dev:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            tuf-repo-cdn.sigstore.dev:443
+            www.cisa.gov:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: NeuVector's scans from both jobs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: nv-report*
+          path: ${{ runner.temp }}/nv
+
+      - name: Any scans to report?
+        id: have
+        run: |
+          ls -R "$RUNNER_TEMP/nv" || true
+          if ls "$RUNNER_TEMP"/nv/*/nv-report.json >/dev/null 2>&1; then echo "yes=true" >> "$GITHUB_OUTPUT"
+          else echo "::warning::no NeuVector report from the RKE2 jobs: nothing to report"; fi
+
+      - name: Log into Chainguard
+        if: steps.have.outputs.yes
+        uses: chainguard-dev/setup-chainctl@bfe7503a12660737d9d66d02d2610a399d804316  # v0.6.0
+        with:
+          # Pinned: `latest` changes under every run. Same version in every workflow
+          # (tests/test_repo_rules.py); raise it on purpose (AGENTS.md, "chainctl").
+          version: 0.2.403
+          identity: ${{ secrets.CGR_ACTIONS_ID }}
+
+      - name: Log into GHCR (the images this repo builds)
+        if: steps.have.outputs.yes
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      # grype and Trivy unpack each image (GitLab's are several GB): two at a time, on /mnt
+      # (the runner's second, larger disk), as cve-report.yml does.
+      - name: Free disk space
+        if: steps.have.outputs.yes
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo mkdir -p /mnt/scan && sudo chown "$USER" /mnt/scan
+          df -h / /mnt
+
+      - name: Install grype
+        if: steps.have.outputs.yes
+        id: grype
+        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+
+      - name: Install Trivy
+        if: steps.have.outputs.yes
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567  # v0.3.1
+        with:
+          version: v0.76.2
+          cache: false
+
+      - name: Install cosign
+        if: steps.have.outputs.yes
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532  # v4.1.3
+        with:
+          cosign-release: v3.0.6
+
+      - name: Scan, check and build the report
+        if: steps.have.outputs.yes
+        env:
+          GRYPE_DIR: ${{ steps.grype.outputs.cmd }}
+          TMPDIR: /mnt/scan
+        run: |
+          set -o pipefail
+          python3 -m pip install --quiet -r requirements.txt
+          export PATH="$(dirname "$GRYPE_DIR"):$PATH"
+          grype db update
+          nv=()
+          for d in "$RUNNER_TEMP"/nv/*/; do nv+=(--nv "$d"); done
+          python3 scripts/security-report.py scan "${nv[@]}" --out "$RUNNER_TEMP/scans" --jobs 2
+          python3 scripts/security-report.py build "${nv[@]}" --scans "$RUNNER_TEMP/scans" --out "$RUNNER_TEMP/security-report"
+          cat "$RUNNER_TEMP/security-report/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # The runner's Chrome prints the HTML report (stdlib only in the script, no PDF library).
+      - name: Print the report to PDF
+        if: steps.have.outputs.yes
+        run: |
+          out="$RUNNER_TEMP/security-report"
+          google-chrome --headless=new --disable-gpu --no-sandbox --no-pdf-header-footer \
+            --print-to-pdf="$out/security-report.pdf" "file://$out/report.html"
+          ls -l "$out"
+
+      - name: Upload the security report
+        if: always() && steps.have.outputs.yes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: security-report
+          path: ${{ runner.temp }}/security-report
+          retention-days: 90
+          if-no-files-found: ignore
+
   # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
   # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.
   alert:
-    needs: [rke2]
+    needs: [rke2, security-report]
     if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
