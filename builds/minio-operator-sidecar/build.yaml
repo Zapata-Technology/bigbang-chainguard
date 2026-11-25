@@ -19,7 +19,7 @@ image:
   fips:
     name: bigbang-minio-operator-sidecar-fips
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:fc6d4e4146530e984c1657b46386b9dedb59988a473799257b852b9f2ad90695
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:e7261975eabd1a086ba5454b1bdaf33ca5f6bead0fe8250666992c224c52e5f2
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:f47396eec9c8cfcf5115930a9ebf97b3226dbf46853819c857dd39c2b2a1562e
     go_package: ''
     fips: toolchain
