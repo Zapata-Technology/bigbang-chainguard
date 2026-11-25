@@ -33,6 +33,10 @@ on:
         description: "Also build the security report: NeuVector's scans of every deployed and pinned image, checked against grype, Trivy, Chainguard's advisories, KEV and EPSS (scripts/security-report.py)"
         type: boolean
         default: false
+      report_from_run:
+        description: "Only rebuild the security report, from this earlier run's NeuVector scans (a run ID): no VM"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -51,7 +55,7 @@ jobs:
     # Not on Dependabot's pull requests: an action bump doesn't need this billed larger-runner VM test, and
     # CI, builds and the kind tests already run the bumped actions. Scheduled, manual and
     # every other pull request's runs are unchanged.
-    if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]') && !inputs.report_from_run
     # 150 minutes for the install; the security report's by-reference scans add up to 60.
     timeout-minutes: 210
     strategy:
@@ -427,7 +431,7 @@ jobs:
   # On a standard runner: none of it needs the VM.
   security-report:
     needs: [rke2]
-    if: always() && (inputs.neuvector_report || github.event_name == 'schedule')
+    if: always() && (inputs.neuvector_report || inputs.report_from_run || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -438,6 +442,7 @@ jobs:
       TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
       TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
     permissions:
+      actions: read      # another run's artifacts (report_from_run)
       contents: read
       id-token: write
       packages: read
@@ -448,7 +453,8 @@ jobs:
           egress-policy: block
           # cve-report.yml's list (grype, the registries, Docker Hub's CDNs for RKE2's images),
           # Sigstore for cosign, and the report's feeds: Chainguard's and Wolfi's security
-          # databases, CISA's KEV list and FIRST's EPSS API.
+          # databases, CISA's KEV list and FIRST's EPSS API. Trivy's installer downloads from
+          # get.trivy.dev (curl exit 7 when blocked, run 45550267826).
           allowed-endpoints: >
             *.blob.core.windows.net:443
             *.cgr.dev:443
@@ -461,6 +467,7 @@ jobs:
             dl.enforce.dev:443
             files.pythonhosted.org:443
             fulcio.sigstore.dev:443
+            get.trivy.dev:443
             ghcr.io:443
             github.com:443
             grype.anchore.io:443
@@ -490,6 +497,8 @@ jobs:
         with:
           pattern: nv-report*
           path: ${{ runner.temp }}/nv
+          run-id: ${{ inputs.report_from_run || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Any scans to report?
         id: have

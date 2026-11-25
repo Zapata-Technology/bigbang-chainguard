@@ -20,8 +20,9 @@ def jobs(name):
 def test_expensive_jobs_skip_dependabot_pull_requests_only(workflow, job):
     cond = jobs(workflow)[job]["if"]
     assert SKIP in cond
-    # Scheduled and manual runs (and everyone else's pull requests) are unchanged.
-    assert cond.startswith("github.event_name != 'pull_request' ||")
+    # Scheduled and manual runs (and everyone else's pull requests) are unchanged; rke2.yml
+    # adds only its report-only manual run (`&& !inputs.report_from_run`).
+    assert cond.lstrip("(").startswith("github.event_name != 'pull_request' ||")
 
 
 def test_the_fips_kernel_test_job_follows_its_plan():
