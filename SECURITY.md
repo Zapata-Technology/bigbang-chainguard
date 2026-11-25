@@ -155,7 +155,11 @@ they deploy, 2026-11-24; [testing.md](docs/testing.md#neuvectors-scan-of-every-d
 NeuVector reports 1 Critical and 29 High in the standard images and 0 and 29 in FIPS, almost
 all Go libraries compiled into binaries that Chainguard's advisories mark not affected. grype,
 which reads those advisories, finds 5 High in each SeaweedFS image (apache/thrift 0.24.0,
-waiting on a Chainguard rebuild) and nothing else.
+waiting on a Chainguard rebuild) and nothing else. The weekly RKE2 run builds a security
+report from those scans (artifact `security-report`): grype and Trivy beside NeuVector, each
+finding matched to Chainguard's advisory, its CISA KEV status and EPSS score, every pinned
+image of the optional packages scanned by reference, and each image's signature and signed
+SBOM checked with cosign.
 
 ## Residual risks
 
