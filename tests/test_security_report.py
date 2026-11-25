@@ -118,3 +118,15 @@ def test_trivy_is_retried_while_its_cache_is_locked(monkeypatch):
     monkeypatch.setattr(sr.time, "sleep", lambda _: None)
     out = sr.scan_one("cgr.dev/org/x@" + D1, "other", {})
     assert calls.count("trivy") == 3 and out["apk"] == {"glibc": "2.44-r23"} and "trivy_error" not in out
+
+
+def test_trivy_packages_include_their_source_package():
+    doc = {"Results": [{"Class": "os-pkgs", "Packages": [
+        {"Name": "kyverno-fips-1.19-background-controller", "Version": "1.19.2-r3",
+         "SrcName": "kyverno-fips-1.19", "SrcVersion": "1.19.2-r3"},
+        {"Name": "glibc", "Version": "2.44-r23", "SrcName": "glibc"}]}]}
+    _, pkgs = sr.trivy_findings(doc)
+    assert pkgs == {"kyverno-fips-1.19-background-controller": "1.19.2-r3", "kyverno-fips-1.19": "1.19.2-r3",
+                    "glibc": "2.44-r23"}
+    fixes = {"kyverno-fips-1.19": {"CVE-2026-78661": "0"}}
+    assert sr.advisory(["CVE-2026-78661"], pkgs, fixes)[0] == "not-affected"
