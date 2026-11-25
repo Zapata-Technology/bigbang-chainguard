@@ -1413,7 +1413,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/neuvector-prometheus-exporter-fips
         - digest: sha256:591012ebd7adc8bd9519957b6fe7e26e1f4884ed263d4a7f76def109de7a0ace
           name: cgr.dev/zapatatechnology.com/neuvector-registry-adapter-fips
-        - digest: sha256:15c53bb453cc73b618fa8bf5ef9eab52dd5b3da94db382a215f5de28fca12ccd
+        - digest: sha256:f3acffc0e69f199faae1b13a238354b4d0645237ebc41c086e2ef922d6085f1d
           name: cgr.dev/zapatatechnology.com/neuvector-scanner-fips
         - digest: sha256:7724fa2eab760be54bfd43d4729f04d1d935797bb86144ebd007fa786804add7
           name: ghcr.io/zapata-technology/bigbang-base-fips
@@ -1442,7 +1442,7 @@ packages:
             image:
               registry: ''
               repository: neuvector-scanner-fips
-              tag: v4.330
+              tag: v4.332
             volumeMounts:
             - mountPath: /tmp
               name: scanner-tmp

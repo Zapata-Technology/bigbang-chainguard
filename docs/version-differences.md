@@ -27,7 +27,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
 | `ironbank/hashicorp/vault:1.21.4` | `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` | `ghcr.io/zapata-technology/bigbang-vault-fips:v2.2.2` | built here | newer major | vault |
-| `ironbank/neuvector/neuvector/scanner:6` | `neuvector-scanner:v4.332` | `neuvector-scanner-fips:v4.330` | Chainguard | older major | neuvector |
+| `ironbank/neuvector/neuvector/scanner:6` | `neuvector-scanner:v4.332` | `neuvector-scanner-fips:v4.332` | Chainguard | older major | neuvector |
 | `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` | `prometheus-mysqld-exporter-iamguarded:0.21.0` | `prometheus-mysqld-exporter-iamguarded-fips:0.21.0` | Chainguard | newer minor | fortify |
 | `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | argocd |
 | `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | anchore-enterprise |
