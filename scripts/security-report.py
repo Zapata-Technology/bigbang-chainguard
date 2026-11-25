@@ -586,6 +586,26 @@ def finding_table(rows):
     return "".join(out) + "</table>"
 
 
+def grouped_table(rows):
+    """Open findings counted per image, package and Chainguard advisory, most first."""
+    if not rows:
+        return "<p class=ok>None.</p>"
+    groups = {}
+    for c in rows:
+        k = (label(c), c["package"], c["installed"], c["chainguard_advisory"])
+        g = groups.setdefault(k, {"n": 0, "kev": 0, "epss": 0.0})
+        g["n"] += 1
+        g["kev"] += bool(c["kev"])
+        g["epss"] = max(g["epss"], c["epss"] or 0)
+    out = ["<table><tr><th>Image</th><th>Package</th><th>Installed</th><th class=n>CVEs</th>"
+           "<th>Chainguard advisory</th><th class=n>KEV</th><th class=n>Top EPSS</th></tr>"]
+    for (img, pkg, ver, adv), g in sorted(groups.items(), key=lambda x: (-x[1]["n"], x[0])):
+        out.append(f"<tr><td>{esc(img)}</td><td>{esc(pkg)}</td><td>{esc(ver)}</td><td class=n>{g['n']}</td>"
+                   f"<td>{esc(ADVISORY.get(adv, adv))}</td><td class=n>{g['kev']}</td>"
+                   f"<td class=n>{g['epss'] * 100:.2f}%</td></tr>")
+    return "".join(out) + "</table>"
+
+
 def card(value, label, good=None):
     cls = "" if good is None else (" good" if good else " bad")
     return f'<div class="card{cls}"><b>{esc(value)}</b><span>{esc(label)}</span></div>'
@@ -649,9 +669,14 @@ def report_html(images, cves, scan):
                      "Harbor, SonarQube and the rest. The same NeuVector scanned each one by reference at its pinned digest. "
                      f"NeuVector: {t['critical']} Critical, {t['high']} High; still open after Chainguard's advisories: "
                      f"{t['open_critical']} Critical, {t['open_high']} High; {t['kev']} on the KEV list.</p>")
-        parts.append("<h3>Findings still open</h3>")
-        parts.append(finding_table(sorted(och, key=lambda c: (c["severity"] != "Critical", c["image"], c["cve"])))
-                     if och else "<p class=ok>None.</p>")
+        crit = [c for c in och if c["severity"] == "Critical"]
+        parts.append("<h3>Critical findings still open</h3>")
+        parts.append(finding_table(sorted(crit, key=lambda c: (c["image"], c["cve"]))) if crit else "<p class=ok>None.</p>")
+        # Several hundred Highs: one row per image and package keeps the PDF readable;
+        # cves.json and the report page list each one.
+        parts.append("<h3>High findings still open, by image and package</h3>"
+                     "<p class=sub>Each CVE is in cves.json and on the report page.</p>")
+        parts.append(grouped_table([c for c in och if c["severity"] == "High"]))
     # supply chain
     dep = [r for r in images if r["deployed"] and r["origin"] != "RKE2 / other"]
     t = totals(dep + [r for r in images if not r["deployed"]])
