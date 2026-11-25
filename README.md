@@ -247,7 +247,8 @@ What this repo doesn't do yet, and what each needs. `docs/images.md` has the per
 ## Learn more
 
 - [Briefing (PDF)](docs/big-bang-on-chainguard-briefing.pdf): the case for Big Bang 4.1.0 on
-  Chainguard in 19 slides (November 2026). CVE counts are the 2026-11-02 grype snapshot.
+  Chainguard in 19 slides (November 2026). CVE counts are the 2026-11-02 grype snapshot;
+  the running-cluster results are the 2026-11-25 security report.
   Live image counts are in [version-differences.md](docs/version-differences.md).
 - [Quickstart](docs/quickstart.md): install from a pinned, signed release.
 - [Installer details](docs/install.md): every option, registry logins, TLS, signatures,
