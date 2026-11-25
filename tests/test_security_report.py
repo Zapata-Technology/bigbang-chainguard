@@ -130,3 +130,11 @@ def test_trivy_packages_include_their_source_package():
                     "glibc": "2.44-r23"}
     fixes = {"kyverno-fips-1.19": {"CVE-2026-78661": "0"}}
     assert sr.advisory(["CVE-2026-78661"], pkgs, fixes)[0] == "not-affected"
+
+
+def test_grouped_table_counts_open_highs_per_image_and_package():
+    rows = [{"image": "gitlab", "tag": "19.5.6", "package": "rails", "installed": "19.5.6-r2",
+             "chainguard_advisory": "fixed-newer", "kev": k, "epss": e} for k, e in ((False, 0.01), (True, 0.2))]
+    html = sr.grouped_table(rows)
+    assert "gitlab 19.5.6" in html and "<td class=n>2</td>" in html and "fix in a newer build" in html and "20.00%" in html
+    assert sr.grouped_table([]) == "<p class=ok>None.</p>"
