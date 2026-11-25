@@ -62,6 +62,7 @@ SEVERITIES = ("Critical", "High", "Medium", "Low")
 SECDBS = ("https://packages.cgr.dev/chainguard/security.json", "https://packages.wolfi.dev/os/security.json")
 KEV = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 EPSS = "https://api.first.org/data/v1/epss?cve="
+TRIVY_TRIES, TRIVY_WAIT = 4, 15
 ORIGIN = {"chainguard": "Chainguard", "built-here": "Built here (FROM Chainguard)", "other": "RKE2 / other"}
 
 
@@ -249,8 +250,14 @@ def scan_one(ref, origin, signers):
             (doc.get("descriptor", {}).get("db", {}).get("status", {}) or {}).get("built", "")
     else:
         out["grype_error"] = (se.strip().splitlines() or ["grype failed"])[-1][:300]
-    rc, so, se = run(["trivy", "image", "--quiet", "--skip-version-check", "--image-src", "remote",
-                      "--scanners", "vuln", "--list-all-pkgs", "--format", "json", ref])
+    for attempt in range(TRIVY_TRIES):
+        rc, so, se = run(["trivy", "image", "--quiet", "--skip-version-check", "--image-src", "remote",
+                          "--scanners", "vuln", "--list-all-pkgs", "--format", "json", ref])
+        # Two Trivys share one cache; the second waits a while for its lock, then gives up
+        # ("cache may be in use by another process": 3 of 270 images, run 45558189314).
+        if rc == 0 or "cache may be in use" not in se:
+            break
+        time.sleep(TRIVY_WAIT * (attempt + 1))
     if rc == 0:
         out["trivy"], out["apk"] = trivy_findings(json.loads(so))
     else:

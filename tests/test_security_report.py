@@ -101,3 +101,20 @@ def test_rke2_images_get_no_chainguard_advisory():
     images, cves = sr.assemble([("standard", {"images": [row]})], {}, FIXES, set(), {})
     assert images[0]["tag"] == "v1.14.7" and images[0]["open_critical"] == 1
     assert {c["chainguard_advisory"] for c in cves} == {"n/a"}
+
+
+def test_trivy_is_retried_while_its_cache_is_locked(monkeypatch):
+    calls = []
+
+    def fake_run(argv, timeout=3600):
+        calls.append(argv[0])
+        if argv[0] == "trivy" and calls.count("trivy") < 3:
+            return 1, "", "FATAL unable to initialize fs cache: cache may be in use by another process: timeout"
+        if argv[0] == "trivy":
+            return 0, '{"Results": [{"Class": "os-pkgs", "Packages": [{"Name": "glibc", "Version": "2.44-r23"}]}]}', ""
+        return 0, '{"matches": []}', ""
+
+    monkeypatch.setattr(sr, "run", fake_run)
+    monkeypatch.setattr(sr.time, "sleep", lambda _: None)
+    out = sr.scan_one("cgr.dev/org/x@" + D1, "other", {})
+    assert calls.count("trivy") == 3 and out["apk"] == {"glibc": "2.44-r23"} and "trivy_error" not in out
