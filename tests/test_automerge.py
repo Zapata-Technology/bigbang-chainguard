@@ -29,6 +29,7 @@ def test_only_the_bot_branches_from_this_repository_are_handled():
     assert "github.event.workflow_run.head_branch == 'bot/builds-update'" in cond
     assert "github.event.workflow_run.head_branch == 'bot/bigbang-release'" in cond
     assert "github.event.workflow_run.head_branch == 'bot/builds-release'" in cond
+    assert "github.event.workflow_run.head_branch == 'bot/security-report'" in cond
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in cond
     # The branch reaches the script as an env var, never interpolated into it.
     assert STEP["env"]["BRANCH"] == "${{ github.event.workflow_run.head_branch }}"
@@ -364,6 +365,20 @@ def test_the_release_tracks_held_build_merges_as_release_yaml(tmp_path):
     p, log = run_merge(tmp_path, data, branch="bot/builds-release")
     assert p.returncode == 0, p.stderr
     assert "pr merge 7 --squash" in log and "needs-attention" not in log
+
+
+def test_the_security_report_pr_merges_only_its_two_files(tmp_path):
+    pulls = {"pulls?state=open&per_page=100": [{"number": 7, "head": {"ref": "bot/security-report", "sha": "abc"}}]}
+    report = [{"status": "modified", "filename": "docs/security-report.pdf"},
+              {"status": "modified", "filename": "docs/security-report.md"}]
+    (tmp_path / "ok").mkdir()
+    p, log = run_merge(tmp_path / "ok", green(**pulls, **{"pulls/7/files?per_page=100&page=1": report}), branch="bot/security-report")
+    assert p.returncode == 0, p.stderr
+    assert "pr merge 7 --squash" in log and "needs-attention" not in log
+    other = report + [{"status": "modified", "filename": "overlays/values-chainguard.yaml"}]
+    (tmp_path / "other").mkdir()
+    p, log = run_merge(tmp_path / "other", green(**pulls, **{"pulls/7/files?per_page=100&page=1": other}), branch="bot/security-report")
+    assert "pr merge" not in log and "needs-attention" in log
 
 
 def test_a_big_bang_pr_may_only_delete_a_release_yaml(tmp_path):

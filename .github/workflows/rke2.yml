@@ -37,6 +37,10 @@ on:
         description: "Only rebuild the security report, from this earlier run's NeuVector scans (a run ID): no VM"
         type: string
         default: ""
+      publish_report:
+        description: "Publish the report as the weekly run does: attach it to the latest release, and open bot/security-report when its counts changed"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -584,10 +588,104 @@ jobs:
           retention-days: 90
           if-no-files-found: ignore
 
+  # Publishes the report (weekly; by hand with publish_report): the PDF on the latest release
+  # every time (release.py also attaches docs/security-report.pdf to each new release), and
+  # docs/security-report.pdf and .md through the bot pull request bot/security-report, which
+  # automerge.yml merges when green. That pull request opens only when the report's counts
+  # (summary.md) changed: a 2 MB PDF a week would grow every clone.
+  publish-report:
+    needs: [security-report]
+    if: always() && needs.security-report.result == 'success' && (github.event_name == 'schedule' || inputs.publish_report)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read      # this run's artifact
+      contents: write    # the release asset
+    steps:
+      - name: Harden the runner (block unlisted outbound calls)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            results-receiver.actions.githubusercontent.com:443
+            uploads.github.com:443
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The security report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: security-report
+          path: ${{ runner.temp }}/sr
+
+      - name: Attach it to the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sr="$RUNNER_TEMP/sr"
+          [ -s "$sr/security-report.pdf" ] || { echo "::error::the artifact has no security-report.pdf"; exit 1; }
+          tag=$(gh release view --json tagName --jq .tagName)
+          gh release upload "$tag" "$sr/security-report.pdf" --clobber
+          echo "Attached security-report.pdf to release $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: docs/security-report.pdf and .md
+        id: docs
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          sr="$RUNNER_TEMP/sr"
+          n=$(wc -l < "$sr/summary.md")
+          if [ -f docs/security-report.md ] && head -n "$n" docs/security-report.md | cmp -s - "$sr/summary.md"; then
+            echo "::notice::the counts match docs/security-report.md: no pull request"
+            exit 0
+          fi
+          cp "$sr/security-report.pdf" docs/security-report.pdf
+          {
+            cat "$sr/summary.md"
+            echo
+            echo "Scanned $(date -u +%F) (rke2.yml run $RUN_ID). Open C/H: after Chainguard's advisories. The full report:"
+            echo "[security-report.pdf](security-report.pdf). Rebuilt weekly by rke2.yml; [testing.md](testing.md#neuvectors-scan-of-every-deployed-image) explains it."
+          } > docs/security-report.md
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      # The bot's token (the GitHub App's, else RELEASE_PAT), so CI runs on the pull request.
+      - name: Bot token (GitHub App)
+        id: app
+        if: steps.docs.outputs.date && vars.BOT_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510  # v3.3.0
+        with:
+          client-id: ${{ vars.BOT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open the pull request
+        if: steps.docs.outputs.date
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
+        with:
+          token: ${{ steps.app.outputs.token || secrets.RELEASE_PAT }}
+          base: main
+          branch: bot/security-report
+          delete-branch: true
+          title: "chore: security report ${{ steps.docs.outputs.date }}"
+          commit-message: "chore: security report ${{ steps.docs.outputs.date }}"
+          body: "The weekly security report from ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}: its counts changed. automerge.yml merges it when every check passes."
+          add-paths: |
+            docs/security-report.pdf
+            docs/security-report.md
+
   # A scheduled run has no pull request to fail on: keep one `ci-scheduled-failure` issue
   # for this workflow current (scripts/ci-alert.py), closed by the next scheduled success.
   alert:
-    needs: [rke2, security-report]
+    needs: [rke2, security-report, publish-report]
     if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5

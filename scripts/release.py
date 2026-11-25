@@ -71,6 +71,9 @@ VERIFY = "verify"
 REPO_FILE = "RELEASE_REPO"
 
 
+# rke2.yml's weekly security report, attached to each release when the repo has it.
+REPORT = os.path.join("docs", "security-report.pdf")
+
 def github_remote(root=ROOT):
     """OWNER/REPO of the checkout's GitHub `origin` remote, or None (no git, no remote, or
     not GitHub)."""
@@ -199,6 +202,9 @@ def notes(tag, prev, bigbang, org, repo, root=ROOT):
             "# 5. install",
             "python scripts/bb-install.py install --site my-site.yaml",
             "```", ""]
+    if os.path.exists(os.path.join(root, REPORT)):
+        out += [f"The newest weekly [security report]({url}/security-report.pdf) (`{REPORT}`; its first page "
+                "has the scan date): each image's CVEs after Chainguard's advisories, KEV, EPSS, signature and SBOM.", ""]
     if prev:
         old = subprocess.run(["git", "show", f"{prev}:{OVERLAY}"], cwd=ROOT, capture_output=True, text=True).stdout
         changes = image_changes(old, open(os.path.join(ROOT, OVERLAY), encoding="utf-8").read())
@@ -285,6 +291,9 @@ def main():
         return 0
     os.makedirs(a.dist, exist_ok=True)
     assets = archive(tag, a.dist, repo)
+    if os.path.exists(os.path.join(ROOT, REPORT)):
+        shutil.copy(os.path.join(ROOT, REPORT), os.path.join(a.dist, "security-report.pdf"))
+        assets.append(os.path.join(a.dist, "security-report.pdf"))
     notes_file = os.path.join(a.dist, "notes.md")
     open(notes_file, "w", encoding="utf-8").write(body)
     subprocess.run(["gh", "release", "create", tag, *assets, "--target", git("rev-parse", "HEAD"),

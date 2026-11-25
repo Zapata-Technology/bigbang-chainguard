@@ -17,6 +17,7 @@
 | [required-images.md](required-images.md) | org admin | The Chainguard repositories your plan must cover (generated) |
 | [your-org.md](your-org.md) | org admin | Running it on your own Chainguard org: plan, settings, CI for your copy |
 | [big-bang-on-chainguard-briefing.pdf](big-bang-on-chainguard-briefing.pdf) | org admin | The case for Big Bang on Chainguard, in slides |
+| [security-report.pdf](security-report.pdf) ([counts](security-report.md)) | org admin, site operator | The weekly security report: every image's CVEs after Chainguard's advisories, KEV, EPSS, signatures and SBOMs (generated) |
 | [for-big-bang.md](for-big-bang.md) | org admin, Big Bang team | Coverage, and how this could fit in the Big Bang ecosystem |
 | [../SECURITY.md](../SECURITY.md) | org admin, site operator | Reporting vulnerabilities; the controls in place; credentials in the cluster |
 | [architecture.md](architecture.md) | maintainer, org admin | Diagrams of the pieces and how a change flows to a cluster |

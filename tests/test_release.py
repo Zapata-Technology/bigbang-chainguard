@@ -62,6 +62,15 @@ def test_notes_go_download_verify_extract_check_install(tmp_path):
     assert body.index("docs/upgrades") < body.index("curl ")
 
 
+def test_notes_link_the_security_report_when_the_repo_has_one(tmp_path):
+    body = release.notes("4.1.1-cg.2", None, "4.1.1", "example.com", "o/r", root=str(tmp_path))
+    assert "security-report.pdf" not in body
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "security-report.pdf").write_bytes(b"%PDF")
+    body = release.notes("4.1.1-cg.2", None, "4.1.1", "example.com", "o/r", root=str(tmp_path))
+    assert "(https://github.com/o/r/releases/download/4.1.1-cg.2/security-report.pdf)" in body
+
+
 def test_archive_names_its_repository(monkeypatch, tmp_path):
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w") as t:

@@ -160,7 +160,8 @@ refreshes them.
   - Every image is pinned by digest, so a cluster runs exactly what CI tested.
 - **Checked in a running cluster every week.** Big Bang's default packages run on RKE2's
   CIS profile, and the NeuVector they deploy scans every image. The
-  [security report](docs/testing.md#neuvectors-scan-of-every-deployed-image) adds grype,
+  [security report](docs/security-report.pdf) ([counts](docs/security-report.md),
+  [how it's built](docs/testing.md#neuvectors-scan-of-every-deployed-image)) adds grype,
   Trivy, Chainguard's advisories, CISA KEV, EPSS and cosign. On 2026-11-25, after
   Chainguard's advisories: **0 Critical and 10 High open** in each mode's 40 deployed images
   (all SeaweedFS's thrift), **none on KEV**, and **40 of 40 signed with a signed SBOM**.
