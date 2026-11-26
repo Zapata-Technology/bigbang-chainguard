@@ -676,19 +676,19 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:604d29003a06f8c22d2d3461457e275cbd2abd58bbe720d6e08c4552a2551011
+        - digest: sha256:598677690f666e36ae3ede85b5635891fedb8d9596815c1dc9af2d1bf2f976e0
           name: cgr.dev/zapatatechnology.com/harbor-core
         - digest: sha256:ee19a5dfea61cb1eb0703f9f7e7ba9ca80acf7ae068fe7c3d3510262ee2ad5cb
           name: cgr.dev/zapatatechnology.com/harbor-exporter
-        - digest: sha256:b0ff8c20eb2b021c183268af165cf263e42d98f8da6d501db7dc7e952927019d
+        - digest: sha256:5d6d79b53307456d8b35c98475b31cfc1f32ffb2156916de944628100f5e0460
           name: cgr.dev/zapatatechnology.com/harbor-jobservice
-        - digest: sha256:4d5fdd6f56e9bc9f5d69fc95722aa3b369da91454cb18be9d57c714e33cdf431
+        - digest: sha256:8ba5a29e303040be24d80e0fe79c6a72127554a40c3d6af20de75083717f8bd4
           name: cgr.dev/zapatatechnology.com/harbor-portal
-        - digest: sha256:a5184a7b0efc223bf492d569beaef802bb7d96520acc301d096857e603c6da2b
+        - digest: sha256:e998956fe8412b4cd57529eb28847bc89130e5b9a9b2936f00c41500fec98c74
           name: cgr.dev/zapatatechnology.com/harbor-registry
-        - digest: sha256:1c79132c14d3254f8d9a4e72927e8118ce7e1b372a667e3e15db9930229c026a
+        - digest: sha256:bb03d827346ac12cb2a83a5fb642971139e84a7bd2985b5df6c67eb64b7d1513
           name: cgr.dev/zapatatechnology.com/harbor-registryctl
-        - digest: sha256:9abab26adbe4e0aa8783670cc5a98abf2f81feef7b9d99dcd88ba6811459f9c4
+        - digest: sha256:126ab79d38cc3b995269959bf9fa181c9ecedcf77cd5e5e71571cd33ac7b6cd1
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter
         - digest: sha256:0b82c344305286ec316fda7178d38aae09f4b9de3bc13ca87e5e704e43ed5aa9
           name: cgr.dev/zapatatechnology.com/nginx
@@ -1284,7 +1284,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus
         - digest: sha256:4da34248a00db0d68a3b2b711e79ea33457af37429b66ec11fe4326401d7a88a
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager
-        - digest: sha256:b4748cd08671e7e6128bf50c8f6c1d554c115585cd04b1cbc6d50a4a825963cd
+        - digest: sha256:18ab08dcbbffee321e91948a2f5239263d5a764f331a50cb150e9fb5720f8d63
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter
         - digest: sha256:221209f0130134c626154940833048a8c405866ebdba7bd7d2e50a7623295439
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader
