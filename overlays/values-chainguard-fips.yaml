@@ -242,18 +242,18 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:654cb471ceabceac9666b25365fbcc93df4b39aad7ddfa24683ced897eefe092
+        - digest: sha256:5000fa3348861ea3b9be364d3ee1bb00f88af60bf12c5f0c11869595e0eee474
           name: cgr.dev/zapatatechnology.com/elasticsearch-fips
         - digest: sha256:1a3328149fe45a644933b0250cd9f985e8ef8b076ca8bd7625aef8af8c778a96
           name: cgr.dev/zapatatechnology.com/kibana-fips
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:a412787a7102034cb2d37923f5d95f9c637864c6dbf6967dd81cf83a8d4121c7
+        - digest: sha256:28d57cf062c58f956585c53d3106c5fc1c7e1bbf0a44413d15e9dd3f7d5ee4b8
           name: cgr.dev/zapatatechnology.com/prometheus-elasticsearch-exporter-fips
         - digest: sha256:47fb474abde85e6142418fea9663c4c1bbe77128707a0b73edee811e2f65db13
           name: ghcr.io/zapata-technology/bigbang-base-fips
         patches:
-        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch-fips:9.5.7@sha256:654cb471ceabceac9666b25365fbcc93df4b39aad7ddfa24683ced897eefe092"}]'
+        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch-fips:9.5.7@sha256:5000fa3348861ea3b9be364d3ee1bb00f88af60bf12c5f0c11869595e0eee474"}]'
           target:
             kind: Elasticsearch
         - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/kibana-fips:9.5.6@sha256:1a3328149fe45a644933b0250cd9f985e8ef8b076ca8bd7625aef8af8c778a96"}]'

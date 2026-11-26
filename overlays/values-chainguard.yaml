@@ -242,18 +242,18 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:1afcc07d66ffa40aabaa82aae15231f0880ad5d593ca2d7fc4c88bcb74bb1170
+        - digest: sha256:7b7c586648d09ba6c261df22a79749339659cb54ad44c52ac030ba41da4d8ab2
           name: cgr.dev/zapatatechnology.com/elasticsearch
         - digest: sha256:2b8a48d63bbdaba5c00b3d2edabd456803a4874eeb96f2481205ecc73b0111df
           name: cgr.dev/zapatatechnology.com/kibana
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:38fdb7ab9cd46bb01002e0d8639fc65adbd3f4a6b754c52eec79cf9a378af0ab
+        - digest: sha256:8e4a2a44bf3562004048b615fe1f57b39eeff0309ae3e5cf0062120562607d2c
           name: cgr.dev/zapatatechnology.com/prometheus-elasticsearch-exporter
         - digest: sha256:31e5f2cfef80beb6b1283c4ce3427fabc0deff7940d7b6ea84a43d90c2b86626
           name: ghcr.io/zapata-technology/bigbang-base
         patches:
-        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch:9.5.7@sha256:1afcc07d66ffa40aabaa82aae15231f0880ad5d593ca2d7fc4c88bcb74bb1170"}]'
+        - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/elasticsearch:9.5.7@sha256:7b7c586648d09ba6c261df22a79749339659cb54ad44c52ac030ba41da4d8ab2"}]'
           target:
             kind: Elasticsearch
         - patch: '[{"op": "replace", "path": "/spec/image", "value": "cgr.dev/zapatatechnology.com/kibana:9.5.6@sha256:2b8a48d63bbdaba5c00b3d2edabd456803a4874eeb96f2481205ecc73b0111df"}]'
