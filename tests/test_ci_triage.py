@@ -46,6 +46,16 @@ def test_a_download_server_error_during_a_build_is_a_flake():
     assert triage.classify(triage.errors(log)) == "a download's server answered 5xx"
 
 
+def test_a_grype_download_504_is_a_flake():
+    # builds.yml's scan step installs grype from GitHub releases; a 504 there failed bot PR #409.
+    job = "build (base)\tUNKNOWN STEP\t2026-11-26T22:44:27.6Z "
+    log = (job + "[error] received HTTP status=504 for url='https://github.com/anchore/grype/releases/download/"
+           "v0.118.0/grype_0.118.0_linux_amd64.tar.gz'\n"
+           + job + "[error] failed to install grype\n"
+           + job + "##[error]Error installing grype:\n")
+    assert triage.classify(triage.errors(log)) == "a download's server answered 5xx"
+
+
 def test_cancelled_and_timed_out_jobs_count_as_failed(monkeypatch):
     checks = [{"name": "mimir (standard)", "bucket": "cancel", "link": "https://x/actions/runs/1/job/11"},
               {"name": "loki (fips)", "bucket": "fail", "link": "https://x/actions/runs/1/job/12"},
