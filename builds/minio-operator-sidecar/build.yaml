@@ -13,7 +13,7 @@ image:
   standard:
     name: bigbang-minio-operator-sidecar
     tag: v7.1.0
-    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:254295b03426846ca382c14a7aa6444d2fe8771c40306aabad45a824d8e26ade
+    dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:15290f123e5501f54904fbbea01df7b18fbcb204f7ce6862eff1366391efea66
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:a7458da92d46815944095f89d0c9b373caf9cad3718400e9fe920900e5cb3ec2
     go_package: ''
   fips:

@@ -13,7 +13,7 @@ image:
   standard:
     name: bigbang-mattermost-operator
     tag: v1.25.9
-    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:c568b0918506a9f8825c7eb79038e8c1104bffe6bec0ad816d017442b7a4469b
+    dev: cgr.dev/zapatatechnology.com/go:1.26.11-dev@sha256:26fe6eee1627ff39c38dbc3f9d3e323256a2bf4d79b31772358328f968548891
     base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:a7458da92d46815944095f89d0c9b373caf9cad3718400e9fe920900e5cb3ec2
     go_package: ''
   fips:
