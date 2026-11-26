@@ -19,8 +19,8 @@ ironbank:
 image:
   standard:
     name: bigbang-base
-    tag: 2.1.0-kubectl1.36.6
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.6-dev@sha256:69ac5757a8030be331b422beccc10f7861370c9ad785a3b0bc138388778486a2
+    tag: 2.1.0-kubectl1.36.7
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.7-dev@sha256:ae73102198d2fcc7bb8b336bedb79043c8f31a5bfc798a0b1cca8d7ab10a9e28
   fips:
     name: bigbang-base-fips
     tag: 2.1.0-kubectl1.36.6
