@@ -9,7 +9,7 @@ packages:
         images:
         - digest: sha256:98e8943c007a0e3f276abee791647509006c40054775c9aecf8dda83cd61b9a2
           name: cgr.dev/zapatatechnology.com/grafana-alloy
-        - digest: sha256:6355f77bb8ea0bc10127f57dada63427b51f5131c32c82e789299cce4ca3f040
+        - digest: sha256:8cc8846ab54edf513074ec25781ddd65590fcc7820472879cbc3e89fe918af40
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator
         - digest: sha256:df83c2eea61cf2658134370a32c35709318da977f694d3a0ee2616456b245fce
           name: cgr.dev/zapatatechnology.com/kubectl
@@ -1292,7 +1292,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter
         - digest: sha256:b626befe7f92d23ddc06b5cf66533f3245af9ba906e7493202b0f5cf5e30df5b
           name: cgr.dev/zapatatechnology.com/prometheus-operator
-        - digest: sha256:b7afa2a63aea44ec2e5c36616434fc4c6e3aa104d2b20632d925c00b83207ab3
+        - digest: sha256:29c73cb5aa27b838a6c6356cbb7687cd8557e964027e60ceb2380cc73621379c
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
         - digest: sha256:f85c0722af9d5d6dac924f8ce1764528cce87aac1f53c5158fb5391cd443b71d
           name: cgr.dev/zapatatechnology.com/thanos

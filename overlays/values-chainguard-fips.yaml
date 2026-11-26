@@ -9,11 +9,11 @@ packages:
         images:
         - digest: sha256:6962e3806ff76402d6a77d07153116a9f5d43d5c884db56f6b350db75921ccdf
           name: cgr.dev/zapatatechnology.com/grafana-alloy-fips
-        - digest: sha256:2297ddd6505619321ac02a8b129a378f612d1244e2573b65ac113dcd999ca23b
+        - digest: sha256:3fefcacba9ea19054425250991d0b94fd0a1579612fe4a7e79019026b2df5f4f
           name: cgr.dev/zapatatechnology.com/grafana-alloy-operator-fips
         - digest: sha256:577dd4ec68ebfb6bca3e8078ab9ecb35dca051f3ad748414dc72671debe903b3
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:a7728494eecc215315c171e088e671a1a80cc937e3e8260432d4e7c76e2a9c4f
+        - digest: sha256:67040eec4d01e6d3ad6cfae6c2593cf00e2f8e3f104763f392e7d3af602d486d
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
         - digest: sha256:47fb474abde85e6142418fea9663c4c1bbe77128707a0b73edee811e2f65db13
           name: ghcr.io/zapata-technology/bigbang-base-fips
@@ -41,7 +41,7 @@ packages:
           alloy:
             configReloader:
               image:
-                digest: sha256:a7728494eecc215315c171e088e671a1a80cc937e3e8260432d4e7c76e2a9c4f
+                digest: sha256:67040eec4d01e6d3ad6cfae6c2593cf00e2f8e3f104763f392e7d3af602d486d
                 registry: cgr.dev/zapatatechnology.com
                 repository: prometheus-config-reloader-fips
                 tag: 0.95.2
@@ -1268,7 +1268,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
         - digest: sha256:e3ed4db887dfeac7cc396dc3b07dd3ed34d3e7a3eeec1e7d19df339c5ee3bd03
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
-        - digest: sha256:a7728494eecc215315c171e088e671a1a80cc937e3e8260432d4e7c76e2a9c4f
+        - digest: sha256:67040eec4d01e6d3ad6cfae6c2593cf00e2f8e3f104763f392e7d3af602d486d
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
         - digest: sha256:a31a79d796d37fdf50d5bfb52160428f94d110a34c6ff0984c9f33b7f5d47c8e
           name: cgr.dev/zapatatechnology.com/prometheus-fips
@@ -1276,9 +1276,9 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-node-exporter-fips
         - digest: sha256:d28abefa02f09ac80587b04dbd93e63429236ff7617fcc5317cc172c56cce1df
           name: cgr.dev/zapatatechnology.com/prometheus-operator-fips
-        - digest: sha256:b7afa2a63aea44ec2e5c36616434fc4c6e3aa104d2b20632d925c00b83207ab3
+        - digest: sha256:29c73cb5aa27b838a6c6356cbb7687cd8557e964027e60ceb2380cc73621379c
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:201ce2c5066f456ff8bc7787bbc05cf46beb6da1f861d843aef7cfbc2e3e2650
+        - digest: sha256:7da40914e7c1d4dad612747de217b40292dc424e3024dc47e639158dd577d814
           name: cgr.dev/zapatatechnology.com/thanos-fips
         - digest: sha256:47fb474abde85e6142418fea9663c4c1bbe77128707a0b73edee811e2f65db13
           name: ghcr.io/zapata-technology/bigbang-base-fips
@@ -1385,19 +1385,19 @@ packages:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: prometheus-config-reloader-fips
-              sha: a7728494eecc215315c171e088e671a1a80cc937e3e8260432d4e7c76e2a9c4f
+              sha: 67040eec4d01e6d3ad6cfae6c2593cf00e2f8e3f104763f392e7d3af602d486d
               tag: 0.95.2
           thanosImage:
             registry: cgr.dev/zapatatechnology.com
             repository: thanos-fips
-            sha: 201ce2c5066f456ff8bc7787bbc05cf46beb6da1f861d843aef7cfbc2e3e2650
+            sha: 7da40914e7c1d4dad612747de217b40292dc424e3024dc47e639158dd577d814
             tag: 0.42.5
         thanosRuler:
           thanosRulerSpec:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: thanos-fips
-              sha: 201ce2c5066f456ff8bc7787bbc05cf46beb6da1f861d843aef7cfbc2e3e2650
+              sha: 7da40914e7c1d4dad612747de217b40292dc424e3024dc47e639158dd577d814
               tag: 0.42.5
   neuvector:
     postRenderers:
@@ -1548,7 +1548,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:201ce2c5066f456ff8bc7787bbc05cf46beb6da1f861d843aef7cfbc2e3e2650
+        - digest: sha256:7da40914e7c1d4dad612747de217b40292dc424e3024dc47e639158dd577d814
           name: cgr.dev/zapatatechnology.com/thanos-fips
     values:
       upstream:
