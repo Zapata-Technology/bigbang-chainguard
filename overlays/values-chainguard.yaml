@@ -330,13 +330,13 @@ packages:
           name: registry1.dso.mil/ironbank/opensource/kubernetes/kubectl
           newName: cgr.dev/zapatatechnology.com/kubectl
           newTag: 1.37-dev
-        - digest: sha256:eb369a56c97fdc9e9651ab5f40a4b4d56cd1c27573b14a6ed3c98d1dc8e0a08b
+        - digest: sha256:396cb0939132e208eb9d5a12871064d001ec667fabf016518c727d9f59670a2f
           name: registry1.dso.mil/ironbank/opensource/mysql/mysql8
           newName: cgr.dev/zapatatechnology.com/mysql
           newTag: 8.4.13
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:eb369a56c97fdc9e9651ab5f40a4b4d56cd1c27573b14a6ed3c98d1dc8e0a08b
+        - digest: sha256:396cb0939132e208eb9d5a12871064d001ec667fabf016518c727d9f59670a2f
           name: cgr.dev/zapatatechnology.com/mysql
         - digest: sha256:409d8c6e49c7c3a387e195d1ae18aab931a7da4a5a659f8ef7bad8cce03e9444
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded
@@ -867,14 +867,14 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:5ea4b4a7908ded98c4103ec7dc7a61c39c26bb448f516ca381c451d8d0113761
+        - digest: sha256:5b2e206a0dbbbd71cee42653cdef69f0308422a966f9d6aee5cedcda9a7ed45c
           name: cgr.dev/zapatatechnology.com/kiali
         - digest: sha256:789ebc86c378cc778312be5d621ebde092c0180e5a55960a7dd8b1cf3cba0986
           name: cgr.dev/zapatatechnology.com/kiali-operator
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
         patches:
-        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "5ea4b4a7908ded98c4103ec7dc7a61c39c26bb448f516ca381c451d8d0113761"},
+        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "5b2e206a0dbbbd71cee42653cdef69f0308422a966f9d6aee5cedcda9a7ed45c"},
             {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"}, {"op": "add", "path": "/spec/deployment/version_label",
             "value": "v2.35.0"}]'
           target:
@@ -1294,7 +1294,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/prometheus-operator
         - digest: sha256:29c73cb5aa27b838a6c6356cbb7687cd8557e964027e60ceb2380cc73621379c
           name: cgr.dev/zapatatechnology.com/prometheus-snmp-exporter
-        - digest: sha256:f85c0722af9d5d6dac924f8ce1764528cce87aac1f53c5158fb5391cd443b71d
+        - digest: sha256:c2d1835c3e3b94c002955507936bccef65b202ba93522df08595a78aeff9ac87
           name: cgr.dev/zapatatechnology.com/thanos
         - digest: sha256:31e5f2cfef80beb6b1283c4ce3427fabc0deff7940d7b6ea84a43d90c2b86626
           name: ghcr.io/zapata-technology/bigbang-base
@@ -1406,14 +1406,14 @@ packages:
           thanosImage:
             registry: cgr.dev/zapatatechnology.com
             repository: thanos
-            sha: f85c0722af9d5d6dac924f8ce1764528cce87aac1f53c5158fb5391cd443b71d
+            sha: c2d1835c3e3b94c002955507936bccef65b202ba93522df08595a78aeff9ac87
             tag: 0.42.5
         thanosRuler:
           thanosRulerSpec:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: thanos
-              sha: f85c0722af9d5d6dac924f8ce1764528cce87aac1f53c5158fb5391cd443b71d
+              sha: c2d1835c3e3b94c002955507936bccef65b202ba93522df08595a78aeff9ac87
               tag: 0.42.5
   neuvector:
     postRenderers:
@@ -1531,7 +1531,7 @@ packages:
         images:
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:7dea9ee0cfc92e1d8de695ad00d14ff9d87b2fc7308ae644daf2a672f922e94f
+        - digest: sha256:4690d2860537600fd32f415a924d77c50bc32bb31df77e07861de0a7498c9de5
           name: cgr.dev/zapatatechnology.com/tempo
         - digest: sha256:31e5f2cfef80beb6b1283c4ce3427fabc0deff7940d7b6ea84a43d90c2b86626
           name: ghcr.io/zapata-technology/bigbang-base
@@ -1564,7 +1564,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:f85c0722af9d5d6dac924f8ce1764528cce87aac1f53c5158fb5391cd443b71d
+        - digest: sha256:c2d1835c3e3b94c002955507936bccef65b202ba93522df08595a78aeff9ac87
           name: cgr.dev/zapatatechnology.com/thanos
     values:
       upstream:
