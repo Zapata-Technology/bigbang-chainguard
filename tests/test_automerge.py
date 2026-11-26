@@ -126,6 +126,53 @@ sys.stdout.write(text)
 '''
 
 
+def run_hold(tmp_path, runs, event="push", track="release", labels=()):
+    """update.yml's hold step with a fake gh: the release PR #9 at sha s1, whose head
+    commit has these workflow runs ((path, status) pairs). Returns the step's outputs."""
+    import json
+    import shutil
+    import subprocess
+    import pytest
+    if os.name == "nt" or not shutil.which("jq") or not shutil.which("bash"):
+        pytest.skip("needs bash and jq (CI's runner has both)")
+    step = next(s for s in UPDATE["jobs"]["update"]["steps"] if s.get("id") == "hold")
+    bindir = tmp_path / "bin"
+    bindir.mkdir(parents=True)
+    (bindir / "gh").write_text(FAKE_GH, encoding="utf-8")
+    (bindir / "gh").chmod(0o755)
+    pr = [{"number": 9, "head": {"sha": "s1"}, "labels": [{"name": n} for n in labels]}]
+    data = {"pulls?state=open&head=o:bot/bigbang-release": pr,
+            "pulls?state=open&head=o:bot/builds-release": [],
+            "actions/runs?head_sha=s1&per_page=100": {"workflow_runs": [
+                {"name": path.split("/")[-1], "path": path, "status": status} for path, status in runs]}}
+    (tmp_path / "data.json").write_text(json.dumps(data), encoding="utf-8")
+    out = tmp_path / "out"
+    out.write_text("", encoding="utf-8")
+    env = dict(os.environ, PATH=f"{bindir}{os.pathsep}{os.environ['PATH']}", FAKE_GH_DATA=str(tmp_path / "data.json"),
+               FAKE_GH_LOG=str(tmp_path / "gh.log"), GH_TOKEN="t", GH_REPO="o/r", GITHUB_OUTPUT=str(out),
+               BRANCH="bot/bigbang-release", BUILDS_BRANCH="bot/builds-release", TRACK=track, EVENT=event)
+    p = subprocess.run(["bash", "-c", step["run"]], env=env, capture_output=True, text=True, cwd=tmp_path)
+    assert p.returncode == 0, p.stderr
+    return dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split())
+
+
+def test_a_push_to_main_leaves_a_testing_release_pr_alone(tmp_path):
+    # A routine bot PR merging rebuilt the release PR and cancelled its ~90-minute kind run.
+    testing = [(".github/workflows/compat.yml", "in_progress"), (".github/workflows/ci.yml", "completed")]
+    assert run_hold(tmp_path, testing)["bigbang-release"] == "true"
+
+
+def test_a_release_pr_is_rebuilt_when_nothing_long_runs_or_on_schedule(tmp_path):
+    done = [(".github/workflows/compat.yml", "completed"), (".github/workflows/ci.yml", "in_progress")]
+    assert run_hold(tmp_path / "a", done)["bigbang-release"] == "false"
+    rke2 = [(".github/workflows/rke2.yml", "queued")]
+    assert run_hold(tmp_path / "b", rke2, event="workflow_run")["bigbang-release"] == "true"
+    # The nightly run and record-release's dispatch always rebuild it.
+    assert run_hold(tmp_path / "c", rke2, event="schedule")["bigbang-release"] == "false"
+    assert run_hold(tmp_path / "d", rke2, event="workflow_dispatch")["bigbang-release"] == "false"
+    assert run_hold(tmp_path / "e", [], labels=["hold"])["bigbang-release"] == "true"
+
+
 def run_merge(tmp_path, data, conclusion="success", attempt="1", triage_rc=1, branch="bot/bigbang-update",
               patches="", main_version="4.1.0"):
     """Run the merge step with a fake gh, and a stub ci-triage.py that exits triage_rc

@@ -389,6 +389,12 @@ jobs:
           permission-workflows: write
 
       # A person is working on a bot PR (label `hold`): leave its branch alone.
+      # The release PR is also left alone while its kind or RKE2 tests run, when this run
+      # came from a push to main or builds.yml (a routine bot PR merged): rebuilding it then
+      # force-pushed the PR and cancelled ~90 minutes of tests, once per routine merge (Big
+      # Bang 4.2.0, 2026-11-26). Its compat run's record-release dispatches update.yml when
+      # it finishes, and the nightly run rebuilds it anyway; a schedule or a dispatch always
+      # rebuilds it.
       - name: Bot PRs on hold
         id: hold
         env:
@@ -396,13 +402,28 @@ jobs:
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ matrix.branch }}
           BUILDS_BRANCH: ${{ matrix.builds_branch }}
+          TRACK: ${{ matrix.track }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           for pr_branch in "$BRANCH" "$BUILDS_BRANCH"; do
-            held=$(gh api "repos/$GH_REPO/pulls?state=open&head=${GH_REPO%%/*}:$pr_branch" \
-              --jq '[.[].labels[].name] | index("hold") != null')
+            prs=$(gh api "repos/$GH_REPO/pulls?state=open&head=${GH_REPO%%/*}:$pr_branch")
+            held=$(jq '[.[].labels[].name] | index("hold") != null' <<<"$prs")
+            if [ "$held" = false ] && [ "$TRACK" = release ] && [ "$pr_branch" = "$BRANCH" ] \
+                && { [ "$EVENT" = push ] || [ "$EVENT" = workflow_run ]; }; then
+              sha=$(jq -r '.[0].head.sha // empty' <<<"$prs")
+              if [ -n "$sha" ]; then
+                runs=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$sha&per_page=100" \
+                  --jq '[.workflow_runs[] | select(.status != "completed")
+                         | select(.path | endswith("/compat.yml") or endswith("/rke2.yml")) | .name] | unique | join(", ")')
+                if [ -n "$runs" ]; then
+                  held=true
+                  echo "::notice::$pr_branch is testing ($runs): not rebuilding it for a push to main; record-release or tonight's run will"
+                fi
+              fi
+            fi
             echo "${pr_branch#bot/}=$held" >> "$GITHUB_OUTPUT"
-            [ "$held" = false ] || echo "::notice::$pr_branch is labeled hold: not updating it"
+            [ "$held" = false ] || echo "::notice::$pr_branch is held: not updating it"
           done
 
       # This run planned its tracks from main as it was when the run started; a release PR
