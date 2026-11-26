@@ -330,13 +330,13 @@ packages:
           name: registry1.dso.mil/ironbank/opensource/kubernetes/kubectl
           newName: cgr.dev/zapatatechnology.com/kubectl-fips
           newTag: 1.37-dev
-        - digest: sha256:d8511e1a2e6ba4520266426d87f7bcd5e39495737220563e38a0fadc56e27cf3
+        - digest: sha256:ad8aacb8e4029eda2abaddbd7f92535b4db1fae7892c36900e9fa165113eab0b
           name: registry1.dso.mil/ironbank/opensource/mysql/mysql8
           newName: cgr.dev/zapatatechnology.com/mysql-fips
           newTag: 8.4.13
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:d8511e1a2e6ba4520266426d87f7bcd5e39495737220563e38a0fadc56e27cf3
+        - digest: sha256:ad8aacb8e4029eda2abaddbd7f92535b4db1fae7892c36900e9fa165113eab0b
           name: cgr.dev/zapatatechnology.com/mysql-fips
         - digest: sha256:64b24eabe2ea238a7512e589a9d73ba54ca270328fb2f7a0c3a9250a2e36b78d
           name: cgr.dev/zapatatechnology.com/prometheus-mysqld-exporter-iamguarded-fips
@@ -859,14 +859,14 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:997340a86c4d260f03066b0eaabe8adeacb3bb35cd5017571627cf98b3c6a831
+        - digest: sha256:dd5dc46d0d96faac0979d6f31c1bb6c65eb0261a2304004707fdbbb0fd3b5e88
           name: cgr.dev/zapatatechnology.com/kiali-fips
         - digest: sha256:4d4165a5894f24cf8a3b21630cc2644bd1851a7cee4b08a165cf7557131239e0
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         patches:
-        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "997340a86c4d260f03066b0eaabe8adeacb3bb35cd5017571627cf98b3c6a831"},
+        - patch: '[{"op": "add", "path": "/spec/deployment/image_version", "value": "dd5dc46d0d96faac0979d6f31c1bb6c65eb0261a2304004707fdbbb0fd3b5e88"},
             {"op": "add", "path": "/spec/deployment/image_digest", "value": "sha256"}, {"op": "add", "path": "/spec/deployment/version_label",
             "value": "v2.35.0"}]'
           target:
@@ -1143,7 +1143,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:af1cab966864405625777943e4b2a5c572842934b75bdd8834c6390c5c59a705
+        - digest: sha256:f763fe0d6d262e0ceea329f45dc5e9fb31840e66d127422bb6f1b89359822624
           name: cgr.dev/zapatatechnology.com/metrics-server-fips
     values:
       upstream:
@@ -1515,7 +1515,7 @@ packages:
         images:
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:f58d167e6a432d2e699c38c23e57d984df39734ef42c21e6218189ab18e4ee65
+        - digest: sha256:b3ee66316a8b6d92444d627be415a5940b050728ca9fcacbfcb2ea7b5c79f048
           name: cgr.dev/zapatatechnology.com/tempo-fips
         - digest: sha256:47fb474abde85e6142418fea9663c4c1bbe77128707a0b73edee811e2f65db13
           name: ghcr.io/zapata-technology/bigbang-base-fips
