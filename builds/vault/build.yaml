@@ -7,11 +7,11 @@ image:
   standard:
     name: bigbang-vault
     tag: v2.2.2
-    dev: cgr.dev/zapatatechnology.com/vault:v2.2.2-dev@sha256:ff5037d2411f13e74828ef2ac2266b19290c89eebdcf72f895869f43a7089291
+    dev: cgr.dev/zapatatechnology.com/vault:v2.2.2-dev@sha256:39661260dad2b624a1a85d85edcc192f9fe5c0f3a63f74c38aba698ffed08e6a
   fips:
     name: bigbang-vault-fips
     tag: v2.2.2
-    dev: cgr.dev/zapatatechnology.com/vault-fips:v2.2.2-dev@sha256:d0c55fee47aec2d5aa301d28136ee5f10f731c236f6dc12f035d6aa5876f105f
+    dev: cgr.dev/zapatatechnology.com/vault-fips:v2.2.2-dev@sha256:1169565f8bbd6dc8543b4c8239f2f69f8b7dd5965f048862c2735412b0abbd07
 packages:
 - curl
 notes:
