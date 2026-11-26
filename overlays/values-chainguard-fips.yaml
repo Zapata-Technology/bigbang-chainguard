@@ -56,7 +56,7 @@ packages:
         images:
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:3b0ffbf851549192ee2ef6703755fb623b4e79284bab38b770d05083d6627185
+        - digest: sha256:4b6cf476ce6d7ba302654c5c183831456bf2f40d27df0f97d7786fbea6abdb28
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
         - digest: sha256:070dace944194688d3fa66e313343b0b60c2ae8c85aae06de49e9670b69ecccb
           name: cgr.dev/zapatatechnology.com/redis-fips
@@ -157,7 +157,7 @@ packages:
         images:
         - digest: sha256:19a6556579a86c8564ba78df256709d8145b2353b47bce394be5e73097f3f236
           name: cgr.dev/zapatatechnology.com/authservice-fips
-        - digest: sha256:3b0ffbf851549192ee2ef6703755fb623b4e79284bab38b770d05083d6627185
+        - digest: sha256:4b6cf476ce6d7ba302654c5c183831456bf2f40d27df0f97d7786fbea6abdb28
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
         - digest: sha256:070dace944194688d3fa66e313343b0b60c2ae8c85aae06de49e9670b69ecccb
           name: cgr.dev/zapatatechnology.com/redis-fips
@@ -686,7 +686,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/nginx-fips
         - digest: sha256:925edd6df5cfa59773c2eb76846e700baa9fffbe85bf0a872c9913af8655c9c7
           name: cgr.dev/zapatatechnology.com/postgres-fips
-        - digest: sha256:3b0ffbf851549192ee2ef6703755fb623b4e79284bab38b770d05083d6627185
+        - digest: sha256:4b6cf476ce6d7ba302654c5c183831456bf2f40d27df0f97d7786fbea6abdb28
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded-fips
         - digest: sha256:070dace944194688d3fa66e313343b0b60c2ae8c85aae06de49e9670b69ecccb
           name: cgr.dev/zapatatechnology.com/redis-fips
@@ -861,7 +861,7 @@ packages:
         images:
         - digest: sha256:997340a86c4d260f03066b0eaabe8adeacb3bb35cd5017571627cf98b3c6a831
           name: cgr.dev/zapatatechnology.com/kiali-fips
-        - digest: sha256:f373c5117292a2430b21741f14c636db2573c04ada837f317532c07a5c6c2a73
+        - digest: sha256:4d4165a5894f24cf8a3b21630cc2644bd1851a7cee4b08a165cf7557131239e0
           name: cgr.dev/zapatatechnology.com/kiali-operator-fips
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
