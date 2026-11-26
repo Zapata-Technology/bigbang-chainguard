@@ -909,7 +909,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kyverno-readiness-checker-fips
         - digest: sha256:a221e319b68fd7c8302899ff976e97932ada6aa5365b71e5a1984f5a9065c21a
           name: cgr.dev/zapatatechnology.com/kyverno-reports-controller-fips
-        - digest: sha256:c762753b8e620047b25fa697de23b187efe968f9425fb4fa8ea70d1b505259b4
+        - digest: sha256:6581eb210195709deb55aa5d115b07c0a931ff04c723e9b343ad31a2d327d12b
           name: cgr.dev/zapatatechnology.com/kyvernopre
     values:
       bbtests:
