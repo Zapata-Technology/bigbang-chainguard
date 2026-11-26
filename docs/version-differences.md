@@ -100,7 +100,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 |---|---|---|---|---|---|
 | `ironbank/afdco/docker/busybox:1.38.0` | `busybox:1.38.0` | `busybox-fips:1.38.0` | Chainguard | same | argocd, gitlab, grafana, monitoring |
 | `ironbank/big-bang/base:2.1.0` | `ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.6` | `ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6` | built here | same | alloy, anchore-enterprise, argocd, authservice, eck-operator, ek, external-secrets, fluentbit, fortify, gatekeeper, gitlab, grafana, harbor, keycloak, logging-loki, mimir, minio, minio-operator, monitoring, neuvector, sonarqube, tempo, twistlock, velero |
-| `ironbank/big-bang/devops-tester:1.4` | `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2` | `ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.2` | built here | same | argocd, gitlab, harbor, kyverno-policies, logging-loki, minio, renovate, velero |
+| `ironbank/big-bang/devops-tester:1.4` | `ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.2` | `ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.3` | built here | same | argocd, gitlab, harbor, kyverno-policies, logging-loki, minio, renovate, velero |
 | `ironbank/bitnami/analytics/redis-exporter:v1.97.0` | `prometheus-redis-exporter-iamguarded:1.97.0` | `prometheus-redis-exporter-iamguarded-fips:1.97.0` | Chainguard | same | argocd |
 | `ironbank/elastic/eck-operator/eck-operator:3.5.0` | `eck-operator:3.5.0` | `eck-operator-fips:3.5.0` | Chainguard | same | eck-operator |
 | `ironbank/elastic/kibana/kibana:9.5.6` | `kibana:9.5.6` | `kibana-fips:9.5.6` | Chainguard | same | ek |
