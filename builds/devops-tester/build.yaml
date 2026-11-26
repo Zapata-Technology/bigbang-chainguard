@@ -18,7 +18,7 @@ image:
     tag: 1.4-kubectl1.37.3
     dev: cgr.dev/zapatatechnology.com/kubectl:1.37.3-dev@sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
     velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:11814cce525b42599aea348aadbec69861beb405da0a537d649a538b1b18458e
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:4910cda637fed8e2d240576e72513cbcc0f55798a18a49038a08848f755975d9
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:6d4b9abf68f70d7608608527e404c90199a2ca3494ee68a844b85e554aa7942d
   fips:
     name: bigbang-devops-tester-fips
     tag: 1.4-kubectl1.37.3

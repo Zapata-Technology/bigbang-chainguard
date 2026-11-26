@@ -905,19 +905,19 @@ packages:
         images:
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:67b7a8436464ca9c8a931bb43fb9680bf65fe08d0deb8a7f9a6bc141768fea5d
+        - digest: sha256:13ac390041aa75269fb24e76ec8e744f4d854af4373cd40417d2f1ab6c13d4b8
           name: cgr.dev/zapatatechnology.com/kyverno
-        - digest: sha256:f569c371ffaf5026f8c926e608a276dc30dcae95eba9fe16a82944617ce496f1
+        - digest: sha256:45f01366a7a9f9d73693f00c24d79fca4847d3fc529b6df75bc0c7cf1549aec4
           name: cgr.dev/zapatatechnology.com/kyverno-background-controller
-        - digest: sha256:861e90057e5e30d57c4a95e78e87671f2ef0da08a76584f094b00e6747d7cb20
+        - digest: sha256:4d0d7894e6d53b8248855d355280c8e7d98a911aac0295eac54773785bab03d8
           name: cgr.dev/zapatatechnology.com/kyverno-cleanup-controller
-        - digest: sha256:4910cda637fed8e2d240576e72513cbcc0f55798a18a49038a08848f755975d9
+        - digest: sha256:6d4b9abf68f70d7608608527e404c90199a2ca3494ee68a844b85e554aa7942d
           name: cgr.dev/zapatatechnology.com/kyverno-cli
-        - digest: sha256:d967209be4ae5f82565aab9c98dc1215149cc71f5b32202657888c0eda420326
+        - digest: sha256:ce37fa112540e55a4fa597d481d497f939b5c58807b1cb7c3990083221e6d1e4
           name: cgr.dev/zapatatechnology.com/kyverno-readiness-checker
-        - digest: sha256:5cd6813de7f89b9a5af8a3d3111d64b80c92c84716f20f7dfe009eff0ba6829f
+        - digest: sha256:0cf461721a7dd02edf14e845046928e6f9091afe4c492582292856133ed23d64
           name: cgr.dev/zapatatechnology.com/kyverno-reports-controller
-        - digest: sha256:c762753b8e620047b25fa697de23b187efe968f9425fb4fa8ea70d1b505259b4
+        - digest: sha256:6581eb210195709deb55aa5d115b07c0a931ff04c723e9b343ad31a2d327d12b
           name: cgr.dev/zapatatechnology.com/kyvernopre
     values:
       bbtests:
