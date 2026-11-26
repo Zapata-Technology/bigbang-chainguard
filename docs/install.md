@@ -344,7 +344,7 @@ holds only credentials (keep it out of git).
 7. **TLS:** Big Bang's public gateway serves the Secret `istio-gateway/public-cert`: a
    cert-manager Certificate for `*.<domain>` from your ClusterIssuer, or your own certificate
    in the site file's `gatewayCerts`.
-8. **Signatures** (with Kyverno): the installer's Kyverno ClusterPolicy is built by
+8. **Signatures** (with Kyverno): the installer's Kyverno ImageValidatingPolicy is built by
    `signature_policy` in `scripts/bbinstall/signatures.py`; leave it out, or apply it in
    Audit first.
 9. **Wait:** `kubectl get helmrelease -A` until every one is Ready, then the pods in each

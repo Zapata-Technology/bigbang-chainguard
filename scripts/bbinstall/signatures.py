@@ -11,6 +11,9 @@ from bbinstall.common import apply_when_ready, say
 from orgtags import REGISTRY
 
 SIGNATURE_POLICY = "bb-install-chainguard-signatures"
+# kubectl's full names: the policy, and the ClusterPolicy releases before Big Bang 4.2.0 wrote.
+POLICY_RESOURCE = "imagevalidatingpolicies.policies.kyverno.io"
+LEGACY_RESOURCE = "clusterpolicies.kyverno.io"
 
 
 def signature_choice(a, creds, enabled):
@@ -45,21 +48,46 @@ def built_signer(a, creds, co):
 
 
 def signature_policy(org, org_id, mode, built=None):
-    """A Kyverno ClusterPolicy: every Pod image from cgr.dev/<org> needs Chainguard's
+    """A Kyverno ImageValidatingPolicy: every Pod image from cgr.dev/<org> needs Chainguard's
     keyless signature, and each image built here (`built`: (pattern, subject)) builds.yml's,
     the same signers bb-signatures.py accepts in CI. Audit records failures in policy
-    reports; Enforce refuses the Pod."""
-    action = "Enforce" if mode == "enforce" else "Audit"
-    rules = [_verify_rule("chainguard-signature", f"{REGISTRY}/{org}/*", action, SIGNATURE_ISSUERS,
-                          signature_identity(org_id))]
+    reports; Deny refuses the Pod (and, through autogen, its Deployment or Job).
+
+    Not a kyverno.io ClusterPolicy: Kyverno 1.20 (Big Bang 4.2.0) still accepts one but marks
+    it Ready=False ("legacy kyverno.io policies are no longer supported") and enforces
+    nothing, so unsigned images ran. Kyverno 1.19 serves policies.kyverno.io/v1 too.
+    verifyImageSignatures returns 0 for an image outside matchImageReferences, so each
+    validation picks its own images by prefix rather than requiring every image > 0."""
+    checks = [("chainguard", f"{REGISTRY}/{org}/", SIGNATURE_ISSUERS, signature_identity(org_id))]
     if built:
-        rules.append(_verify_rule("built-here-signature", built[0], action, BUILD_SIGNATURE_ISSUER, built[1]))
-    return {"apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy",
+        checks.append(("builthere", built[0].rstrip("*"), BUILD_SIGNATURE_ISSUER, built[1]))
+    every = "(images.containers + images.initContainers + images.ephemeralContainers)"
+    return {"apiVersion": "policies.kyverno.io/v1", "kind": "ImageValidatingPolicy",
             "metadata": {"name": SIGNATURE_POLICY, "annotations": {
                 "policies.kyverno.io/title": "Chainguard image signatures",
                 "policies.kyverno.io/description": f"Images from cgr.dev/{org} must carry Chainguard's signature"
                                                    + (f" under org {org_id}" if org_id else "") + "."}},
-            "spec": {"background": False, "webhookTimeoutSeconds": 30, "rules": rules}}
+            "spec": {
+                "validationActions": ["Deny"] if mode == "enforce" else ["Audit"],
+                "failurePolicy": "Fail",
+                "webhookConfiguration": {"timeoutSeconds": 30},
+                "evaluation": {"background": {"enabled": False}},
+                "matchConstraints": {"resourceRules": [{
+                    "apiGroups": [""], "apiVersions": ["v1"], "operations": ["CREATE", "UPDATE"],
+                    "resources": ["pods"]}]},
+                "matchImageReferences": [{"glob": prefix + "*"} for _, prefix, _, _ in checks],
+                # Big Bang puts its pull secret in every package namespace, Kyverno's too: a
+                # cluster-scoped policy reads secrets from Kyverno's namespace.
+                "credentials": {"secrets": ["private-registry"]},
+                "validationConfigurations": {"mutateDigest": False, "verifyDigest": False, "required": True},
+                "attestors": [{"name": name, "cosign": {
+                    "keyless": {"identities": [{"issuerRegExp": issuer, "subjectRegExp": subject}]},
+                    "ctlog": {"url": "https://rekor.sigstore.dev"}}} for name, _, issuer, subject in checks],
+                "validations": [{
+                    "expression": f"{every}.filter(i, i.startsWith({json.dumps(prefix)}))"
+                                  f".all(i, verifyImageSignatures(i, [attestors.{name}]) > 0)",
+                    "message": f"an image from {prefix} has no valid signature from its signer"}
+                    for name, prefix, _, _ in checks]}}
 
 
 def signature_egress_values():
@@ -74,24 +102,14 @@ def signature_egress_values():
         "from": {"kyverno-admission-controller": {"to": {"definition": {"signature-verification": True}}}}}}}}}}}
 
 
-def _verify_rule(name, pattern, action, issuer, subject):
-    return {"name": name, "match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
-            "verifyImages": [{
-                "imageReferences": [pattern], "failureAction": action,
-                "mutateDigest": False, "verifyDigest": False, "required": True,
-                # Big Bang puts its pull secret in every package namespace, Kyverno's too.
-                "imageRegistryCredentials": {"secrets": ["private-registry"]},
-                "attestors": [{"entries": [{"keyless": {
-                    "issuerRegExp": issuer, "subjectRegExp": subject,
-                    "rekor": {"url": "https://rekor.sigstore.dev"}}}]}]}]}
-
-
 def cluster_signatures(org, org_id, mode, wait, built=None):
+    # The ClusterPolicy an earlier release wrote: Kyverno 1.20 no longer enforces it.
+    kubectl("delete", LEGACY_RESOURCE, SIGNATURE_POLICY, "--ignore-not-found", check=False)
     if mode == "off":
-        kubectl("delete", "clusterpolicy", SIGNATURE_POLICY, "--ignore-not-found", check=False)
+        kubectl("delete", POLICY_RESOURCE, SIGNATURE_POLICY, "--ignore-not-found", check=False)
         return True
-    if not apply_when_ready([signature_policy(org, org_id, mode, built)], "clusterpolicies.kyverno.io", "kyverno",
-                            ("get", "clusterpolicy", SIGNATURE_POLICY), wait):
+    if not apply_when_ready([signature_policy(org, org_id, mode, built)], POLICY_RESOURCE, "kyverno",
+                            ("get", POLICY_RESOURCE, SIGNATURE_POLICY), wait):
         say("warning: Kyverno wasn't ready for the signature policy; re-run install")
         return False
     say(f"Kyverno checks Chainguard's signature on cgr.dev/{org} images ({mode}"
@@ -104,12 +122,15 @@ def signature_problem(state):
     """Why the signature policy isn't working, or ''."""
     if state.get("signatures", "off") == "off":
         return ""
-    out = kubectl("get", "clusterpolicy", SIGNATURE_POLICY, "-o", "json", check=False)
+    out = kubectl("get", POLICY_RESOURCE, SIGNATURE_POLICY, "-o", "json", check=False)
     if not out:
-        return f"no ClusterPolicy {SIGNATURE_POLICY}: re-run install"
-    ready = {c["type"]: c for c in json.loads(out).get("status", {}).get("conditions", [])}.get("Ready", {})
-    return "" if ready.get("status") == "True" else \
-        f"signature policy not ready: {ready.get('message', 'no status')[:200]}"
+        return f"no ImageValidatingPolicy {SIGNATURE_POLICY}: re-run install"
+    status = json.loads(out).get("status", {}).get("conditionStatus", {})
+    if status.get("ready") is True:
+        return ""
+    why = status.get("message") or next((c.get("message") for c in status.get("conditions", [])
+                                         if c.get("status") != "True" and c.get("message")), "no status")
+    return f"signature policy not ready: {why[:200]}"
 
 
 def signature_note(state):
