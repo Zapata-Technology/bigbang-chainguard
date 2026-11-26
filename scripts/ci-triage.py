@@ -48,7 +48,8 @@ FLAKES = [
     (re.compile(r"(urlopen error timed out|TimeoutError: timed out|Connection reset by peer|"
                 r"TLS handshake timeout|i/o timeout)", re.I), "a network timeout"),
     (re.compile(r"(toomanyrequests|rate limit exceeded|secondary rate limit)", re.I), "a rate limit"),
-    (re.compile(r"(curl: \(22\) The requested URL returned error: 5\d\d|HTTP/[\d.]+ 50[234])", re.I),
+    (re.compile(r"(curl: \(22\) The requested URL returned error: 5\d\d|HTTP/[\d.]+ 50[234]|"
+                r"received HTTP status=50[234])", re.I),   # the last: anchore's installer (grype)
      "a download's server answered 5xx"),
     # A module download the Go proxy cut off mid-stream during a build.
     (re.compile(r'read "https://proxy\.golang\.org/[^"]+": stream error', re.I),
