@@ -1470,7 +1470,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitea-fips
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:dbdbeb66c290a2225980f06354993a5f4e399e6f44a4d5c9382aef520826bac4
+        - digest: sha256:01b64f610092c2a03307bcab69fee4ec9f6f43371f1fa0ef8abab8de418015fc
           name: cgr.dev/zapatatechnology.com/renovate-fips
         - digest: sha256:56f28a96bb5d112de5670b3d187351e3dae684306090d0f3da5c4f65ab498224
           name: ghcr.io/zapata-technology/bigbang-devops-tester-fips
@@ -1486,7 +1486,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate-fips
-          tag: 44.263.2
+          tag: 44.263.5
   sonarqube:
     postRenderers:
     - kustomize:
