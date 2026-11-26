@@ -245,6 +245,7 @@ sequenceDiagram
     N->>PR: open bot/bigbang-update (deployed release, newest patches)<br/>and, for a newer Big Bang, bot/bigbang-release<br/>with upgrade notes (docs/upgrades/)
     PR->>CI: unit tests, discovery, scan, verify, signatures,<br/>no fixable Critical CVE in new images,<br/>build + smoke-test changed images,<br/>kind tests the change reaches, or the smoke set<br/>for a digest-only change<br/>(release PR: every test, large ones standard)
     CI-->>PR: checks, including results-gate<br/>(a recorded standard matrix for this Big Bang version,<br/>release PR: --base, also large + weekly_and_release tests)
+    CI-->>N: release PR's kind run done: record-release<br/>dispatches update.yml to record its results<br/>(a push to main doesn't rebuild a release PR<br/>whose kind or RKE2 tests are still running)
     PR->>M: automerge.yml when every check passed<br/>(bot/bigbang-release: you, or itself for a patch<br/>release with AUTOMERGE_BIGBANG_PATCHES)
     M->>B: push: builds.yml publish job, CI runs on main
     B->>G: build, scan, sign, then move the tag,<br/>SBOM + SLSA v1 predicate
@@ -333,7 +334,7 @@ flowchart LR
         SR[(site registry<br/>disconnected sites:<br/>copies of the above)]
     end
     K[Kyverno restrict-image-registries<br/>allow list = exactly these] --> trusted
-    S[Kyverno signature policy<br/>enforce by default]
+    S[Kyverno ImageValidatingPolicy<br/>signatures, enforce by default]
     S --"Chainguard's signature" --> CG
     S -- "builds.yml on main" --> BR
     subgraph build[What a build reads]
