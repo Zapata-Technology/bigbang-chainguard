@@ -846,7 +846,7 @@ packages:
           tag: '18.7'
       upstream:
         image:
-          digest: sha256:9a65ba00c8097c41bcbacb3c4a651b5d33c38aece3a237813a33c26fbd111fc1
+          digest: sha256:a5a1ade7cba2e86ed91060cf84bfb72683e57e79c5bb3e4995039eb3e989a420
           repository: cgr.dev/zapatatechnology.com/keycloak-fips
           tag: 26.8.2
         podSecurityContext:
@@ -1583,7 +1583,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:c91790e321193e4b52e29022e7e7d95c90b2867196540dff6c0b6b0d142c90e8
+        - digest: sha256:b261674cd142affede3f678bc694cbf322d9ce54765519aaee7aecec47520fee
           name: cgr.dev/zapatatechnology.com/vault-csi-provider-fips
         - digest: sha256:aa3522457024088763b50e86407c94b938c7f4eb9e5f4e74e2eb1d26eb120ff5
           name: cgr.dev/zapatatechnology.com/vault-k8s-fips
