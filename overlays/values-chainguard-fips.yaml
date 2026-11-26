@@ -1022,7 +1022,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:2e01264086ee3e2c11a0a53d1cc3a77cd6b6dabc6b2130096da25217ac97c23b
+        - digest: sha256:e795e809cef51ff47f2c429559e1928ebbcf582e3275fc898bfd7356874428ed
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
         - digest: sha256:d230b7518ef67040094c4acf30c7f5e37198885544c54f946762bbe1f13ef737
           name: cgr.dev/zapatatechnology.com/k8s-sidecar-fips
@@ -1156,7 +1156,7 @@ packages:
         images:
         - digest: sha256:8905fe589bb545ebfcea86ac2d537bfca160bea575fe58d33c9215bf853d2d03
           name: cgr.dev/zapatatechnology.com/grafana-mimir-fips
-        - digest: sha256:2e01264086ee3e2c11a0a53d1cc3a77cd6b6dabc6b2130096da25217ac97c23b
+        - digest: sha256:e795e809cef51ff47f2c429559e1928ebbcf582e3275fc898bfd7356874428ed
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator-fips
         - digest: sha256:651b34443d7b08c56ea0e7b1029cda5115441b29a28af4ed89c29c2e66e306a4
           name: cgr.dev/zapatatechnology.com/kafka-native

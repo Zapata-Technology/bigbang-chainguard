@@ -1038,7 +1038,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:12ec3d83e67e2e5c987925772f653dd4552f80106904f04a9f25d02c1461c937
+        - digest: sha256:953176d0c0b83dbc2e9811aaa3a4a0b34379d6773aef714b5b28d440d20df3e3
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator
         - digest: sha256:f4e752b88d4d8dc7d9ad9bb75f0f3f0c014bddd4670c1d63e2b10f4cdf604b18
           name: cgr.dev/zapatatechnology.com/k8s-sidecar
@@ -1172,7 +1172,7 @@ packages:
         images:
         - digest: sha256:6e1f7364ff12eaeadb1431297e8f1f3601ab0ea3c20b2a6d9ed16acc1cf18a96
           name: cgr.dev/zapatatechnology.com/grafana-mimir
-        - digest: sha256:12ec3d83e67e2e5c987925772f653dd4552f80106904f04a9f25d02c1461c937
+        - digest: sha256:953176d0c0b83dbc2e9811aaa3a4a0b34379d6773aef714b5b28d440d20df3e3
           name: cgr.dev/zapatatechnology.com/grafana-rollout-operator
         - digest: sha256:651b34443d7b08c56ea0e7b1029cda5115441b29a28af4ed89c29c2e66e306a4
           name: cgr.dev/zapatatechnology.com/kafka-native
@@ -1601,7 +1601,7 @@ packages:
         images:
         - digest: sha256:c27459c2019245646c5caba4356a89a2eedcac5be2be6612ae25d85c394e9d48
           name: cgr.dev/zapatatechnology.com/vault-csi-provider
-        - digest: sha256:e6aef3d0d5f7ead67520a6d4aabb3d88c57d3545297eddd979a48dab4f7e0301
+        - digest: sha256:f04152126d8b5d8910c34037beddae81ef48b1222beed4dd79fc27f3292afe7b
           name: cgr.dev/zapatatechnology.com/vault-k8s
         - digest: sha256:1c45745ad6867557b4fcb72ececbe20e70278bbaecd0c444c1ec01ae76d28e70
           name: ghcr.io/zapata-technology/bigbang-vault
