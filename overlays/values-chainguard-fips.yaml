@@ -1264,7 +1264,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kube-state-metrics-fips
         - digest: sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
           name: cgr.dev/zapatatechnology.com/kubectl-fips
-        - digest: sha256:a88bb3cb9253fc852beb3ec60655195be13ddb25bff1ce899c5617769a257595
+        - digest: sha256:58dffac03d77c0b962d2a8be9c549a14415412539315dafda775fa0cac51db87
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
         - digest: sha256:01b7eb0d096fd013c63d5be040a6598b84d5da35eaaf5243d06b17d4d22dc433
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
@@ -1321,7 +1321,7 @@ packages:
             image:
               registry: cgr.dev/zapatatechnology.com
               repository: prometheus-alertmanager-fips
-              sha: a88bb3cb9253fc852beb3ec60655195be13ddb25bff1ce899c5617769a257595
+              sha: 58dffac03d77c0b962d2a8be9c549a14415412539315dafda775fa0cac51db87
               tag: v0.35.1
         crds:
           upgradeJob:
@@ -1585,7 +1585,7 @@ packages:
         images:
         - digest: sha256:b261674cd142affede3f678bc694cbf322d9ce54765519aaee7aecec47520fee
           name: cgr.dev/zapatatechnology.com/vault-csi-provider-fips
-        - digest: sha256:aa3522457024088763b50e86407c94b938c7f4eb9e5f4e74e2eb1d26eb120ff5
+        - digest: sha256:d53ea2885910bc6b83c023219bd0e8874112b9fc6ee8ed61263eba0618c26167
           name: cgr.dev/zapatatechnology.com/vault-k8s-fips
         - digest: sha256:d84556d9a52de71b48cbff4f88fc82d113a0dcfb269e3188cbe565e07afc4454
           name: ghcr.io/zapata-technology/bigbang-vault-fips
