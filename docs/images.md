@@ -97,7 +97,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gitlab-runner | ironbank/redhat/ubi/ubi9:9.8 | Iron Bank | Iron Bank | Red Hat UBI as a job image: Fortify's keystore generator (openssl req/pkcs12; neither busybox nor bigbang-base has openssl) and GitLab Runner's default CI job image (users' pipelines expect a full distro) |
 | grafana | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 | in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | grafana | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.7 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
-| grafana | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
+| grafana | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.2 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.2 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
 | grafana | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
 | grafana | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | grafana | ironbank/opensource/grafana/grafana-image-renderer:v5.12.10 | grafana-image-renderer:5.12.12 | grafana-image-renderer:5.12.12 | grafana-image-renderer: Iron Bank v5.12.10 -> newest 5.12 patch; no FIPS variant; FIPS overlay keeps the standard image |
@@ -174,7 +174,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | minio-operator | ironbank/opensource/minio/operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator:v7.1.1 | ghcr.io/zapata-technology/bigbang-minio-operator-fips:v7.1.1 | built FROM the org's images by scripts/bb-build.py minio-operator |
 | monitoring | ironbank/afdco/docker/busybox:1.38.0 | busybox:1.38.0 | busybox-fips:1.38.0 | in place of ironbank/redhat/ubi/ubi9-minimal:9.8 (mapping retarget) |
 | monitoring | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.7 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.6 | built FROM the org's images by scripts/bb-build.py base |
-| monitoring | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
+| monitoring | ironbank/big-bang/grafana/grafana-plugins:13.3.0 | ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.2 | ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.2 | built FROM the org's images by scripts/bb-build.py grafana-plugins |
 | monitoring | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
 | monitoring | ironbank/opensource/bats/bats:1.14.0 | bats:1.14.0 | bats-fips:1.14.0 |  |
 | monitoring | ironbank/opensource/kubernetes/kube-state-metrics:v2.20.0 | kube-state-metrics:2.20.0 | kube-state-metrics-fips:2.20.0 |  |

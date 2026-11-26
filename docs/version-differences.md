@@ -67,7 +67,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.5.2` | `gitlab-runner-helper:19.5.4` | `gitlab-runner-helper-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
 | `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2` | `gitlab-runner:19.5.4` | `gitlab-runner-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
 | `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.3` | `argocd-fips:3.6.3` | Chainguard | newer patch | argocd |
-| `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1` | built here | newer patch | grafana, monitoring |
+| `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.2` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.2` | built here | newer patch | grafana, monitoring |
 | `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.10` | `loki-canary-fips:3.7.10` | Chainguard | newer patch | logging-loki |
 | `ironbank/elastic/elasticsearch/elasticsearch:9.5.6` | `elasticsearch:9.5.7` | `elasticsearch-fips:9.5.7` | Chainguard | newer patch | ek |
 | `ironbank/istio-ecosystem/authservice:1.1.8` | `authservice:1.1.10` | `authservice-fips:1.1.10` | Chainguard | newer patch | authservice |
