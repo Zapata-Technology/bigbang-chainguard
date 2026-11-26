@@ -40,6 +40,16 @@ def test_a_repo1_outage_is_an_error_not_a_package_failure():
     assert tr.outcome_result("failure", "pulling repo1.dso.mil/x can't fetch\nRESULT x: FAIL\n") == "fail"
 
 
+def test_a_repo1_outage_while_installing_flux_is_an_error():
+    log = ("== flux\ninstalling Flux failed:\nerror: accumulating resources: accumulation err='accumulating "
+           "resources from 'https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref=4.2.0': Get "
+           "\"https://repo1.dso.mil/big-bang/bigbang.git//base/flux?ref=4.2.0\": dial tcp 15.205.173.153:443: "
+           "i/o timeout': hit 27s timeout running '/usr/bin/git fetch --depth=1'\n")
+    assert tr.outcome_result("failure", log) == "error"
+    # Flux failing for a reason of its own is still a failure.
+    assert tr.outcome_result("failure", "installing Flux failed:\nerror: no matches for kind \"GitRepository\"\n") == "fail"
+
+
 def test_a_branch_keeps_only_its_version_and_main_only_its_own_results():
     pr = {"test": "loki", "branch": "259/merge", "bigbang": "4.1.1"}
     old = {"test": "loki", "branch": "259/merge", "bigbang": "4.1.0"}

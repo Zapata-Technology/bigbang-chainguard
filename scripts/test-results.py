@@ -49,7 +49,13 @@ RESULTS = ("pass", "fail", "skipped")
 # bb-compat.py's line when Flux couldn't clone a package's chart from repo1.dso.mil. A job
 # that still fails with it after compat.yml's retry deployed nothing: an outage, not a
 # package failure, so it is recorded as `error` (it never hides the last real result).
-REPO1_DOWN = re.compile(r"^PROBLEM: repo1\.dso\.mil: .* can't fetch", re.M)
+# Also its Flux step, which kustomize-builds Big Bang's base/flux straight from repo1: a
+# timeout or refused connection there stops the test before anything is deployed (4.2.0's
+# release PR recorded vault-upgrade-upstream as a fail for one).
+REPO1_DOWN = re.compile(
+    r"^PROBLEM: repo1\.dso\.mil: .* can't fetch"
+    r"|^installing Flux failed:\n.*repo1\.dso\.mil.*(timeout|timed out|connection refused|connection reset"
+    r"|no such host|50[234])", re.M)
 ARTIFACTS = "compat-result*"   # each job's compat-result-<test>-<mode>, and compat-results
 # The workflows whose runs upload those artifacts: the kind tests, and the VM tests (RKE2's
 # CIS profile, a FIPS-mode kernel), which run weekly and would otherwise leave no row.
