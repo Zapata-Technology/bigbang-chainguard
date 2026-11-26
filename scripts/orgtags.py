@@ -302,7 +302,10 @@ def resolve(ib_tag, tags, suffix=None, allow_ahead=True):
         return t, (None if n == nums else f"Iron Bank {ib_tag} -> newest {'.'.join(map(str, line))} patch")
     older = [(n, t) for n, t in candidates if n[:2] == line and len(n) >= 3]
     if older:
-        n, t = max(older)
+        # Like the branches above, the unprefixed spelling of a version: a plain max() takes
+        # "v9.5.6" over "9.5.6" (the same digest), and charts that pass the tag on as a
+        # version reject the "v" (ECK: Kibana's spec.version, Big Bang 4.2.0).
+        n, t = max(older, key=lambda x: (x[0], not x[1].startswith("v")))
         return t, f"org's newest {'.'.join(map(str, line))} patch {t} is older than Iron Bank {ib_tag}"
     # The org syncs only the current release stream, so Big Bang can pin a line
     # the org no longer has. Take the newest release of the same MAJOR and flag it.

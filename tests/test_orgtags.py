@@ -99,3 +99,10 @@ def test_build_digests_needs_a_login_and_answers_none_on_any_failure(monkeypatch
     monkeypatch.setattr(d, "_digest", boom)
     assert d("ghcr.io/o/bigbang-base", "1") is None
     assert d("ghcr.io/o/bigbang-base", "1") is None and len(calls) == 1   # cached
+
+
+def test_an_older_patch_keeps_the_unprefixed_tag():
+    # Big Bang 4.2.0 pins Kibana 9.5.7; the org had 9.5.6 under both spellings.
+    tag, note = resolve("9.5.7", ["9.5.6", "v9.5.6", "9.5.5"])
+    assert tag == "9.5.6" and "older than Iron Bank" in note
+    assert resolve("v9.5.7", ["v9.5.6"])[0] == "v9.5.6"           # the only spelling there is
