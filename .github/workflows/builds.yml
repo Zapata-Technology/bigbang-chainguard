@@ -99,7 +99,7 @@ jobs:
       # Grafana plugins grafana-plugins installs; timestamp.sigstore.dev, the timestamp in
       # the Sigstore bundle cosign 3 signs and attests with (pushes to main only).
       - name: Harden the runner (block unlisted outbound calls)
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c  # v2.23.0
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -257,7 +257,7 @@ jobs:
       - name: Install grype
         if: steps.build.outputs.built == 'true'
         id: grype
-        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+        uses: anchore/scan-action/download-grype@11983a512817154c80a9db660c1a184be7513ed6  # v7.4.3
 
       # Chainguard bases are kept at zero known CVEs; what a build adds (packages,
       # plugin zips, upstream binaries) must not bring a fixable critical one. It runs
@@ -337,7 +337,7 @@ jobs:
       - name: Install syft
         if: vars.SIGN_IMAGES == 'keyless' && steps.push.outputs.pushed == 'true'
         id: syft
-        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
+        uses: anchore/sbom-action/download-syft@dfcb83b97731532d72be422cbc51ee64adb6fd56  # v0.24.4
 
       # Signed at push (above); then an SBOM and SLSA provenance (scripts/bb-provenance.py:
       # run, commit and every pinned input).
