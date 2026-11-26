@@ -29,10 +29,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/hashicorp/vault:1.21.4` | `ghcr.io/zapata-technology/bigbang-vault:v2.2.2` | `ghcr.io/zapata-technology/bigbang-vault-fips:v2.2.2` | built here | newer major | vault |
 | `ironbank/neuvector/neuvector/scanner:6` | `neuvector-scanner:v4.332` | `neuvector-scanner-fips:v4.332` | Chainguard | older major | neuvector |
 | `ironbank/afdco/prometheus/mysqld_exporter:0.18.0` | `prometheus-mysqld-exporter-iamguarded:0.21.0` | `prometheus-mysqld-exporter-iamguarded-fips:0.21.0` | Chainguard | newer minor | fortify |
-| `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | argocd |
-| `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | anchore-enterprise |
-| `ironbank/bitnami/analytics/redis-exporter:v1.93.0` | `prometheus-redis-exporter-iamguarded:1.98.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | authservice, harbor |
-| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.261.0` | `renovate-fips:44.261.0` | Chainguard | newer minor | renovate |
+| `ironbank/bitnami/analytics/redis-exporter:v1.86.0` | `prometheus-redis-exporter-iamguarded:1.99.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | argocd |
+| `ironbank/bitnami/analytics/redis-exporter:v1.91.1` | `prometheus-redis-exporter-iamguarded:1.99.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | anchore-enterprise |
+| `ironbank/bitnami/analytics/redis-exporter:v1.93.0` | `prometheus-redis-exporter-iamguarded:1.99.0` | `prometheus-redis-exporter-iamguarded-fips:1.99.0` | Chainguard | newer minor | authservice, harbor |
+| `ironbank/container-hardening-tools/renovate/renovate:44.97.2` | `renovate:44.263.2` | `renovate-fips:44.263.2` | Chainguard | newer minor | renovate |
 | `ironbank/fluxcd/helm-controller:v1.6.4` | `flux-helm-controller:1.7.2` | `flux-helm-controller-fips:1.7.2` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/kustomize-controller:v1.9.5` | `flux-kustomize-controller:1.10.2` | `flux-kustomize-controller-fips:1.10.2` | Chainguard | newer minor | flux |
 | `ironbank/fluxcd/notification-controller:v1.9.4` | `flux-notification-controller:1.10.1` | `flux-notification-controller-fips:1.10.1` | Chainguard | newer minor | flux |
@@ -46,15 +46,15 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/grafana/rollout-operator:v0.41.1` | `grafana-rollout-operator:v0.42.1` | `grafana-rollout-operator-fips:v0.42.1` | Chainguard | newer minor | logging-loki, mimir |
 | `ironbank/opensource/kiali/kiali-operator:v2.34.1` | `kiali-operator:v2.35.0` | `kiali-operator-fips:v2.35.0` | Chainguard | newer minor | kiali |
 | `ironbank/opensource/kiali/kiali:v2.34.1` | `kiali:v2.35.0` | `kiali-fips:v2.35.0` | Chainguard | newer minor | kiali |
-| `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:v0.35.0` | `prometheus-alertmanager-fips:v0.35.0` | Chainguard | newer minor | monitoring |
+| `ironbank/opensource/prometheus/alertmanager:v0.34.2` | `prometheus-alertmanager:v0.35.1` | `prometheus-alertmanager-fips:v0.35.1` | Chainguard | newer minor | monitoring |
 
 ## Newer patch, same line (41)
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
-| `gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi` | `gitlab-certificates:19.5.8` | `gitlab-certificates-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi` | `gitlab-certificates:19.5.9` | `gitlab-certificates-fips:19.5.9` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi` | `cfssl-self-sign:19.5.8` | `cfssl-self-sign-fips:19.5.8` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi` | `gitaly-init-cgroups:19.5.8` | `gitaly-init-cgroups-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi` | `gitaly-init-cgroups:19.5.9` | `gitaly-init-cgroups-fips:19.5.9` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi` | `gitaly:19.5.6` | `gitaly-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi` | `gitlab-base:19.5.6` | `gitlab-base-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi` | `commercial-gitlab-geo-logcursor-ee:19.5.6` | `commercial-gitlab-geo-logcursor-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
@@ -64,9 +64,9 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi` | `commercial-gitlab-toolbox-ee:19.5.6` | `commercial-gitlab-toolbox-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi` | `commercial-gitlab-webservice-ee:19.5.6` | `commercial-gitlab-webservice-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi` | `commercial-gitlab-workhorse-ee:19.5.6` | `commercial-gitlab-workhorse-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.5.2` | `gitlab-runner-helper:19.5.3` | `gitlab-runner-helper-fips:19.5.3` | Chainguard | newer patch | gitlab-runner |
-| `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2` | `gitlab-runner:19.5.3` | `gitlab-runner-fips:19.5.3` | Chainguard | newer patch | gitlab-runner |
-| `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.2` | `argocd-fips:3.6.2` | Chainguard | newer patch | argocd |
+| `gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.5.2` | `gitlab-runner-helper:19.5.4` | `gitlab-runner-helper-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
+| `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2` | `gitlab-runner:19.5.4` | `gitlab-runner-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
+| `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.3` | `argocd-fips:3.6.3` | Chainguard | newer patch | argocd |
 | `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.1` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.1` | built here | newer patch | grafana, monitoring |
 | `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.10` | `loki-canary-fips:3.7.10` | Chainguard | newer patch | logging-loki |
 | `ironbank/elastic/elasticsearch/elasticsearch:9.5.6` | `elasticsearch:9.5.7` | `elasticsearch-fips:9.5.7` | Chainguard | newer patch | ek |
@@ -159,10 +159,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
 | `gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi` | `gitlab-container-registry:19.5.6` | `gitlab-container-registry-fips:19.5.6` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
-| `gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi` | `gitlab-exporter:19.5.8` | `gitlab-exporter-fips:19.5.8` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
-| `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi` | `gitlab-mailroom:v1.1.0` | `gitlab-mailroom-fips:v1.1.0` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
+| `gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi` | `gitlab-exporter:19.5.8` | `gitlab-exporter-fips:19.5.9` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
+| `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi` | `gitlab-mailroom:v1.1.0` | `gitlab-mailroom-fips:v1.2.1` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
 | `gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi` | `gitlab-shell:19.5.6` | `gitlab-shell-fips:19.5.6` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
-| `gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi` | `gitlab-kubectl:v1.37.2` | `gitlab-kubectl-fips:v1.37.2` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
+| `gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi` | `gitlab-kubectl:v1.37.3` | `gitlab-kubectl-fips:v1.37.3` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
 | `ironbank/opensource/apache/kafka-native:4.3.2` | `kafka-native:4.4.0` | `kafka-native:4.4.0` | Chainguard | numbered differently | mimir (follows the org's newest release of Iron Bank's major (`follow: major`)) |
 | `ironbank/opensource/grafana/alloy-operator:1.14.4` | `grafana-alloy-operator:0.9` | `grafana-alloy-operator-fips:0.9` | Chainguard | numbered differently | alloy (pinned to the 0.9 line (Iron Bank's tag isn't this image's version)) |
 | `ironbank/opensource/grafana/helm-chart-toolbox-kubectl:1.0` | `kubectl:1.34-dev` | `kubectl-fips:1.34-dev` | Chainguard | numbered differently | alloy (pinned to the 1.34 line (Iron Bank's tag isn't this image's version)) |
