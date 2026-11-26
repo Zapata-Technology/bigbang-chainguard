@@ -169,6 +169,10 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   enforces nothing, so unsigned images ran; install deletes the one older releases wrote. In
   its CEL, `verifyImageSignatures` returns 0 for an image outside `matchImageReferences`:
   filter the images by prefix, never `.all(e, e > 0)` over every image.
+- **A push to main doesn't rebuild a release PR whose kind or RKE2 tests are running.**
+  Each routine bot merge used to force-push `bot/bigbang-release` and cancel its ~90-minute
+  run. update.yml's `hold` step skips it for push and workflow_run events; record-release's
+  dispatch or the nightly run rebuilds it. A release PR behind main for a few hours is that.
 - **A job that pushes or dispatches never runs with `always()`.** It runs on a cancelled
   run too. compat.yml's `record-release` did, on the release PR: each push cancelled the
   kind run, whose `record-release` dispatched update.yml, whose push cancelled the next
