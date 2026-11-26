@@ -14,13 +14,13 @@ image:
     name: bigbang-minio-operator
     tag: v7.1.1
     dev: cgr.dev/zapatatechnology.com/go:1.27.4-dev@sha256:15290f123e5501f54904fbbea01df7b18fbcb204f7ce6862eff1366391efea66
-    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:a7458da92d46815944095f89d0c9b373caf9cad3718400e9fe920900e5cb3ec2
+    base: cgr.dev/zapatatechnology.com/glibc-openssl:v16.2.0@sha256:df88337612ff41ad69d75c450428cdc2495d2b8072c277da9efb869c47ff77a6
     go_package: ''
   fips:
     name: bigbang-minio-operator-fips
     tag: v7.1.1
     dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:4660c1ffb58a3a0fc1473ec8bddb5facdb116c3f36896590e4ee96efa6073fba
-    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:a41b249a224eee60f7cac6d359c76019f43f10666695d271ac34fb78fb427a90
+    base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:be9c963f837aa18fa8cea45fbfc164bcdaaf1c9843a1913cd84b4dbf97ed4060
     go_package: ''
     fips: toolchain
 minio:
