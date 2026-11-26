@@ -500,14 +500,23 @@ def test_signature_policy_is_remembered_and_needs_kyverno(monkeypatch):
 def test_signature_policy_matches_what_ci_checks():
     bbcommon = load_script("bbcommon")
     pol = signatures.signature_policy("example.com", "0123abc", "enforce")
-    [rule] = pol["spec"]["rules"]
-    [verify] = rule["verifyImages"]
-    assert verify["imageReferences"] == ["cgr.dev/example.com/*"] and verify["failureAction"] == "Enforce"
-    keyless = verify["attestors"][0]["entries"][0]["keyless"]
-    assert keyless["issuerRegExp"] == bbcommon.SIGNATURE_ISSUERS
-    assert keyless["subjectRegExp"] == bbcommon.signature_identity("0123abc")
-    assert signatures.signature_policy("example.com", None, "audit")["spec"]["rules"][0]["verifyImages"][0][
-        "failureAction"] == "Audit"
+    # Kyverno 1.20 enforces no kyverno.io ClusterPolicy (Big Bang 4.2.0).
+    assert (pol["apiVersion"], pol["kind"]) == ("policies.kyverno.io/v1", "ImageValidatingPolicy")
+    spec = pol["spec"]
+    assert spec["validationActions"] == ["Deny"] and spec["failurePolicy"] == "Fail"
+    assert spec["matchImageReferences"] == [{"glob": "cgr.dev/example.com/*"}]
+    assert spec["matchConstraints"]["resourceRules"][0]["resources"] == ["pods"]
+    [attestor] = spec["attestors"]
+    assert attestor["cosign"]["keyless"]["identities"] == [
+        {"issuerRegExp": bbcommon.SIGNATURE_ISSUERS, "subjectRegExp": bbcommon.signature_identity("0123abc")}]
+    assert attestor["cosign"]["ctlog"] == {"url": "https://rekor.sigstore.dev"}
+    assert spec["credentials"] == {"secrets": ["private-registry"]}
+    [check] = spec["validations"]
+    # Every container kind, only the org's images (others verify as 0), with its attestor.
+    for part in ("images.containers", "images.initContainers", "images.ephemeralContainers",
+                 'startsWith("cgr.dev/example.com/")', f"[attestors.{attestor['name']}]) > 0"):
+        assert part in check["expression"]
+    assert signatures.signature_policy("example.com", None, "audit")["spec"]["validationActions"] == ["Audit"]
 
 
 def test_registry_mirror_rewrites_images_not_headers(tmp_path):
@@ -731,13 +740,44 @@ def test_signature_policy_checks_the_images_built_here():
     bbcommon = load_script("bbcommon")
     subject = bbcommon.build_signature_identity("ghcr.io/o", "O/r")
     pol = signatures.signature_policy("example.com", None, "enforce", ("ghcr.io/o/bigbang-*", subject))
-    org, built = pol["spec"]["rules"]
-    [verify] = built["verifyImages"]
-    assert verify["imageReferences"] == ["ghcr.io/o/bigbang-*"] and verify["failureAction"] == "Enforce"
-    keyless = verify["attestors"][0]["entries"][0]["keyless"]
-    assert keyless == {"issuerRegExp": bbcommon.BUILD_SIGNATURE_ISSUER, "subjectRegExp": subject,
-                       "rekor": {"url": "https://rekor.sigstore.dev"}}
-    assert verify["imageRegistryCredentials"] == {"secrets": ["private-registry"]}
+    spec = pol["spec"]
+    assert spec["matchImageReferences"] == [{"glob": "cgr.dev/example.com/*"}, {"glob": "ghcr.io/o/bigbang-*"}]
+    org, built = spec["attestors"]
+    assert built["cosign"]["keyless"]["identities"] == [
+        {"issuerRegExp": bbcommon.BUILD_SIGNATURE_ISSUER, "subjectRegExp": subject}]
+    _, check = spec["validations"]
+    assert 'startsWith("ghcr.io/o/bigbang-")' in check["expression"]
+    assert f"[attestors.{built['name']}]) > 0" in check["expression"]
+    assert org["name"] != built["name"]
+
+
+def test_signature_policy_replaces_the_legacy_cluster_policy(monkeypatch):
+    calls = []
+    monkeypatch.setattr(signatures, "kubectl", lambda *a, **k: calls.append(a) or "")
+    monkeypatch.setattr(signatures, "apply_when_ready", lambda docs, crd, ns, check, wait: calls.append(
+        ("apply", docs[0]["kind"], crd, check)) or True)
+    monkeypatch.setattr(signatures, "say", lambda *a: None)
+    assert signatures.cluster_signatures("example.com", None, "enforce", wait=1)
+    assert calls[0] == ("delete", "clusterpolicies.kyverno.io", signatures.SIGNATURE_POLICY, "--ignore-not-found")
+    assert calls[1] == ("apply", "ImageValidatingPolicy", "imagevalidatingpolicies.policies.kyverno.io",
+                        ("get", "imagevalidatingpolicies.policies.kyverno.io", signatures.SIGNATURE_POLICY))
+    calls.clear()
+    assert signatures.cluster_signatures("example.com", None, "off", wait=1)
+    assert [c[1] for c in calls] == ["clusterpolicies.kyverno.io", "imagevalidatingpolicies.policies.kyverno.io"]
+
+
+def test_signature_problem_reads_the_policy_status(monkeypatch):
+    import json as _json
+    state = {"signatures": "enforce"}
+    out = {"v": ""}
+    monkeypatch.setattr(signatures, "kubectl", lambda *a, **k: out["v"])
+    assert "no ImageValidatingPolicy" in signatures.signature_problem(state)
+    out["v"] = _json.dumps({"status": {"conditionStatus": {"ready": True}}})
+    assert signatures.signature_problem(state) == ""
+    out["v"] = _json.dumps({"status": {"conditionStatus": {"ready": False, "conditions": [
+        {"type": "WebhookConfigured", "status": "False", "message": "webhook not set up"}]}}})
+    assert signatures.signature_problem(state) == "signature policy not ready: webhook not set up"
+    assert signatures.signature_problem({"signatures": "off"}) == ""
 
 
 def test_build_signer_identity():

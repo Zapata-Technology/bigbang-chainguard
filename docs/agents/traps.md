@@ -163,8 +163,12 @@ The five that stop the expensive mistakes are at the bottom of [AGENTS.md](../..
   node image, `bb-images.KUBE_VERSION`, the FIPS VM's k3s) and turns Istio ambient on by
   default; a test without istiod turns it off (`test_values`).
 - **Big Bang 4's Kyverno policies are CEL `ValidatingPolicy`** objects
-  (`validatingpolicies.policies.kyverno.io`); the installer's signature policy is still a
-  `ClusterPolicy` (Kyverno 1.19 runs both).
+  (`validatingpolicies.policies.kyverno.io`), and so is the installer's signature policy: an
+  `ImageValidatingPolicy` (`imagevalidatingpolicies.policies.kyverno.io`). Kyverno 1.20 (Big
+  Bang 4.2.0) still accepts a `kyverno.io` `ClusterPolicy` but marks it Ready=False and
+  enforces nothing, so unsigned images ran; install deletes the one older releases wrote. In
+  its CEL, `verifyImageSignatures` returns 0 for an image outside `matchImageReferences`:
+  filter the images by prefix, never `.all(e, e > 0)` over every image.
 - **YAML parsing:** use `bbcommon.safe_load` / `SAFE_LOADER` / `BASE_LOADER` (libyaml when
   PyYAML has it): the pure-Python parser was most of `bb-images`' 75 s.
 
