@@ -668,19 +668,19 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:b0ed632556b5d70a943928dc71ba41283f6155bc44dfdbe9cdf7402faa62bab7
+        - digest: sha256:6afddcfcf90b4dea4dda6cbb6dd4a2b13295b44c3f02fe581791aa28b2a28794
           name: cgr.dev/zapatatechnology.com/harbor-core-fips
         - digest: sha256:1e381ba598c3abf04493bb5359a182b0942454a500230fa2d7105a9a3bec548f
           name: cgr.dev/zapatatechnology.com/harbor-exporter-fips
-        - digest: sha256:af29c45809ed24de34b2422bc824b60b8fb2b7677eea3e723349743b0d48a613
+        - digest: sha256:4fb7010b358f3fdc441c0ee28630f0275800a8904607cc9e9a8d0783e7860ec5
           name: cgr.dev/zapatatechnology.com/harbor-jobservice-fips
-        - digest: sha256:d5e086319c6007a8b727de13b8a0667255fef910fd0a897ce374fac82862ff88
+        - digest: sha256:087fd1f9f428aaa695c35a8bfb02d62e8760aea0e3b01b3c7dfd3123e9ec4e48
           name: cgr.dev/zapatatechnology.com/harbor-portal-fips
-        - digest: sha256:d4d56f159e8ef8c43ce851e3f83320b621bcfe7e359b2c467f6a71079e7e79ae
+        - digest: sha256:3b633070665c6c97ed75145c28dece278bab2781d3dcfda68b29a1e5b13f850d
           name: cgr.dev/zapatatechnology.com/harbor-registry-fips
-        - digest: sha256:75cdcec9d83ca27a08dd37675b0f639763ddf38c71c595749cf8c3ceb92a7105
+        - digest: sha256:8db3676393b9d9e25730ca8b250f203987c746b9dcb6f493c52743d4f48e658b
           name: cgr.dev/zapatatechnology.com/harbor-registryctl-fips
-        - digest: sha256:26bf5872fe834b784de7bb1eb4a7fbb4e75c36313bc572337838d665c7f742b4
+        - digest: sha256:7419a05bdf6974310a0a3fd244fc02c606914c81d016387e1b95336ce9e1edd7
           name: cgr.dev/zapatatechnology.com/harbor-trivy-adapter-fips
         - digest: sha256:4be9532ed85be0a55ad968ab636ef1b1d598de7d43a90a5c9d3e47840c47e8c6
           name: cgr.dev/zapatatechnology.com/nginx-fips
@@ -1266,7 +1266,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/kubectl-fips
         - digest: sha256:a88bb3cb9253fc852beb3ec60655195be13ddb25bff1ce899c5617769a257595
           name: cgr.dev/zapatatechnology.com/prometheus-alertmanager-fips
-        - digest: sha256:e3ed4db887dfeac7cc396dc3b07dd3ed34d3e7a3eeec1e7d19df339c5ee3bd03
+        - digest: sha256:01b7eb0d096fd013c63d5be040a6598b84d5da35eaaf5243d06b17d4d22dc433
           name: cgr.dev/zapatatechnology.com/prometheus-blackbox-exporter-fips
         - digest: sha256:67040eec4d01e6d3ad6cfae6c2593cf00e2f8e3f104763f392e7d3af602d486d
           name: cgr.dev/zapatatechnology.com/prometheus-config-reloader-fips
