@@ -412,10 +412,15 @@ jobs:
   # ask it to run now rather than at night, while this version's gate is still red. Its
   # push runs this workflow once more (a PR's paths filter sees the whole PR); that run
   # finds the gate green and dispatches nothing, so it stops there.
+  # Never for a cancelled run: a push to the PR cancels it, and with always() its
+  # record-release still ran, dispatched update.yml, whose push cancelled the next run, whose
+  # record-release dispatched again: 13 force-pushes of the 4.2.0 PR in three hours, every
+  # kind and RKE2 run cancelled before it finished. Only a finished test job records.
   record-release:
     needs: test
     if: >-
-      always() && github.event_name == 'pull_request' && needs.test.result != 'skipped' &&
+      !cancelled() && github.event_name == 'pull_request' &&
+      (needs.test.result == 'success' || needs.test.result == 'failure') &&
       github.head_ref == 'bot/bigbang-release' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest

@@ -535,6 +535,14 @@ def run_record(tmp_path, states, gate_rc=1, release_rc=None, tests="success"):
     return p, log.read_text(encoding="utf-8")
 
 
+def test_record_release_never_runs_for_a_cancelled_run():
+    # A push to the release PR cancels its compat run; with always() the cancelled run's
+    # record-release dispatched update.yml, whose push cancelled the next run: a loop.
+    cond = " ".join(COMPAT["jobs"]["record-release"]["if"].split())
+    assert "always()" not in cond and "!cancelled()" in cond
+    assert "(needs.test.result == 'success' || needs.test.result == 'failure')" in cond
+
+
 def test_record_release_waits_until_its_dispatch_started(tmp_path):
     p, log = run_record(tmp_path, ["null - null", "queued - u", "in_progress - u"])
     assert p.returncode == 0, p.stdout + p.stderr
