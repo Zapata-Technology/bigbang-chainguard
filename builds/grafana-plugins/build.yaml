@@ -13,8 +13,8 @@ image:
   standard:
     name: bigbang-grafana-plugins
     tag: 13.3.2
-    base: cgr.dev/zapatatechnology.com/grafana:13.3.2@sha256:bb0499ba9eb2ee752f988475426184af2efe1a5b283c6af3cf0873e520afdd20
-    dev: cgr.dev/zapatatechnology.com/grafana:13.3.2-dev@sha256:5fb25dcff42e073a2b109eb2ee58fc073c16b01aa017f62c41a916e1d00a5adb
+    base: cgr.dev/zapatatechnology.com/grafana:13.3.2@sha256:b7bc7cbde35da909285bcfc5e2c02ffc3a36fec99e889648d6ea32f4df804009
+    dev: cgr.dev/zapatatechnology.com/grafana:13.3.2-dev@sha256:97c58d831cd0af74d0aaae875e2f36e2f8b63e68042e7ef49cdd399c49a70b1b
   fips:
     name: bigbang-grafana-plugins-fips
     tag: 13.3.2

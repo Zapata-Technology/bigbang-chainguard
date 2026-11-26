@@ -464,7 +464,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitlab-exporter
         - digest: sha256:b60c93ae16803f45917437919d6b393e0f0d6547378a4498fc3ac963d6a24cc1
           name: cgr.dev/zapatatechnology.com/gitlab-kas
-        - digest: sha256:57c544519d24a28c68a084bd553ae3d96302255f7c391f588b567ef07088651e
+        - digest: sha256:9a886e0b40e82bd67b013a3a4c72462a7d2070223354afbbb43a6485c12a3fea
           name: cgr.dev/zapatatechnology.com/gitlab-kubectl
         - digest: sha256:e87cac1412a1426876353924f5f9af1a3b7b63735fa1762faaa72b3f5da76876
           name: cgr.dev/zapatatechnology.com/gitlab-mailroom
@@ -1507,7 +1507,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:eb492f553cd1b0615c72057de2318534cd592bb64d65d28d37b88cb2f7d0d162
+        - digest: sha256:b17e4324ea56e5e49eb946c2ecc215d0d984bcb3614ecc628466b5499b821f0b
           name: cgr.dev/zapatatechnology.com/sonarqube
         - digest: sha256:88677f7617d03f537e57fbd196a8fbd402183745a474619c80a2f8b28d385517
           name: ghcr.io/zapata-technology/bigbang-base
