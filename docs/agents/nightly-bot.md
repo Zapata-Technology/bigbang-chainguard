@@ -41,6 +41,10 @@ passed. A failed GitLab job on a release PR is a real failure (the compat check 
 triage it (`ci-triage.py`), re-run a flake, and a person decides whether to merge without it.
 The release PR also runs `rke2.yml` (standard): its `rke2-default` row is recorded but never
 gates, and with `RKE2_RUNNER` unset it fails at once with an error instead of running.
+A routine bot PR merging to main doesn't rebuild the release PR while its compat or RKE2 run
+is unfinished (`update.yml`'s `hold` step, push and workflow_run events only): the rebuild
+would cancel ~90 minutes of tests. `record-release` or the nightly run rebuilds it afterwards,
+so a release PR a few hours behind main is expected, not stuck.
 `python scripts/test-results.py update --from-main 20`
 (or `update --run <id>`) copies real artifacts into `docs/test-results.json`. A red gate
 after that matrix is recorded is a real failure, and so is a gate line

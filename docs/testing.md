@@ -614,7 +614,7 @@ These are kind-on-GitHub-Actions limits, not image problems:
 - **Known flakes are retried.** A kind test reruns once when repo1.dso.mil refuses the
   runner (a source that can't fetch for 10 minutes ends the first try; the retry waits up to
   10 minutes for repo1 to answer, and a test that still can't fetch is recorded as `error`,
-  not `fail`); a build reruns once on a transient package-fetch error; a GHCR push is tried
+  not `fail`, as is one whose Flux install timed out reaching repo1); a build reruns once on a transient package-fetch error; a GHCR push is tried
   three times, 30 seconds apart.
 
 ### Large tests

@@ -45,7 +45,16 @@ Bank"); they need `REGISTRY1_USERNAME`/`REGISTRY1_PASSWORD`. `check` names the p
 ## Kyverno refuses pods: image signature checks
 
 With Kyverno on, `install` adds a policy (enforce by default) requiring Chainguard's keyless
-signature on every `cgr.dev/<org>` image and `builds.yml`'s on every `bigbang-*` image.
+signature on every `cgr.dev/<org>` image and `builds.yml`'s on every `bigbang-*` image. It is
+an `ImageValidatingPolicy` named `bb-install-chainguard-signatures`:
+`kubectl get imagevalidatingpolicies` shows it, and `status.conditionStatus.ready` must be
+`true`.
+
+- **Nothing refused, even an unsigned image:** the policy isn't Ready, so Kyverno enforces
+  nothing. `kubectl get imagevalidatingpolicies bb-install-chainguard-signatures -o yaml`
+  says why. A legacy `ClusterPolicy` of the same name (an installer from before Big Bang
+  4.2.0) is accepted by Kyverno 1.20 but never enforced; `install` and `upgrade` delete it and
+  write the new policy, so re-run `upgrade`.
 
 - **Every pod refused, or admission timing out:** Kyverno couldn't reach Sigstore
   (rekor.sigstore.dev and its TUF mirror). Big Bang's network policies let Kyverno reach only
