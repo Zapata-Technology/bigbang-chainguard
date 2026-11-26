@@ -6,19 +6,19 @@
 # kubectl apply --server-side -k flux-fips/   (needs the private-registry pull secret in flux-system)
 apiVersion: kustomize.config.k8s.io/v1beta1
 images:
-- digest: sha256:dbc7e90c710fce3709398729316e5958eb6d7749d6b2eb7b02a9ccb5946a6416
+- digest: sha256:6e630b91504780c9615dee65a24ad0e892e91c724d64f213fce8abd8215734fb
   name: ghcr.io/fluxcd/helm-controller
   newName: cgr.dev/zapatatechnology.com/flux-helm-controller-fips
   newTag: 1.7.2
-- digest: sha256:ced42b9f9a29ce27ff176927544e96c1480e63f4df3cdd2e3fff7b1222b3a2bf
+- digest: sha256:dd1bfcdecc40109295824bddab956af6b761a0e311a51ffd13fb72578354be76
   name: ghcr.io/fluxcd/kustomize-controller
   newName: cgr.dev/zapatatechnology.com/flux-kustomize-controller-fips
   newTag: 1.10.2
-- digest: sha256:5772b02944cfcd7f36a8b3c0f5b92093ed615ffe6ead7491597380a3df0252e3
+- digest: sha256:7518ae80173ebfb951daf40222e1dc379b0761e17014a24d9f51fe33795f621c
   name: ghcr.io/fluxcd/notification-controller
   newName: cgr.dev/zapatatechnology.com/flux-notification-controller-fips
   newTag: 1.10.1
-- digest: sha256:c2edffb3d9a709b320e7fe5b5028bc1a3f67ac47bdd491b3aa7f53d602c76417
+- digest: sha256:ca95e4f6f9fcc2a208ecf29dbf70d3f32c16407dc5f5ce8832e4c46e880f6f54
   name: ghcr.io/fluxcd/source-controller
   newName: cgr.dev/zapatatechnology.com/flux-source-controller-fips
   newTag: 1.10.2
