@@ -1486,7 +1486,7 @@ packages:
           name: cgr.dev/zapatatechnology.com/gitea
         - digest: sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
           name: cgr.dev/zapatatechnology.com/kubectl
-        - digest: sha256:280c811036ff98e9d7cba93f89a11a02b26f009169004cb8be5456f0e559899e
+        - digest: sha256:6f655b959750007d61987ac0e3ae147276ced762112f134952f8177e57d7214d
           name: cgr.dev/zapatatechnology.com/renovate
         - digest: sha256:5c03ca8be9dd137871a2712b0aaa0534d383e3a5f3694728f9ccb5f3ee92f615
           name: ghcr.io/zapata-technology/bigbang-devops-tester
@@ -1502,7 +1502,7 @@ packages:
         image:
           registry: cgr.dev/zapatatechnology.com
           repository: renovate
-          tag: 44.263.2
+          tag: 44.263.5
   sonarqube:
     postRenderers:
     - kustomize:
