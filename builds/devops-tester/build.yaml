@@ -24,7 +24,7 @@ image:
     tag: 1.4-kubectl1.37.3
     dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.37.3-dev@sha256:8bea3fa7a7ebd06561cd5ea5dab468aaddbcec175c3cb2c67fa3926200b818a7
     velero: cgr.dev/zapatatechnology.com/velero-fips:1.18.4@sha256:af0f6aa7e51e0f1680f710515a26db6eda29e8f3284ed7a9de9d8d0b05d164d8
-    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:5815fcccfd5cf4aea28ea87b006ab3e526d3a80540da3933076a4a0b9edc23ac
+    kyverno: cgr.dev/zapatatechnology.com/kyverno-cli-fips:1.19.2@sha256:d8647514d2d98a0519f82065f3c0f30329cf9cd45b9acfba3e107a9d025ebc88
 chainsaw:
   version: 0.2.15
   source: https://codeload.github.com/kyverno/chainsaw/tar.gz/refs/tags/v0.2.15
