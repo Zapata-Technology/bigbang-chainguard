@@ -155,7 +155,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:940a95e99389236daacb31da0a465cff40a0fe32693c7904994354ffd311bd55
+        - digest: sha256:48fd8ae502c95f9ee3903c82b50dc5c8444f51c66891c3be40d50879c048847d
           name: cgr.dev/zapatatechnology.com/authservice
         - digest: sha256:3d864b64789ce28e2dcbe8807e04cf9101b8e50d0154372a146b94ec56920368
           name: cgr.dev/zapatatechnology.com/prometheus-redis-exporter-iamguarded
