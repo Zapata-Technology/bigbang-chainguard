@@ -15,8 +15,8 @@ ironbank:
 image:
   standard:
     name: bigbang-devops-tester
-    tag: 1.4-kubectl1.37.2
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.2-dev@sha256:1cf0eefde1934b3279b15897cfc9f0c8bfa24b8c2b9d7c7ca432604e4ff69dae
+    tag: 1.4-kubectl1.37.3
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.37.3-dev@sha256:f94ee360b973325c582758da3bc509c507e329556378a6fe5e9d590aa67b0c43
     velero: cgr.dev/zapatatechnology.com/velero:1.18.4@sha256:11814cce525b42599aea348aadbec69861beb405da0a537d649a538b1b18458e
     kyverno: cgr.dev/zapatatechnology.com/kyverno-cli:1.19.2@sha256:4910cda637fed8e2d240576e72513cbcc0f55798a18a49038a08848f755975d9
   fips:
