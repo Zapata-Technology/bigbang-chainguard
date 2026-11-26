@@ -85,7 +85,7 @@ jobs:
       # signature policy: blocked, every Deployment timed out in Kyverno's webhook).
       # A blocked host shows up as a failed download or pull: add it here if it is expected.
       - name: Harden the runner (block unlisted outbound calls)
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c  # v2.23.0
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -452,7 +452,7 @@ jobs:
       packages: read
     steps:
       - name: Harden the runner (block unlisted outbound calls)
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c  # v2.23.0
         with:
           egress-policy: block
           # cve-report.yml's list (grype, the registries, Docker Hub's CDNs for RKE2's images),
@@ -539,7 +539,7 @@ jobs:
       - name: Install grype
         if: steps.have.outputs.yes
         id: grype
-        uses: anchore/scan-action/download-grype@27805bf3b4e84b4a5c980df22ed233c00390a439  # v7.4.2
+        uses: anchore/scan-action/download-grype@11983a512817154c80a9db660c1a184be7513ed6  # v7.4.3
 
       - name: Install Trivy
         if: steps.have.outputs.yes
@@ -603,7 +603,7 @@ jobs:
       contents: write    # the release asset
     steps:
       - name: Harden the runner (block unlisted outbound calls)
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c  # v2.23.0
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -660,7 +660,7 @@ jobs:
       - name: Bot token (GitHub App)
         id: app
         if: steps.docs.outputs.date && vars.BOT_APP_CLIENT_ID != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510  # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc  # v3.4.0
         with:
           client-id: ${{ vars.BOT_APP_CLIENT_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
@@ -694,7 +694,7 @@ jobs:
       issues: write
     steps:
       - name: Harden the runner (block unlisted outbound calls)
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a  # v2.22.4
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c  # v2.23.0
         with:
           egress-policy: block
           allowed-endpoints: >
