@@ -6,15 +6,15 @@
 # kubectl apply --server-side -k flux/   (needs the private-registry pull secret in flux-system)
 apiVersion: kustomize.config.k8s.io/v1beta1
 images:
-- digest: sha256:1873ebdbec49bd2c0ca881d7bb497e83d9d5a1d3dae550ac64d98ccba4daf350
+- digest: sha256:010c7557fe482df58b32f5b87ec8dab49f657d0d332138f98e2f2371efcb727c
   name: ghcr.io/fluxcd/helm-controller
   newName: cgr.dev/zapatatechnology.com/flux-helm-controller
   newTag: 1.7.2
-- digest: sha256:a3cd7f9bdefe69a24c1486c36841a2620f237d86cee179a94cda5960ad354793
+- digest: sha256:f4552f469ea2154d06cdc350c7e153555ffcc1b62f2e21e011884eb29b895afd
   name: ghcr.io/fluxcd/kustomize-controller
   newName: cgr.dev/zapatatechnology.com/flux-kustomize-controller
   newTag: 1.10.2
-- digest: sha256:53db541636d003a50cec9ee68336b21c4f630d66a64c90dfa9f14c2acbf93135
+- digest: sha256:ffd3796bb53613bd54ff2595284357e1819a38c14293eec5b3741d742e4c086d
   name: ghcr.io/fluxcd/notification-controller
   newName: cgr.dev/zapatatechnology.com/flux-notification-controller
   newTag: 1.10.1
