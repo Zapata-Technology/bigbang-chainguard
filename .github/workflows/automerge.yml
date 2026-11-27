@@ -9,9 +9,10 @@ name: Auto-merge - nightly update
 # kind tests; this does. It runs each time one of those workflows finishes and merges on
 # the run that sees nothing pending or failed.
 #
-# Not merged automatically: a new Big Bang release (bot/bigbang-release; a person reads its
-# upgrade notes and report first), except a patch release (same MAJOR.MINOR) when the
-# AUTOMERGE_BIGBANG_PATCHES repository variable is `true`; a pull request labeled `hold`, and a bot PR that carries anything
+# A new Big Bang release (bot/bigbang-release, patch, minor or major) merges like any bot PR
+# once every check passed (the owner chose this on 2026-11-27; docs/upgrades/<version>.md is
+# still written for reading afterwards). Not merged automatically: a pull request labeled
+# `hold`, a release PR for the version main already has, and a bot PR that carries anything
 # but the bot's one commit touching the files update.yml writes (a person's commit on the
 # bot branch would otherwise land on main unreviewed, under the bot's title).
 #
@@ -114,7 +115,6 @@ jobs:
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           MENTION: ${{ vars.ALERT_MENTION }}
-          PATCHES: ${{ vars.AUTOMERGE_BIGBANG_PATCHES }}
         run: |
           set -euo pipefail
           # Red, not a warning: a green bot PR that never merges is otherwise silent.
@@ -178,8 +178,7 @@ jobs:
             attention "it isn't only the bot's commit ($commits commit(s); files update.yml doesn't write:${foreign:- none}). Fix on main instead; update.yml rebuilds this branch from main."
             exit 0
           fi
-          # A new Big Bang release: a person merges it, unless it is a patch release (same
-          # MAJOR.MINOR as main's) and AUTOMERGE_BIGBANG_PATCHES is `true`.
+          # A new Big Bang release (any size) merges when green, unless it is stale.
           if grep -qx BIGBANG_VERSION <<<"$files"; then
             if [ "$BRANCH" != bot/bigbang-release ]; then
               attention "it changes BIGBANG_VERSION, which only the release track (bot/bigbang-release) does."
@@ -195,11 +194,7 @@ jobs:
               attention "main is already on Big Bang $new, so this release PR is stale (opened by an update run that started before the release merged). Close it; merging would roll back main's newer tags."
               exit 0
             fi
-            if [ "$PATCHES" != true ] || [ -z "$new" ] || [ "${old%.*}" != "${new%.*}" ]; then
-              attention "it moves to Big Bang $new (from $old), which a person merges after reading the upgrade notes (docs/upgrades/$new.md) and the report in the PR body."
-              exit 0
-            fi
-            echo "Big Bang $old -> $new is a patch release and AUTOMERGE_BIGBANG_PATCHES is true: merging it when green"
+            echo "Big Bang $old -> $new: merging it when green"
           fi
 
           # A kind test cut off by its time limit (repo1.dso.mil) ends the run as cancelled.

@@ -362,19 +362,13 @@ def release(version, **over):
     return data
 
 
-def test_a_new_big_bang_release_waits_for_a_person(tmp_path):
+def test_a_new_big_bang_release_merges_itself_when_green(tmp_path):
     p, log = run_merge(tmp_path, release("4.1.1"), branch="bot/bigbang-release")
-    assert p.returncode == 0, p.stderr
-    assert "pr merge" not in log and "labels[]=needs-attention" in log
-
-
-def test_a_patch_release_merges_itself_only_when_turned_on(tmp_path):
-    p, log = run_merge(tmp_path, release("4.1.1"), branch="bot/bigbang-release", patches="true")
     assert p.returncode == 0, p.stderr
     assert "pr merge 7 --squash" in log and "needs-attention" not in log
     (tmp_path / "minor").mkdir()
-    p, log = run_merge(tmp_path / "minor", release("4.2.0"), branch="bot/bigbang-release", patches="true")
-    assert "pr merge" not in log and "needs-attention" in log       # a minor release: a person
+    p, log = run_merge(tmp_path / "minor", release("4.2.0"), branch="bot/bigbang-release")
+    assert "pr merge 7 --squash" in log and "needs-attention" not in log   # a minor release too
 
 
 def test_a_release_pr_for_the_version_main_already_has_is_never_merged(tmp_path):

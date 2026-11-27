@@ -143,8 +143,8 @@ GitHub answer is not "nothing to do" unless the call succeeded.
    (that test's newest standard result on this version is a failure; FAILED, exit 1). Branch protection requires only `verify`, so check the rest
    yourself. The nightly bot PR merges itself (`automerge.yml`) unless it moves Big Bang,
    carries `hold`, or the gate is still red. A new Big Bang release comes in its own PR
-   (`bot/bigbang-release`); a person merges it after reading `docs/upgrades/<version>.md`
-   (a patch release merges itself when the `AUTOMERGE_BIGBANG_PATCHES` variable is `true`).
+   (`bot/bigbang-release`); it merges itself when green like the others (owner's choice,
+   2026-11-27), so read `docs/upgrades/<version>.md` afterwards; a `hold` label stops it.
 6. **Record:** a runtime finding goes in `docs/testing.md` ("What the runtime tests found")
    and, if a site must act, the README; a new trap goes in [docs/agents/traps.md](docs/agents/traps.md).
    `docs/testing.md`'s results table is generated: the nightly bot PR brings main's newest
