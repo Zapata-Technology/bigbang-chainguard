@@ -20,11 +20,11 @@ image:
   standard:
     name: bigbang-base
     tag: 2.1.0-kubectl1.36.7
-    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.7-dev@sha256:71cf9c4b28c5f195f263572bd618757575053e20cf9f11359aebd196d72882da
+    dev: cgr.dev/zapatatechnology.com/kubectl:1.36.7-dev@sha256:9d37dccb9588d02a979650dee72fd9efaff037a82159833802e08ac6f12752da
   fips:
     name: bigbang-base-fips
     tag: 2.1.0-kubectl1.36.7
-    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.7-dev@sha256:31343254d8739ef8e4259ba4d069eff4d0b421802aef1b53c0016e816296abf4
+    dev: cgr.dev/zapatatechnology.com/kubectl-fips:1.36.7-dev@sha256:8f3e85f8641301ae80576d404c229a56fa5bd01613fd9bb516984b8d9dc4a774
 packages:
 - bash
 - ca-certificates
