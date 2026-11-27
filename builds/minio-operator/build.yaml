@@ -19,7 +19,7 @@ image:
   fips:
     name: bigbang-minio-operator-fips
     tag: v7.1.1
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:58edc522fa96f03000cfbfdb66a11ed4298df60839d9c2f236dca7c0b3df5afc
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.27.4-dev@sha256:cfe848db6450022fd0a774de56c81b933c31ac9b24cdf64f02769cf438dde599
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:b5ef5e2b0fb7bb17436a1c5e333a7193ee1fef30bb1c5b294c2be79118dfa3b4
     go_package: ''
     fips: toolchain
