@@ -19,7 +19,7 @@ image:
   fips:
     name: bigbang-mattermost-operator-fips
     tag: v1.25.9
-    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:4788e53f21f2e1830608ab4d30069e215559b974bc3f40bc5910a4ef30a57fb0
+    dev: cgr.dev/zapatatechnology.com/go-fips:1.26.11.1-dev@sha256:8c00f3f4dd07cd2ca60c3800836625d6d472cc3e833860f645f0da2c485c4857
     base: cgr.dev/zapatatechnology.com/glibc-openssl-fips:v16.2.0@sha256:b5ef5e2b0fb7bb17436a1c5e333a7193ee1fef30bb1c5b294c2be79118dfa3b4
     go_package: ''
     fips: toolchain
