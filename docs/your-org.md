@@ -88,7 +88,6 @@ then the environment variable or GitHub repository variable (`CHAINGUARD_ORG`,
 | `BOT_APP_CLIENT_ID` | optional | The GitHub App's client id, with the `BOT_APP_PRIVATE_KEY` secret. |
 | `SIGN_IMAGES` | optional | `keyless`: sign the images this repo pushes with cosign keyless (bundle and classic `.sig` formats) and attach an SPDX SBOM and a SLSA v1 provenance predicate (`scripts/bb-provenance.py`), not a SLSA Build L3 attestation. The signatures go to the public Sigstore log. |
 | `BUILD_SIGNER` | optional | `owner/repo` whose `builds.yml` signs the built images; the signature check requires it. Default: this repository. |
-| `AUTOMERGE_BIGBANG_PATCHES` | optional | `true`: a Big Bang patch release merges itself when every check passed. |
 | `ALERT_MENTION` | optional | Who `automerge.yml` mentions when a bot pull request needs a person (e.g. a maintainer's `@login`). |
 | `RKE2_RUNNER` | optional | A larger runner's label for `rke2.yml` (16 GB or more); default `ubuntu-latest`. |
 

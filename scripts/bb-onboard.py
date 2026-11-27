@@ -79,7 +79,6 @@ VARIABLES = [
     ("SIGN_IMAGES", "optional", "`keyless`: sign and attest the images builds.yml pushes (cosign keyless)"),
     ("BUILD_SIGNER", "optional",
      "owner/repo whose builds.yml signs the built images (default: this repository)"),
-    ("AUTOMERGE_BIGBANG_PATCHES", "optional", "`true`: a Big Bang patch release merges itself when green"),
     ("ALERT_MENTION", "optional", "who automerge.yml mentions when a bot PR needs a person (e.g. @login)"),
     ("RKE2_RUNNER", "optional", "a larger runner's label for rke2.yml (16 GB or more)"),
 ]

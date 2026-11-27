@@ -300,9 +300,8 @@ with the build and replace it.
 
 - **Nightly** (`update.yml`): regenerates against the newest org patches and Iron Bank
   recipes, and opens a PR. `automerge.yml` merges it once every check on it has passed
-  (CI, the builds and every kind test). It leaves a new Big Bang release, or a PR labeled
-  `hold`, for a person to merge (a patch release merges itself when the
-  `AUTOMERGE_BIGBANG_PATCHES` variable is `true`). It refuses a release PR for the Big Bang
+  (CI, the builds and every kind test). It also merges a new Big Bang release (patch, minor or
+  major) once green; a PR labeled `hold` is left for a person. It refuses a release PR for the Big Bang
   main already has (opened by a run that started before the release merged), and leaves a
   PR open while `results-gate` has no recorded matrix yet.
 - **New Big Bang release**: the same job bumps `BIGBANG_VERSION` and re-runs discovery.
