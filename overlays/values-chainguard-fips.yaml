@@ -754,7 +754,7 @@ packages:
     postRenderers:
     - kustomize:
         images:
-        - digest: sha256:baae57cda02d90291c9819f9ffdb5c1e513c6f6d712adc0f700dd2d8f3935e09
+        - digest: sha256:f20bb935f1eb6f0cbe4702bd0834ce372ce26675963519b0e2527fa7a11daa83
           name: cgr.dev/zapatatechnology.com/headlamp-fips
         - digest: sha256:7b44d1b7172f74f50a77f2fe5f471afd4f87f71cb0ed5345aa71a1162938116d
           name: cgr.dev/zapatatechnology.com/kubectl-fips
