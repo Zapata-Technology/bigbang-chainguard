@@ -55,15 +55,15 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi` | `gitlab-certificates:19.5.9` | `gitlab-certificates-fips:19.5.9` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi` | `cfssl-self-sign:19.5.9` | `cfssl-self-sign-fips:19.5.9` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi` | `gitaly-init-cgroups:19.5.9` | `gitaly-init-cgroups-fips:19.5.9` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi` | `gitaly:19.5.6` | `gitaly-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi` | `gitlab-base:19.5.6` | `gitlab-base-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi` | `commercial-gitlab-geo-logcursor-ee:19.5.6` | `commercial-gitlab-geo-logcursor-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi` | `gitlab-kas:19.5.6` | `gitlab-kas-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi` | `gitlab-pages:19.5.6` | `gitlab-pages-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi` | `commercial-gitlab-sidekiq-ee:19.5.6` | `commercial-gitlab-sidekiq-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi` | `commercial-gitlab-toolbox-ee:19.5.6` | `commercial-gitlab-toolbox-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi` | `commercial-gitlab-webservice-ee:19.5.6` | `commercial-gitlab-webservice-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
-| `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi` | `commercial-gitlab-workhorse-ee:19.5.6` | `commercial-gitlab-workhorse-ee-fips:19.5.6` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi` | `gitaly:19.5.8` | `gitaly-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi` | `gitlab-base:19.5.8` | `gitlab-base-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi` | `commercial-gitlab-geo-logcursor-ee:19.5.8` | `commercial-gitlab-geo-logcursor-ee-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi` | `gitlab-kas:19.5.8` | `gitlab-kas-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi` | `gitlab-pages:19.5.8` | `gitlab-pages-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi` | `commercial-gitlab-sidekiq-ee:19.5.8` | `commercial-gitlab-sidekiq-ee-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi` | `commercial-gitlab-toolbox-ee:19.5.8` | `commercial-gitlab-toolbox-ee-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi` | `commercial-gitlab-webservice-ee:19.5.8` | `commercial-gitlab-webservice-ee-fips:19.5.8` | Chainguard | newer patch | gitlab |
+| `gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi` | `commercial-gitlab-workhorse-ee:19.5.8` | `commercial-gitlab-workhorse-ee-fips:19.5.8` | Chainguard | newer patch | gitlab |
 | `gitlab/gitlab-org/gitlab-runner/gitlab-runner-helper:ubi-fips-x86_64-v19.5.2` | `gitlab-runner-helper:19.5.4` | `gitlab-runner-helper-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
 | `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2` | `gitlab-runner:19.5.4` | `gitlab-runner-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
 | `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.3` | `argocd-fips:3.6.3` | Chainguard | newer patch | argocd |
@@ -81,7 +81,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/grafana/grafana-image-renderer:v5.12.10` | `grafana-image-renderer:5.12.12` | `grafana-image-renderer:5.12.12` | Chainguard | newer patch | grafana |
 | `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.10` | `loki-fips:3.7.10` | Chainguard | newer patch | logging-loki |
 | `ironbank/opensource/grafana/mimir:3.2.4` | `grafana-mimir:3.2.6` | `grafana-mimir-fips:3.2.6` | Chainguard | newer patch | mimir |
-| `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.18` | `haproxy:3.3.18` | Chainguard | newer patch | argocd |
+| `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.19` | `haproxy:3.3.19` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/istio/install-cni:1.31.3` | `istio-install-cni:1.31.4` | `istio-install-cni-fips:1.31.4` | Chainguard | newer patch | istio-cni |
 | `ironbank/opensource/istio/pilot:1.31.3` | `istio-pilot:1.31.4` | `istio-pilot-fips:1.31.4` | Chainguard | newer patch | istiod |
 | `ironbank/opensource/istio/proxyv2:1.31.3` | `istio-proxy:1.31.4` | `istio-proxy-fips:1.31.4` | Chainguard | newer patch | istiod |
@@ -158,10 +158,10 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 
 | Iron Bank image | Standard | FIPS | Source | Compared | Packages |
 |---|---|---|---|---|---|
-| `gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi` | `gitlab-container-registry:19.5.6` | `gitlab-container-registry-fips:19.5.6` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
+| `gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi` | `gitlab-container-registry:19.5.8` | `gitlab-container-registry-fips:19.5.8` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
 | `gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi` | `gitlab-exporter:19.5.9` | `gitlab-exporter-fips:19.5.9` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
 | `gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi` | `gitlab-mailroom:v1.2.1` | `gitlab-mailroom-fips:v1.2.1` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
-| `gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi` | `gitlab-shell:19.5.6` | `gitlab-shell-fips:19.5.6` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
+| `gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi` | `gitlab-shell:19.5.8` | `gitlab-shell-fips:19.5.8` | Chainguard | numbered differently | gitlab (follows `gitlab/gitlab-org/build/cng/gitlab-base`'s version) |
 | `gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi` | `gitlab-kubectl:v1.37.3` | `gitlab-kubectl-fips:v1.37.3` | Chainguard | numbered differently | gitlab (newest release (Iron Bank's tag isn't this image's version)) |
 | `ironbank/opensource/apache/kafka-native:4.3.2` | `kafka-native:4.4.0` | `kafka-native:4.4.0` | Chainguard | numbered differently | mimir (follows the org's newest release of Iron Bank's major (`follow: major`)) |
 | `ironbank/opensource/grafana/alloy-operator:1.14.4` | `grafana-alloy-operator:0.9` | `grafana-alloy-operator-fips:0.9` | Chainguard | numbered differently | alloy (pinned to the 0.9 line (Iron Bank's tag isn't this image's version)) |
