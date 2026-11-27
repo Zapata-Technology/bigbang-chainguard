@@ -14,11 +14,11 @@ image:
   standard:
     name: bigbang-jmx-exporter
     tag: 1.7.0-busybox1.38.0
-    dev: cgr.dev/zapatatechnology.com/busybox:v1.38.0-dev@sha256:49719a69020fbd1883ec46380f6a61a06897365dae4f874d022c2d8edd31f17c
+    dev: cgr.dev/zapatatechnology.com/busybox:v1.38.0-dev@sha256:1cbcec7142f06a96e217a7b85ace66580d966313ff4be3b134c3f6efafe90e61
   fips:
     name: bigbang-jmx-exporter-fips
     tag: 1.7.0-busybox1.38.0
-    dev: cgr.dev/zapatatechnology.com/busybox-fips:v1.38.0-dev@sha256:5d13d61fe28cb56c7bbcc2e64107f211fea2fde3e0f932caba565cf264653530
+    dev: cgr.dev/zapatatechnology.com/busybox-fips:v1.38.0-dev@sha256:05d9c9b58ae9dde0b374b7b93b822d8b2a91e00c6e56999c45aedc7eb9570895
 jar:
   url: https://github.com/prometheus/jmx_exporter/releases/download/1.7.0/jmx_prometheus_javaagent-1.7.0.jar
   sha256: 0ad843261c567d1924a017d542e14c40f2afff523d940c25ee000742fde4b3a9
