@@ -27,7 +27,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | argocd | ironbank/bitnami/analytics/redis-exporter:v1.86.0 | prometheus-redis-exporter-iamguarded:1.99.0 | prometheus-redis-exporter-iamguarded-fips:1.99.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.86.x; using 1.99.0 (Iron Bank v1.86.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.86.x; using 1.99.0 (Iron Bank v1.86.0) |
 | argocd | ironbank/bitnami/analytics/redis-exporter:v1.97.0 | prometheus-redis-exporter-iamguarded:1.97.0 | prometheus-redis-exporter-iamguarded-fips:1.97.0 |  |
 | argocd | ironbank/opensource/dexidp/dex:v2.46.1 | dex:2.46.1 | dex-fips:2.46.1 |  |
-| argocd | ironbank/opensource/haproxy/haproxy-latest:3.3.10 | haproxy:3.3.18 | haproxy:3.3.18 | haproxy: Iron Bank 3.3.10 -> newest 3.3 patch; no FIPS variant; FIPS overlay keeps the standard image |
+| argocd | ironbank/opensource/haproxy/haproxy-latest:3.3.10 | haproxy:3.3.19 | haproxy:3.3.19 | haproxy: Iron Bank 3.3.10 -> newest 3.3 patch; no FIPS variant; FIPS overlay keeps the standard image |
 | argocd | ironbank/opensource/redis/redis8-slim:8.10.3 | redis:8.10.3 | redis-fips:8.10.3 |  |
 | argocd | ironbank/opensource/redis/redis8-slim:8.8.0 | redis:8.8.4 | redis-fips:8.8.4 | redis: Iron Bank 8.8.0 -> newest 8.8 patch; redis-fips: Iron Bank 8.8.0 -> newest 8.8 patch |
 | argocd | ironbank/opensource/shellcheck/shellcheck:v0.11.0 | Iron Bank | Iron Bank | redis-ha's helm test image (helm test only) |
@@ -71,20 +71,20 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | gitlab | gitlab/gitlab-org/build/cng/certificates:v19.5.5-ubi | gitlab-certificates:19.5.9 | gitlab-certificates-fips:19.5.9 | gitlab-certificates: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-certificates-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/cfssl-self-sign:v19.5.5-ubi | cfssl-self-sign:19.5.9 | cfssl-self-sign-fips:19.5.9 | cfssl-self-sign: Iron Bank v19.5.5-ubi -> newest 19.5 patch; cfssl-self-sign-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
 | gitlab | gitlab/gitlab-org/build/cng/gitaly-init-cgroups:v19.5.5-ubi | gitaly-init-cgroups:19.5.9 | gitaly-init-cgroups-fips:19.5.9 | gitaly-init-cgroups: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitaly-init-cgroups-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.6 | gitaly-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi | gitlab-base:19.5.6 | gitlab-base-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.6 | gitlab-container-registry-fips:19.5.6 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitaly:v19.5.5-ubi | gitaly:19.5.8 | gitaly-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-base:v19.5.5-ubi | gitlab-base:19.5.8 | gitlab-base-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-container-registry:v4.42.0-gitlab-ubi | gitlab-container-registry:19.5.8 | gitlab-container-registry-fips:19.5.8 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-exporter:17.0.2-ubi | gitlab-exporter:19.5.9 | gitlab-exporter-fips:19.5.9 | gitlab-exporter: Iron Bank v19.5.5-ubi -> newest 19.5 patch; gitlab-exporter-fips: Iron Bank v19.5.5-ubi -> newest 19.5 patch |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi | commercial-gitlab-geo-logcursor-ee:19.5.6 | commercial-gitlab-geo-logcursor-ee-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi | gitlab-kas:19.5.6 | gitlab-kas-fips:19.5.6 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-geo-logcursor:v19.5.5-ubi | commercial-gitlab-geo-logcursor-ee:19.5.8 | commercial-gitlab-geo-logcursor-ee-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-kas:v19.5.5-ubi | gitlab-kas:19.5.8 | gitlab-kas-fips:19.5.8 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-mailroom:v19.5.5-ubi | gitlab-mailroom:v1.2.1 | gitlab-mailroom-fips:v1.2.1 | gitlab-mailroom: newest org release (Iron Bank v19.5.5-ubi); gitlab-mailroom-fips: newest org release (Iron Bank v19.5.5-ubi) |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-openbao:v2.6.2-gitlab1-ubi | Iron Bank | Iron Bank | GitLab's own OpenBao build; Chainguard's openbao is upstream's |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.6 | gitlab-pages-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.6 | gitlab-shell-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi | commercial-gitlab-sidekiq-ee:19.5.6 | commercial-gitlab-sidekiq-ee-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi | commercial-gitlab-toolbox-ee:19.5.6 | commercial-gitlab-toolbox-ee-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi | commercial-gitlab-webservice-ee:19.5.6 | commercial-gitlab-webservice-ee-fips:19.5.6 |  |
-| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi | commercial-gitlab-workhorse-ee:19.5.6 | commercial-gitlab-workhorse-ee-fips:19.5.6 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-pages:v19.5.5-ubi | gitlab-pages:19.5.8 | gitlab-pages-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-shell:v14.58.0-ubi | gitlab-shell:19.5.8 | gitlab-shell-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-sidekiq-ee:v19.5.5-ubi | commercial-gitlab-sidekiq-ee:19.5.8 | commercial-gitlab-sidekiq-ee-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-toolbox-ee:v19.5.5-ubi | commercial-gitlab-toolbox-ee:19.5.8 | commercial-gitlab-toolbox-ee-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-webservice-ee:v19.5.5-ubi | commercial-gitlab-webservice-ee:19.5.8 | commercial-gitlab-webservice-ee-fips:19.5.8 |  |
+| gitlab | gitlab/gitlab-org/build/cng/gitlab-workhorse-ee:v19.5.5-ubi | commercial-gitlab-workhorse-ee:19.5.8 | commercial-gitlab-workhorse-ee-fips:19.5.8 |  |
 | gitlab | gitlab/gitlab-org/build/cng/gitlab-zoekt:v19.2.1-ubi | Iron Bank | Iron Bank | no Chainguard gitlab-zoekt image (code search, off by default) |
 | gitlab | gitlab/gitlab-org/build/cng/kubectl:v19.5.5-ubi | gitlab-kubectl:v1.37.3 | gitlab-kubectl-fips:v1.37.3 | gitlab-kubectl: newest org release (Iron Bank v19.5.5-ubi); gitlab-kubectl-fips: newest org release (Iron Bank v19.5.5-ubi) |
 | gitlab | gitlab/gitlab-org/modelops/applied-ml/code-suggestions/ai-assist/model-gateway:self-hosted-v19.5.5-ee | Iron Bank | Iron Bank | GitLab AI gateway; GitLab-built only |
