@@ -68,9 +68,9 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `gitlab/gitlab-org/gitlab-runner:ubi-fips-v19.5.2` | `gitlab-runner:19.5.4` | `gitlab-runner-fips:19.5.4` | Chainguard | newer patch | gitlab-runner |
 | `ironbank/big-bang/argocd:v3.6.1` | `argocd:3.6.3` | `argocd-fips:3.6.3` | Chainguard | newer patch | argocd |
 | `ironbank/big-bang/grafana/grafana-plugins:13.3.0` | `ghcr.io/zapata-technology/bigbang-grafana-plugins:13.3.2` | `ghcr.io/zapata-technology/bigbang-grafana-plugins-fips:13.3.2` | built here | newer patch | grafana, monitoring |
-| `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.10` | `loki-canary-fips:3.7.10` | Chainguard | newer patch | logging-loki |
+| `ironbank/bigbang/grafana/loki-canary:3.7.9` | `loki-canary:3.7.11` | `loki-canary-fips:3.7.10` | Chainguard | newer patch | logging-loki |
 | `ironbank/elastic/elasticsearch/elasticsearch:9.5.6` | `elasticsearch:9.5.7` | `elasticsearch-fips:9.5.7` | Chainguard | newer patch | ek |
-| `ironbank/istio-ecosystem/authservice:1.1.8` | `authservice:1.1.10` | `authservice-fips:1.1.10` | Chainguard | newer patch | authservice |
+| `ironbank/istio-ecosystem/authservice:1.1.8` | `authservice:1.1.10` | `authservice-fips:1.1.11` | Chainguard | newer patch | authservice |
 | `ironbank/opensource/goharbor/harbor-core:v2.15.4` | `harbor-core:2.15.5` | `harbor-core-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/goharbor/harbor-exporter:v2.15.4` | `harbor-exporter:2.15.5` | `harbor-exporter-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/goharbor/harbor-jobservice:v2.15.4` | `harbor-jobservice:2.15.5` | `harbor-jobservice-fips:2.15.5` | Chainguard | newer patch | harbor |
@@ -79,7 +79,7 @@ Counts are per Iron Bank image and tag: an image Big Bang pins at two tags count
 | `ironbank/opensource/goharbor/registry:v2.15.4` | `harbor-registry:2.15.5` | `harbor-registry-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/goharbor/trivy-adapter:v2.15.4` | `harbor-trivy-adapter:2.15.5` | `harbor-trivy-adapter-fips:2.15.5` | Chainguard | newer patch | harbor |
 | `ironbank/opensource/grafana/grafana-image-renderer:v5.12.10` | `grafana-image-renderer:5.12.12` | `grafana-image-renderer:5.12.12` | Chainguard | newer patch | grafana |
-| `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.10` | `loki-fips:3.7.10` | Chainguard | newer patch | logging-loki |
+| `ironbank/opensource/grafana/loki:3.7.9` | `loki:3.7.11` | `loki-fips:3.7.11` | Chainguard | newer patch | logging-loki |
 | `ironbank/opensource/grafana/mimir:3.2.4` | `grafana-mimir:3.2.6` | `grafana-mimir-fips:3.2.6` | Chainguard | newer patch | mimir |
 | `ironbank/opensource/haproxy/haproxy-latest:3.3.10` | `haproxy:3.3.19` | `haproxy:3.3.19` | Chainguard | newer patch | argocd |
 | `ironbank/opensource/istio/install-cni:1.31.3` | `istio-install-cni:1.31.4` | `istio-install-cni-fips:1.31.4` | Chainguard | newer patch | istio-cni |

@@ -33,7 +33,7 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | argocd | ironbank/opensource/shellcheck/shellcheck:v0.11.0 | Iron Bank | Iron Bank | redis-ha's helm test image (helm test only) |
 | authservice | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.7 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.7 | built FROM the org's images by scripts/bb-build.py base |
 | authservice | ironbank/bitnami/analytics/redis-exporter:v1.93.0 | prometheus-redis-exporter-iamguarded:1.99.0 | prometheus-redis-exporter-iamguarded-fips:1.99.0 | prometheus-redis-exporter-iamguarded: MINOR AHEAD: org has no 1.93.x; using 1.99.0 (Iron Bank v1.93.0); prometheus-redis-exporter-iamguarded-fips: MINOR AHEAD: org has no 1.93.x; using 1.99.0 (Iron Bank v1.93.0) |
-| authservice | ironbank/istio-ecosystem/authservice:1.1.8 | authservice:1.1.10 | authservice-fips:1.1.10 | authservice: Iron Bank 1.1.8 -> newest 1.1 patch; authservice-fips: Iron Bank 1.1.8 -> newest 1.1 patch |
+| authservice | ironbank/istio-ecosystem/authservice:1.1.8 | authservice:1.1.10 | authservice-fips:1.1.11 | authservice: Iron Bank 1.1.8 -> newest 1.1 patch; authservice-fips: Iron Bank 1.1.8 -> newest 1.1 patch |
 | authservice | ironbank/opensource/redis/redis8-slim:8.10.3 | redis:8.10.3 | redis-fips:8.10.3 |  |
 | cert-manager | ironbank/jetstack/cert-manager-cainjector:v1.21.3 | cert-manager-cainjector:1.21.3 | cert-manager-cainjector-fips:1.21.3 |  |
 | cert-manager | ironbank/jetstack/cert-manager-controller:v1.21.3 | cert-manager-controller:1.21.3 | cert-manager-controller-fips:1.21.3 |  |
@@ -141,12 +141,12 @@ Generated for `cgr.dev/zapatatechnology.com`: for another org, regenerate it wit
 | kyverno-reporter | ironbank/opensource/kyverno/policy-reporter:3.11.2 | kyverno-policy-reporter:3.11.2 | kyverno-policy-reporter-fips:3.11.2 |  |
 | logging-loki | ironbank/big-bang/base:2.1.0 | ghcr.io/zapata-technology/bigbang-base:2.1.0-kubectl1.36.7 | ghcr.io/zapata-technology/bigbang-base-fips:2.1.0-kubectl1.36.7 | built FROM the org's images by scripts/bb-build.py base |
 | logging-loki | ironbank/big-bang/devops-tester:1.4 | ghcr.io/zapata-technology/bigbang-devops-tester:1.4-kubectl1.37.3 | ghcr.io/zapata-technology/bigbang-devops-tester-fips:1.4-kubectl1.37.3 | built FROM the org's images by scripts/bb-build.py devops-tester |
-| logging-loki | ironbank/bigbang/grafana/loki-canary:3.7.9 | loki-canary:3.7.10 | loki-canary-fips:3.7.10 | loki-canary: Iron Bank 3.7.9 -> newest 3.7 patch; loki-canary-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
+| logging-loki | ironbank/bigbang/grafana/loki-canary:3.7.9 | loki-canary:3.7.11 | loki-canary-fips:3.7.10 | loki-canary: Iron Bank 3.7.9 -> newest 3.7 patch; loki-canary-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
 | logging-loki | ironbank/bigbang/grafana/loki-helm-test:0.0.1 | Iron Bank | Iron Bank | Big Bang test image (helm test only) |
 | logging-loki | ironbank/grafana/grafana-enterprise-logs:v3.6.18 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/ironbank/opensource/grafana/enterprise-logs-provisioner:3.6.18 | Iron Bank | Iron Bank | Grafana Enterprise Logs is licensed; no Chainguard image |
 | logging-loki | ironbank/kiwigrid/k8s-sidecar:2.14.3 | k8s-sidecar:2.14.3 | k8s-sidecar-fips:2.14.3 |  |
-| logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.10 | loki-fips:3.7.10 | loki: Iron Bank 3.7.9 -> newest 3.7 patch; loki-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
+| logging-loki | ironbank/opensource/grafana/loki:3.7.9 | loki:3.7.11 | loki-fips:3.7.11 | loki: Iron Bank 3.7.9 -> newest 3.7 patch; loki-fips: Iron Bank 3.7.9 -> newest 3.7 patch |
 | logging-loki | ironbank/opensource/grafana/rollout-operator:v0.41.1 | grafana-rollout-operator:v0.42.1 | grafana-rollout-operator-fips:v0.42.1 | grafana-rollout-operator: Iron Bank v0.41.1 is below min_version 0.42; newest release; grafana-rollout-operator-fips: Iron Bank v0.41.1 is below min_version 0.42; newest release |
 | logging-loki | ironbank/opensource/kubernetes/kubectl:v1.37 | kubectl:1.37-dev | kubectl-fips:1.37-dev |  |
 | logging-loki | ironbank/opensource/memcached/memcached:1.6.45 | memcached:1.6.45 | memcached-fips:1.6.45 |  |
